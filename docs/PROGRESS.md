@@ -34,6 +34,14 @@
 - **Weryfikacja do wykonania:** CI `npm ci`, `npm test`, `npm run build` oraz manualny smoke Android Chrome i desktop. Bez wyników nie oznaczać jako GREEN.
 - **Poza zakresem:** wrogowie, bronie, fale, HP, assety binarne, kontrakt spritesheetów.
 
+## Pages deployment patch — oczekuje na niezależny audyt (NIE scalony)
+- Przygotowano automatyczną publikację `dist/` po `push` do `main`: Node 22, `npm ci`, `npm test`, `npm run build`, oficjalne Pages Actions.
+- Wdrożenie jest zależne od sukcesu weryfikacji; PR nie ma uprawnień do publikacji w tym workflow.
+- Dodano `concurrency` z `cancel-in-progress: false` dla bezpieczeństwa wdrożeń.
+- Dotychczasowy CI i base `/klusoczlek/` bez zmian; brak assetów i zmian w grze.
+- **Weryfikacja:** uruchomienie nowego deploy workflow na PR nie nastąpi z założenia. Potwierdzenie produkcyjnego deploy wymaga osobnej autoryzacji merge i poprawnych ustawień GitHub Pages (Source: GitHub Actions).
+- **Ograniczenie:** nowy workflow może działać dopiero po scaleniu; weryfikacja rzeczywistego wdrożenia z gałęzi PR byłaby sprzeczna z zakazem publikacji.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
