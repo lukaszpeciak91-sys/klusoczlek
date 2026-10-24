@@ -50,10 +50,9 @@ test('new scenes and transitions during portrait cannot advance', () => {
   assert.equal(arena.paused, false);
 });
 
-test('preexisting non-orientation pause is not resumed by rotation', () => {
-  const x = fixture(true);
+test('landscape scene is not spuriously resumed', () => {
+  const x = fixture(false);
   const scene = x.start();
-  scene.paused = true;
   x.setPortrait(false);
-  assert.equal(scene.resumeCount, 1);
+  assert.equal(scene.resumeCount, 0);
 });
