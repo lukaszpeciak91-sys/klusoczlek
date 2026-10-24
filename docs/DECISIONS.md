@@ -23,6 +23,9 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 
 | D015 | ACCEPTED | Klasyczne, oddzielone przerwami fale; kolejna fala dopiero po pokonaniu poprzedniej | Czytelny postęp i satysfakcja z etapów |
 
+| D016 | PROVISIONAL | Lekka fabuła opowiadana tekstem na starcie, między falami i w finale, bez cutscenek/systemu dialogów | Klimat bez rozbudowy kodu |
+| D017 | PROVISIONAL | Piwo jako podnoszony pickup przywracający HP zamiast automatycznego leczenia między falami | Prosty wybór gracza; wartości i spawny do ustalenia |
+
 ## Otwarte, bez blokowania startu
 - O001: nazwa i wygląd trzeciego wroga.
 - O002: szczegółowa lista broni i ich tempo.
