@@ -26,7 +26,7 @@ Mała, humorystyczna gra survival shooter 2D, działająca w przeglądarce na te
 ## Granice
 Nie implementujemy na starcie: kont, backendu, zapisu, sklepu, levelowania, drzewka umiejętności, ręcznego celowania, przeładowania, ekwipunku, kampanii wielopoziomowej.
 
-Prawa do materiałów: korzystamy z własnej grafiki i audio; nie kopiujemy sprite'ów DOOM-a ani nagrań Krzysztofa Krawczyka.
+Prawa do materiałów: wykorzystujemy wyłącznie własne lub prawidłowo licencjonowane grafiki i dźwięki.
 
 Repository: https://github.com/lukaszpeciak91-sys/klusoczlek
 
