@@ -1,25 +1,40 @@
 # PROGRESS
 
 **Ostatnia aktualizacja:** 2026-10-24
-**Faza:** dokumentacja / preprodukcja
-**Stan produkcji:** brak kodu gry; repo przygotowywane.
-**Wersja:** 0.0.0
+**Faza:** PR01 web foundation — weryfikacja przed merge
+**Stan produkcji:** źródła minimalnej aplikacji web na gałęzi PR01; brak publikacji.
+**Wersja:** 0.1.0 (projekt package.json; nie jest wydaniem)
 
-## Ukończone
-- Uzgodniono nazwę, platformę, kamerę, sterowanie, automatyczny atak i natychmiastową zamianę broni.
-- Określono minimalny scope MVP i trzy role.
+## Ukończone wcześniej
+- Uzgodniono nazwę, platformę i minimalny scope MVP.
+- Zapisano dokumentację i kontrakt assetów.
 
-## Teraz
-- Zatwierdzić dokumentację.
-- Otworzyć chat Implementatorki na podstawie AGENTS.md.
-- Otworzyć chat Art Director na podstawie ASSETS.md.
-- Dopiero potem PR01 — bootstrap.
+## PR01 — zgłoszony do audytu (NIE scalony)
+- Vite + Phaser 3, dwie sceny: menu i statyczna arena z markerem.
+- UI w poziomie, ekran obrotu w pionie, pauza aktywnej sceny i powrót.
+- Opcjonalny fullscreen wywoływany przyciskiem HTML, bez zależności START od uprawnień.
+- Responsywne FIT 960×540, safe-area CSS i konfiguracja bazowej ścieżki /klusoczlek/.
+- Testy logiki orientacji i proporcji.
+
+**Weryfikacja:** nie uruchomiono tutaj instalacji npm, builda ani interaktywnych testów przeglądarkowych (brak dostępu sieciowego do npm/GitHub w środowisku wykonawczym). PR wymaga potwierdzenia w CI oraz manualnego smoke na Android Chrome i desktopie; nie oznaczać jako GREEN bez tych wyników.
+
+## PR01 audit fix — 2026-10-24
+- Dodano zabezpieczenie uruchomienia każdej sceny w pionie, również przy pierwszym boot i przejściu między scenami.
+- Dodano regresje dla startu w pionie, wznowienia w poziomie oraz pauzy scen podczas przejścia.
+- Dodano `.github/workflows/ci.yml` (npm ci, npm test, npm run build) i przygotowano `.github/workflows/pages.yml` z wyłączonym jobem publikacji (`if: false`).
+- **BLOCKER:** brak zweryfikowanego `package-lock.json`. Lokalny npm registry zwrócił `EAI_AGAIN`. GitHub CI dla commita `5f5f044` zwrócił `action_required`, nie wykonał testów. Tymczasowy bootstrap lockfile usunięto, by nie zostawić workflow z automatycznym zapisem po późniejszym zatwierdzeniu.
+- **Weryfikacja:** CI NIE JEST GREEN, `npm ci` bez lockfile nie przejdzie. Do zamknięcia: wygenerować i zatwierdzić lockfile z `npm install --package-lock-only --ignore-scripts`, uruchomić CI i zweryfikować Android Chrome/Desktop.
+
+## Dalej
+- Audyt PR01 → testy → autoryzacja merge.
+- Następny etap po akceptacji: PR02 — wejście i ruch.
 
 ## PR tracker
-| PR | Etap | Status | Uwagi |
-|---|---|---|---|
-| — | Dokumentacja startowa | W toku | Pliki źródłowe projektu |
-| 01–12 | Implementacja zgodnie z WORKFLOW | Nie rozpoczęte | Numery etapów to nie numery GitHub PR |
+| Etap | Status | Uwagi |
+|---|---|---|
+| Dokumentacja | Gotowe | Źródło prawdy w docs |
+| PR01 | Do audytu/testów | Nie scalać / nie publikować |
+| PR02–PR12 | Nie rozpoczęte | Zależne od przejścia PR01 |
 
 ## Sposób aktualizacji
 Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, największe ryzyko oraz kolejny krok. Nigdy nie oznaczaj jako zakończone bez dowodu wykonania.
