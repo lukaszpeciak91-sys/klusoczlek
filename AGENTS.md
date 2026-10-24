@@ -25,3 +25,9 @@ Przed pracą przeczytaj README.md, docs/GAME_DESIGN.md, docs/DECISIONS.md, docs/
 **START TASK:** sprawdź main, przeczytaj dokumenty, wypisz krótki plan i pliki.
 **FINISH TASK:** raport: co zrobiono, jak przetestowano, ograniczenia, PR, następny logiczny krok.
 **AUDIT:** read-only; sprawdź diff, ryzyko regresji, zgodność z MVP; decyzja PASS / FIX / BLOCK.
+
+## Binary asset policy — mandatory
+- Implementing agents MUST NOT create, generate, modify, commit or upload binary asset files (PNG/JPG/WebP/GIF/audio/fonts/archives etc.) to GitHub, PRs or repository branches.
+- They may create textual code, configuration, asset manifests, paths, and placeholder drawing rendered from code (Canvas/CSS/SVG source text), but not output binary files.
+- For missing assets, declare expected repository-relative paths and specifications; the USER uploads actual binaries manually. Missing assets must not break startup or tests: use code-drawn fallback until the user uploads them.
+- Art Director may prepare visual concepts in its own chat for review, but never push binary assets to GitHub. Asset delivery and manual upload remain with the user.
