@@ -36,13 +36,9 @@ export class MenuScene extends Phaser.Scene {
     label(this, GAME_WIDTH / 2, 148, 'KŁUSOCZŁEK', 66).setColor(COLORS.accent);
     label(this, GAME_WIDTH / 2, 211, 'RETRO SURVIVAL // PROTOTYP', 21);
     button(this, GAME_WIDTH / 2, 330, 270, 82, 'START', () => this.scene.start('Arena'));
-    const fullscreen = this.add.text(GAME_WIDTH - 32, GAME_HEIGHT - 27, '⛶', {
-      fontFamily: 'monospace', fontSize: '44px', color: COLORS.white,
-      backgroundColor: '#1b2330', padding: { x: 12, y: 4 },
-    }).setOrigin(1, 1).setInteractive({ useHandCursor: true });
-    fullscreen.setName('fullscreen');
-    // Accessible, keyboard-usable HTML control over the canvas is provided in main.js.
-    fullscreen.on('pointerdown', () => window.dispatchEvent(new Event('klusoczlek:fullscreen')));
+    const fullscreenButton = document.getElementById('fullscreen-button');
+    fullscreenButton.hidden = false;
+    this.events.once('shutdown', () => { fullscreenButton.hidden = true; });
   }
 }
 
