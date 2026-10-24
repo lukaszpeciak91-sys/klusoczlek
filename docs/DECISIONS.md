@@ -26,6 +26,10 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 | D016 | PROVISIONAL | Lekka fabuła opowiadana tekstem na starcie, między falami i w finale, bez cutscenek/systemu dialogów | Klimat bez rozbudowy kodu |
 | D017 | PROVISIONAL | Piwo jako podnoszony pickup przywracający HP zamiast automatycznego leczenia między falami | Prosty wybór gracza; wartości i spawny do ustalenia |
 
+| D018 | ACCEPTED | Finałowa kwestia Aloesa: „Żegnajcie... Przyjaciele...” | Celowo absurdalna, niewyjaśniona puenta |
+| D019 | ACCEPTED | Trzy czaty: orkiestracja i audyt, implementacja, grafika; osobny audyt tylko w razie potrzeby | Minimalne koszty koordynacji |
+| D020 | ACCEPTED | Przed mechaniką fal tworzymy mały fundament: ekran, ruch, kontrakt assetów/spritesheetów, placeholdery, panele dialogowe/HUD | Równoległe prace bez marnowania grafik |
+
 ## Otwarte, bez blokowania startu
 - O001: nazwa i wygląd trzeciego wroga.
 - O002: szczegółowa lista broni i ich tempo.
