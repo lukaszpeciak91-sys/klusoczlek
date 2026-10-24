@@ -21,6 +21,8 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 | D013 | ACCEPTED | Weapons are horizontal alternatives, not ordered upgrades; picking one up forces a swap even if undesirable | Intentional retro arcade tradeoff inspired by Contra |
 | D014 | ACCEPTED | Implementation agents never create/commit binary files; user manually uploads assets to declared paths | Clean repo and explicit asset ownership |
 
+| D015 | ACCEPTED | Klasyczne, oddzielone przerwami fale; kolejna fala dopiero po pokonaniu poprzedniej | Czytelny postęp i satysfakcja z etapów |
+
 ## Otwarte, bez blokowania startu
 - O001: nazwa i wygląd trzeciego wroga.
 - O002: szczegółowa lista broni i ich tempo.
