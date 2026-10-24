@@ -53,3 +53,12 @@ Brak zaawansowanego pathfindingu. Przeszkody nie mogą blokować hord w nieskoń
 - Three weapons are alternative playstyles, **not** an upgrade ladder. Balance them to be comparably viable against different threats, with meaningful differences in range, area, cadence or projectile behavior.
 - Contra-style forced tradeoff is intentional: collecting any weapon instantly replaces the current weapon even if the player prefers the old one. No confirmation, selection menu, inventory, discard button or protection from unwanted weapon choices.
 - Pickups should be visually distinguishable, allowing tactical avoidance; spawn them accessibly. A short technical anti-double-trigger cooldown may prevent one pickup from firing repeatedly but must not prevent deliberate changes.
+
+## Landscape and fullscreen contract
+- Gameplay i panele projektowane wyłącznie poziomo; portretowy viewport wyświetla komunikat „Obróć telefon poziomo”, bez rozciągania lub obracania samej gry CSS-em.
+- Gdy podczas walki ekran przejdzie do pionu, symulacja jest pauzowana; po powrocie do poziomu wznawiana bez dodatkowych obrażeń lub skoków czasu.
+- Ekran START: dyskretny przycisk fullscreen w prawym dolnym rogu, etykieta dostępności; jest opcjonalny.
+- Wywołanie fullscreen wyłącznie po interakcji użytkownika; można opcjonalnie spróbować screen.orientation.lock('landscape') po przejściu do fullscreen, wyłącznie gdy API jest dostępne. Nie polegać na powodzeniu tego wywołania.
+- START działa także bez fullscreen, także po odmowie uprawnień lub w nieobsługiwanej przeglądarce. Nie próbować agresywnie ponawiać fullscreen.
+- Dopasowanie do viewportu z zachowaniem proporcji, bez obcinania krytycznej treści; dotykowe elementy poza obszarami safe-area; bez przypadkowego przewijania/zoomowania gry.
+- Test: Android Chrome fullscreen tak/nie, zmiana orientacji w czasie gry, mały ekran landscape, desktop, niewspierane API — bez crashy.
