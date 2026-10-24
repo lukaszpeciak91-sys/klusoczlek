@@ -25,6 +25,15 @@
 - **BLOCKER:** brak zweryfikowanego `package-lock.json`. Lokalny npm registry zwrócił `EAI_AGAIN`. GitHub CI dla commita `5f5f044` zwrócił `action_required`, nie wykonał testów. Tymczasowy bootstrap lockfile usunięto, by nie zostawić workflow z automatycznym zapisem po późniejszym zatwierdzeniu.
 - **Weryfikacja:** CI NIE JEST GREEN, `npm ci` bez lockfile nie przejdzie. Do zamknięcia: wygenerować i zatwierdzić lockfile z `npm install --package-lock-only --ignore-scripts`, uruchomić CI i zweryfikować Android Chrome/Desktop.
 
+## PR02 — arena i movement (NIE scalony)
+- Dodano arenę 1800×1200 rysowaną kodem, marker bohatera na oddzielnej warstwie i śledzącą kamerę.
+- Phaser Arcade Physics: sterowanie WASD/strzałkami, 8 kierunków bez przyspieszenia po przekątnej; ograniczenie fizyczne do areny.
+- Joystick dotykowy (jednym palcem), z resetem na puszczeniu; MENU powraca do sceny głównej.
+- Utrata fokusu, zmiana widoczności i orientacji: zerowanie prędkości i wejścia, pauza/wznowienie fizyki. Zachowano PR01 fullscreen/landscape i /klusoczlek/.
+- Dodano regresje obliczeń ruchu i ograniczenia pozycji w `tests/movement.test.js`.
+- **Weryfikacja do wykonania:** CI `npm ci`, `npm test`, `npm run build` oraz manualny smoke Android Chrome i desktop. Bez wyników nie oznaczać jako GREEN.
+- **Poza zakresem:** wrogowie, bronie, fale, HP, assety binarne, kontrakt spritesheetów.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
