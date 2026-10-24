@@ -30,6 +30,8 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 | D019 | ACCEPTED | Trzy czaty: orkiestracja i audyt, implementacja, grafika; osobny audyt tylko w razie potrzeby | Minimalne koszty koordynacji |
 | D020 | ACCEPTED | Przed mechaniką fal tworzymy mały fundament: ekran, ruch, kontrakt assetów/spritesheetów, placeholdery, panele dialogowe/HUD | Równoległe prace bez marnowania grafik |
 
+| D021 | ACCEPTED | Gra landscape-only, z ekranem obrotu w pionie; fullscreen opcjonalny, dostępny z ikony w prawym dolnym rogu menu | Spójne sterowanie mobilne i zgodność z ograniczeniami przeglądarek |
+
 ## Otwarte, bez blokowania startu
 - O001: nazwa i wygląd trzeciego wroga.
 - O002: szczegółowa lista broni i ich tempo.
