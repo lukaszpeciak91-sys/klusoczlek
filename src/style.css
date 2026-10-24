@@ -1,0 +1,27 @@
+* { box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%; margin: 0; overflow: hidden;
+  overscroll-behavior: none; touch-action: none;
+  background: #0e101a;
+}
+#game-shell {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%; height: 100dvh;
+  overflow: hidden;
+  background: #0e101a;
+  touch-action: none;
+}
+#game {
+  position: absolute;
+  inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  display: flex; align-items: center; justify-content: center;
+}
+#game canvas { display: block; max-width: 100%; max-height: 100%; touch-action: none; }
+#rotate-message {
+  position: absolute; inset: 0; z-index: 10;
+  display: grid; place-items: center;
+  padding: 30px; text-align: center;
+  color: #f3e8d1; font: bold clamp(20px, 5vw, 38px) monospace;
+  background: #0e101a;
+}
+#rotate-message[hidden] { display: none; }
