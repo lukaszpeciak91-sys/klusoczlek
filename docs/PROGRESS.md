@@ -18,6 +18,13 @@
 
 **Weryfikacja:** nie uruchomiono tutaj instalacji npm, builda ani interaktywnych testów przeglądarkowych (brak dostępu sieciowego do npm/GitHub w środowisku wykonawczym). PR wymaga potwierdzenia w CI oraz manualnego smoke na Android Chrome i desktopie; nie oznaczać jako GREEN bez tych wyników.
 
+## PR01 audit fix — 2026-10-24
+- Dodano zabezpieczenie uruchomienia każdej sceny w pionie, również przy pierwszym boot i przejściu między scenami.
+- Dodano regresje dla startu w pionie, wznowienia w poziomie oraz pauzy scen podczas przejścia.
+- Dodano `.github/workflows/ci.yml` (npm ci, npm test, npm run build) i przygotowano `.github/workflows/pages.yml` z wyłączonym jobem publikacji (`if: false`).
+- **BLOCKER:** brak zweryfikowanego `package-lock.json`. Lokalny npm registry zwrócił `EAI_AGAIN`. GitHub CI dla commita `5f5f044` zwrócił `action_required`, nie wykonał testów. Tymczasowy bootstrap lockfile usunięto, by nie zostawić workflow z automatycznym zapisem po późniejszym zatwierdzeniu.
+- **Weryfikacja:** CI NIE JEST GREEN, `npm ci` bez lockfile nie przejdzie. Do zamknięcia: wygenerować i zatwierdzić lockfile z `npm install --package-lock-only --ignore-scripts`, uruchomić CI i zweryfikować Android Chrome/Desktop.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
