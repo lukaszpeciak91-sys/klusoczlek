@@ -40,7 +40,7 @@ Brak zaawansowanego pathfindingu. Przeszkody nie mogą blokować hord w nieskoń
 
 ## HUD
 - Czytelny licznik HP, aktualna broń, numer fali / postęp.
-- Portret inspirowany mimiką HUD DOOM: minimum 3 stany (>60%, 30–60%, <30% HP); nie kopiować oryginalnej grafiki.
+- Portret reagujący na poziom HP: minimum 3 stany (>60%, 30–60%, <30% HP); nie kopiować oryginalnej grafiki.
 - Portret na podstawie prywatnego zdjęcia kolegi tylko po zatwierdzeniu publikacji.
 
 ## Definition of Done MVP
@@ -51,7 +51,7 @@ Brak zaawansowanego pathfindingu. Przeszkody nie mogą blokować hord w nieskoń
 
 ## Weapon pickup contract — clarified
 - Three weapons are alternative playstyles, **not** an upgrade ladder. Balance them to be comparably viable against different threats, with meaningful differences in range, area, cadence or projectile behavior.
-- Contra-style forced tradeoff is intentional: collecting any weapon instantly replaces the current weapon even if the player prefers the old one. No confirmation, selection menu, inventory, discard button or protection from unwanted weapon choices.
+- Forced weapon tradeoff is intentional: collecting any weapon instantly replaces the current weapon even if the player prefers the old one. No confirmation, selection menu, inventory, discard button or protection from unwanted weapon choices.
 - Pickups should be visually distinguishable, allowing tactical avoidance; spawn them accessibly. A short technical anti-double-trigger cooldown may prevent one pickup from firing repeatedly but must not prevent deliberate changes.
 
 ## Landscape and fullscreen contract
