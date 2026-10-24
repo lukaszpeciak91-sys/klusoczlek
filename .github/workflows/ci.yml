@@ -1,0 +1,27 @@
+name: Web CI
+on:
+  pull_request:
+  push:
+    branches:
+      - feat/pr01-web-foundation
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Verify Pages output
+        run: test -f dist/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: klusoczlek-dist
+          path: dist/
+          if-no-files-found: error
