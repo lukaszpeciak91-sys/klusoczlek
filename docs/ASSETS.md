@@ -19,7 +19,7 @@ Spójny, czytelny pixel-art lub styl retro 2D, oglądany z góry, z humorystyczn
 - Manifest: filename, wymiary, klatki, orientacja, pochodzenie, licencja/zgoda, status.
 - Najpierw koncept 1 postaci i próbka skali; potem produkcja paczki. Nie generować dziesiątek assetów przed sprawdzeniem widoku na telefonie.
 - Publikacja twarzy rzeczywistej osoby w publicznym repo/na Pages wymaga uprzedniej zgody użytkownika i decyzji o sposobie przedstawienia.
-- Zakaz kopiowania istniejących postaci, sprite'ów i chronionych nagrań; mariachi/Krawczyk wyłącznie jako inspiracja klimatu dla autorskiej muzyki.
+- Nie kopiować cudzych postaci, grafik ani nagrań. Wykorzystywać oryginalne lub prawidłowo licencjonowane materiały.
 
 ## Handoff
 Art Director: gotowe pliki + manifest + preview + wskazówki skali. Implementatorka: integruje i potwierdza rendering w docelowej rozdzielczości. Orkiestratorka: finalny przegląd.
