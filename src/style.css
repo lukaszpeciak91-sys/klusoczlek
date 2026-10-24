@@ -25,3 +25,16 @@ html, body {
   background: #0e101a;
 }
 #rotate-message[hidden] { display: none; }
+
+#fullscreen-button {
+  position: absolute; z-index: 5;
+  right: calc(12px + env(safe-area-inset-right));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  width: 52px; height: 52px;
+  border: 2px solid #d4aa5a; border-radius: 6px;
+  color: #f3e8d1; background: #1b2330;
+  font: 32px monospace; cursor: pointer;
+  touch-action: manipulation;
+}
+#fullscreen-button[hidden] { display: none; }
+#fullscreen-button:focus-visible { outline: 3px solid #f3ca76; outline-offset: 3px; }
