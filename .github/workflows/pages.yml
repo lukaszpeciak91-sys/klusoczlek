@@ -1,0 +1,33 @@
+name: Pages deployment (disabled)
+# Intentionally no push, pull_request, or workflow_dispatch trigger.
+# Enable only after explicit user authorization and independent audit.
+on:
+  workflow_dispatch:
+    inputs:
+      authorization:
+        description: 'Explicitly type PUBLISH_KLUSOCZLEK to authorize deployment'
+        required: true
+        type: string
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  deploy:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - uses: actions/deploy-pages@v4
