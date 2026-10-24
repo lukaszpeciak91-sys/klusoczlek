@@ -20,9 +20,11 @@ export function setupViewport(game) {
     const portrait = isPortrait(window.innerWidth, window.innerHeight);
     rotateMessage.hidden = !portrait;
     document.body.classList.toggle('portrait', portrait);
-    const active = game.scene.getScenes(true);
-    for (const scene of active) {
-      if (portrait && !scene.scene.isPaused()) scene.scene.pause();
+    if (portrait) {
+      for (const scene of game.scene.getScenes(true)) {
+        pausedByOrientation.add(scene.scene.key);
+        scene.scene.pause();
+      }
     }
     // Pause only scenes paused by this orientation handler.
     if (!portrait) {
@@ -34,12 +36,7 @@ export function setupViewport(game) {
     game.scale.refresh();
   };
   const pausedByOrientation = new Set();
-  const synchronize = () => {
-    if (isPortrait(window.innerWidth, window.innerHeight)) {
-      for (const scene of game.scene.getScenes(true)) pausedByOrientation.add(scene.scene.key);
-    }
-    update();
-  };
+  const synchronize = () => update();
   window.addEventListener('resize', synchronize);
   window.addEventListener('orientationchange', synchronize);
   document.addEventListener('visibilitychange', synchronize);
