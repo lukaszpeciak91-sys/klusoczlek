@@ -14,6 +14,7 @@ const game = new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   render: { pixelArt: true, antialias: false },
+  physics: { default: 'arcade', arcade: { debug: false } },
   scene: [MenuScene, ArenaScene],
 });
 
