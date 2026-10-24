@@ -35,7 +35,9 @@ export function createOrientationController({ portrait, activeScenes, isPaused, 
   return { sync };
 }
 
-let sceneStarted = () => {};
+let sceneStarted = scene => {
+  if (isPortrait(window.innerWidth, window.innerHeight)) scene.scene.pause();
+};
 
 export function enforceOrientationOnSceneStart(scene) {
   sceneStarted(scene);
