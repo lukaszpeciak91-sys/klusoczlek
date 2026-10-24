@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT } from './viewport.js';
+import { GAME_WIDTH, GAME_HEIGHT, enforceOrientationOnSceneStart } from './viewport.js';
 
 const COLORS = {
   background: 0x0e101a,
@@ -39,6 +39,7 @@ export class MenuScene extends Phaser.Scene {
     const fullscreenButton = document.getElementById('fullscreen-button');
     fullscreenButton.hidden = false;
     this.events.once('shutdown', () => { fullscreenButton.hidden = true; });
+    enforceOrientationOnSceneStart(this);
   }
 }
 
@@ -52,5 +53,6 @@ export class ArenaScene extends Phaser.Scene {
     this.add.circle(480, 270, 17, 0xf3ca76).setStrokeStyle(3, 0x111111);
     label(this, 480, 47, 'ARENA TESTOWA — BRAK ROZGRYWKI', 23);
     button(this, 116, 42, 188, 56, '← MENU', () => this.scene.start('Menu'));
+    enforceOrientationOnSceneStart(this);
   }
 }
