@@ -34,4 +34,4 @@ async function requestFullscreen() {
   }
 }
 
-window.addEventListener('klusoczlek:fullscreen', requestFullscreen);
+document.getElementById('fullscreen-button').addEventListener('click', requestFullscreen);
