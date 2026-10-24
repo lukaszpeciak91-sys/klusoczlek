@@ -23,3 +23,8 @@ Spójny, czytelny pixel-art lub styl retro 2D, oglądany z góry, z humorystyczn
 
 ## Handoff
 Art Director: gotowe pliki + manifest + preview + wskazówki skali. Implementatorka: integruje i potwierdza rendering w docelowej rozdzielczości. Orkiestratorka: finalny przegląd.
+
+## Hard rule — no binary commits from agents
+- No implementing agent may generate, modify, upload, or commit binary files to any branch or PR. The user uploads them manually.
+- Asset agent may design visuals in chat, but deliver a proposed manifest, filenames and specs for the user's manual upload. No automated asset writes.
+- Code must tolerate missing binary assets with placeholders drawn in code. Text sources (e.g. SVG markup) are permitted as code, not binary asset generation.
