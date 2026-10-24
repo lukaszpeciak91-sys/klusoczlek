@@ -7,7 +7,7 @@ Jeden main i małe PR-y. Orkiestratorka zatwierdza zakres, implementatorka reali
 Cel: około 10–15 PR. Limit planistyczny 25; absolutny limit projektu poniżej 50 PR. Nie liczba PR decyduje o jakości: nie pomijamy niezbędnych testów dla sztucznego wyniku.
 
 ## Proponowane etapy (12 PR, do rekalkulacji)
-01. Minimalny projekt web, testowy ekran, bezpieczna konfiguracja subpath Pages.
+01. Minimalny projekt web, ekran START, landscape-only + ekran obrotu, fullscreen z bezpiecznym fallbackiem, responsywny viewport i konfiguracja subpath Pages.
 02. Input mobile/desktop, viewport i kamera, poruszanie.
 03. Arena, kolizje, spawny.
 04. Automatyczne celowanie i podstawowy atak.
