@@ -48,3 +48,8 @@ Brak zaawansowanego pathfindingu. Przeszkody nie mogą blokować hord w nieskoń
 - Telefon w poziomie i desktop bez przewijania dokumentu; bez widocznego spadku płynności w standardowym starciu.
 - Zasoby i linki działają spod podścieżki GitHub Pages.
 - Gra uruchamia się bez instalacji, logowania i serwera.
+
+## Weapon pickup contract — clarified
+- Three weapons are alternative playstyles, **not** an upgrade ladder. Balance them to be comparably viable against different threats, with meaningful differences in range, area, cadence or projectile behavior.
+- Contra-style forced tradeoff is intentional: collecting any weapon instantly replaces the current weapon even if the player prefers the old one. No confirmation, selection menu, inventory, discard button or protection from unwanted weapon choices.
+- Pickups should be visually distinguishable, allowing tactical avoidance; spawn them accessibly. A short technical anti-double-trigger cooldown may prevent one pickup from firing repeatedly but must not prevent deliberate changes.
