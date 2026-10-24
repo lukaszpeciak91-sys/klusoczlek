@@ -12,9 +12,7 @@ export function createJoystick(scene) {
   const direction = { x: 0, y: 0 };
   let pointerId = null;
   const update = pointer => {
-    const local = scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    // Using pointer's screen coordinates keeps joystick stable under camera scrolling.
-    void local;
+    // Pointer coordinates are screen-local; joystick elements ignore camera scrolling.
     const dx = pointer.x - x;
     const dy = pointer.y - y;
     const length = Math.hypot(dx, dy);
