@@ -18,7 +18,7 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 | D012 | PROVISIONAL | Zero backendu, kont i trwałych zapisów | Minimalizacja ryzyka |
 
 
-| D013 | ACCEPTED | Weapons are horizontal alternatives, not ordered upgrades; picking one up forces a swap even if undesirable | Intentional retro arcade tradeoff inspired by Contra |
+| D013 | ACCEPTED | Weapons are horizontal alternatives, not ordered upgrades; picking one up forces a swap even if undesirable | Celowa konsekwencja podniesienia innej broni |
 | D014 | ACCEPTED | Implementation agents never create/commit binary files; user manually uploads assets to declared paths | Clean repo and explicit asset ownership |
 
 | D015 | ACCEPTED | Klasyczne, oddzielone przerwami fale; kolejna fala dopiero po pokonaniu poprzedniej | Czytelny postęp i satysfakcja z etapów |
@@ -36,7 +36,7 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 - O001: nazwa i wygląd trzeciego wroga.
 - O002: szczegółowa lista broni i ich tempo.
 - O003: liczba fal i czas docelowy po testach.
-- O004: końcowy gag i audio mariachi inspirowane stylem (oryginalne, bez kopiowania utworów).
+- O004: szczegóły finałowego żartu i oryginalnej muzyki.
 - O005: czy publikować fotograficzną twarz kumpla w publicznym repo/Pages. Do decyzji przed integracją grafiki.
 - O006: konkretny lekki stos JS / Canvas / ewentualny Phaser — implementatorka ma przedstawić krótką rekomendację przed PR01.
 
