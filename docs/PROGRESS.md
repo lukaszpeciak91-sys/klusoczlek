@@ -155,3 +155,8 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Four fixed safe layouts rotate by new session; independent rock/log/barrel foreground graphics over untouched ground and grid. Separate placeholder visuals replaceable without background changes.
 - Phaser static collision for player, circle blocking for Bobrozombi, projectile segment hit against all intact obstacles. Barrel prototype: 3 HP, 110px explosion, enemy 2 damage, player 1 damage, one-shot destruction.
 - No binary assets, new dependencies, final arena illustration, extra enemies or wave system. Independent audit and Android Chrome acceptance required.
+
+## PR16 — 8-direction Aloes visual contract (pending independent audit)
+- D030 supersedes 96-frame character sheets: player 512×64 and three enemy sheets 384×48, eight single-pose frames in E/SE/S/SW/W/NW/N/NE order. All other asset specifications retained.
+- Optional original Aloes Podpalacz PNG manually uploaded by user only; code-driven fallback when missing/invalid. Separate Phaser visual sprite follows existing physics circle without changing game systems; subtle sway/bob purely visual.
+- Real artwork not yet provided/visually inspected; Android Chrome manual acceptance pending. No binary or deploy.

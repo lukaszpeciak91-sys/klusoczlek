@@ -4,6 +4,23 @@ import { access, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
+import { deflateSync } from 'node:zlib';
+
+
+function syntheticSheetPng(){
+  // Generated solely in browser-test memory. Distinct colors distinguish eight directions.
+  const width=512,height=64,raw=Buffer.alloc(height*(1+width*4));
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const offset=y*(1+width*4)+1+x*4,frame=Math.floor(x/64);
+    raw[offset]=(frame*31+20)&255;raw[offset+1]=(frame*23+65)&255;
+    raw[offset+2]=(frame*19+110)&255;raw[offset+3]=255;
+  }
+  const signature=Buffer.from([137,80,78,71,13,10,26,10]);
+  const crc32=buffer=>{let c=0xffffffff;for(const b of buffer){c^=b;for(let i=0;i<8;i++)c=(c>>>1)^((c&1)?0xedb88320:0);}return (c^0xffffffff)>>>0;};
+  const chunk=(name,body)=>{const type=Buffer.from(name),crc=Buffer.alloc(4),length=Buffer.alloc(4);length.writeUInt32BE(body.length);crc.writeUInt32BE(crc32(Buffer.concat([type,body])));return Buffer.concat([length,type,body,crc]);};
+  const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(width,0);ihdr.writeUInt32BE(height,4);ihdr[8]=8;ihdr[9]=6;
+  return Buffer.concat([signature,chunk('IHDR',ihdr),chunk('IDAT',deflateSync(raw)),chunk('IEND',Buffer.alloc(0))]).toString('base64');
+}
 
 const appPort = 5187;
 const chromePort = 9229;
@@ -122,6 +139,11 @@ try {
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   assert.equal((await snapshot()).fullscreenVisible,false);
   await evaluate('window.__movePlayer()');
+  const artState=await snapshot();
+  assert.equal(artState.playerVisual.loaded,false,'Missing optional art must fall back');
+  assert.equal(artState.playerVisual.physicsVisible,true,'Missing art hid physics marker');
+  assert.equal(artState.playerVisual.bodyRadius,17,'Changed Arcade collision radius');
+  assert.equal(artState.playerVisual.followIdentity,true,'Camera stopped following physics player');
   // Two simultaneous *real CDP touch points*, right-first to test independent capture.
   const a=await snapshot();
   assert.ok(a.controls&&a.controls.targetCount===3,'Twin-stick training arena not initialized');
@@ -255,6 +277,48 @@ try {
   await clickControl('hud');
   await waitFor(s=>s.menu&&s.actions.length===2,'Menu again after fresh session');
   console.log('PASS real Phaser touch: NOWA GRA always, WZNÓW additional, 20 cycles, fresh session, physics and fullscreen visibility');
+
+  // Positive path: intercept only the optional PNG URL, generated entirely in memory.
+  const sheetBase64=syntheticSheetPng();
+  const pending=new Set();
+  const onFetch=event=>{
+    const message=JSON.parse(event.data);
+    if(message.method!=='Fetch.requestPaused')return;
+    const id=message.params.requestId;
+    pending.add(id);
+    cdp('Fetch.fulfillRequest',{requestId:id,responseCode:200,
+      responseHeaders:[{name:'Content-Type',value:'image/png'},{name:'Cache-Control',value:'no-store'}],
+      body:sheetBase64}).then(()=>pending.delete(id)).catch(err=>{throw err;});
+  };
+  socket.addEventListener('message',onFetch);
+  await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/player/player.png*',requestStage:'Request'}]});
+  await cdp('Page.enable');
+  await cdp('Page.reload',{ignoreCache:true});
+  await waitFor(s=>s.menu&&s.actions.length===1,'synthetic sprite fresh page');
+  await clickControl('NOWA GRA');
+  const art=await waitFor(s=>s.arena&&s.playerVisual?.loaded,'actual synthetic RGBA sprite load');
+  assert.deepEqual(art.playerVisual.textureFrames,Array(8).fill(true),'Phaser did not produce eight 64x64 frames');
+  assert.equal(art.playerVisual.physicsVisible,false,'Marker not hidden after successful load');
+  assert.equal(art.playerVisual.bodyRadius,17);
+  assert.equal(art.playerVisual.followIdentity,true);
+  assert.equal(art.playerVisual.filter,1,'Texture filtering is not NEAREST');
+  assert.ok(art.playerVisual.visualDepth>art.controls.groundDepth,'Visual behind arena ground');
+  const probe=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const result=[];for(const facing of ['e','se','s','sw','w','nw','n','ne']){a.playerVisual.update(facing,false,16);result.push({frame:a.playerVisual.sprite.frame.name,rotation:a.playerVisual.sprite.rotation,x:a.playerVisual.sprite.x,y:a.playerVisual.sprite.y});}return result;})()");
+  assert.deepEqual(probe.map(x=>String(x.frame)),['0','1','2','3','4','5','6','7'],'Facing did not switch real texture frames');
+  assert.ok(probe.every(x=>x.rotation===0),'Direction should not rotate entire character');
+  assert.ok(probe.every(x=>x.x===art.player.x&&x.y===art.player.y),'Visual should follow original physics center while idle');
+  const beforeMove=await snapshot();
+  await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'d',code:'KeyD',windowsVirtualKeyCode:68});
+  await sleep(180);
+  await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'d',code:'KeyD',windowsVirtualKeyCode:68});
+  await sleep(120); // Allow Arcade velocity reset and renderer to settle after keyup.
+  const afterMove=await snapshot();
+  assert.ok(afterMove.player.x>beforeMove.player.x+5,'Original keyboard movement regressed with sprite');
+  assert.ok(Math.abs(afterMove.playerVisual.visualX-afterMove.player.x)<1,'Visual not attached to moving physics object');
+  console.log('PASS synthetic in-memory RGBA: actual 8 Phaser frames, facing, nearest, fallback, physics and camera');
+  await cdp('Fetch.disable');
+  socket.removeEventListener('message',onFetch);
+
 
 } finally {
   socket?.close();

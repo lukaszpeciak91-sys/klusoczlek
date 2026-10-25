@@ -3,6 +3,7 @@
 <body><div id="game-shell"><div id="game"></div><button id="fullscreen-button" hidden></button></div><div id="rotate-message" hidden>ROTATE</div><p id="result" data-status="ready">READY</p>
 <script type="module">
 import Phaser from 'phaser';
+import {PLAYER_ART_KEY} from '/src/character-visual.js';
 import { MenuScene, ArenaScene } from '/src/scenes.js';
 import { setupViewport } from '/src/viewport.js';
 import { toggleFullscreen } from '/src/fullscreen.js';
@@ -31,6 +32,7 @@ window.__snapshot=() => {
     player:arena.player?{x:arena.player.x,y:arena.player.y}:null,
     playerId:arena.player===window.__identity?.player,
     physics:arena.physics?.world?.isPaused??null,
+    playerVisual:arena.playerVisual?{loaded:arena.playerVisual.loaded,physicsVisible:arena.player.visible,visualX:arena.playerVisual.sprite?.x??null,visualY:arena.playerVisual.sprite?.y??null,frame:arena.playerVisual.sprite?.frame?.name??null,rotation:arena.playerVisual.sprite?.rotation??null,filter:arena.playerVisual.sprite?.texture?.source?.[0]?.scaleMode??null,textureFrames:game.textures.exists(PLAYER_ART_KEY)?Array.from({length:8},(_,i)=>game.textures.get(PLAYER_ART_KEY).has(String(i))):[],markerDepth:arena.player.depth,visualDepth:arena.playerVisual.sprite?.depth??null,bodyRadius:arena.player.body?.radius??null,followIdentity:arena.cameras.main._follow===arena.player}:null,
     camera:arena.cameras?.main?.id??null,
     fullscreenHidden:document.getElementById('fullscreen-button').hidden,
     fullscreenActive:Boolean(document.fullscreenElement),

@@ -47,6 +47,11 @@ D022 pozostaje w historii; jego sztywna wysokość 540 została zastąpiona prze
 | D028 | ACCEPTED | Eight-direction whole-body sprite facing; projectile heading remains continuous 360°; no facing change when stationary | Small original sheet contract without body layering |
 | D029 | ACCEPTED | Sheet/player/muzzle specification, manual binary upload, missing-asset code placeholders and physics/camera independence per ASSETS.md | Art and implementation can proceed in parallel |
 
+### D030 — ACCEPTED (PR16)
+Eight single-pose directional frames per character (player 512×64, enemies 384×48), with optional visual-only sway/bob, supersede the historical 96-frame character sheet specification. Rationale: smaller original art production while physics and camera remain independent.
+
+D029 remains ACCEPTED for path/manual upload/physics separation, but its historical 96-frame sheet specification is SUPERSEDED by D030. D028 remains ACCEPTED for facing order and 360-degree shots.
+
 D004 is SUPERSEDED by D027; D007 is SUPERSEDED by D026. D025 remains SUPERSEDED. Historical entries retained unaltered.
 
 D022 remains superseded by D024 (Phaser RESIZE instead of fixed logical height). D004 superseded by D027; D007 superseded by D026; D025 remains superseded. Historical decision descriptions and reasons retained.

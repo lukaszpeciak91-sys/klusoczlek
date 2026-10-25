@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
+import { createPlayerVisual } from './character-visual.js';
 import { createJoystick } from './joystick.js';
 import { resolvePose } from './combat-contract.js';
 import { resolveAim, shouldFire, muzzlePoint, PROJECTILE_SPEED } from './shooting.js';
@@ -146,6 +147,7 @@ export class ArenaScene extends Phaser.Scene {
     this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
       this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
     this.facingMarker=this.add.graphics().setDepth(12);
+    this.playerVisual=createPlayerVisual(this,this.player,this.facingMarker,Phaser);
     this.mouseHeld=false;
     this.mouseAim={x:0,y:0};
     const mouseDown=p=>{if(p.wasTouch===false&&p.leftButtonDown())this.mouseHeld=true;};
@@ -216,6 +218,7 @@ export class ArenaScene extends Phaser.Scene {
       this.projectiles.length=0;
       this.obstacles.length=0;
       this.explosionEffects.length=0;
+      this.playerVisual.destroy();
       // Phaser may have removed the player body before SHUTDOWN; do not access it here.
       // Phaser has already torn down Arcade Physics by SHUTDOWN; no physics calls here.
       window.removeEventListener('blur', this.onBlur);
@@ -262,6 +265,7 @@ export class ArenaScene extends Phaser.Scene {
     const firing=Boolean((this.aimJoystick.held||this.mouseHeld)&&(aiming.x||aiming.y));
     const pose=resolvePose({movement:direction,aim:aiming,aimActive:firing,lastFacing:this.lastFacing});
     this.lastFacing=pose.facing;
+    this.playerVisual.update(pose.facing,pose.movement.x!==0||pose.movement.y!==0,this.game.loop.delta);
     const angle=({e:0,se:1,s:2,sw:3,w:4,nw:5,n:6,ne:7})[pose.facing]*Math.PI/4;
     this.facingMarker.clear().lineStyle(5,0x162a31).lineBetween(this.player.x,this.player.y,this.player.x+Math.cos(angle)*27,this.player.y+Math.sin(angle)*27).fillStyle(0x92d7e8).fillCircle(this.player.x+Math.cos(angle)*27,this.player.y+Math.sin(angle)*27,5);
     if(!firing)this.lastShotAt=null;

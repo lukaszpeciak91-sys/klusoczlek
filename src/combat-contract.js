@@ -1,4 +1,4 @@
-// Contract-only pure functions; no combat entities or fire loops in this PR.
+// Shared facing contract for visual and combat direction.
 export const FACINGS = Object.freeze(['e','se','s','sw','w','nw','n','ne']);
 export const STATES = Object.freeze(['idle','walk','fire']);
 export function unitVector(x,y,deadzone=0) {
@@ -21,9 +21,9 @@ export function resolvePose({movement={x:0,y:0},aim={x:0,y:0},aimActive=false,la
   return {movement:move,aim:shot,shooting,facing,animation:`${shooting?'fire':moving?'walk':'idle'}_${facing}`};
 }
 export const PLAYER_FRAME_SIZE=64;
-export const PLAYER_FRAMES_PER_DIRECTION=4;
-export function playerFrame(state,facing,phase=0) {
-  const stateIndex=STATES.indexOf(state),directionIndex=FACINGS.indexOf(facing);
-  if(stateIndex<0||directionIndex<0||!Number.isInteger(phase)||phase<0||phase>=PLAYER_FRAMES_PER_DIRECTION) throw new RangeError('Invalid player frame');
-  return stateIndex*32+directionIndex*4+phase;
+export const CHARACTER_DIRECTION_FRAMES=8;
+export function playerFrame(facing) {
+ const index=FACINGS.indexOf(facing);
+ if(index<0)throw new RangeError('Invalid character facing');
+ return index;
 }
