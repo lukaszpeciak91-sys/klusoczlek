@@ -110,6 +110,8 @@ try {
       const before=await snapshot();
       await click(before.fullscreenRect.x,before.fullscreenRect.y);
       await waitFor(s=>s.fullscreenActive===expected,'fullscreen toggle '+expected);
+      const geometry=await waitFor(s=>Math.abs(s.gameBox.width-s.scale.width)<2&&Math.abs(s.gameBox.height-s.scale.height)<2&&Math.abs(s.rect.height-s.gameBox.height)<2,'scale recovery after fullscreen '+expected);
+      assert.ok(geometry.actions.every(a=>a.y+a.height/2<=geometry.gameBox.height),'Menu clipped after fullscreen '+expected);
       assert.equal((await snapshot()).fullscreenVisible,true,'Fullscreen HTML button disappeared from Menu');
     }
     console.log('PASS native fullscreen enter/exit/enter/exit through HTML touch');
