@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
+import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
 import { resolvePose } from './combat-contract.js';
 import { resolveAim, shouldFire, muzzlePoint, PROJECTILE_SPEED } from './shooting.js';
@@ -93,11 +94,7 @@ export class ArenaScene extends Phaser.Scene {
     document.getElementById('fullscreen-button').hidden = true;
     this.cameras.main.setBackgroundColor(COLORS.background);
     this.physics.world.setBounds(0, 0, ARENA.width, ARENA.height);
-    this.ground=this.add.rectangle(ARENA.width / 2, ARENA.height / 2,
-      ARENA.width, ARENA.height, 0x283c32).setStrokeStyle(6, COLORS.border).setDepth(-20);
-    this.groundGrid=this.add.grid(ARENA.width / 2, ARENA.height / 2,
-      ARENA.width - 8, ARENA.height - 8, 50, 50,
-      0x283c32, 1, 0x415746, 0.36).setDepth(-19);
+    createArenaGround(this,ARENA.width,ARENA.height,Phaser,COLORS);
     this.player = createPlayer(this, ARENA.width / 2, ARENA.height / 2);
     this.layoutIndex=nextLayoutIndex++%4;
     this.obstacles=getObstacleLayout(this.layoutIndex).map(o=>{
