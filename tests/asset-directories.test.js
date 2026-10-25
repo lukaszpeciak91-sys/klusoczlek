@@ -4,7 +4,7 @@ import {existsSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {assetManifest} from '../src/asset-manifest.js';
 
-const dirs=[...new Set(assetManifest.map(a=>a.path.split('/')[0]))].sort();
+const dirs=[...new Set([...assetManifest.map(a=>a.path.split('/')[0]),'obstacles'])].sort();
 function ignored(path) {
  const r=spawnSync('git',['check-ignore','--no-index','-q',path],{encoding:'utf8'});
  assert.ok([0,1].includes(r.status),r.stderr);
