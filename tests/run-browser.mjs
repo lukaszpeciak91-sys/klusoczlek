@@ -154,6 +154,7 @@ try {
   assert.equal(dual.controls.left.id,null,'cancel did not release move pointer');
   assert.equal(dual.controls.right.id,null,'cancel did not release aim pointer');
   console.log('PASS real CDP multi-touch, reversed touch order, firing release, cancel');
+  const retainedPosition=(await snapshot()).player;
 
   for(let i=0;i<20;i++){
     await clickControl('hud');
@@ -169,7 +170,7 @@ try {
     assert.equal((await snapshot()).arenaPaused,true);
     await clickControl('WZNÓW');
     state=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'Resume '+i);
-    assert.deepEqual(state.player,{x:552,y:440});
+    assert.deepEqual(state.player,retainedPosition);
     assert.equal(state.physics,false);
     assert.equal(state.samePlayer,true);
     assert.equal(state.sameCamera,true);
