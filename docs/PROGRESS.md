@@ -165,3 +165,8 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - All seven directory categories from the approved asset manifest tracked via `.gitkeep` under `public/assets/`.
 - `.gitignore` excludes disposable artwork scratch/backup files and OS metadata but allows all approved production PNGs.
 - Vite retains its existing `publicDir` default and `/klusoczlek/` base; no gameplay, assets, packages, workflow, merge or deploy changes.
+
+## PR17 audit repair — arena art contract (pending re-audit)
+- Added tracked `public/assets/obstacles/.gitkeep` (eight canonical asset upload directories).
+- Replaced obsolete 64×64 `terrain/ground.png` with one canonical pending 1024×1024 `terrain/arena-ground.png` manifest contract; removed the legacy unapproved generic `terrain/obstacle.png` placeholder contract.
+- Future independent obstacle PNG names/dimensions await explicit approval; no binary assets, changes to procedural Arena runtime, gameplay, Vite or deploy.
