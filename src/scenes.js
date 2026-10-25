@@ -137,7 +137,7 @@ export class ArenaScene extends Phaser.Scene {
     window.addEventListener('resize', this.onResize);
     document.addEventListener('visibilitychange', this.onVisibility);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.resetMovement();
+      // Phaser may have removed the player body before SHUTDOWN; do not access it here.
       this.physics.world.resume();
       window.removeEventListener('blur', this.onBlur);
       window.removeEventListener('focus', this.onFocus);
