@@ -6,7 +6,7 @@ import Phaser from 'phaser';
 import { MenuScene, ArenaScene } from '/src/scenes.js';
 import { setupViewport } from '/src/viewport.js';
 import { toggleFullscreen } from '/src/fullscreen.js';
-const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},scene:[MenuScene,ArenaScene]});
+const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},input:{activePointers:3},scene:[MenuScene,ArenaScene]});
 window.__game=game;
 setupViewport(game);
 document.getElementById('fullscreen-button').addEventListener('click', () => toggleFullscreen(document.getElementById('game-shell'), () => game.scale.refresh()));
@@ -40,6 +40,13 @@ window.__snapshot=() => {
     focused:document.hasFocus(),hidden:document.hidden,portrait:innerHeight>innerWidth,
     sceneStatus:{menu:menu.sys.settings.status,arena:arena.sys.settings.status},
     sceneOrder:game.scene.scenes.map(scene=>scene.sys.settings.key),
+    controls:arena.joystick&&arena.aimJoystick?{
+      left:{x:arena.joystick.direction.x,y:arena.joystick.direction.y,id:arena.joystick.pointerId,nativeId:arena.joystick.touchIdentifier},
+      right:{x:arena.aimJoystick.direction.x,y:arena.aimJoystick.direction.y,id:arena.aimJoystick.pointerId,nativeId:arena.aimJoystick.touchIdentifier},
+      mouseHeld:arena.mouseHeld,lastFacing:arena.lastFacing,
+      shots:arena.projectiles.length,shotAt:arena.lastShotAt,
+      targetCount:arena.targets.length,
+    }:null,
     menuOverArena:game.scene.scenes.indexOf(menu)>game.scene.scenes.indexOf(arena),
     trace:window.__trace.slice(-20),
     samePlayer:!window.__identity||arena.player===window.__identity.player,

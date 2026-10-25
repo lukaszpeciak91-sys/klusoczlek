@@ -139,3 +139,7 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Reduced character spritesheets from 8 to 4 animation phases per direction/state (192 → 96 frames); weapon sheets remain separate 3×1.
 - Clarified provisional dialogue portrait identities and repaired DECISIONS markdown decision table/statuses.
 - Contract tests updated; runtime physics, camera, input and fallback untouched. Pending independent re-audit and CI verification.
+
+## Twin-stick vertical slice — 2026-10-25 (PR pending audit)
+- Two visible 92px independent touch controls; held right fire, mouse hold firing, procedural shots and training targets; no art assets or combat systems.
+- Maintains Arcade player/camera radius and Scale.RESIZE; pure cadence tests. Browser CI and Android Chrome two-touch acceptance required before merge.

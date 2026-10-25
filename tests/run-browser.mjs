@@ -90,7 +90,7 @@ try {
     assert.ok(target.y-target.height/2>=0&&target.y+target.height/2<=state.rect.height,'Button clipped: '+which);
     await click(state.rect.x+target.x,state.rect.y+target.y);
   }
-  await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
+  await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
   await waitFor(s=>s.menu&&s.actions.length===1&&s.actions[0].label==='NOWA GRA','initial single new game');
   await evaluate('window.__traceEvents()');
   for(const height of [320,360,375,420]){
@@ -122,6 +122,40 @@ try {
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   assert.equal((await snapshot()).fullscreenVisible,false);
   await evaluate('window.__movePlayer()');
+  // Two simultaneous *real CDP touch points*, right-first to test independent capture.
+  const a=await snapshot();
+  assert.ok(a.controls&&a.controls.targetCount===3,'Twin-stick training arena not initialized');
+  const left={x:a.rect.x+60,y:a.rect.y+a.scale.height-60,id:11};
+  const right={x:a.rect.x+a.scale.width-60,y:a.rect.y+a.scale.height-60,id:12};
+  const rMove={...right,x:right.x-40,y:right.y-8};
+  const lMove={...left,x:left.x+35,y:left.y};
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[right]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[right,left]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[rMove,lMove]});
+  await sleep(240);
+  let dual=await snapshot();
+  assert.notEqual(dual.controls.left.id,null,'left pointer not captured');
+  assert.notEqual(dual.controls.right.id,null,'right pointer not captured');
+  assert.notEqual(dual.controls.left.id,dual.controls.right.id,'pointers not independent');
+  assert.ok(dual.controls.left.x>0,'left movement missing');
+  assert.ok(dual.controls.right.x<0,'right aim missing');
+  assert.ok(dual.controls.shotAt!==null,'held fire not started');
+  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[rMove]});
+  await sleep(50);
+  dual=await snapshot();
+  assert.equal(dual.controls.right.id,null,'released right pointer still captured '+JSON.stringify(dual.controls));
+  assert.equal(dual.controls.shotAt,null,'released right pointer still firing');
+  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[left]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[lMove]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+  await sleep(45);
+  dual=await snapshot();
+  assert.equal(dual.controls.left.id,null,'cancel did not release move pointer');
+  assert.equal(dual.controls.right.id,null,'cancel did not release aim pointer');
+  console.log('PASS real CDP multi-touch, reversed touch order, firing release, cancel');
+  const retainedPosition=(await snapshot()).player;
+
   for(let i=0;i<20;i++){
     await clickControl('hud');
     let state=await waitFor(s=>s.menu&&s.arenaPaused&&s.actions.length===2,'Menu two buttons '+i);
@@ -136,12 +170,34 @@ try {
     assert.equal((await snapshot()).arenaPaused,true);
     await clickControl('WZNÓW');
     state=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'Resume '+i);
-    assert.deepEqual(state.player,{x:552,y:440});
+    assert.deepEqual(state.player,retainedPosition);
     assert.equal(state.physics,false);
     assert.equal(state.samePlayer,true);
     assert.equal(state.sameCamera,true);
     assert.equal(state.fullscreenVisible,false);
   }
+  // Actual desktop CDP keyboard and mouse input, not synthetic Phaser events.
+  await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'d',code:'KeyD',windowsVirtualKeyCode:68});
+  const beforeKeyboard=(await snapshot()).player.x;
+  await sleep(170);
+  const afterKeyboard=(await snapshot()).player.x;
+  await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'d',code:'KeyD',windowsVirtualKeyCode:68});
+  assert.ok(afterKeyboard>beforeKeyboard+5,'WASD movement missing on desktop');
+  const mouseScene=await snapshot();
+  const mouseX=mouseScene.rect.x+mouseScene.scale.width/2+120;
+  const mouseY=mouseScene.rect.y+mouseScene.scale.height/2;
+  await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:mouseX,y:mouseY,button:'none'});
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:mouseX,y:mouseY,button:'left',buttons:1,clickCount:1});
+  await sleep(250);
+  let desktop=await snapshot();
+  assert.equal(desktop.controls.mouseHeld,true,'Desktop primary mouse not captured');
+  assert.ok(desktop.controls.shotAt!==null,'Desktop held firing not started');
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:mouseX,y:mouseY,button:'left',buttons:0,clickCount:1});
+  await sleep(40);
+  desktop=await snapshot();
+  assert.equal(desktop.controls.mouseHeld,false,'Desktop mouse release stuck');
+  assert.equal(desktop.controls.shotAt,null,'Desktop release did not stop firing');
+  console.log('PASS real CDP desktop keyboard + mouse held fire and release');
   await clickControl('hud');
   await waitFor(s=>s.menu&&s.actions.length===2,'Menu before new game');
   await clickControl('NOWA GRA');

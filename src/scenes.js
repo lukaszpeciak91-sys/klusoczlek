@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createJoystick } from './joystick.js';
+import { resolvePose } from './combat-contract.js';
+import { resolveAim, shouldFire, muzzlePoint, PROJECTILE_SPEED } from './shooting.js';
 import { menuLayout, arenaHudLayout } from './ui-layout.js';
 import { enforceOrientationOnSceneStart } from './viewport.js';
 
@@ -96,7 +98,24 @@ export class ArenaScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
 
     this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
-    this.joystick = createJoystick(this);
+    this.joystick = createJoystick(this,'left');
+    this.aimJoystick = createJoystick(this,'right');
+    this.lastFacing='s';
+    this.lastShotAt=null;
+    this.projectiles=[];
+    this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
+      this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
+    this.facingMarker=this.add.graphics().setDepth(12);
+    this.mouseHeld=false;
+    this.mouseAim={x:0,y:0};
+    const mouseDown=p=>{if(p.wasTouch===false&&p.leftButtonDown())this.mouseHeld=true;};
+    const mouseUp=p=>{if(p.wasTouch===false)this.mouseHeld=false;};
+    this.input.on('pointerdown',mouseDown);
+    for(const event of ['pointerup','pointerupoutside','pointercancel'])this.input.on(event,mouseUp);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
+      this.input.off('pointerdown',mouseDown);
+      for(const event of ['pointerup','pointerupoutside','pointercancel'])this.input.off(event,mouseUp);
+    });
     const hud = arenaHudLayout(this.scale.height, this.scale.width);
     const menuButton = this.add.rectangle(hud.menuX, hud.menuY, 185, 58, COLORS.panel)
       .setStrokeStyle(3, COLORS.border).setScrollFactor(0).setDepth(60)
@@ -110,6 +129,9 @@ export class ArenaScene extends Phaser.Scene {
       menuButton.setPosition(pos.menuX, pos.menuY);
       menuLabel.setPosition(pos.menuX, pos.menuY);
       this.joystick.reposition(pos.joystickX, pos.joystickY);
+      this.aimJoystick.reposition(pos.aimX,pos.aimY);
+      this.mouseHeld=false;
+      this.lastShotAt=null;
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, resizeHud);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
@@ -118,6 +140,9 @@ export class ArenaScene extends Phaser.Scene {
     this.resetMovement = () => {
       this.player.body.setVelocity(0, 0);
       this.joystick.reset();
+      this.aimJoystick.reset();
+      this.mouseHeld=false;
+      this.lastShotAt=null;
       this.input.keyboard.resetKeys();
     };
     this.onBlur = () => { this.resetMovement(); this.physics.world.pause(); };
@@ -182,6 +207,40 @@ export class ArenaScene extends Phaser.Scene {
       y || this.joystick.direction.y,
     );
     this.player.body.setVelocity(direction.x * PLAYER_SPEED, direction.y * PLAYER_SPEED);
+    const pointer=this.input.activePointer;
+    if(pointer.wasTouch===false){
+      const world=this.cameras.main.getWorldPoint(pointer.x,pointer.y);
+      this.mouseAim=resolveAim(world.x-this.player.x,world.y-this.player.y,12);
+    }
+    const stickAim=this.aimJoystick.held?resolveAim(this.aimJoystick.direction.x,this.aimJoystick.direction.y):{x:0,y:0};
+    const aiming=this.aimJoystick.held?stickAim:(this.mouseHeld?this.mouseAim:{x:0,y:0});
+    const firing=Boolean((this.aimJoystick.held||this.mouseHeld)&&(aiming.x||aiming.y));
+    const pose=resolvePose({movement:direction,aim:aiming,aimActive:firing,lastFacing:this.lastFacing});
+    this.lastFacing=pose.facing;
+    const angle=({e:0,se:1,s:2,sw:3,w:4,nw:5,n:6,ne:7})[pose.facing]*Math.PI/4;
+    this.facingMarker.clear().lineStyle(5,0x162a31).lineBetween(this.player.x,this.player.y,this.player.x+Math.cos(angle)*27,this.player.y+Math.sin(angle)*27).fillStyle(0x92d7e8).fillCircle(this.player.x+Math.cos(angle)*27,this.player.y+Math.sin(angle)*27,5);
+    if(!firing)this.lastShotAt=null;
+    if(shouldFire(this.time.now,this.lastShotAt,firing)){
+      this.lastShotAt=this.time.now;
+      const origin=muzzlePoint(this.player.x,this.player.y,aiming);
+      const bullet=this.add.circle(origin.x,origin.y,5,0xffe8a2).setDepth(8);
+      this.projectiles.push({object:bullet,vx:aiming.x*PROJECTILE_SPEED,vy:aiming.y*PROJECTILE_SPEED});
+    }
+    const seconds=Math.min(this.game.loop.delta,50)/1000;
+    for(const item of this.projectiles){
+      item.object.x+=item.vx*seconds;item.object.y+=item.vy*seconds;
+      for(const target of this.targets){
+        if(target.active&&Phaser.Math.Distance.Between(item.object.x,item.object.y,target.x,target.y)<27){
+          target.setFillStyle(0x80c69d);
+          this.time.delayedCall(120,()=>{if(target.active)target.setFillStyle(0xbe6a64);});
+          item.hit=true;break;
+        }
+      }
+      if(item.hit||item.object.x<0||item.object.y<0||item.object.x>ARENA.width||item.object.y>ARENA.height){
+        item.object.destroy();item.hit=true;
+      }
+    }
+    this.projectiles=this.projectiles.filter(item=>!item.hit);
   }
 }
 

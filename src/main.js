@@ -17,6 +17,7 @@ const game = new Phaser.Game({
   render: { pixelArt: true, antialias: false },
   physics: { default: 'arcade', arcade: { debug: false } },
   scene: [MenuScene, ArenaScene],
+  input: { activePointers: 3 },
 });
 
 setupViewport(game);

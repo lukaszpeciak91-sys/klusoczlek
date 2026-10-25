@@ -22,6 +22,8 @@ export function arenaHudLayout(height, width = 960) {
     joystickX: radius + padding,
     joystickY: Math.max(radius + padding, height - radius - padding),
     joystickRadius: radius,
+    aimX: Math.max(radius+padding,width-radius-padding),
+    aimY: Math.max(radius+padding,height-radius-padding),
   };
 }
 export function pauseLayout(width, height = 540) {
