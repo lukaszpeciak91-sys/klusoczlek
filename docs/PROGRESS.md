@@ -76,6 +76,12 @@
 - Browser-level real-device interaction and WZNÓW behavior are still required; pure geometry tests do not prove touch delivery.
 - No binaries, weapons, enemies or second joystick.
 
+## PR06 final audit fix
+- Root cause: WZNÓW called scene.resume('Arena') then arena.onFocus() while SceneManager may still report the scene as paused; the pauseGate state was already cleared, potentially leaving physics paused.
+- Changed to wait for actual Phaser Scene RESUME event to clear the user's intentional pause and synchronize Arcade Physics. Blocked WZNÓW leaves the Pause scene and gate intact. Focus alone never clears pauseGate.
+- Added `tests/pause-lifecycle.test.js` simulating SceneManager RESUME notifications, blocked/recoverable resume, player-coordinate continuity, focus/visibility/orientation conditions.
+- Removed literal escaped `\\n` in DECISIONS.md. CI and on-device touch smoke required.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
