@@ -143,7 +143,7 @@ try {
   await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[lMove]});
   await sleep(50);
   dual=await snapshot();
-  assert.equal(dual.controls.right.id,null,'released right pointer still captured');
+  assert.equal(dual.controls.right.id,null,'released right pointer still captured '+JSON.stringify(dual.controls));
   assert.equal(dual.controls.shotAt,null,'released right pointer still firing');
   await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[left]});
