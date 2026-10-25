@@ -52,3 +52,9 @@ D022 pozostaje w historii; jego sztywna wysokość 540 została zastąpiona prze
 - O006: konkretny lekki stos JS / Canvas / ewentualny Phaser — implementatorka ma przedstawić krótką rekomendację przed PR01.
 
 Nowe decyzje: dopisz kolejny ID, zapisując konsekwencje; nie przepisuj historii.
+
+| D027 | ACCEPTED | Mobile twin-stick: left movement, right independent manual aim + held fire; desktop WASD/arrows, mouse aim and held left-click fire; no auto-fire/auto-target | Explicit approved combat control supersedes D004 |
+| D028 | ACCEPTED | Eight-direction whole-body sprite facing; projectile heading remains continuous 360°; no facing change when stationary | Small original sheet contract without body layering |
+| D029 | ACCEPTED | Sheet/player/muzzle specification, manual binary upload, missing-asset code placeholders and physics/camera independence per ASSETS.md | Art and implementation can proceed in parallel |
+
+D004 is SUPERSEDED by D027; D007 is SUPERSEDED by D026. D025 remains SUPERSEDED. Historical entries retained unaltered.
