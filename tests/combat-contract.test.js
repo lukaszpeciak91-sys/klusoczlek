@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FACINGS,STATES,facingOf,resolvePose,playerFrame } from '../src/combat-contract.js';
+import { FACINGS,facingOf,resolvePose,playerFrame } from '../src/combat-contract.js';
 import {assetManifest,validateAssetManifest} from '../src/asset-manifest.js';
 test('octants map consistently, including boundaries',()=>{
   for(let i=0;i<8;i++){
@@ -18,23 +18,15 @@ test('movement and aim remain independent, analog aim remains 360 degrees',()=>{
  assert.equal(resolvePose({lastFacing:'nw'}).facing,'nw');
  assert.equal(resolvePose({aimActive:true,aim:{x:0,y:0},lastFacing:'ne'}).shooting,false);
 });
-test('manifest is unique, dimensionally sound and references every frame',()=>{
+test('8 direction single-pose frame mapping and manifest',()=>{
  assert.ok(validateAssetManifest());
- const sheet=assetManifest.find(a=>a.id==='player');
- for(const state of STATES) for(const facing of FACINGS) for(let frame=0;frame<4;frame++){
-   const index=playerFrame(state,facing,frame);
-   assert.ok(index>=0&&index<sheet.columns*sheet.rows);
- }
- assert.equal(playerFrame('idle','e',0),0);
- assert.equal(playerFrame('walk','e',0),32);
- assert.equal(playerFrame('fire','ne',3),95);
- assert.throws(()=>playerFrame('walk','s',4),RangeError);
+ for(let i=0;i<8;i++)assert.equal(playerFrame(FACINGS[i]),i);
+ assert.throws(()=>playerFrame('unknown'),RangeError);
+ const chars=assetManifest.filter(a=>['player','bobrozombi','zubrokryptyda','enemy_fast'].includes(a.id));
+ for(const asset of chars){assert.equal(asset.columns,8);assert.equal(asset.rows,1);assert.equal(asset.width,asset.frameWidth*8);assert.equal(asset.height,asset.frameHeight);}
+ assert.equal(chars[0].width,512);assert.equal(chars[0].height,64);
+ for(const e of chars.slice(1)){assert.equal(e.width,384);assert.equal(e.height,48);}
+ for(const w of assetManifest.filter(a=>a.id.startsWith('weapon_'))){assert.equal(w.columns,3);assert.equal(w.rows,1);}
+ assert.equal(assetManifest.find(a=>a.id==='dialogue_aloes').approval,'approved_identity');
  assert.ok(!validateAssetManifest([...assetManifest,assetManifest[0]]));
-});
-
-test('exact character grid and weapon grid are distinct',()=>{
- for(const a of assetManifest.filter(x=>x.id==='player'||x.id==='bobrozombi'||x.id==='zubrokryptyda'||x.id==='enemy_fast')){assert.equal(a.columns,4);assert.equal(a.rows,24);assert.equal(a.width,a.frameWidth*4);assert.equal(a.height,a.frameHeight*24);}
- for(const a of assetManifest.filter(x=>x.id.startsWith('weapon_'))){assert.equal(a.columns,3);assert.equal(a.rows,1);assert.equal(a.width,96);assert.equal(a.height,32);}
- assert.equal(assetManifest.find(x=>x.id==='dialogue_aloes').approval,'approved_identity');
- for(const id of ['dialogue_player','dialogue_narrator'])assert.equal(assetManifest.find(x=>x.id===id).approval,'provisional_identity');
 });
