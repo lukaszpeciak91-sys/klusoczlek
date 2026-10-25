@@ -76,6 +76,7 @@ export class ArenaScene extends Phaser.Scene {
   constructor() { super('Arena'); }
 
   create() {
+    document.getElementById('fullscreen-button').hidden = true;
     this.cameras.main.setBackgroundColor(COLORS.background);
     this.physics.world.setBounds(0, 0, ARENA.width, ARENA.height);
     this.add.rectangle(ARENA.width / 2, ARENA.height / 2,
@@ -121,6 +122,7 @@ export class ArenaScene extends Phaser.Scene {
     };
     // Resume is delivered by Phaser after the Arena scene state switches.
     this.events.on(Phaser.Scenes.Events.RESUME, () => {
+      document.getElementById('fullscreen-button').hidden = true;
       if (this.canResume()) this.physics.world.resume();
       else this.physics.world.pause();
     });
