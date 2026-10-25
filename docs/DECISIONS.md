@@ -36,6 +36,8 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 | D022 | ACCEPTED | Dynamiczna szerokość logicznego viewportu przy stałej wysokości 540; więcej widocznego świata na szerszych ekranach zamiast rozciągania sceny | Bez deformacji proporcji oraz ograniczeń do 16:9 |
 | D023 | ACCEPTED | MENU otwiera pauzę sceny Arena; WZNÓW przywraca tę samą sesję; MENU GŁÓWNE ją kończy | Zatrzymanie update/Phaser scene timers i bezpieczne przejścia |
 
+| D024 | ACCEPTED | Phaser Scale.RESIZE is the sole canvas sizing mechanism inside the safe-area parent; no independent logical resize plus FIT or CSS max dimensions | Correct aspect ratio and full mobile screen use |
+
 ## Otwarte, bez blokowania startu
 - O001: nazwa i wygląd trzeciego wroga.
 - O002: szczegółowa lista broni i ich tempo.
