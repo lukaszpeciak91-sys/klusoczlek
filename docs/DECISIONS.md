@@ -32,6 +32,10 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 
 | D021 | ACCEPTED | Gra landscape-only, z ekranem obrotu w pionie; fullscreen opcjonalny, dostępny z ikony w prawym dolnym rogu menu | Spójne sterowanie mobilne i zgodność z ograniczeniami przeglądarek |
 
+
+| D022 | ACCEPTED | Dynamiczna szerokość logicznego viewportu przy stałej wysokości 540; więcej widocznego świata na szerszych ekranach zamiast rozciągania sceny | Bez deformacji proporcji oraz ograniczeń do 16:9 |
+| D023 | ACCEPTED | MENU otwiera pauzę sceny Arena; WZNÓW przywraca tę samą sesję; MENU GŁÓWNE ją kończy | Zatrzymanie update/Phaser scene timers i bezpieczne przejścia |
+
 ## Otwarte, bez blokowania startu
 - O001: nazwa i wygląd trzeciego wroga.
 - O002: szczegółowa lista broni i ich tempo.
