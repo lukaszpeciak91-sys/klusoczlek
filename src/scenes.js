@@ -7,6 +7,8 @@ import { resolveAim, shouldFire, muzzlePoint, PROJECTILE_SPEED } from './shootin
 import { ENCOUNTER, enemySpawns, advanceEnemy, applyEnemyHit, applyPlayerContact, segmentHitsCircle } from './bobrozombi.js';
 import { menuLayout, arenaHudLayout } from './ui-layout.js';
 import { enforceOrientationOnSceneStart } from './viewport.js';
+import {OBSTACLE_RULES,getObstacleLayout,obstacleRadius,resolveObstaclePosition,segmentObstacleHit,damageObstacle,inExplosion} from './obstacles.js';
+let nextLayoutIndex=0;
 
 const COLORS = {
   background: 0x0e101a,
@@ -90,12 +92,33 @@ export class ArenaScene extends Phaser.Scene {
     document.getElementById('fullscreen-button').hidden = true;
     this.cameras.main.setBackgroundColor(COLORS.background);
     this.physics.world.setBounds(0, 0, ARENA.width, ARENA.height);
-    this.add.rectangle(ARENA.width / 2, ARENA.height / 2,
-      ARENA.width, ARENA.height, 0x283c32).setStrokeStyle(6, COLORS.border);
-    this.add.grid(ARENA.width / 2, ARENA.height / 2,
+    this.ground=this.add.rectangle(ARENA.width / 2, ARENA.height / 2,
+      ARENA.width, ARENA.height, 0x283c32).setStrokeStyle(6, COLORS.border).setDepth(-20);
+    this.groundGrid=this.add.grid(ARENA.width / 2, ARENA.height / 2,
       ARENA.width - 8, ARENA.height - 8, 50, 50,
-      0x283c32, 1, 0x415746, 0.36);
+      0x283c32, 1, 0x415746, 0.36).setDepth(-19);
     this.player = createPlayer(this, ARENA.width / 2, ARENA.height / 2);
+    this.layoutIndex=nextLayoutIndex++%4;
+    this.obstacles=getObstacleLayout(this.layoutIndex).map(o=>{
+      const sprite=o.type==='rock'
+        ?this.add.circle(o.x,o.y,obstacleRadius(o.type),0x858b8e).setStrokeStyle(4,0x42464a)
+        :o.type==='log'
+        ?this.add.ellipse(o.x,o.y,60,40,0x926a3d).setStrokeStyle(5,0x48331e)
+        :this.add.rectangle(o.x,o.y,43,48,0xba3c29).setStrokeStyle(4,0x4e1f19);
+      sprite.setDepth(4); // Independent foreground above both ground layers.
+      return {...o,sprite,hitUntil:0};
+    });
+    this.obstacleBodies=this.physics.add.staticGroup();
+    for(const o of this.obstacles){
+      this.physics.add.existing(o.sprite,true);
+      o.sprite.body.setCircle(obstacleRadius(o.type),
+        o.sprite.width/2-obstacleRadius(o.type),
+        o.sprite.height/2-obstacleRadius(o.type));
+      o.sprite.body.updateFromGameObject();
+      this.obstacleBodies.add(o.sprite);
+    }
+    this.playerBlocker=this.physics.add.collider(this.player,this.obstacleBodies);
+    this.explosionEffects=[];
     this.cameras.main.setBounds(0, 0, ARENA.width, ARENA.height);
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
 
@@ -191,6 +214,8 @@ export class ArenaScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.enemies.length=0;
       this.projectiles.length=0;
+      this.obstacles.length=0;
+      this.explosionEffects.length=0;
       // Phaser may have removed the player body before SHUTDOWN; do not access it here.
       // Phaser has already torn down Arcade Physics by SHUTDOWN; no physics calls here.
       window.removeEventListener('blur', this.onBlur);
@@ -250,6 +275,33 @@ export class ArenaScene extends Phaser.Scene {
     for(const item of this.projectiles){
       const old={x:item.object.x,y:item.object.y};
       item.object.x+=item.vx*seconds;item.object.y+=item.vy*seconds;
+      const blocked=segmentObstacleHit(old,item.object,this.obstacles);
+      if(blocked){
+        const outcome=damageObstacle(blocked);
+        if(blocked.type==='barrel'&&blocked.alive)blocked.sprite.setAlpha(0.5);
+        blocked.hitUntil=this.time.now+120;
+        item.hit=true;
+        if(outcome.exploded){
+          blocked.sprite.destroy(); // Underlay remains untouched.
+          const blast=this.add.circle(blocked.x,blocked.y,OBSTACLE_RULES.explosionRadius,0xf1a33a,0.32).setDepth(14);
+          this.explosionEffects.push({sprite:blast,until:this.time.now+180});
+          for(const enemy of this.enemies){
+            if(enemy.hp>0&&inExplosion(enemy,blocked)){
+              enemy.hp=applyEnemyHit(enemy.hp,OBSTACLE_RULES.enemyExplosionDamage);
+              enemy.hitUntil=this.time.now+120;
+              if(enemy.hp===0)enemy.sprite.destroy();
+              else enemy.sprite.setAlpha(0.45);
+            }
+          }
+          if(inExplosion(this.player,blocked)){
+            const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},this.time.now);
+            this.playerHp=hp.hp;this.invulnerableUntil=hp.invulnerableUntil;
+            this.hpText.setText('HP: '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
+            if(this.playerHp===0){this.defeated=true;this.resetMovement();this.openMenu();return;}
+          }
+        }
+      }
+      if(item.hit){item.object.destroy();continue;}
       for(const enemy of this.enemies){
         if(enemy.hp<=0)continue;
         if(segmentHitsCircle(old,item.object,enemy,ENCOUNTER.enemyRadius+5)){
@@ -274,10 +326,14 @@ export class ArenaScene extends Phaser.Scene {
       }
     }
     this.projectiles=this.projectiles.filter(item=>!item.hit);
+    for(const o of this.obstacles){if(o.alive&&this.time.now>=o.hitUntil)o.sprite.setAlpha(1);}
+    for(const effect of this.explosionEffects){if(this.time.now>=effect.until)effect.sprite.destroy();}
+    this.explosionEffects=this.explosionEffects.filter(e=>e.sprite.active);
     for(const enemy of this.enemies){
       if(enemy.hp<=0)continue;
       const next=advanceEnemy(enemy,this.player,seconds);
-      enemy.x=next.x;enemy.y=next.y;
+      const blockedPosition=resolveObstaclePosition(enemy,next,ENCOUNTER.enemyRadius,this.obstacles);
+      enemy.x=blockedPosition.x;enemy.y=blockedPosition.y;
       enemy.sprite.setPosition(enemy.x,enemy.y);
       if(this.time.now>=enemy.hitUntil)enemy.sprite.setAlpha(1);
       if(Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<=ENCOUNTER.enemyRadius+17){
