@@ -104,6 +104,17 @@ try {
   await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
   await evaluate('window.__game.scale.refresh();true');
   await waitFor(s=>Math.abs(s.rect.height-360)<2,'landscape');
+  // Actual HTML click, using the same toggleFullscreen function as production.
+  if ((await snapshot()).fullscreenSupported) {
+    for (const expected of [true,false,true,false]) {
+      const before=await snapshot();
+      await click(before.fullscreenRect.x,before.fullscreenRect.y);
+      await waitFor(s=>s.fullscreenActive===expected,'fullscreen toggle '+expected);
+      assert.equal((await snapshot()).fullscreenVisible,true,'Fullscreen HTML button disappeared from Menu');
+    }
+  } else {
+    console.log('INFO: Chromium fullscreen API unsupported; Android manual toggle required');
+  }
   await clickControl('NOWA GRA');
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   assert.equal((await snapshot()).fullscreenVisible,false);
