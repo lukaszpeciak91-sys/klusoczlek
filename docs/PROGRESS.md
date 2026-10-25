@@ -97,6 +97,11 @@
 - Browser focus cannot release user pause; existing world pause/resume stays guarded by actual browser state and Phaser scene status. Scale.RESIZE, safe area and 92px joystick unchanged.
 - PR verification must include live CI and real Android Chrome smoke. Main-menu-only approach supersedes D023 with D025.
 
+## PR09 — recovery after merged PR08 (2026-10-25; pending independent audit)
+- Based on latest main, compared against fix/pr08-menu-freeze-navigation. Ported only the three post-merge runtime additions to src/scenes.js: bring Menu to top after launch, hide fullscreen in Arena.create, hide fullscreen on Arena RESUME.
+- Imported the focused Chromium browser test changes: actual CDP touch events, 20 MENU/WZNÓW cycles, scene order, computed fullscreen visibility, camera/player identity, 320/360/375/420 landscape geometry. No extra runtime systems/assets.
+- RED attempt: browser CI Chromium DevTools bootstrap failed before Phaser loaded (not a verified behavioral RED). Earlier Android evidence confirms the user-visible menu freeze. Treat remaining Android real-device smoke and CI evidence separately.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
