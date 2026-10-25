@@ -31,18 +31,22 @@ try {
     '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
     '--no-first-run', '--no-default-browser-check', '--remote-allow-origins=*',
     '--remote-debugging-port=' + chromePort, '--user-data-dir=' + profile, url,
-  ], {stdio:'ignore'});
-
+  ], {stdio:['ignore','pipe','pipe']});
+  let chromeOutput='';
+  chrome.stdout.on('data', c=>chromeOutput+=c.toString());
+  chrome.stderr.on('data', c=>chromeOutput+=c.toString());
+  let seenPages=[];
   let page;
   for (let i = 0; i < 100; i++) {
     try {
       const tabs = await (await fetch(`http://127.0.0.1:${chromePort}/json/list`)).json();
+      seenPages=tabs.map(tab=>({type:tab.type,url:tab.url}));
       page = tabs.find(tab => tab.type === 'page' && tab.url.includes('browser-lifecycle'));
       if (page?.webSocketDebuggerUrl) break;
     } catch {}
     await sleep(150);
   }
-  assert.ok(page?.webSocketDebuggerUrl, 'Chromium DevTools page unavailable');
+  assert.ok(page?.webSocketDebuggerUrl, 'Chromium DevTools page unavailable; pages='+JSON.stringify(seenPages)+'; exit='+chrome.exitCode+'; stderr='+chromeOutput.slice(-2000));
   socket = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((resolve,reject) => {
     socket.addEventListener('open', resolve, {once:true});
