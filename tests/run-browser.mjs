@@ -96,7 +96,7 @@ try {
   assert.equal((await snapshot()).fullscreenHidden,false,'Fullscreen must be visible in menu');
   for(const height of [320,360,375,420]){
     const width=Math.round(height*20/9);
-    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
     await waitFor(s=>Math.abs(s.rect.height-height)<2,'resize '+height);
     let state=await snapshot();
     assert.equal(state.action,'START');
