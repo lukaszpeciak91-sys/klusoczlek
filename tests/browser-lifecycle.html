@@ -9,6 +9,7 @@ window.__game=game;
 window.__snapshot=() => {
   const arena=game.scene.getScene('Arena');
   const menu=game.scene.getScene('Menu');
+  if(!arena?.sys||!menu?.sys)return null;
   const canvas=game.canvas.getBoundingClientRect();
   const action=menu.sys.isActive()?menu.input._list.find(o=>o.input&&o.width>150):null;
   const hud=arena.sys.isActive()?arena.input._list.find(o=>o.input&&o.width===185):null;
