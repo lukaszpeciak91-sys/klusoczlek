@@ -112,6 +112,7 @@ try {
       await waitFor(s=>s.fullscreenActive===expected,'fullscreen toggle '+expected);
       assert.equal((await snapshot()).fullscreenVisible,true,'Fullscreen HTML button disappeared from Menu');
     }
+    console.log('PASS native fullscreen enter/exit/enter/exit through HTML touch');
   } else {
     console.log('INFO: Chromium fullscreen API unsupported; Android manual toggle required');
   }
