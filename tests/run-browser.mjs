@@ -122,6 +122,11 @@ try {
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   assert.equal((await snapshot()).fullscreenVisible,false);
   await evaluate('window.__movePlayer()');
+  const artState=await snapshot();
+  assert.equal(artState.playerVisual.loaded,false,'Missing optional art must fall back');
+  assert.equal(artState.playerVisual.physicsVisible,true,'Missing art hid physics marker');
+  assert.equal(artState.playerVisual.bodyRadius,17,'Changed Arcade collision radius');
+  assert.equal(artState.playerVisual.followIdentity,true,'Camera stopped following physics player');
   // Two simultaneous *real CDP touch points*, right-first to test independent capture.
   const a=await snapshot();
   assert.ok(a.controls&&a.controls.targetCount===3,'Twin-stick training arena not initialized');
