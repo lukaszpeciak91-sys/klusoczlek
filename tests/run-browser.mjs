@@ -119,6 +119,7 @@ try {
     assert.equal(menuState.samePlayer,true,'Arena player instance replaced');
     assert.equal(menuState.sameCamera,true,'Arena camera instance replaced');
     assert.equal(menuState.fullscreenHidden,false,'Fullscreen must be visible in Main Menu');
+    assert.equal(menuState.menuOverArena,true,'Main Menu is rendered behind paused Arena; order='+JSON.stringify(menuState.sceneOrder));
     // Browser focus loss cannot undo an intentional user pause.
     await evaluate('window.dispatchEvent(new Event("blur"));window.dispatchEvent(new Event("focus"))');
     menuState=await snapshot();
