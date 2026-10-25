@@ -2,17 +2,18 @@ import Phaser from 'phaser';
 import { normalizeInput } from './movement.js';
 import { arenaHudLayout } from './ui-layout.js';
 
-export function createJoystick(scene) {
+export function createJoystick(scene, side='left') {
   const initial = arenaHudLayout(scene.scale.height, scene.scale.width);
   const radius = initial.joystickRadius;
-  let x = initial.joystickX;
-  let y = initial.joystickY;
+  let x = side==='left'?initial.joystickX:initial.aimX;
+  let y = side==='left'?initial.joystickY:initial.aimY;
   const base = scene.add.circle(x, y, radius, 0x1b2330, 0.65)
     .setStrokeStyle(3, 0xd4aa5a, 0.9).setScrollFactor(0).setDepth(50);
-  const knob = scene.add.circle(x, y, 20, 0xf3ca76, 0.85)
+  const knob = scene.add.circle(x, y, 20, side==='left'?0xf3ca76:0x92d7e8, 0.85)
     .setScrollFactor(0).setDepth(51);
   const direction = { x: 0, y: 0 };
   let pointerId = null;
+  let held=false;
   const update = pointer => {
     // Pointer coordinates are screen-local; joystick elements ignore camera scrolling.
     const dx = pointer.x - x;
@@ -27,13 +28,16 @@ export function createJoystick(scene) {
   const down = pointer => {
     if (pointerId !== null) return;
     if (Math.hypot(pointer.x - x, pointer.y - y) > radius * 1.4) return;
+    if(pointer.wasTouch===false)return;
     pointerId = pointer.id;
+    held=true;
     update(pointer);
   };
   const move = pointer => { if (pointer.id === pointerId) update(pointer); };
   const release = pointer => { if (pointer.id === pointerId) reset(); };
   function reset() {
     pointerId = null;
+    held=false;
     direction.x = direction.y = 0;
     knob.setPosition(x, y);
   }
@@ -41,12 +45,14 @@ export function createJoystick(scene) {
   scene.input.on('pointermove', move);
   scene.input.on('pointerup', release);
   scene.input.on('pointerupoutside', release);
+  scene.input.on('pointercancel', release);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
     reset();
     scene.input.off('pointerdown', down);
     scene.input.off('pointermove', move);
     scene.input.off('pointerup', release);
     scene.input.off('pointerupoutside', release);
+    scene.input.off('pointercancel', release);
   });
   function reposition(nextX, nextY) {
     reset();
@@ -55,5 +61,5 @@ export function createJoystick(scene) {
     base.setPosition(x, y);
     knob.setPosition(x, y);
   }
-  return { direction, reset, reposition };
+  return { direction, reset, reposition, get held(){return held;},get pointerId(){return pointerId;} };
 }
