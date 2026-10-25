@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ArenaScene, MenuScene } from './scenes.js';
 import { GAME_WIDTH, GAME_HEIGHT, setupViewport } from './viewport.js';
 import './style.css';
+import { toggleFullscreen } from './fullscreen.js';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -20,24 +21,4 @@ const game = new Phaser.Game({
 
 setupViewport(game);
 
-async function toggleFullscreen() {
-  const element = document.getElementById('game-shell');
-  try {
-    if (document.fullscreenElement) {
-      if (document.exitFullscreen) await document.exitFullscreen();
-    } else if (element.requestFullscreen) {
-      await element.requestFullscreen();
-      try {
-        if (screen.orientation?.lock) await screen.orientation.lock('landscape');
-      } catch {
-        // Orientation lock is optional.
-      }
-    }
-  } catch {
-    // Fullscreen permission and API support vary by browser.
-  } finally {
-    game.scale.refresh();
-  }
-}
-
-document.getElementById('fullscreen-button').addEventListener('click', toggleFullscreen);
+document.getElementById('fullscreen-button').addEventListener('click', () => toggleFullscreen(document.getElementById('game-shell'), () => game.scale.refresh()));
