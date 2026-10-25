@@ -94,6 +94,7 @@ try {
   await waitFor(s=>s.menu&&s.action==='START','initial START');
   await evaluate('window.__traceEvents()');
   assert.equal((await snapshot()).fullscreenHidden,false,'Fullscreen must be visible in menu');
+  assert.equal((await snapshot()).fullscreenVisible,true,'Fullscreen computed display hidden in Menu');
   for(const height of [320,360,375,420]){
     const width=Math.round(height*20/9);
     await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
@@ -119,6 +120,8 @@ try {
     assert.equal(menuState.samePlayer,true,'Arena player instance replaced');
     assert.equal(menuState.sameCamera,true,'Arena camera instance replaced');
     assert.equal(menuState.fullscreenHidden,false,'Fullscreen must be visible in Main Menu');
+    assert.equal(menuState.fullscreenVisible,true,'Fullscreen computed display is hidden in Main Menu');
+    assert.equal(menuState.menuOverArena,true,'Main Menu is rendered behind paused Arena; order='+JSON.stringify(menuState.sceneOrder));
     // Browser focus loss cannot undo an intentional user pause.
     await evaluate('window.dispatchEvent(new Event("blur"));window.dispatchEvent(new Event("focus"))');
     menuState=await snapshot();
@@ -130,6 +133,7 @@ try {
     assert.equal(arenaState.samePlayer,true,'Player recreated on resume');
     assert.equal(arenaState.sameCamera,true,'Camera recreated on resume');
     assert.equal(arenaState.fullscreenHidden,true,'Fullscreen must be hidden in Arena');
+    assert.equal(arenaState.fullscreenVisible,false,'Fullscreen computed display visible during Arena');
   }
   await clickControl('hud');
   await waitFor(s=>s.menu&&s.action==='WZNÓW','last Menu');
