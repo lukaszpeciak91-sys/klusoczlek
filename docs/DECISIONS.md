@@ -39,7 +39,9 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 | D024 | ACCEPTED | Phaser Scale.RESIZE is the sole canvas sizing mechanism inside the safe-area parent; no independent logical resize plus FIT or CSS max dimensions | Correct aspect ratio and full mobile screen use |
 
 D022 pozostaje w historii; jego sztywna wysokość 540 została zastąpiona przez D024 (Phaser RESIZE — logiczne jednostki odpowiadają aktualnemu bezpiecznemu obszarowi CSS).
-\n| D025 | ACCEPTED | MENU in Arena pauses its existing session and opens Main Menu; WZNÓW resumes that Arena; START appears only when no session exists | One navigation surface, no intermediate PauseScene or duplicate transition ownership |
+\n| D025 | SUPERSEDED | MENU in Arena pauses its existing session and opens Main Menu; WZNÓW resumes that Arena; START appears only when no session exists | One navigation surface, no intermediate PauseScene or duplicate transition ownership |
+
+| D026 | ACCEPTED | Main Menu always offers NOWA GRA, adds WZNÓW for a paused Arena; fullscreen HTML toggles enter/exit only in Main Menu | Explicit new versus existing session and reversible fullscreen |
 
 ## Otwarte, bez blokowania startu
 - O001: nazwa i wygląd trzeciego wroga.

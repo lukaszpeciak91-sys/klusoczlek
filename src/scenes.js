@@ -41,27 +41,34 @@ export class MenuScene extends Phaser.Scene {
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
     const subtitle = label(this, initial.centerX, initial.subtitleY, 'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
-    // The paused Arena itself is the single owner of the active session.
     const hasSession = this.scene.isPaused('Arena');
-    const action = button(this, initial.centerX, initial.startY, initial.startWidth, initial.startHeight,
-      hasSession ? 'WZNÓW' : 'START', () => {
-        if (this.navigating || document.hidden || window.innerWidth < window.innerHeight) return;
-        this.navigating = true;
-        if (hasSession) {
-          const arena = this.scene.get('Arena');
-          arena.resetMovement();
-          this.scene.resume('Arena');
-          this.scene.stop();
-        } else {
-          this.scene.start('Arena');
-        }
-      });
+    const startY = hasSession ? initial.startY - Math.min(44, this.scale.height * 0.12) : initial.startY;
+    const resumeY = initial.startY + Math.min(44, this.scale.height * 0.12);
+    const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
+    const newGame = button(this, initial.centerX, startY, initial.startWidth, initial.startHeight, 'NOWA GRA', () => {
+      if (!allowed()) return;
+      this.navigating = true;
+      if (hasSession) this.scene.stop('Arena');
+      this.scene.start('Arena');
+    });
+    const resume = hasSession ? button(this, initial.centerX, resumeY, initial.startWidth, initial.startHeight, 'WZNÓW', () => {
+      if (!allowed()) return;
+      this.navigating = true;
+      const arena = this.scene.get('Arena');
+      arena.resetMovement();
+      this.scene.resume('Arena');
+      this.scene.stop();
+    }) : null;
     const resize = () => {
       const layout = menuLayout(this.scale.width, this.scale.height);
+      const offset = Math.min(44, this.scale.height * 0.12);
       title.setPosition(layout.centerX, layout.titleY).setFontSize(layout.titleSize);
       subtitle.setPosition(layout.centerX, layout.subtitleY).setFontSize(layout.subtitleSize);
-      action.background.setPosition(layout.centerX, layout.startY).setSize(layout.startWidth, layout.startHeight);
-      action.caption.setPosition(layout.centerX, layout.startY);
+      for (const [control, y] of [[newGame, hasSession ? layout.startY - offset : layout.startY], [resume, layout.startY + offset]]) {
+        if (!control) continue;
+        control.background.setPosition(layout.centerX, y).setSize(layout.startWidth, layout.startHeight);
+        control.caption.setPosition(layout.centerX, y);
+      }
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, resize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, resize));

@@ -85,61 +85,71 @@ try {
   }
   async function clickControl(which){
     const state=await snapshot();
-    const target=which==='hud'?state.menuButton:state.button;
-    assert.ok(target, 'Missing '+which+' interactive hit area: '+JSON.stringify(state));
-    assert.ok(target.y-target.height/2>=0 && target.y+target.height/2<=state.rect.height,'Button clipped');
+    const target=which==='hud'?state.menuButton:state.actions.find(a=>a.label===which);
+    assert.ok(target,'Missing '+which+' interactive hit area '+JSON.stringify(state));
+    assert.ok(target.y-target.height/2>=0&&target.y+target.height/2<=state.rect.height,'Button clipped: '+which);
     await click(state.rect.x+target.x,state.rect.y+target.y);
   }
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
-  await waitFor(s=>s.menu&&s.action==='START','initial START');
+  await waitFor(s=>s.menu&&s.actions.length===1&&s.actions[0].label==='NOWA GRA','initial single new game');
   await evaluate('window.__traceEvents()');
-  assert.equal((await snapshot()).fullscreenHidden,false,'Fullscreen must be visible in menu');
-  assert.equal((await snapshot()).fullscreenVisible,true,'Fullscreen computed display hidden in Menu');
   for(const height of [320,360,375,420]){
     const width=Math.round(height*20/9);
     await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
     await evaluate('window.__game.scale.refresh();true');
-    await waitFor(s=>Math.abs(s.rect.height-height)<2,'resize '+height);
-    let state=await snapshot();
-    assert.equal(state.action,'START');
-    assert.ok(state.button.y+state.button.height/2<=height,'START clipped');
+    const state=await waitFor(s=>Math.abs(s.rect.height-height)<2,'resize '+height);
+    assert.equal(state.actions.length,1);
+    assert.ok(state.actions[0].y+state.actions[0].height/2<=height,'NOWA GRA clipped');
   }
   await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
   await evaluate('window.__game.scale.refresh();true');
-  await waitFor(s=>Math.abs(s.rect.height-360)<2,'return to landscape');
-
-  await clickControl('action');
-  await waitFor(s=>s.arena&&!s.menu,'START to Arena');
-  assert.equal((await snapshot()).fullscreenHidden,true,'Fullscreen visible immediately after START');
+  await waitFor(s=>Math.abs(s.rect.height-360)<2,'landscape');
+  // Actual HTML click, using the same toggleFullscreen function as production.
+  if ((await snapshot()).fullscreenSupported) {
+    for (const expected of [true,false,true,false]) {
+      const before=await snapshot();
+      await click(before.fullscreenRect.x,before.fullscreenRect.y);
+      await waitFor(s=>s.fullscreenActive===expected,'fullscreen toggle '+expected);
+      assert.equal((await snapshot()).fullscreenVisible,true,'Fullscreen HTML button disappeared from Menu');
+    }
+    console.log('PASS native fullscreen enter/exit/enter/exit through HTML touch');
+  } else {
+    console.log('INFO: Chromium fullscreen API unsupported; Android manual toggle required');
+  }
+  await clickControl('NOWA GRA');
+  await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
+  assert.equal((await snapshot()).fullscreenVisible,false);
   await evaluate('window.__movePlayer()');
   for(let i=0;i<20;i++){
     await clickControl('hud');
-    let menuState=await waitFor(s=>s.menu&&s.arenaPaused&&s.action==='WZNÓW','Arena MENU '+i);
-    assert.equal(menuState.player.x,552);
-    assert.equal(menuState.player.y,440);
-    assert.equal(menuState.samePlayer,true,'Arena player instance replaced');
-    assert.equal(menuState.sameCamera,true,'Arena camera instance replaced');
-    assert.equal(menuState.fullscreenHidden,false,'Fullscreen must be visible in Main Menu');
-    assert.equal(menuState.fullscreenVisible,true,'Fullscreen computed display is hidden in Main Menu');
-    assert.equal(menuState.menuOverArena,true,'Main Menu is rendered behind paused Arena; order='+JSON.stringify(menuState.sceneOrder));
-    // Browser focus loss cannot undo an intentional user pause.
-    await evaluate('window.dispatchEvent(new Event("blur"));window.dispatchEvent(new Event("focus"))');
-    menuState=await snapshot();
-    assert.equal(menuState.arenaPaused,true,'Focus unexpectedly resumed Arena');
-    await clickControl('action');
-    const arenaState=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'Menu WZNÓW '+i);
-    assert.deepEqual(arenaState.player,{x:552,y:440},'Player position reset');
-    assert.equal(arenaState.physics,false,'Arcade Physics remained paused');
-    assert.equal(arenaState.samePlayer,true,'Player recreated on resume');
-    assert.equal(arenaState.sameCamera,true,'Camera recreated on resume');
-    assert.equal(arenaState.fullscreenHidden,true,'Fullscreen must be hidden in Arena');
-    assert.equal(arenaState.fullscreenVisible,false,'Fullscreen computed display visible during Arena');
+    let state=await waitFor(s=>s.menu&&s.arenaPaused&&s.actions.length===2,'Menu two buttons '+i);
+    assert.deepEqual(state.actions.map(a=>a.label),['NOWA GRA','WZNÓW']);
+    assert.equal(state.menuOverArena,true);
+    assert.equal(state.fullscreenVisible,true);
+    assert.equal(state.physics,true);
+    assert.equal(state.samePlayer,true);
+    assert.equal(state.sameCamera,true);
+    assert.ok(state.actions[1].y-state.actions[0].y>state.actions[0].height,'Overlapping menu hitboxes');
+    await evaluate('window.dispatchEvent(new Event("blur"));window.dispatchEvent(new Event("focus"));true');
+    assert.equal((await snapshot()).arenaPaused,true);
+    await clickControl('WZNÓW');
+    state=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'Resume '+i);
+    assert.deepEqual(state.player,{x:552,y:440});
+    assert.equal(state.physics,false);
+    assert.equal(state.samePlayer,true);
+    assert.equal(state.sameCamera,true);
+    assert.equal(state.fullscreenVisible,false);
   }
   await clickControl('hud');
-  await waitFor(s=>s.menu&&s.action==='WZNÓW','last Menu');
-  await evaluate('window.__game.scene.stop("Arena");window.__game.scene.stop("Menu");window.__game.scene.start("Menu");true');
-  await waitFor(s=>s.menu&&s.action==='START','START after session termination');
-  console.log('PASS real Phaser pointer clicks: 20 MENU/WZNÓW cycles, same player/camera, physics, START after session end');
+  await waitFor(s=>s.menu&&s.actions.length===2,'Menu before new game');
+  await clickControl('NOWA GRA');
+  const fresh=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'New game replaces session');
+  assert.equal(fresh.samePlayer,false,'NOWA GRA reused existing player');
+  assert.notDeepEqual(fresh.player,{x:552,y:440},'NOWA GRA retained old position');
+  assert.equal(fresh.physics,false,'New game physics paused');
+  await clickControl('hud');
+  await waitFor(s=>s.menu&&s.actions.length===2,'Menu again after fresh session');
+  console.log('PASS real Phaser touch: NOWA GRA always, WZNÓW additional, 20 cycles, fresh session, physics and fullscreen visibility');
 
 } finally {
   socket?.close();
