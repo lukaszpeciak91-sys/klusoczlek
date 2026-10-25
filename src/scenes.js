@@ -4,6 +4,7 @@ import { createPlayer } from './player.js';
 import { createJoystick } from './joystick.js';
 import { resolvePose } from './combat-contract.js';
 import { resolveAim, shouldFire, muzzlePoint, PROJECTILE_SPEED } from './shooting.js';
+import { ENCOUNTER, enemySpawns, advanceEnemy, applyEnemyHit, applyPlayerContact, segmentHitsCircle } from './bobrozombi.js';
 import { menuLayout, arenaHudLayout } from './ui-layout.js';
 import { enforceOrientationOnSceneStart } from './viewport.js';
 
@@ -42,8 +43,9 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.background);
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
-    const subtitle = label(this, initial.centerX, initial.subtitleY, 'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
     const hasSession = this.scene.isPaused('Arena');
+    const defeated = hasSession && this.scene.get('Arena').defeated;
+    const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'PRZEGRANA — NOWA GRA':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
     const startY = hasSession ? initial.startY - Math.min(44, this.scale.height * 0.12) : initial.startY;
     const resumeY = initial.startY + Math.min(44, this.scale.height * 0.12);
     const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
@@ -53,7 +55,7 @@ export class MenuScene extends Phaser.Scene {
       if (hasSession) this.scene.stop('Arena');
       this.scene.start('Arena');
     });
-    const resume = hasSession ? button(this, initial.centerX, resumeY, initial.startWidth, initial.startHeight, 'WZNÓW', () => {
+    const resume = hasSession && !defeated ? button(this, initial.centerX, resumeY, initial.startWidth, initial.startHeight, 'WZNÓW', () => {
       if (!allowed()) return;
       this.navigating = true;
       const arena = this.scene.get('Arena');
@@ -103,6 +105,21 @@ export class ArenaScene extends Phaser.Scene {
     this.lastFacing='s';
     this.lastShotAt=null;
     this.projectiles=[];
+    this.playerHp=ENCOUNTER.playerMaxHp;
+    this.invulnerableUntil=0;
+    this.defeated=false;
+    this.enemies=enemySpawns(this.player).map(({x,y})=>{
+      const sprite=this.add.container(x,y).setDepth(9);
+      sprite.add(this.add.ellipse(0,0,42,37,0x745a44).setStrokeStyle(3,0x211b18));
+      sprite.add(this.add.rectangle(-11,-2,13,7,0xf1ddac));
+      sprite.add(this.add.rectangle(11,-2,13,7,0xf1ddac));
+      sprite.add(this.add.circle(-8,-9,4,0xe64b48));
+      sprite.add(this.add.circle(8,-9,4,0xe64b48));
+      return {x,y,hp:ENCOUNTER.enemyHp,sprite,hitUntil:0};
+    });
+    this.hpText=this.add.text(this.scale.width/2,13,'HP: '+this.playerHp+'/'+ENCOUNTER.playerMaxHp,
+      {fontFamily:'monospace',fontSize:'23px',color:'#f3e8d1'})
+      .setOrigin(0.5,0).setScrollFactor(0).setDepth(64);
     this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
       this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
     this.facingMarker=this.add.graphics().setDepth(12);
@@ -132,6 +149,7 @@ export class ArenaScene extends Phaser.Scene {
       this.aimJoystick.reposition(pos.aimX,pos.aimY);
       this.mouseHeld=false;
       this.lastShotAt=null;
+      this.hpText.setX(this.scale.width/2);
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, resizeHud);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
@@ -171,6 +189,8 @@ export class ArenaScene extends Phaser.Scene {
     window.addEventListener('resize', this.onResize);
     document.addEventListener('visibilitychange', this.onVisibility);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.enemies.length=0;
+      this.projectiles.length=0;
       // Phaser may have removed the player body before SHUTDOWN; do not access it here.
       // Phaser has already torn down Arcade Physics by SHUTDOWN; no physics calls here.
       window.removeEventListener('blur', this.onBlur);
@@ -193,7 +213,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   update() {
-    if (document.hidden || window.innerHeight > window.innerWidth) {
+    if (this.defeated || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);
       return;
     }
@@ -228,7 +248,20 @@ export class ArenaScene extends Phaser.Scene {
     }
     const seconds=Math.min(this.game.loop.delta,50)/1000;
     for(const item of this.projectiles){
+      const old={x:item.object.x,y:item.object.y};
       item.object.x+=item.vx*seconds;item.object.y+=item.vy*seconds;
+      for(const enemy of this.enemies){
+        if(enemy.hp<=0)continue;
+        if(segmentHitsCircle(old,item.object,enemy,ENCOUNTER.enemyRadius+5)){
+          enemy.hp=applyEnemyHit(enemy.hp);
+          enemy.hitUntil=this.time.now+120;
+          enemy.sprite.setAlpha(0.45);
+          item.hit=true;
+          if(enemy.hp===0)enemy.sprite.destroy();
+          break;
+        }
+      }
+      if(item.hit){item.object.destroy();continue;}
       for(const target of this.targets){
         if(target.active&&Phaser.Math.Distance.Between(item.object.x,item.object.y,target.x,target.y)<27){
           target.setFillStyle(0x80c69d);
@@ -241,6 +274,26 @@ export class ArenaScene extends Phaser.Scene {
       }
     }
     this.projectiles=this.projectiles.filter(item=>!item.hit);
+    for(const enemy of this.enemies){
+      if(enemy.hp<=0)continue;
+      const next=advanceEnemy(enemy,this.player,seconds);
+      enemy.x=next.x;enemy.y=next.y;
+      enemy.sprite.setPosition(enemy.x,enemy.y);
+      if(this.time.now>=enemy.hitUntil)enemy.sprite.setAlpha(1);
+      if(Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<=ENCOUNTER.enemyRadius+17){
+        const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},this.time.now);
+        this.playerHp=hp.hp;
+        this.invulnerableUntil=hp.invulnerableUntil;
+        this.hpText.setText('HP: '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
+        if(this.playerHp===0){
+          this.defeated=true;
+          this.resetMovement();
+          this.openMenu();
+          return;
+        }
+      }
+    }
+    this.enemies=this.enemies.filter(enemy=>enemy.hp>0);
   }
 }
 

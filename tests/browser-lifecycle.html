@@ -46,6 +46,8 @@ window.__snapshot=() => {
       mouseHeld:arena.mouseHeld,lastFacing:arena.lastFacing,
       shots:arena.projectiles.length,shotAt:arena.lastShotAt,
       targetCount:arena.targets.length,
+      hp:arena.playerHp,defeated:arena.defeated,
+      enemies:arena.enemies.map(e=>({x:e.x,y:e.y,hp:e.hp})),
     }:null,
     menuOverArena:game.scene.scenes.indexOf(menu)>game.scene.scenes.indexOf(arena),
     trace:window.__trace.slice(-20),

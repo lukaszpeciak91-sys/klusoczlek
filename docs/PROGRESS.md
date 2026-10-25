@@ -143,3 +143,10 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 ## Twin-stick vertical slice — 2026-10-25 (PR pending audit)
 - Two visible 92px independent touch controls; held right fire, mouse hold firing, procedural shots and training targets; no art assets or combat systems.
 - Maintains Arcade player/camera radius and Scale.RESIZE; pure cadence tests. Browser CI and Android Chrome two-touch acceptance required before merge.
+
+## PR14 Bobrozombi first enemy vertical slice — 2026-10-25 (pending audit)
+- Three deterministic Arena-edge spawns; Bobrozombi pursue player at 65 world px/s, take 3 projectile hits and disappear.
+- Provisional player HP 5, contact damage 1, 800ms invulnerability; defeat uses existing Main Menu with only NOWA GRA. No new PauseScene.
+- 17px player circle/physics/camera, twin-stick, manual 360-degree fire, Scale.RESIZE preserved.
+- Procedural graphics only; no final waves, enemies, pickups or binaries.
+- Automated unit and real Chromium gameplay checks added; actual Android Chrome smoke and independent audit gate still required.

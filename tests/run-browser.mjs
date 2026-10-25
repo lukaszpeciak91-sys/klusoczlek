@@ -205,6 +205,33 @@ try {
   assert.equal(fresh.samePlayer,false,'NOWA GRA reused existing player');
   assert.notDeepEqual(fresh.player,{x:552,y:440},'NOWA GRA retained old position');
   assert.equal(fresh.physics,false,'New game physics paused');
+  assert.equal(fresh.controls.hp,5,'Fresh player HP not reset');
+  assert.equal(fresh.controls.enemies.length,3,'Fresh deterministic enemy set missing');
+  // Force one enemy into predictable aim lane; shoot via actual CDP mouse coordinates.
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'); const e=a.enemies[0];e.x=a.player.x+120;e.y=a.player.y;e.sprite.setPosition(e.x,e.y);return true})()");
+  const pos=await snapshot();
+  const cx=pos.rect.x+pos.scale.width/2;
+  const cy=pos.rect.y+pos.scale.height/2;
+  await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:cx+140,y:cy,button:'none'});
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:cx+140,y:cy,button:'left',buttons:1,clickCount:1});
+  await sleep(850);
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:cx+140,y:cy,button:'left',buttons:0,clickCount:1});
+  const killed=await snapshot();
+  assert.ok(killed.controls.enemies.length<3,'Actual mouse projectiles did not kill enemy');
+  // Contact HP and defeat, while Phaser owns the running scene.
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.x=a.player.x;e.y=a.player.y;e.sprite.setPosition(e.x,e.y)}return true})()");
+  const damaged=await waitFor(s=>s.controls.hp<5,'Contact damage');
+  assert.equal(damaged.controls.hp,4);
+  await sleep(200);
+  assert.equal((await snapshot()).controls.hp,4,'Invulnerability failed on continuous overlap');
+  await waitFor(s=>s.menu&&s.arenaPaused&&s.controls.defeated,'Defeat opens existing Menu');
+  const defeat=await snapshot();
+  assert.deepEqual(defeat.actions.map(a=>a.label),['NOWA GRA'],'Defeat exposed resume');
+  await clickControl('NOWA GRA');
+  const revived=await waitFor(s=>s.arena&&!s.menu&&!s.controls.defeated,'New game after defeat');
+  assert.equal(revived.controls.hp,5);
+  assert.equal(revived.controls.enemies.length,3);
+  console.log('PASS real Phaser shots -> enemy death, contact invulnerability, defeat, clean NEW GAME');
   await clickControl('hud');
   await waitFor(s=>s.menu&&s.actions.length===2,'Menu again after fresh session');
   console.log('PASS real Phaser touch: NOWA GRA always, WZNÓW additional, 20 cycles, fresh session, physics and fullscreen visibility');
