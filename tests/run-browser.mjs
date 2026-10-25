@@ -97,12 +97,14 @@ try {
   for(const height of [320,360,375,420]){
     const width=Math.round(height*20/9);
     await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+    await evaluate('window.__game.scale.refresh();true');
     await waitFor(s=>Math.abs(s.rect.height-height)<2,'resize '+height);
     let state=await snapshot();
     assert.equal(state.action,'START');
     assert.ok(state.button.y+state.button.height/2<=height,'START clipped');
   }
   await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
+  await evaluate('window.__game.scale.refresh();true');
   await waitFor(s=>Math.abs(s.rect.height-360)<2,'return to landscape');
 
   await clickControl('action');
