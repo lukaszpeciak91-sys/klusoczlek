@@ -5,8 +5,7 @@ export const assetManifest=Object.freeze([
   ...['rapid','heavy','spread'].map(id=>({id:`weapon_${id}`,path:`weapons/${id}.png`,width:96,height:32,frameWidth:32,frameHeight:32,columns:3,rows:1,alpha:true,kind:'sheet',status:'pending'})),
   {id:'health_beer',path:'pickups/health_beer.png',width:32,height:32,frameWidth:32,frameHeight:32,columns:1,rows:1,alpha:true,kind:'image',status:'pending'},
   ...['high','medium','low'].map(id=>({id:`hp_${id}`,path:`portraits/hp_${id}.png`,width:128,height:128,frameWidth:128,frameHeight:128,columns:1,rows:1,alpha:true,kind:'image',status:'pending'})),
-  {id:'terrain_ground',path:'terrain/ground.png',width:64,height:64,frameWidth:64,frameHeight:64,columns:1,rows:1,alpha:false,kind:'tile',status:'pending'},
-  {id:'terrain_obstacle',path:'terrain/obstacle.png',width:64,height:64,frameWidth:64,frameHeight:64,columns:1,rows:1,alpha:true,kind:'image',status:'pending'},
+  {id:'terrain_ground',path:'terrain/arena-ground.png',width:1024,height:1024,frameWidth:1024,frameHeight:1024,columns:1,rows:1,alpha:false,kind:'tile',status:'pending'},
   ...['player','aloes','narrator'].map(id=>({id:`dialogue_${id}`,path:`dialogue/${id}.png`,width:192,height:192,frameWidth:192,frameHeight:192,columns:1,rows:1,alpha:true,kind:'image',status:'pending',approval:id==='aloes'?'approved_identity':'provisional_identity'})),
 ]);
 export function validateAssetManifest(entries=assetManifest){
