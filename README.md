@@ -1,5 +1,7 @@
 # KŁUSOCZŁEK
 
+🎮 **[ZAGRAJ W KŁUSOCZŁEKA — GitHub Pages](https://lukaszpeciak91-sys.github.io/klusoczlek/)**
+
 Mała, humorystyczna gra survival shooter 2D, działająca w przeglądarce na telefonie i PC. Projekt-prezent.
 
 **Status:** PR01 — minimalny fundament web w trakcie audytu, bez wdrożenia.
