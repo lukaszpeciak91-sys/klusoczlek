@@ -8,7 +8,7 @@ Landscape-only Phaser 3 survival arena. Main Menu is the single start/return sur
 - Two different touch pointer IDs may be captured simultaneously; each stick owns only its captured ID. Pointerup, pointerupoutside, pointercancel, blur, visibility loss, resize, orientation change, scene pause/menu navigation and shutdown release both captures, zero fire intent and motion. No handoff of an active pointer to the other stick; newly touch after cancellation.
 - On desktop WASD / arrows move; mouse position relative to player's world position aims, holding primary left mouse button fires. Mouse movement alone never fires. Mouse up/out, blur or leaving Arena stop firing. Touch pointers must not synthesize desktop fire.
 - Input must be gated by active unpaused Arena and landscape/focus. No auto-targeting, auto-shooting, reload or jump.
-- Current input implementation is single-stick only. This PR specifies the two-stick contract but intentionally does not install the second stick or firing.
+- Twin-stick and held shooting are implemented; this visual-only PR leaves combat controls unchanged.
 - Reserve Phaser Input capacity for at least two active simultaneous pointers when implementing; avoid setting identical pointer capture for both controls. Joystick zones must not overlap MENU or each other at supported viewport sizes.
 
 ## Facing and animation
@@ -16,8 +16,8 @@ Landscape-only Phaser 3 survival arena. Main Menu is the single start/return sur
 - Visual order: `e, se, s, sw, w, nw, n, ne`; octants rounded to nearest 45 degrees, ties clockwise by documented rounding in source.
 - Fire direction = raw normalized 360-degree aim vector (never snap projectile heading to sprite octant). Movement uses independent normalized movement vector; diagonal speed capped as existing.
 - While right stick actively firing, **whole character** faces aim; when not firing, faces motion; when motion is zero, preserves last visual facing. No separately animated torso/legs.
-- Animation keys: `idle_<direction>`, `walk_<direction>`, `fire_<direction>`. Fire takes visual priority while moving; animations do not control world velocity.
-- See `src/combat-contract.js`; pure functions are inert until a subsequent combat PR explicitly integrates input/combat.
+- Character sheets now have exactly eight single-pose frames, one for each facing; no idle/walk/fire frame rows. Walking appearance is optional ±2–3° sway and ±1–2px bob of a separate visual, never the physics body.
+- See `src/combat-contract.js` and `src/character-visual.js`; 8-frame single-pose contract supersedes former 96-frame sheet.
 
 ## Combat and pickups (NOT implemented in this PR)
 Three equally viable alternative weapons: rapid, heavy, spread (working identifiers, tuning open). One active, no inventory; touching a weapon pickup forces immediate replacement, even if unwanted. No protective choice UX. Short anti-double-trigger allowed. No firing after right release. HP pickup is beer; exact healing and rates open. Three enemies: bobrozombi (slow swarm), zubrokryptyda (tanky/charge candidate), enemy_fast (working name pending). Distinct waves separated by clear completion; victory and defeat. Tuning, spawn rules and wave count remain open.
