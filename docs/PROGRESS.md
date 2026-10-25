@@ -160,3 +160,8 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - D030 supersedes 96-frame character sheets: player 512×64 and three enemy sheets 384×48, eight single-pose frames in E/SE/S/SW/W/NW/N/NE order. All other asset specifications retained.
 - Optional original Aloes Podpalacz PNG manually uploaded by user only; code-driven fallback when missing/invalid. Separate Phaser visual sprite follows existing physics circle without changing game systems; subtle sway/bob purely visual.
 - Real artwork not yet provided/visually inspected; Android Chrome manual acceptance pending. No binary or deploy.
+
+## Asset directory scaffold (pending independent audit)
+- All seven directory categories from the approved asset manifest tracked via `.gitkeep` under `public/assets/`.
+- `.gitignore` excludes disposable artwork scratch/backup files and OS metadata but allows all approved production PNGs.
+- Vite retains its existing `publicDir` default and `/klusoczlek/` base; no gameplay, assets, packages, workflow, merge or deploy changes.
