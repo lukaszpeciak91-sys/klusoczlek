@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ArenaScene, MenuScene } from './scenes.js';
+import { ArenaScene, MenuScene, PauseScene } from './scenes.js';
 import { GAME_WIDTH, GAME_HEIGHT, setupViewport } from './viewport.js';
 import './style.css';
 
@@ -15,7 +15,7 @@ const game = new Phaser.Game({
   },
   render: { pixelArt: true, antialias: false },
   physics: { default: 'arcade', arcade: { debug: false } },
-  scene: [MenuScene, ArenaScene],
+  scene: [MenuScene, ArenaScene, PauseScene],
 });
 
 setupViewport(game);
