@@ -78,7 +78,7 @@ export class ArenaScene extends Phaser.Scene {
     };
     this.onBlur = () => { this.resetMovement(); this.physics.world.pause(); };
     this.onFocus = () => {
-      if (!document.hidden && window.innerWidth >= window.innerHeight) {
+      if (!document.hidden && document.hasFocus() && window.innerWidth >= window.innerHeight && !this.scene.isPaused('Arena')) {
         this.physics.world.resume();
       }
     };
