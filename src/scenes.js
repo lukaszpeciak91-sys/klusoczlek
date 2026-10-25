@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createJoystick } from './joystick.js';
+import { createPauseGate } from './pause.js';
 import { GAME_WIDTH, GAME_HEIGHT, enforceOrientationOnSceneStart } from './viewport.js';
 
 const COLORS = {
@@ -61,6 +62,7 @@ export class ArenaScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, ARENA.width, ARENA.height);
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
 
+    this.pauseGate = createPauseGate();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
     this.joystick = createJoystick(this);
     const menuButton = this.add.rectangle(105, 40, 185, 58, COLORS.panel)
@@ -107,7 +109,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   openPause() {
-    if (this.scene.isActive('Pause') || this.scene.isPaused('Arena')) return;
+    if (!this.pauseGate.open()) return;
     this.resetMovement();
     this.physics.world.pause();
     this.scene.launch('Pause');
@@ -140,18 +142,16 @@ export class PauseScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('rgba(14,16,26,0.92)');
     label(this, center, 150, 'PAUZA', 46).setColor(COLORS.accent);
     button(this, center, 285, 270, 70, 'WZNÓW', () => {
-      if (this.transitioning || document.hidden || window.innerHeight > window.innerWidth) return;
-      this.transitioning = true;
       const arena = this.scene.get('Arena');
+      if (document.hidden || window.innerHeight > window.innerWidth || !arena.pauseGate.resume()) return;
       arena.resetMovement();
       arena.physics.world.resume();
       this.scene.resume('Arena');
       this.scene.stop();
     });
     button(this, center, 383, 300, 70, 'MENU GŁÓWNE', () => {
-      if (this.transitioning) return;
-      this.transitioning = true;
       const arena = this.scene.get('Arena');
+      if (!arena.pauseGate.exit()) return;
       arena.resetMovement();
       this.scene.stop('Arena');
       this.scene.start('Menu');
