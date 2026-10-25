@@ -26,6 +26,8 @@ window.__snapshot=() => {
     menuButton:hud?{x:hud.x,y:hud.y,width:hud.width,height:hud.height}:null,
     button:actions[0]??null,
     rect:{x:canvas.x,y:canvas.y,width:canvas.width,height:canvas.height},
+    gameBox:(()=>{const r=document.getElementById('game').getBoundingClientRect();return {width:r.width,height:r.height};})(),
+    scale:{width:game.scale.width,height:game.scale.height},
     player:arena.player?{x:arena.player.x,y:arena.player.y}:null,
     playerId:arena.player===window.__identity?.player,
     physics:arena.physics?.world?.isPaused??null,
