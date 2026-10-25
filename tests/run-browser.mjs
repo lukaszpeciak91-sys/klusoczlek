@@ -140,7 +140,7 @@ try {
   assert.ok(dual.controls.left.x>0,'left movement missing');
   assert.ok(dual.controls.right.x<0,'right aim missing');
   assert.ok(dual.controls.shotAt!==null,'held fire not started');
-  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[lMove]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[rMove]});
   await sleep(50);
   dual=await snapshot();
   assert.equal(dual.controls.right.id,null,'released right pointer still captured '+JSON.stringify(dual.controls));
