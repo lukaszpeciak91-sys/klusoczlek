@@ -147,7 +147,7 @@ export class ArenaScene extends Phaser.Scene {
     this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
       this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
     this.facingMarker=this.add.graphics().setDepth(12);
-    this.playerVisual=createPlayerVisual(this,this.player,this.facingMarker);
+    this.playerVisual=createPlayerVisual(this,this.player,this.facingMarker,Phaser);
     this.mouseHeld=false;
     this.mouseAim={x:0,y:0};
     const mouseDown=p=>{if(p.wasTouch===false&&p.leftButtonDown())this.mouseHeld=true;};
