@@ -97,6 +97,14 @@
 - Browser focus cannot release user pause; existing world pause/resume stays guarded by actual browser state and Phaser scene status. Scale.RESIZE, safe area and 92px joystick unchanged.
 - PR verification must include live CI and real Android Chrome smoke. Main-menu-only approach supersedes D023 with D025.
 
+## PR08 — MENU freeze investigation and repair (2026-10-25, pending independent audit)
+- Android observation: tapping Arena MENU freezes visible gameplay without visible Main Menu; fullscreen HTML remains over Arena.
+- Root cause evidenced by source scene order and new browser assertion: registration order [Menu,Arena] places paused Arena above relaunched Menu; Phaser paused scenes may remain rendered, so active Main Menu can be obscured. Prior tests asserted SceneManager status but not scene display order, actual top-layer visibility or touch.
+- Focused fix: Arena opens existing Menu scene and brings it to top in SceneManager's display order; no scene recreation. Fullscreen button is explicitly hidden when Arena starts/resumes and shown in Menu, retaining existing shutdown cleanup.
+- Test-only diagnostics capture ordered scene statuses/events, touch pointer coordinates, fullscreen hidden/computed visibility, physics, focus and orientation. New browser assertions cover 20 MENU/WZNÓW rounds with actual CDP touch events, retained same player/camera, and landscape heights 320/360/375/420.
+- No viewport settling, timers, extra state architecture, weapons, assets or deployment. Final CI and real Android Chrome verification must be reported separately.
+- Remaining Android smoke: Menu is visibly above Arena on the user's handset; 20 repeated touch navigations; fullscreen icon visible only in Menu; fullscreen enter/exit, background/foreground and portrait/landscape changes, safe areas and joystick hit area.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
