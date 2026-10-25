@@ -154,6 +154,8 @@ export class ArenaScene extends Phaser.Scene {
     this.physics.world.pause();
     this.scene.pause();
     this.scene.launch('Menu');
+    // A paused Phaser scene still renders; Menu must be above Arena.
+    this.scene.bringToTop('Menu');
   }
 
   update() {
