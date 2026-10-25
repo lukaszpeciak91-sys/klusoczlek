@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import { playerFrame } from './combat-contract.js';
 import { assetManifest } from './asset-manifest.js';
 
@@ -42,7 +43,7 @@ export function createPlayerVisual(scene,player,indicator){
    if(!alive)return;
    sprite=scene.add.sprite(player.x,player.y,PLAYER_ART_KEY,playerFrame('s')).setOrigin(0.5).setDepth(11);
    sprite.setScale(1);
-   sprite.texture.setFilter(0); // Phaser NEAREST
+   sprite.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
    player.setVisible(false);indicator.setVisible(false);
   }catch(err){if(alive)console.info('[Aloes] procedural fallback:',err.message);}
  }
