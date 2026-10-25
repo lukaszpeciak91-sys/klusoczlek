@@ -1,5 +1,7 @@
 # ASSETS — executable contract / Art Director handoff
 
+**Artistic visual direction:** [ART BIBLE v1.0](art/ART_BIBLE.md). Art documents do not override this technical contract or `src/asset-manifest.js`.
+
 All files below are **planned, not present**. Art Director can create original art independently to these exact dimensions and names; USER uploads PNG manually after approval. Agents must not commit or generate binaries. `src/asset-manifest.js` is the machine-readable mirrored manifest and currently has status `pending` for every asset. Do not preload a missing URL as a required game resource.
 
 ## Universal export rules
