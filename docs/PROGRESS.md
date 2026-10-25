@@ -102,6 +102,12 @@
 - Imported the focused Chromium browser test changes: actual CDP touch events, 20 MENU/WZNÓW cycles, scene order, computed fullscreen visibility, camera/player identity, 320/360/375/420 landscape geometry. No extra runtime systems/assets.
 - RED attempt: browser CI Chromium DevTools bootstrap failed before Phaser loaded (not a verified behavioral RED). Earlier Android evidence confirms the user-visible menu freeze. Treat remaining Android real-device smoke and CI evidence separately.
 
+## Main Menu dual actions and fullscreen toggle — pending audit (2026-10-25)
+- Main Menu now always offers NOWA GRA; WZNÓW appears additionally when Arena is paused. NOWA GRA stops old Arena and starts a fresh one; WZNÓW resumes same session.
+- Fullscreen HTML toggle enters/exits fullscreen with optional landscape lock on entry, and calls Phaser ScaleManager.refresh after transitions. No independent scaling or timers.
+- Browser test uses DevTools real touch coordinates for 20 MENU/WZNÓW cycles, validates dual buttons and fresh session, fullscreen HTML visibility, joystick-safe viewport sizes.
+- Actual full-screen enter/exit automated coverage limited by headless browser restrictions. Android Chrome manual smoke required.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
