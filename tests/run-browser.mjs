@@ -110,6 +110,8 @@ try {
     let menuState=await waitFor(s=>s.menu&&s.arenaPaused&&s.action==='WZNÓW','Arena MENU '+i);
     assert.equal(menuState.player.x,552);
     assert.equal(menuState.player.y,440);
+    assert.equal(menuState.samePlayer,true,'Arena player instance replaced');
+    assert.equal(menuState.sameCamera,true,'Arena camera instance replaced');
     // Browser focus loss cannot undo an intentional user pause.
     await evaluate('window.dispatchEvent(new Event("blur"));window.dispatchEvent(new Event("focus"))');
     menuState=await snapshot();
@@ -118,10 +120,14 @@ try {
     const arenaState=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'Menu WZNÓW '+i);
     assert.deepEqual(arenaState.player,{x:552,y:440},'Player position reset');
     assert.equal(arenaState.physics,false,'Arcade Physics remained paused');
+    assert.equal(arenaState.samePlayer,true,'Player recreated on resume');
+    assert.equal(arenaState.sameCamera,true,'Camera recreated on resume');
   }
   await clickControl('hud');
   await waitFor(s=>s.menu&&s.action==='WZNÓW','last Menu');
-  console.log('PASS real Phaser coordinate clicks: 10 MENU/WZNÓW cycles, same player and physics, short viewports');
+  await evaluate('window.__game.scene.stop("Arena");window.__game.scene.stop("Menu");window.__game.scene.start("Menu")');
+  await waitFor(s=>s.menu&&s.action==='START','START after session termination');
+  console.log('PASS real Phaser pointer clicks: 10 MENU/WZNÓW cycles, same player/camera, physics, START after session end');
 
 } finally {
   socket?.close();
