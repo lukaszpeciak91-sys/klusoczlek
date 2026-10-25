@@ -90,7 +90,7 @@ try {
     assert.ok(target.y-target.height/2>=0&&target.y+target.height/2<=state.rect.height,'Button clipped: '+which);
     await click(state.rect.x+target.x,state.rect.y+target.y);
   }
-  await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
+  await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
   await waitFor(s=>s.menu&&s.actions.length===1&&s.actions[0].label==='NOWA GRA','initial single new game');
   await evaluate('window.__traceEvents()');
   for(const height of [320,360,375,420]){
@@ -122,6 +122,39 @@ try {
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   assert.equal((await snapshot()).fullscreenVisible,false);
   await evaluate('window.__movePlayer()');
+  // Two simultaneous *real CDP touch points*, right-first to test independent capture.
+  const a=await snapshot();
+  assert.ok(a.controls&&a.controls.targetCount===3,'Twin-stick training arena not initialized');
+  const left={x:a.rect.x+60,y:a.rect.y+a.scale.height-60,id:11};
+  const right={x:a.rect.x+a.scale.width-60,y:a.rect.y+a.scale.height-60,id:12};
+  const rMove={...right,x:right.x-40,y:right.y-8};
+  const lMove={...left,x:left.x+35,y:left.y};
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[right]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[right,left]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[rMove,lMove]});
+  await sleep(240);
+  let dual=await snapshot();
+  assert.notEqual(dual.controls.left.id,null,'left pointer not captured');
+  assert.notEqual(dual.controls.right.id,null,'right pointer not captured');
+  assert.notEqual(dual.controls.left.id,dual.controls.right.id,'pointers not independent');
+  assert.ok(dual.controls.left.x>0,'left movement missing');
+  assert.ok(dual.controls.right.x<0,'right aim missing');
+  assert.ok(dual.controls.shotAt!==null,'held fire not started');
+  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[lMove]});
+  await sleep(50);
+  dual=await snapshot();
+  assert.equal(dual.controls.right.id,null,'released right pointer still captured');
+  assert.equal(dual.controls.shotAt,null,'released right pointer still firing');
+  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[left]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[lMove]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+  await sleep(45);
+  dual=await snapshot();
+  assert.equal(dual.controls.left.id,null,'cancel did not release move pointer');
+  assert.equal(dual.controls.right.id,null,'cancel did not release aim pointer');
+  console.log('PASS real CDP multi-touch, reversed touch order, firing release, cancel');
+
   for(let i=0;i<20;i++){
     await clickControl('hud');
     let state=await waitFor(s=>s.menu&&s.arenaPaused&&s.actions.length===2,'Menu two buttons '+i);
