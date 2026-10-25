@@ -155,6 +155,8 @@ try {
   assert.equal(dual.controls.right.id,null,'cancel did not release aim pointer');
   console.log('PASS real CDP multi-touch, reversed touch order, firing release, cancel');
   const retainedPosition=(await snapshot()).player;
+  const retainedObstacles=(await snapshot()).controls.obstacles;
+  const retainedLayout=(await snapshot()).controls.layoutIndex;
 
   for(let i=0;i<20;i++){
     await clickControl('hud');
@@ -172,6 +174,8 @@ try {
     state=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'Resume '+i);
     assert.deepEqual(state.player,retainedPosition);
     assert.equal(state.physics,false);
+    assert.equal(state.controls.layoutIndex,retainedLayout);
+    assert.deepEqual(state.controls.obstacles,retainedObstacles);
     assert.equal(state.samePlayer,true);
     assert.equal(state.sameCamera,true);
     assert.equal(state.fullscreenVisible,false);
@@ -206,6 +210,22 @@ try {
   assert.notDeepEqual(fresh.player,{x:552,y:440},'NOWA GRA retained old position');
   assert.equal(fresh.physics,false,'New game physics paused');
   assert.equal(fresh.controls.hp,5,'Fresh player HP not reset');
+  assert.equal(fresh.controls.obstacles.length,3,'Fresh obstacles not created');
+  assert.ok(fresh.controls.obstacles.every(o=>o.depth>fresh.controls.groundDepth),'Foreground obstacles layered under ground');
+  assert.equal(fresh.controls.groundActive,true);
+  assert.notEqual(fresh.controls.layoutIndex,retainedLayout,'NOWA GRA did not select next predefined layout');
+  // Exercise actual Phaser projectile collision and barrel removal while not modifying the ground.
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const b=a.obstacles.find(o=>o.type==='barrel');b.x=a.player.x+130;b.y=a.player.y;b.sprite.setPosition(b.x,b.y);b.sprite.body.updateFromGameObject();return true})()");
+  const barrelAim=await snapshot();
+  await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'none'});
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'left',buttons:1,clickCount:1});
+  await sleep(1050);
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'left',buttons:0,clickCount:1});
+  const exploded=await snapshot();
+  assert.equal(exploded.controls.obstacles.find(o=>o.type==='barrel').alive,false,'Real input did not destroy barrel');
+  assert.equal(exploded.controls.groundActive,true,'Barrel removal destroyed arena underlay');
+  console.log('PASS browser: obstacle layering, session layout, actual held mouse fire and barrel removal');
+
   assert.equal(fresh.controls.enemies.length,3,'Fresh deterministic enemy set missing');
   // Force one enemy into predictable aim lane; shoot via actual CDP mouse coordinates.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'); const e=a.enemies[0];e.x=a.player.x+120;e.y=a.player.y;e.sprite.setPosition(e.x,e.y);return true})()");
