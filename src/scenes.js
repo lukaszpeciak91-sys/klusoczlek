@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createJoystick } from './joystick.js';
-import { createPauseGate } from './pause.js';
+import { createPauseGate, requestArenaResume, synchronizeArenaResume } from './pause.js';
 import { menuLayout, arenaHudLayout, pauseLayout } from './ui-layout.js';
 import { GAME_WIDTH, GAME_HEIGHT, enforceOrientationOnSceneStart } from './viewport.js';
 
@@ -100,11 +100,20 @@ export class ArenaScene extends Phaser.Scene {
       this.input.keyboard.resetKeys();
     };
     this.onBlur = () => { this.resetMovement(); this.physics.world.pause(); };
+    this.canResume = () => !document.hidden && document.hasFocus() && window.innerWidth >= window.innerHeight;
     this.onFocus = () => {
-      if (!document.hidden && document.hasFocus() && window.innerWidth >= window.innerHeight && !this.scene.isPaused('Arena') && this.pauseGate.state === 'playing') {
+      if (this.canResume() && !this.scene.isPaused('Arena') && this.pauseGate.state === 'playing') {
         this.physics.world.resume();
       }
     };
+    this.events.on(Phaser.Scenes.Events.RESUME, () => {
+      synchronizeArenaResume({
+        gate: this.pauseGate,
+        canResume: this.canResume,
+        resumePhysics: () => this.physics.world.resume(),
+        pausePhysics: () => this.physics.world.pause(),
+      });
+    });
     this.onVisibility = () => {
       if (document.hidden) this.onBlur();
       else this.onFocus();
@@ -163,10 +172,13 @@ export class PauseScene extends Phaser.Scene {
     const heading = label(this, initial.centerX, initial.titleY, 'PAUZA', initial.titleSize).setColor(COLORS.accent);
     const resumeButton = button(this, initial.centerX, initial.resumeY, initial.resumeWidth, initial.buttonHeight, 'WZNÓW', () => {
       const arena = this.scene.get('Arena');
-      if (document.hidden || window.innerHeight > window.innerWidth || !arena.pauseGate.resume()) return;
+      if (!requestArenaResume({
+        gate: arena.pauseGate,
+        canResume: arena.canResume,
+        isPaused: () => this.scene.isPaused('Arena'),
+        resumeScene: () => this.scene.resume('Arena'),
+      })) return;
       arena.resetMovement();
-      this.scene.resume('Arena');
-      arena.onFocus();
       this.scene.stop();
     });
     const exitButton = button(this, initial.centerX, initial.exitY, initial.exitWidth, initial.buttonHeight, 'MENU GŁÓWNE', () => {
