@@ -11,7 +11,7 @@ for (const executable of [process.env.CHROME_BIN, '/usr/bin/google-chrome', '/us
   try { await access(executable); browser = executable; break; } catch {}
 }
 if (!browser) throw Error('Chromium/Chrome not found; browser integration must not be silently skipped.');
-const server = spawn('npm', ['run','dev','--','--host','127.0.0.1','--port',String(port),'--strictPort'],{stdio:['ignore','pipe','pipe']});
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port',String(port),'--strictPort'],{stdio:['ignore','pipe','pipe']});
 let serverOutput = '';
 server.stdout.on('data', chunk => serverOutput += chunk.toString());
 server.stderr.on('data', chunk => serverOutput += chunk.toString());
@@ -26,10 +26,12 @@ try {
   let output='', errors='';
   chrome.stdout.on('data',c=>output+=c.toString());
   chrome.stderr.on('data',c=>errors+=c.toString());
+  const timeoutHandle = setTimeout(() => chrome.kill('SIGKILL'), 30000);
+  timeoutHandle.unref();
   const exit = await Promise.race([
-    new Promise(resolve=>chrome.on('exit',resolve)),
-    sleep(30000).then(()=>{chrome.kill('SIGKILL');throw Error('Chrome integration test timeout');})
+    new Promise(resolve=>chrome.on('exit',resolve))
   ]);
+  clearTimeout(timeoutHandle);
   assert.equal(exit,0,'Chrome exited with errors: '+errors.slice(-1500));
   const status=output.match(/<p id="result" data-status="([^"]+)">([^<]*)<\/p>/);
   assert.equal(status?.[1],'pass','Real Phaser browser integration failed: '+(status?.[2]??output.slice(-1200)));
