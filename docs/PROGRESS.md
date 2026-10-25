@@ -60,6 +60,13 @@
 - Verify in Android Chrome: start landscape, rotate, enter/exit fullscreen, resize desktop, pause then resize, confirm UI remains aligned; verify camera/player state is preserved.
 - Verification: npm ci / npm test / npm run build require actual execution results from CI, not inferred success.
 
+## Mobile viewport regression repair — pending independent audit (2026-10-25)
+- Root cause: Phaser FIT + manual logical resize + CSS canvas maximum bounds competed; the three sizing mechanisms could misalign the canvas and produce unequal visual X/Y scaling.
+- Change: Phaser Scale.RESIZE owns canvas and pointer coordinate mapping; #game fills the safe-area box and CSS no longer caps canvas dimensions.
+- Portrait/fullscreen/resize continue to invoke Scale Manager refresh; no scene recreation and no camera/movement/pause gameplay changes.
+- Updated tests for 16:9, 20:9, 21:9, wider displays, safe area sizing, mapping and transient zero-size fallback.
+- Remaining: verify Android Chrome portrait/landscape, fullscreen, address bar collapse, circle geometry and UI/camera continuity. Actual CI status must be confirmed from workflow runs.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
