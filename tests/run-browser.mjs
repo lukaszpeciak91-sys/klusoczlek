@@ -176,6 +176,28 @@ try {
     assert.equal(state.sameCamera,true);
     assert.equal(state.fullscreenVisible,false);
   }
+  // Actual desktop CDP keyboard and mouse input, not synthetic Phaser events.
+  await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'d',code:'KeyD',windowsVirtualKeyCode:68});
+  const beforeKeyboard=(await snapshot()).player.x;
+  await sleep(170);
+  const afterKeyboard=(await snapshot()).player.x;
+  await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'d',code:'KeyD',windowsVirtualKeyCode:68});
+  assert.ok(afterKeyboard>beforeKeyboard+5,'WASD movement missing on desktop');
+  const mouseScene=await snapshot();
+  const mouseX=mouseScene.rect.x+mouseScene.scale.width/2+120;
+  const mouseY=mouseScene.rect.y+mouseScene.scale.height/2;
+  await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:mouseX,y:mouseY,button:'none'});
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:mouseX,y:mouseY,button:'left',buttons:1,clickCount:1});
+  await sleep(250);
+  let desktop=await snapshot();
+  assert.equal(desktop.controls.mouseHeld,true,'Desktop primary mouse not captured');
+  assert.ok(desktop.controls.shotAt!==null,'Desktop held firing not started');
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:mouseX,y:mouseY,button:'left',buttons:0,clickCount:1});
+  await sleep(40);
+  desktop=await snapshot();
+  assert.equal(desktop.controls.mouseHeld,false,'Desktop mouse release stuck');
+  assert.equal(desktop.controls.shotAt,null,'Desktop release did not stop firing');
+  console.log('PASS real CDP desktop keyboard + mouse held fire and release');
   await clickControl('hud');
   await waitFor(s=>s.menu&&s.actions.length===2,'Menu before new game');
   await clickControl('NOWA GRA');
