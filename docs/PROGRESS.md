@@ -67,6 +67,15 @@
 - Updated tests for 16:9, 20:9, 21:9, wider displays, safe area sizing, mapping and transient zero-size fallback.
 - Remaining: verify Android Chrome portrait/landscape, fullscreen, address bar collapse, circle geometry and UI/camera continuity. Actual CI status must be confirmed from workflow runs.
 
+## PR06 — mobile pause & controls repair (2026-10-25, pending audit)
+- Evidence from main: fixed Menu y=148/211/330 and Pause y=150/285/383, with 70px-high bottom button extending beyond 375px height. The WZNÓW callback used a shared Arcade world resume while Arena also independently paused/resumed that world on focus and resize. Missed pointer taps were not proven.
+- Responsive Menu/Pause coordinates and element sizes now depend on measured Phaser Scale.RESIZE width and height; no scene recreation.
+- Joystick diameter 92 logical/CSS px, origin inside safe-area parent; original single-finger tracking preserved.
+- On intentional Pause, Arena scene pauses natively; on WZNÓW the scene resumes first and the existing focus/orientation guard decides whether physics may resume. No unconditional physics resume in WZNÓW.
+- Added 320/360/375/420/540 landscape regression tests for control bounds and joystick geometry.
+- Browser-level real-device interaction and WZNÓW behavior are still required; pure geometry tests do not prove touch delivery.
+- No binaries, weapons, enemies or second joystick.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
