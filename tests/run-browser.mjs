@@ -311,6 +311,7 @@ try {
   await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'d',code:'KeyD',windowsVirtualKeyCode:68});
   await sleep(180);
   await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'d',code:'KeyD',windowsVirtualKeyCode:68});
+  await sleep(120); // Allow Arcade velocity reset and renderer to settle after keyup.
   const afterMove=await snapshot();
   assert.ok(afterMove.player.x>beforeMove.player.x+5,'Original keyboard movement regressed with sprite');
   assert.ok(Math.abs(afterMove.playerVisual.visualX-afterMove.player.x)<1,'Visual not attached to moving physics object');
