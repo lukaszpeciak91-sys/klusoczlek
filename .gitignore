@@ -1,3 +1,18 @@
 node_modules/
 dist/
 .DS_Store
+
+# Local art-processing scratch only — approved public/assets/**/*.png stays tracked
+Thumbs.db
+Desktop.ini
+._*
+*.psd~
+*.kra~
+*.aseprite~
+*.png~
+*.png.bak
+*.png.orig
+*.png.tmp
+*.bak.png
+public/assets/**/_tmp/
+public/assets/**/_work/

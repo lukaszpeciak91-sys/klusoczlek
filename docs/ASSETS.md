@@ -22,8 +22,7 @@ Character frames are indexed left-to-right: E=0, SE=1, S=2, SW=3, W=4, NW=5, N=6
 | portraits/hp_high.png | 128×128 | single frame | yes | HP >60% |
 | portraits/hp_medium.png | 128×128 | single frame | yes | HP 30–60% |
 | portraits/hp_low.png | 128×128 | single frame | yes | HP <30% |
-| terrain/ground.png | 64×64 | tile | no | seamless repeatable arena |
-| terrain/obstacle.png | 64×64 | single frame | yes | optional obstacle visual |
+| terrain/arena-ground.png | 1024×1024 | seamless tile | no | approved repeating Arena underlay, below obstacles, characters and effects |
 | dialogue/player.png | 192×192 | single frame | yes | dialogue speaker |
 | dialogue/aloes.png | 192×192 | single frame | yes | finale speaker |
 | dialogue/narrator.png | 192×192 | single frame | yes | optional narration |
@@ -44,3 +43,8 @@ Verify transparent PNG exact image size and tile grid, correct row/column orderi
 
 ## PR16 runtime illustration and validation
 Manually upload only approved `public/assets/player/player.png`: 512×64 8-bit RGBA, transparent, eight contiguous 64×64 facing cells. Runtime resolves `BASE_URL + assets/player/player.png`, checks PNG metadata (exact width/height and RGBA color type), loads a Phaser spritesheet with nearest-neighbor sampling, and keeps the existing 17px Arcade circle as physics/camera owner. Missing/invalid resource retains marker and facing indicator. Actual visual direction/silhouette/alpha inspection remains user acceptance, not inferred from dimensions. Neither optional PNG nor enemy PNG is committed by implementers. D030 supersedes prior character-only grids; weapons, pickups, portraits, terrain remain unchanged.
+
+## Arena ground and obstacle art handoff (PR17)
+The approved canonical Arena texture is `public/assets/terrain/arena-ground.png` (1024×1024 opaque PNG, seamless in both axes), replacing the legacy `terrain/ground.png` 64×64 contract. There is **one** canonical ground filename, not two. This PR reserves the asset path only: the procedural Arena renderer remains in use until a separate texture-integration PR after manual upload.
+
+Future independent obstacle images belong under `public/assets/obstacles/`, above the ground visually. Exact obstacle filenames, dimensions and sprites are **not yet approved**; no speculative obstacle entries are added to the manifest. The former generic `terrain/obstacle.png` placeholder is withdrawn from the active manifest. The directories contain only tracked `.gitkeep` files until manual user uploads.
