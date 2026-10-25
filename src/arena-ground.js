@@ -12,7 +12,6 @@ export function isApprovedGroundPng(data) {
 export function groundTextureUrl(base){return assetUrl(base,ground.path);}
 export function createArenaGround(scene,width,height,Phaser,colors){
  const fallback=()=>{
-  if(!scene.sys.isActive())return;
   scene.ground=scene.add.rectangle(width/2,height/2,width,height,0x283c32)
    .setStrokeStyle(6,colors.border).setDepth(-20);
   scene.groundGrid=scene.add.grid(width/2,height/2,width-8,height-8,50,50,0x283c32,1,0x415746,0.36).setDepth(-19);
@@ -38,7 +37,7 @@ export function createArenaGround(scene,width,height,Phaser,colors){
      scene.textures.addImage(GROUND_KEY,image);
     } finally {URL.revokeObjectURL(objectUrl);}
    }
-   if(disposed||!scene.sys.isActive())return;
+   if(disposed)return;
    const tiled=scene.add.tileSprite(0,0,width,height,GROUND_KEY)
     .setOrigin(0,0).setDepth(-20);
    // No scaling or tilePosition updates: world-space repeat at 1024px.
