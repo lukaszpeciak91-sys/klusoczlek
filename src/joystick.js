@@ -4,7 +4,7 @@ import { normalizeInput } from './movement.js';
 export function createJoystick(scene) {
   const radius = 59;
   const x = 110;
-  const y = 425;
+  const y = scene.scale.height - 115;
   const base = scene.add.circle(x, y, radius, 0x1b2330, 0.65)
     .setStrokeStyle(3, 0xd4aa5a, 0.9).setScrollFactor(0).setDepth(50);
   const knob = scene.add.circle(x, y, 24, 0xf3ca76, 0.85)
