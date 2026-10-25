@@ -42,6 +42,16 @@
 - **Weryfikacja:** uruchomienie nowego deploy workflow na PR nie nastąpi z założenia. Potwierdzenie produkcyjnego deploy wymaga osobnej autoryzacji merge i poprawnych ustawień GitHub Pages (Source: GitHub Actions).
 - **Ograniczenie:** nowy workflow może działać dopiero po scaleniu; weryfikacja rzeczywistego wdrożenia z gałęzi PR byłaby sprzeczna z zakazem publikacji.
 
+
+## Mobile viewport & pause repair — PR oczekuje na audyt (NIE scalony)
+- Dynamiczny logiczny viewport według rozmiaru kontenera, stała wysokość świata na ekranie; przy szerszym ekranie widać większy wycinek areny, bez rozciągania.
+- Dodatkowy update geometrii po resize i fullscreen, zachowano safe area, ekran obrotu i /klusoczlek/.
+- HUD: MENU bez strzałki, wyśrodkowane; pauza z WZNÓW i MENU GŁÓWNE, bez resetowania sesji podczas WZNÓW.
+- Wykorzystano Phaser Scene pause / resume i blokadę duplikatów przejść. Reset joysticka, klawiatury i velocity, automatyczne odzyskanie fokusu nie może wznowić fizyki podczas celowej pauzy.
+- Dodano testy viewportu i przejść pauzy; testy nie zastępują realnego smoke Android landscape/fullscreen.
+- Manual smoke: Android Chrome i desktop: rozdzielczości 16:9 / 20:9 / 21:9, fullscreen przed i po START, safe area, wyśrodkowanie HUD, MENU→WZNÓW zachowuje pozycję, MENU GŁÓWNE resetuje sesję, szybkie dwukliki, obrót w pion, przejście aplikacji w tło, powrót i ponowne sterowanie.
+- Nie dodano przeciwników, broni, drugiego joysticka, ani binarnych assetów.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
