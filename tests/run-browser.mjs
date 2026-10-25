@@ -123,5 +123,7 @@ try {
   socket?.close();
   chrome?.kill('SIGKILL');
   vite.kill('SIGTERM');
-  await rm(profile, {recursive:true,force:true});
+  // Chrome may still flush profile files after SIGKILL. Cleanup must never mask the test result.
+  await sleep(150);
+  try { await rm(profile, {recursive:true,force:true,maxRetries:5,retryDelay:150}); } catch (error) { console.error('Chrome profile cleanup warning:',error.message); }
 }
