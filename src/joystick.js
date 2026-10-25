@@ -84,5 +84,5 @@ export function createJoystick(scene, side='left') {
     base.setPosition(x, y);
     knob.setPosition(x, y);
   }
-  return { direction, reset, reposition, get held(){return held;},get pointerId(){return pointerId;} };
+  return { direction, reset, reposition, get held(){return held;},get pointerId(){return pointerId;},get touchIdentifier(){return touchIdentifier;} };
 }
