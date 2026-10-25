@@ -41,7 +41,7 @@ npm run build
 npm run dev
 ```
 
-Aby sprawdzić wynik builda: `npm run preview`. Vite buduje pod bazą `/klusoczlek/`; w podglądzie użyj ścieżki `/klusoczlek/`. Repo nie ma workflow publikującego Pages.
+Aby sprawdzić wynik builda: `npm run preview`. Vite buduje pod bazą `/klusoczlek/`; w podglądzie użyj ścieżki `/klusoczlek/`. W repo przygotowano workflow Pages uruchamiany po autoryzowanym merge do `main`.
 
 ### Manualny smoke przed merge
 
@@ -53,3 +53,10 @@ Aby sprawdzić wynik builda: `npm run preview`. Vite buduje pod bazą `/klusoczl
 6. Sprawdź brak przewijania i przypadkowego zoomowania; brak błędów w konsoli lub brakujących assetów.
 
 **Ograniczenia:** brak sterowania, przeciwników i rozgrywki; orientacja może nie dać się zablokować przez ograniczenia przeglądarki/OS; ekran fullscreen może być niedostępny. Dla małych ekranów poza proporcją 16:9 występują pasy (bez obcinania gry).
+
+## GitHub Pages (po autoryzowanym merge)
+
+Workflow `.github/workflows/pages.yml` publikuje **wyłącznie po push do `main`**, a nie z pull requestów. Używa Node.js 22 i wymaga sukcesu `npm ci`, `npm test`, `npm run build` oraz obecności `dist/index.html`. Dopiero wtedy oficjalne akcje GitHub Pages publikują zawartość `dist/`. Kolejne wdrożenia nie wykonują się równocześnie. Nie są potrzebne żadne dodatkowe sekrety.
+
+W ustawieniach repo GitHub → Settings → Pages jako źródło wybierz **GitHub Actions**. Wymagana jest autoryzacja merge tego PR; samo otwarcie PR nie publikuje witryny. Base Vite pozostaje `/klusoczlek/`. Dotychczasowy `Web CI` działa osobno i pozostaje niezmieniony.
+
