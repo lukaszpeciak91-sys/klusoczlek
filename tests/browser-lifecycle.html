@@ -41,8 +41,8 @@ window.__snapshot=() => {
     sceneStatus:{menu:menu.sys.settings.status,arena:arena.sys.settings.status},
     sceneOrder:game.scene.scenes.map(scene=>scene.sys.settings.key),
     controls:arena.joystick&&arena.aimJoystick?{
-      left:{x:arena.joystick.direction.x,y:arena.joystick.direction.y,id:arena.joystick.pointerId},
-      right:{x:arena.aimJoystick.direction.x,y:arena.aimJoystick.direction.y,id:arena.aimJoystick.pointerId},
+      left:{x:arena.joystick.direction.x,y:arena.joystick.direction.y,id:arena.joystick.pointerId,nativeId:arena.joystick.touchIdentifier},
+      right:{x:arena.aimJoystick.direction.x,y:arena.aimJoystick.direction.y,id:arena.aimJoystick.pointerId,nativeId:arena.aimJoystick.touchIdentifier},
       mouseHeld:arena.mouseHeld,lastFacing:arena.lastFacing,
       shots:arena.projectiles.length,shotAt:arena.lastShotAt,
       targetCount:arena.targets.length,
