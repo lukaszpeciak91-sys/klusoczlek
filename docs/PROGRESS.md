@@ -90,6 +90,13 @@
 - Verified failure categories and scope: no evidence justifying viewport settling. No runtime gameplay change required by currently exercised integration path.
 - Limitations: Chrome headless browser event emission is not a true physical Android touchscreen; orientation/focus and overlay pointer hit-testing across rapid resizes still need real-device smoke. No merge/deploy/binary assets.
 
+## Main Menu session-navigation simplification (unmerged PR, 2026-10-25)
+- Evidence: prior Arena MENU launched PauseScene; PauseScene contained both WZNÓW and MENU GŁÓWNE, with a separate gate and physics synchronization. Existing browser test manually emitted pointerdown instead of dispatching pointer coordinates, so it did not verify touch delivery or hit areas.
+- Arena MENU now pauses the Arena instance and opens MenuScene directly. MenuScene shows START if no Arena is paused, WZNÓW otherwise; WZNÓW resumes the existing scene/player/camera, not start().
+- Removed PauseScene from game configuration and scene source; browser test now uses real Chromium DevTools pointer coordinates across ten navigation cycles and responsive heights 320/360/375/420.
+- Browser focus cannot release user pause; existing world pause/resume stays guarded by actual browser state and Phaser scene status. Scale.RESIZE, safe area and 92px joystick unchanged.
+- PR verification must include live CI and real Android Chrome smoke. Main-menu-only approach supersedes D023 with D025.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.

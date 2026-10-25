@@ -31,53 +31,109 @@ try {
     '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
     '--no-first-run', '--no-default-browser-check', '--remote-allow-origins=*',
     '--remote-debugging-port=' + chromePort, '--user-data-dir=' + profile, url,
-  ], {stdio:'ignore'});
-
+  ], {stdio:['ignore','pipe','pipe']});
+  let chromeOutput='';
+  chrome.stdout.on('data', c=>chromeOutput+=c.toString());
+  chrome.stderr.on('data', c=>chromeOutput+=c.toString());
+  let seenPages=[];
   let page;
   for (let i = 0; i < 100; i++) {
     try {
       const tabs = await (await fetch(`http://127.0.0.1:${chromePort}/json/list`)).json();
+      seenPages=tabs.map(tab=>({type:tab.type,url:tab.url}));
       page = tabs.find(tab => tab.type === 'page' && tab.url.includes('browser-lifecycle'));
       if (page?.webSocketDebuggerUrl) break;
     } catch {}
     await sleep(150);
   }
-  assert.ok(page?.webSocketDebuggerUrl, 'Chromium DevTools page unavailable');
+  assert.ok(page?.webSocketDebuggerUrl, 'Chromium DevTools page unavailable; pages='+JSON.stringify(seenPages)+'; exit='+chrome.exitCode+'; stderr='+chromeOutput.slice(-2000));
   socket = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((resolve,reject) => {
     socket.addEventListener('open', resolve, {once:true});
     socket.addEventListener('error', reject, {once:true});
   });
   let counter = 0;
-  async function evaluate(expression) {
+  async function cdp(method, params = {}) {
     const id = ++counter;
-    return await new Promise((resolve,reject) => {
-      const timeout = setTimeout(() => { socket.removeEventListener('message', receive); reject(Error('Chrome Runtime.evaluate timeout')); }, 5000);
+    return new Promise((resolve,reject) => {
+      const timeout = setTimeout(() => { socket.removeEventListener('message', receive); reject(Error(method + ' timed out')); }, 7000);
       function receive(event) {
         const message = JSON.parse(event.data);
         if (message.id !== id) return;
         clearTimeout(timeout);
         socket.removeEventListener('message', receive);
         if (message.error) reject(Error(JSON.stringify(message.error)));
-        else resolve(message.result?.result?.value);
+        else resolve(message.result);
       }
       socket.addEventListener('message', receive);
-      socket.send(JSON.stringify({id,method:'Runtime.evaluate',params:{expression,returnByValue:true}}));
+      socket.send(JSON.stringify({ id, method, params }));
     });
   }
-
-  let status;
-  for (let i = 0; i < 120; i++) {
-    status = await evaluate('document.querySelector("#result")?.dataset.status');
-    if (status === 'pass' || status === 'fail') break;
-    await sleep(150);
+  async function evaluate(expression) {
+    const response = await cdp('Runtime.evaluate', {expression, returnByValue:true, awaitPromise:true});
+    if(response.exceptionDetails) throw Error('Browser JavaScript: '+JSON.stringify(response.exceptionDetails));
+    return response.result?.value;
   }
-  const details = await evaluate('document.querySelector("#result")?.textContent');
-  assert.equal(status, 'pass', 'Real Phaser browser test: ' + details);
-  console.log(details);
+  async function snapshot() { return evaluate('window.__snapshot?.()'); }
+  async function waitFor(predicate, reason) {
+    for(let i=0;i<50;i++){const state=await snapshot();if(state&&predicate(state))return state;await sleep(80);}
+    throw Error('Timeout '+reason+'; last='+JSON.stringify(await snapshot()));
+  }
+  async function click(x,y){
+    await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});
+    await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});
+  }
+  async function clickControl(which){
+    const state=await snapshot();
+    const target=which==='hud'?state.menuButton:state.button;
+    assert.ok(target, 'Missing '+which+' interactive hit area: '+JSON.stringify(state));
+    assert.ok(target.y-target.height/2>=0 && target.y+target.height/2<=state.rect.height,'Button clipped');
+    await click(state.rect.x+target.x,state.rect.y+target.y);
+  }
+  await waitFor(s=>s.menu&&s.action==='START','initial START');
+  for(const height of [320,360,375,420]){
+    const width=Math.round(height*20/9);
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+    await waitFor(s=>Math.abs(s.rect.height-height)<2,'resize '+height);
+    let state=await snapshot();
+    assert.equal(state.action,'START');
+    assert.ok(state.button.y+state.button.height/2<=height,'START clipped');
+  }
+  await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
+  await waitFor(s=>Math.abs(s.rect.height-360)<2,'return to landscape');
+
+  await clickControl('action');
+  await waitFor(s=>s.arena&&!s.menu,'START to Arena');
+  await evaluate('window.__movePlayer()');
+  for(let i=0;i<10;i++){
+    await clickControl('hud');
+    let menuState=await waitFor(s=>s.menu&&s.arenaPaused&&s.action==='WZNÓW','Arena MENU '+i);
+    assert.equal(menuState.player.x,552);
+    assert.equal(menuState.player.y,440);
+    assert.equal(menuState.samePlayer,true,'Arena player instance replaced');
+    assert.equal(menuState.sameCamera,true,'Arena camera instance replaced');
+    // Browser focus loss cannot undo an intentional user pause.
+    await evaluate('window.dispatchEvent(new Event("blur"));window.dispatchEvent(new Event("focus"))');
+    menuState=await snapshot();
+    assert.equal(menuState.arenaPaused,true,'Focus unexpectedly resumed Arena');
+    await clickControl('action');
+    const arenaState=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'Menu WZNÓW '+i);
+    assert.deepEqual(arenaState.player,{x:552,y:440},'Player position reset');
+    assert.equal(arenaState.physics,false,'Arcade Physics remained paused');
+    assert.equal(arenaState.samePlayer,true,'Player recreated on resume');
+    assert.equal(arenaState.sameCamera,true,'Camera recreated on resume');
+  }
+  await clickControl('hud');
+  await waitFor(s=>s.menu&&s.action==='WZNÓW','last Menu');
+  await evaluate('window.__game.scene.stop("Arena");window.__game.scene.stop("Menu");window.__game.scene.start("Menu");true');
+  await waitFor(s=>s.menu&&s.action==='START','START after session termination');
+  console.log('PASS real Phaser pointer clicks: 10 MENU/WZNÓW cycles, same player/camera, physics, START after session end');
+
 } finally {
   socket?.close();
   chrome?.kill('SIGKILL');
   vite.kill('SIGTERM');
-  await rm(profile, {recursive:true,force:true});
+  // Chrome may still flush profile files after SIGKILL. Cleanup must never mask the test result.
+  await sleep(150);
+  try { await rm(profile, {recursive:true,force:true,maxRetries:5,retryDelay:150}); } catch (error) { console.error('Chrome profile cleanup warning:',error.message); }
 }

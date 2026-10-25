@@ -1,54 +1,31 @@
 <!doctype html>
-<html lang="pl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}#game{width:100%;height:100%}#fullscreen-button{display:none}</style></head>
-<body><div id="game"></div><button id="fullscreen-button" hidden></button><p id="result" data-status="running">RUNNING</p>
+<html lang="pl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}#game{width:100%;height:100%}#fullscreen-button{display:none}</style></head>
+<body><div id="game"></div><button id="fullscreen-button" hidden></button><p id="result" data-status="ready">READY</p>
 <script type="module">
 import Phaser from 'phaser';
-import { MenuScene, ArenaScene, PauseScene } from '/src/scenes.js';
-const result = document.getElementById('result');
-function assert(ok, message) { if (!ok) throw Error(message); }
-const tick = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},scene:[MenuScene,ArenaScene,PauseScene]});
-function scene(key) { return game.scene.getScene(key); }
-(async () => {
-  try {
-    await new Promise(resolve => game.events.once(Phaser.Core.Events.READY, resolve));
-    const menu = scene('Menu');
-    menu.scene.start('Arena');
-    await tick();
-    const arena = scene('Arena'), initialPlayer = arena.player, initialCamera = arena.cameras.main;
-    arena.player.setPosition(552, 440);
-    arena.cameras.main.centerOn(552,440);
-    arena.openPause();
-    await tick();
-    assert(game.scene.isPaused('Arena'), 'Arena must pause');
-    assert(game.scene.isActive('Pause'), 'Pause overlay must be active');
-    // Actual Phaser SceneManager, not synthetic RESUME emission.
-    const overlay = scene('Pause');
-    const pressed = overlay.input._list.find(o => o.input && o.width > 200 && o.y < 250);
-    assert(!!pressed, 'Pause button hit area missing');
-    assert(arena.pauseGate.state === 'paused', 'Gate must remain paused');
-    // Blocked WZNÓW leaves overlay and state unchanged.
-    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
-    assert(!arena.canResume(), 'document.hidden should block');
-    pressed.emit('pointerdown');
-    assert(game.scene.isPaused('Arena') && game.scene.isActive('Pause'), 'Blocked WZNÓW released pause');
-    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
-    pressed.emit('pointerdown');
-    await tick();
-    assert(game.scene.isActive('Arena'), 'Arena did not resume');
-    assert(!game.scene.isActive('Pause'), 'Pause overlay did not close');
-    assert(arena.pauseGate.state === 'playing', 'RESUME event did not release pause gate');
-    assert(arena.player === initialPlayer, 'Player recreated');
-    assert(arena.cameras.main === initialCamera, 'Camera recreated');
-    assert(arena.player.x === 552 && arena.player.y === 440, 'Player position changed');
-    result.dataset.status = 'pass';
-    result.textContent = 'PASS real Phaser SceneManager lifecycle';
-  } catch (error) {
-    result.dataset.status = 'fail';
-    result.textContent = 'FAIL ' + error.message;
-  } finally {
-    // dump-dom needs the result DOM to remain on the page.
-  }
-})();
+import { MenuScene, ArenaScene } from '/src/scenes.js';
+const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},scene:[MenuScene,ArenaScene]});
+window.__game=game;
+window.__identity=null;
+window.__snapshot=() => {
+  const arena=game.scene.getScene('Arena');
+  const menu=game.scene.getScene('Menu');
+  if(!arena?.sys||!menu?.sys)return null;
+  const canvas=game.canvas.getBoundingClientRect();
+  const action=menu.sys.isActive()?menu.input._list.find(o=>o.input&&o.width>150):null;
+  const hud=arena.sys.isActive()?arena.input._list.find(o=>o.input&&o.width===185):null;
+  return {
+    menu:game.scene.isActive('Menu'),arena:game.scene.isActive('Arena'),arenaPaused:game.scene.isPaused('Arena'),
+    action:action?.input?.enabled ? (menu.children.list.find(o=>o.type==='Text'&&['START','WZNÓW'].includes(o.text))?.text) : null,
+    menuButton:hud?{x:hud.x,y:hud.y,width:hud.width,height:hud.height}:null,
+    button:action?{x:action.x,y:action.y,width:action.width,height:action.height}:null,
+    rect:{x:canvas.x,y:canvas.y,width:canvas.width,height:canvas.height},
+    player:arena.player?{x:arena.player.x,y:arena.player.y}:null,
+    physics:arena.physics?.world?.isPaused??null,
+    camera:arena.cameras?.main?.id??null,
+    samePlayer:!window.__identity||arena.player===window.__identity.player,
+    sameCamera:!window.__identity||arena.cameras?.main===window.__identity.camera,
+  };
+};
+window.__movePlayer=()=>{const arena=game.scene.getScene('Arena');window.__identity={player:arena.player,camera:arena.cameras.main};arena.player.setPosition(552,440);arena.cameras.main.centerOn(552,440);};
 </script></body></html>
