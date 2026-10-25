@@ -2,9 +2,19 @@
 export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
 
+// With Scale.RESIZE logical pixels match CSS pixels inside the safe-area parent.
 export function logicalViewport(width, height) {
   if (!(width > 0 && height > 0)) return { width: GAME_WIDTH, height: GAME_HEIGHT };
-  return { width: Math.round(GAME_HEIGHT * width / height), height: GAME_HEIGHT };
+  return { width, height };
+}
+
+export function viewportMapping(logicalWidth, logicalHeight, displayWidth, displayHeight) {
+  return {
+    scaleX: displayWidth / logicalWidth,
+    scaleY: displayHeight / logicalHeight,
+    x: logicalWidth / 2,
+    y: logicalHeight / 2,
+  };
 }
 
 export function isPortrait(width, height) {
@@ -50,7 +60,6 @@ export function enforceOrientationOnSceneStart(scene) {
 
 export function setupViewport(game) {
   const rotateMessage = document.getElementById('rotate-message');
-  const container = document.getElementById('game');
   const portrait = () => isPortrait(window.innerWidth, window.innerHeight);
   const controller = createOrientationController({
     portrait,
@@ -64,11 +73,8 @@ export function setupViewport(game) {
     rotateMessage.hidden = !rotated;
     document.body.classList.toggle('portrait', rotated);
     controller.sync();
-    const rect = container.getBoundingClientRect();
-    const size = logicalViewport(rect.width, rect.height);
-    if (game.scale.width !== size.width || game.scale.height !== size.height) {
-      game.scale.resize(size.width, size.height);
-    }
+    // Phaser RESIZE owns both canvas backing size and input mapping.
+    // Never resize the logical canvas independently of its CSS box.
     game.scale.refresh();
   };
   sceneStarted = scene => {
