@@ -6,6 +6,7 @@ import Phaser from 'phaser';
 import { MenuScene, ArenaScene } from '/src/scenes.js';
 const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},scene:[MenuScene,ArenaScene]});
 window.__game=game;
+window.__identity=null;
 window.__snapshot=() => {
   const arena=game.scene.getScene('Arena');
   const menu=game.scene.getScene('Menu');
@@ -22,7 +23,9 @@ window.__snapshot=() => {
     player:arena.player?{x:arena.player.x,y:arena.player.y}:null,
     physics:arena.physics?.world?.isPaused??null,
     camera:arena.cameras?.main?.id??null,
+    samePlayer:!window.__identity||arena.player===window.__identity.player,
+    sameCamera:!window.__identity||arena.cameras?.main===window.__identity.camera,
   };
 };
-window.__movePlayer=()=>{const arena=game.scene.getScene('Arena');arena.player.setPosition(552,440);arena.cameras.main.centerOn(552,440);};
+window.__movePlayer=()=>{const arena=game.scene.getScene('Arena');window.__identity={player:arena.player,camera:arena.cameras.main};arena.player.setPosition(552,440);arena.cameras.main.centerOn(552,440);};
 </script></body></html>
