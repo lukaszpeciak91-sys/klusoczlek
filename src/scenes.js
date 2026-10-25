@@ -43,9 +43,9 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.background);
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
-    const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'PRZEGRANA — NOWA GRA':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
     const hasSession = this.scene.isPaused('Arena');
     const defeated = hasSession && this.scene.get('Arena').defeated;
+    const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'PRZEGRANA — NOWA GRA':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
     const startY = hasSession ? initial.startY - Math.min(44, this.scale.height * 0.12) : initial.startY;
     const resumeY = initial.startY + Math.min(44, this.scale.height * 0.12);
     const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
