@@ -6,7 +6,7 @@ import Phaser from 'phaser';
 import { MenuScene, ArenaScene } from '/src/scenes.js';
 import { setupViewport } from '/src/viewport.js';
 import { toggleFullscreen } from '/src/fullscreen.js';
-const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},scene:[MenuScene,ArenaScene]});
+const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},input:{activePointers:3},scene:[MenuScene,ArenaScene]});
 window.__game=game;
 setupViewport(game);
 document.getElementById('fullscreen-button').addEventListener('click', () => toggleFullscreen(document.getElementById('game-shell'), () => game.scale.refresh()));
