@@ -152,8 +152,8 @@ export class ArenaScene extends Phaser.Scene {
     if (this.scene.isPaused('Arena') || this.scene.isActive('Menu')) return;
     this.resetMovement();
     this.physics.world.pause();
-    this.scene.launch('Menu');
     this.scene.pause();
+    this.scene.launch('Menu');
   }
 
   update() {
