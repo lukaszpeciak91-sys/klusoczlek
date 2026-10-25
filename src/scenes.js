@@ -36,9 +36,9 @@ export class MenuScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor(COLORS.background);
-    label(this, GAME_WIDTH / 2, 148, 'KŁUSOCZŁEK', 66).setColor(COLORS.accent);
-    label(this, GAME_WIDTH / 2, 211, 'RETRO SURVIVAL // PROTOTYP', 21);
-    button(this, GAME_WIDTH / 2, 330, 270, 82, 'START', () => this.scene.start('Arena'));
+    label(this, this.scale.width / 2, 148, 'KŁUSOCZŁEK', 66).setColor(COLORS.accent);
+    label(this, this.scale.width / 2, 211, 'RETRO SURVIVAL // PROTOTYP', 21);
+    button(this, this.scale.width / 2, 330, 270, 82, 'START', () => this.scene.start('Arena'));
     const fullscreenButton = document.getElementById('fullscreen-button');
     fullscreenButton.hidden = false;
     this.events.once('shutdown', () => { fullscreenButton.hidden = true; });
@@ -66,10 +66,10 @@ export class ArenaScene extends Phaser.Scene {
     const menuButton = this.add.rectangle(105, 40, 185, 58, COLORS.panel)
       .setStrokeStyle(3, COLORS.border).setScrollFactor(0).setDepth(60)
       .setInteractive({ useHandCursor: true });
-    this.add.text(105, 40, '← MENU', {
+    this.add.text(105, 40, 'MENU', {
       fontFamily: 'monospace', fontSize: '25px', color: COLORS.white,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(61);
-    menuButton.on('pointerdown', () => this.scene.start('Menu'));
+    menuButton.on('pointerdown', () => this.openPause());
 
     this.resetMovement = () => {
       this.player.body.setVelocity(0, 0);
@@ -106,6 +106,14 @@ export class ArenaScene extends Phaser.Scene {
     this.onResize();
   }
 
+  openPause() {
+    if (this.scene.isActive('Pause') || this.scene.isPaused('Arena')) return;
+    this.resetMovement();
+    this.physics.world.pause();
+    this.scene.launch('Pause');
+    this.scene.pause();
+  }
+
   update() {
     if (document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);
@@ -121,5 +129,33 @@ export class ArenaScene extends Phaser.Scene {
       y || this.joystick.direction.y,
     );
     this.player.body.setVelocity(direction.x * PLAYER_SPEED, direction.y * PLAYER_SPEED);
+  }
+}
+
+export class PauseScene extends Phaser.Scene {
+  constructor() { super('Pause'); }
+
+  create() {
+    const center = this.scale.width / 2;
+    this.cameras.main.setBackgroundColor('rgba(14,16,26,0.92)');
+    label(this, center, 150, 'PAUZA', 46).setColor(COLORS.accent);
+    button(this, center, 285, 270, 70, 'WZNÓW', () => {
+      if (this.transitioning || document.hidden || window.innerHeight > window.innerWidth) return;
+      this.transitioning = true;
+      const arena = this.scene.get('Arena');
+      arena.resetMovement();
+      arena.physics.world.resume();
+      this.scene.resume('Arena');
+      this.scene.stop();
+    });
+    button(this, center, 383, 300, 70, 'MENU GŁÓWNE', () => {
+      if (this.transitioning) return;
+      this.transitioning = true;
+      const arena = this.scene.get('Arena');
+      arena.resetMovement();
+      this.scene.stop('Arena');
+      this.scene.start('Menu');
+    });
+    enforceOrientationOnSceneStart(this);
   }
 }
