@@ -14,6 +14,7 @@ export function createJoystick(scene, side='left') {
   const direction = { x: 0, y: 0 };
   let pointerId = null;
   let held=false;
+  let touchIdentifier=null;
   const update = pointer => {
     // Pointer coordinates are screen-local; joystick elements ignore camera scrolling.
     const dx = pointer.x - x;
@@ -38,9 +39,28 @@ export function createJoystick(scene, side='left') {
   function reset() {
     pointerId = null;
     held=false;
+    touchIdentifier=null;
     direction.x = direction.y = 0;
     knob.setPosition(x, y);
   }
+  // Native touch identifiers complement Phaser pointer IDs: some Chromium
+  // multi-touch releases do not dispatch a matching Phaser pointerup.
+  const canvas=scene.game.canvas;
+  const nativeStart=event=>{
+    if(touchIdentifier!==null)return;
+    const rect=canvas.getBoundingClientRect();
+    for(const touch of event.changedTouches){
+      const px=(touch.clientX-rect.left)*scene.scale.width/rect.width;
+      const py=(touch.clientY-rect.top)*scene.scale.height/rect.height;
+      if(Math.hypot(px-x,py-y)<=radius*1.4){touchIdentifier=touch.identifier;break;}
+    }
+  };
+  const nativeEnd=event=>{
+    if(touchIdentifier!==null&&Array.from(event.changedTouches).some(t=>t.identifier===touchIdentifier))reset();
+  };
+  canvas.addEventListener('touchstart',nativeStart,{passive:true});
+  canvas.addEventListener('touchend',nativeEnd,{passive:true});
+  canvas.addEventListener('touchcancel',nativeEnd,{passive:true});
   scene.input.on('pointerdown', down);
   scene.input.on('pointermove', move);
   scene.input.on('pointerup', release);
@@ -48,6 +68,9 @@ export function createJoystick(scene, side='left') {
   scene.input.on('pointercancel', release);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
     reset();
+    canvas.removeEventListener('touchstart',nativeStart);
+    canvas.removeEventListener('touchend',nativeEnd);
+    canvas.removeEventListener('touchcancel',nativeEnd);
     scene.input.off('pointerdown', down);
     scene.input.off('pointermove', move);
     scene.input.off('pointerup', release);
