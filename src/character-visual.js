@@ -1,4 +1,3 @@
-import Phaser from 'phaser';
 import { playerFrame } from './combat-contract.js';
 import { assetManifest } from './asset-manifest.js';
 
@@ -22,7 +21,7 @@ export function visualMotion(seconds,moving,blend=0,options=VISUAL_MOTION){
  bob:Math.sin(phase*2)*options.bobPixels*weight};
 }
 export function visualPosition(player,bob=0){return {x:player.x,y:player.y+bob};}
-export function createPlayerVisual(scene,player,indicator){
+export function createPlayerVisual(scene,player,indicator,Phaser){
  let sprite=null,alive=true,elapsed=0,blend=0;
  const texture=scene.textures;
  async function load(){
