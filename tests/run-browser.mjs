@@ -37,7 +37,7 @@ try {
   chrome.stderr.on('data', c=>chromeOutput+=c.toString());
   let seenPages=[];
   let page;
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 400; i++) {
     try {
       const tabs = await (await fetch(`http://127.0.0.1:${chromePort}/json/list`)).json();
       seenPages=tabs.map(tab=>({type:tab.type,url:tab.url}));
