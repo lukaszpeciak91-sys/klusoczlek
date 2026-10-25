@@ -42,6 +42,24 @@
 - **Weryfikacja:** uruchomienie nowego deploy workflow na PR nie nastąpi z założenia. Potwierdzenie produkcyjnego deploy wymaga osobnej autoryzacji merge i poprawnych ustawień GitHub Pages (Source: GitHub Actions).
 - **Ograniczenie:** nowy workflow może działać dopiero po scaleniu; weryfikacja rzeczywistego wdrożenia z gałęzi PR byłaby sprzeczna z zakazem publikacji.
 
+
+## Mobile viewport & pause repair — PR oczekuje na audyt (NIE scalony)
+- Dynamiczny logiczny viewport według rozmiaru kontenera, stała wysokość świata na ekranie; przy szerszym ekranie widać większy wycinek areny, bez rozciągania.
+- Dodatkowy update geometrii po resize i fullscreen, zachowano safe area, ekran obrotu i /klusoczlek/.
+- HUD: MENU bez strzałki, wyśrodkowane; pauza z WZNÓW i MENU GŁÓWNE, bez resetowania sesji podczas WZNÓW.
+- Wykorzystano Phaser Scene pause / resume i blokadę duplikatów przejść. Reset joysticka, klawiatury i velocity, automatyczne odzyskanie fokusu nie może wznowić fizyki podczas celowej pauzy.
+- Dodano testy viewportu i przejść pauzy; testy nie zastępują realnego smoke Android landscape/fullscreen.
+- Manual smoke: Android Chrome i desktop: rozdzielczości 16:9 / 20:9 / 21:9, fullscreen przed i po START, safe area, wyśrodkowanie HUD, MENU→WZNÓW zachowuje pozycję, MENU GŁÓWNE resetuje sesję, szybkie dwukliki, obrót w pion, przejście aplikacji w tło, powrót i ponowne sterowanie.
+- Nie dodano przeciwników, broni, drugiego joysticka, ani binarnych assetów.
+
+## PR04 audit fix — responsive UI after resize (pending re-audit)
+- Menu title, subtitle and START reposition to current logical center after Phaser Scale resize.
+- Pause heading, WZNÓW and MENU GŁÓWNE similarly move without scene restart.
+- MENU HUD and mobile joystick are repositioned with viewport height. Joystick pointer origin changes together with visible graphics and clears captured input on resize.
+- Added `src/ui-layout.js` and focused `tests/ui-layout.test.js`; no added assets/dependencies/gameplay.
+- Verify in Android Chrome: start landscape, rotate, enter/exit fullscreen, resize desktop, pause then resize, confirm UI remains aligned; verify camera/player state is preserved.
+- Verification: npm ci / npm test / npm run build require actual execution results from CI, not inferred success.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
