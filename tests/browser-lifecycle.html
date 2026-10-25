@@ -7,6 +7,8 @@ import { MenuScene, ArenaScene } from '/src/scenes.js';
 const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},scene:[MenuScene,ArenaScene]});
 window.__game=game;
 window.__identity=null;
+window.__trace=[];
+
 window.__snapshot=() => {
   const arena=game.scene.getScene('Arena');
   const menu=game.scene.getScene('Menu');
@@ -23,9 +25,15 @@ window.__snapshot=() => {
     player:arena.player?{x:arena.player.x,y:arena.player.y}:null,
     physics:arena.physics?.world?.isPaused??null,
     camera:arena.cameras?.main?.id??null,
+    fullscreenHidden:document.getElementById('fullscreen-button').hidden,
+    fullscreenVisible:getComputedStyle(document.getElementById('fullscreen-button')).display!=='none',
+    focused:document.hasFocus(),hidden:document.hidden,portrait:innerHeight>innerWidth,
+    sceneStatus:{menu:menu.sys.settings.status,arena:arena.sys.settings.status},
+    trace:window.__trace.slice(-20),
     samePlayer:!window.__identity||arena.player===window.__identity.player,
     sameCamera:!window.__identity||arena.cameras?.main===window.__identity.camera,
   };
 };
+window.__traceEvents=()=>{for(const key of ['Menu','Arena']){const scene=game.scene.getScene(key);for(const name of ['start','pause','resume','shutdown','sleep','wake'])scene.events.on(name,()=>window.__trace.push({scene:key,event:name,menu:game.scene.isActive('Menu'),arena:game.scene.isActive('Arena'),arenaPaused:game.scene.isPaused('Arena')}));}return true;};
 window.__movePlayer=()=>{const arena=game.scene.getScene('Arena');window.__identity={player:arena.player,camera:arena.cameras.main};arena.player.setPosition(552,440);arena.cameras.main.centerOn(552,440);};
 </script></body></html>
