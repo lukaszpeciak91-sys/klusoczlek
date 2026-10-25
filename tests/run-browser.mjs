@@ -152,8 +152,8 @@ try {
   assert.deepEqual([tileAfter.controls.groundTileX,tileAfter.controls.groundTileY],tileBefore,'Tile world phase moved with camera');
   console.log('PASS real approved ground: TileSprite 1800x1200, native 1024 tiles, no grid, world-aligned camera');
   const artState=await snapshot();
-  assert.equal(artState.playerVisual.loaded,false,'Missing optional art must fall back');
-  assert.equal(artState.playerVisual.physicsVisible,true,'Missing art hid physics marker');
+  assert.equal(artState.playerVisual.loaded,true,'Approved player PNG should render independently of ground');
+  assert.equal(artState.playerVisual.physicsVisible,false,'Illustrated player marker should be hidden');
   assert.equal(artState.playerVisual.bodyRadius,17,'Changed Arcade collision radius');
   assert.equal(artState.playerVisual.followIdentity,true,'Camera stopped following physics player');
   // Two simultaneous *real CDP touch points*, right-first to test independent capture.
