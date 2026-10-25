@@ -20,19 +20,24 @@ const game = new Phaser.Game({
 
 setupViewport(game);
 
-async function requestFullscreen() {
+async function toggleFullscreen() {
   const element = document.getElementById('game-shell');
-  if (!element.requestFullscreen || document.fullscreenElement) return;
   try {
-    await element.requestFullscreen();
+    if (document.fullscreenElement) {
+      if (document.exitFullscreen) await document.exitFullscreen();
+    } else if (element.requestFullscreen) {
+      await element.requestFullscreen();
+      try {
+        if (screen.orientation?.lock) await screen.orientation.lock('landscape');
+      } catch {
+        // Orientation lock is optional.
+      }
+    }
   } catch {
-    return; // Fullscreen is optional; START remains usable.
-  }
-  try {
-    if (screen.orientation?.lock) await screen.orientation.lock('landscape');
-  } catch {
-    // Not supported / denied by browser or OS.
+    // Fullscreen permission and API support vary by browser.
+  } finally {
+    game.scale.refresh();
   }
 }
 
-document.getElementById('fullscreen-button').addEventListener('click', requestFullscreen);
+document.getElementById('fullscreen-button').addEventListener('click', toggleFullscreen);
