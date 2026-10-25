@@ -4,19 +4,14 @@ export const ENCOUNTER=Object.freeze({
  contactDamage:1,playerMaxHp:5,invulnerabilityMs:800,minSpawnDistance:220,
 });
 export function enemySpawns(player){
- const r=ENCOUNTER.enemyRadius;
- const clamp=(n,max)=>Math.max(r,Math.min(max-r,n));
- const candidates=[
-  {x:clamp(player.x+320,ARENA.width),y:clamp(player.y,ARENA.height)},
-  {x:clamp(player.x-320,ARENA.width),y:clamp(player.y-130,ARENA.height)},
-  {x:clamp(player.x+75,ARENA.width),y:clamp(player.y-340,ARENA.height)},
+ const r=ENCOUNTER.enemyRadius+24;
+ const points=[
+  {x:r,y:r},{x:ARENA.width-r,y:r},
+  {x:ARENA.width-r,y:ARENA.height-r},{x:r,y:ARENA.height-r},
  ];
- // Fixed edge fallback keeps every spawn valid even when future starts are near a wall.
- const corners=[{x:r+5,y:r+5},{x:ARENA.width-r-5,y:r+5},{x:r+5,y:ARENA.height-r-5},{x:ARENA.width-r-5,y:ARENA.height-r-5}];
- return candidates.map((pos,index)=>{
-  if(Math.hypot(pos.x-player.x,pos.y-player.y)>=ENCOUNTER.minSpawnDistance)return pos;
-  return [...corners].sort((a,b)=>Math.hypot(b.x-player.x,b.y-player.y)-Math.hypot(a.x-player.x,a.y-player.y))[index%4];
- });
+ return points.map((pos,index)=>({...pos,index}))
+  .sort((a,b)=>Math.hypot(b.x-player.x,b.y-player.y)-Math.hypot(a.x-player.x,a.y-player.y)||a.index-b.index)
+  .slice(0,3).map(({x,y})=>({x,y}));
 }
 export function advanceEnemy(enemy,player,seconds){
  if(enemy.hp<=0||seconds<=0)return {...enemy};
