@@ -42,7 +42,7 @@ export function createPlayerVisual(scene,player,indicator){
    if(!alive)return;
    sprite=scene.add.sprite(player.x,player.y,PLAYER_ART_KEY,playerFrame('s')).setOrigin(0.5).setDepth(11);
    sprite.setScale(1);
-   sprite.texture.setFilter(PhaserFilterNearest(scene));
+   sprite.texture.setFilter(0); // Phaser NEAREST
    player.setVisible(false);indicator.setVisible(false);
   }catch(err){if(alive)console.info('[Aloes] procedural fallback:',err.message);}
  }
@@ -59,4 +59,3 @@ export function createPlayerVisual(scene,player,indicator){
  function destroy(){alive=false;if(sprite){sprite.destroy();sprite=null;}player.setVisible(true);indicator.setVisible(true);}
  return {update,destroy,get sprite(){return sprite;},get loaded(){return Boolean(sprite?.active);}};
 }
-function PhaserFilterNearest(scene){return scene.game.config.renderType===scene.game.renderer.type?0:0;}
