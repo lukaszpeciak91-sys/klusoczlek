@@ -7,10 +7,10 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 | D001 | ACCEPTED | Tytuł KŁUSOCZŁEK; repo klusoczlek | Nazwa świata i prezentu |
 | D002 | ACCEPTED | Statyczna gra na GitHub Pages | Jeden link bez instalacji |
 | D003 | ACCEPTED | Widok 2D z góry zamiast raycastingu | Szybkość realizacji i mobile |
-| D004 | ACCEPTED | Jeden joystick + WASD; ostrzał automatyczny | Sterowanie jednym palcem |
+| D004 | SUPERSEDED | Jeden joystick + WASD; ostrzał automatyczny | Sterowanie jednym palcem |
 | D005 | ACCEPTED | Pickup broni natychmiast zastępuje broń aktywną | Brak ekwipunku i przełączania |
 | D006 | ACCEPTED | 3 typy przeciwników | Zamknięty zakres MVP |
-| D007 | ACCEPTED | Proste menu: tytuł i START | Niskie tarcie |
+| D007 | SUPERSEDED | Proste menu: tytuł i START | Niskie tarcie |
 | D008 | ACCEPTED | HUD z twarzą bohatera zależną od HP | Personalizacja i retro klimat |
 | D009 | ACCEPTED | Oddzielny chat implementacji i grafik; orkiestratorka | Brak konfliktów odpowiedzialności |
 | D010 | PROVISIONAL | 3 bronie, jedna arena, zamknięta sesja | Mała produkcja, łatwa do ukończenia |
@@ -43,6 +43,14 @@ D022 pozostaje w historii; jego sztywna wysokość 540 została zastąpiona prze
 
 | D026 | ACCEPTED | Main Menu always offers NOWA GRA, adds WZNÓW for a paused Arena; fullscreen HTML toggles enter/exit only in Main Menu | Explicit new versus existing session and reversible fullscreen |
 
+| D027 | ACCEPTED | Mobile twin-stick: left movement, right independent manual aim + held fire; desktop WASD/arrows, mouse aim and held left-click fire; no auto-fire/auto-target | Explicit approved combat control supersedes D004 |
+| D028 | ACCEPTED | Eight-direction whole-body sprite facing; projectile heading remains continuous 360°; no facing change when stationary | Small original sheet contract without body layering |
+| D029 | ACCEPTED | Sheet/player/muzzle specification, manual binary upload, missing-asset code placeholders and physics/camera independence per ASSETS.md | Art and implementation can proceed in parallel |
+
+D004 is SUPERSEDED by D027; D007 is SUPERSEDED by D026. D025 remains SUPERSEDED. Historical entries retained unaltered.
+
+D022 remains superseded by D024 (Phaser RESIZE instead of fixed logical height). D004 superseded by D027; D007 superseded by D026; D025 remains superseded. Historical decision descriptions and reasons retained.
+
 ## Otwarte, bez blokowania startu
 - O001: nazwa i wygląd trzeciego wroga.
 - O002: szczegółowa lista broni i ich tempo.
@@ -52,3 +60,4 @@ D022 pozostaje w historii; jego sztywna wysokość 540 została zastąpiona prze
 - O006: konkretny lekki stos JS / Canvas / ewentualny Phaser — implementatorka ma przedstawić krótką rekomendację przed PR01.
 
 Nowe decyzje: dopisz kolejny ID, zapisując konsekwencje; nie przepisuj historii.
+
