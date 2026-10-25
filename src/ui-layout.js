@@ -1,10 +1,39 @@
-// Positions are in Phaser logical viewport coordinates (safe areas are handled by #game).
-export function menuLayout(width) {
-  return { centerX: width / 2, titleY: 148, subtitleY: 211, startY: 330 };
+// Logical pixels equal safe-area CSS pixels under Phaser Scale.RESIZE.
+const within = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
+
+export function menuLayout(width, height = 540) {
+  const h = Math.max(height, 1);
+  const centerX = width / 2;
+  const unit = Math.min(1, h / 540);
+  return {
+    centerX, titleY: h * 0.26, subtitleY: h * 0.385, startY: h * 0.69,
+    titleSize: Math.round(66 * unit),
+    subtitleSize: Math.round(21 * unit),
+    startWidth: Math.min(270, width * 0.55),
+    startHeight: Math.min(82, h * 0.17),
+  };
 }
-export function arenaHudLayout(height) {
-  return { menuX: 105, menuY: 40, joystickX: 110, joystickY: height - 115 };
+export function arenaHudLayout(height, width = 960) {
+  const radius = 46; // 92 px diameter, with a reachable touch halo.
+  const padding = 14;
+  return {
+    menuX: Math.min(105, width / 2),
+    menuY: 37,
+    joystickX: radius + padding,
+    joystickY: Math.max(radius + padding, height - radius - padding),
+    joystickRadius: radius,
+  };
 }
-export function pauseLayout(width) {
-  return { centerX: width / 2, titleY: 150, resumeY: 285, exitY: 383 };
+export function pauseLayout(width, height = 540) {
+  const h = Math.max(height, 1);
+  return {
+    centerX: width / 2,
+    titleY: h * 0.19,
+    resumeY: h * 0.49,
+    exitY: h * 0.75,
+    titleSize: Math.round(46 * Math.min(1, h / 540)),
+    buttonHeight: within(h * 0.16, 44, 70),
+    resumeWidth: Math.min(270, width * 0.75),
+    exitWidth: Math.min(300, width * 0.82),
+  };
 }

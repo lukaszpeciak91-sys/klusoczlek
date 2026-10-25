@@ -67,6 +67,29 @@
 - Updated tests for 16:9, 20:9, 21:9, wider displays, safe area sizing, mapping and transient zero-size fallback.
 - Remaining: verify Android Chrome portrait/landscape, fullscreen, address bar collapse, circle geometry and UI/camera continuity. Actual CI status must be confirmed from workflow runs.
 
+## PR06 — mobile pause & controls repair (2026-10-25, pending audit)
+- Evidence from main: fixed Menu y=148/211/330 and Pause y=150/285/383, with 70px-high bottom button extending beyond 375px height. The WZNÓW callback used a shared Arcade world resume while Arena also independently paused/resumed that world on focus and resize. Missed pointer taps were not proven.
+- Responsive Menu/Pause coordinates and element sizes now depend on measured Phaser Scale.RESIZE width and height; no scene recreation.
+- Joystick diameter 92 logical/CSS px, origin inside safe-area parent; original single-finger tracking preserved.
+- On intentional Pause, Arena scene pauses natively; on WZNÓW the scene resumes first and the existing focus/orientation guard decides whether physics may resume. No unconditional physics resume in WZNÓW.
+- Added 320/360/375/420/540 landscape regression tests for control bounds and joystick geometry.
+- Browser-level real-device interaction and WZNÓW behavior are still required; pure geometry tests do not prove touch delivery.
+- No binaries, weapons, enemies or second joystick.
+
+## PR06 final audit fix
+- Root cause: WZNÓW called scene.resume('Arena') then arena.onFocus() while SceneManager may still report the scene as paused; the pauseGate state was already cleared, potentially leaving physics paused.
+- Changed to wait for actual Phaser Scene RESUME event to clear the user's intentional pause and synchronize Arcade Physics. Blocked WZNÓW leaves the Pause scene and gate intact. Focus alone never clears pauseGate.
+- Added `tests/pause-lifecycle.test.js` simulating SceneManager RESUME notifications, blocked/recoverable resume, player-coordinate continuity, focus/visibility/orientation conditions.
+- Removed literal escaped `\\n` in DECISIONS.md. CI and on-device touch smoke required.
+
+## PR06 cross-project follow-up — real Phaser browser integration (2026-10-25)
+- Read existing scene/viewport/gate code and inspected GitHub Actions failure logs before adjusting test infrastructure.
+- Added `tests/browser-lifecycle.html` exercising the actual Phaser 3 Game, SceneManager, Arena scene, Pause overlay and button event, including a blocked resume and a successful resume retaining exact player coordinates/object and camera identity.
+- Added `tests/run-browser.mjs` with headless Chrome and Vite, and CI `npm run test:browser` following build. Browser test is not a synthetic RESUME event or mocked gate.
+- First browser CI failed because Vite uses base `/klusoczlek/`; corrected harness URL. Follow-up runner also launches Vite directly to avoid orphan npm child process.
+- Verified failure categories and scope: no evidence justifying viewport settling. No runtime gameplay change required by currently exercised integration path.
+- Limitations: Chrome headless browser event emission is not a true physical Android touchscreen; orientation/focus and overlay pointer hit-testing across rapid resizes still need real-device smoke. No merge/deploy/binary assets.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.

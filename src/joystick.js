@@ -1,13 +1,15 @@
 import Phaser from 'phaser';
 import { normalizeInput } from './movement.js';
+import { arenaHudLayout } from './ui-layout.js';
 
 export function createJoystick(scene) {
-  const radius = 59;
-  let x = 110;
-  let y = scene.scale.height - 115;
+  const initial = arenaHudLayout(scene.scale.height, scene.scale.width);
+  const radius = initial.joystickRadius;
+  let x = initial.joystickX;
+  let y = initial.joystickY;
   const base = scene.add.circle(x, y, radius, 0x1b2330, 0.65)
     .setStrokeStyle(3, 0xd4aa5a, 0.9).setScrollFactor(0).setDepth(50);
-  const knob = scene.add.circle(x, y, 24, 0xf3ca76, 0.85)
+  const knob = scene.add.circle(x, y, 20, 0xf3ca76, 0.85)
     .setScrollFactor(0).setDepth(51);
   const direction = { x: 0, y: 0 };
   let pointerId = null;
