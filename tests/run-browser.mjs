@@ -80,8 +80,8 @@ try {
     throw Error('Timeout '+reason+'; last='+JSON.stringify(await snapshot()));
   }
   async function click(x,y){
-    await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',clickCount:1});
-    await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',clickCount:1});
+    await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
+    await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   }
   async function clickControl(which){
     const state=await snapshot();
@@ -90,12 +90,13 @@ try {
     assert.ok(target.y-target.height/2>=0 && target.y+target.height/2<=state.rect.height,'Button clipped');
     await click(state.rect.x+target.x,state.rect.y+target.y);
   }
+  await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
   await waitFor(s=>s.menu&&s.action==='START','initial START');
   await evaluate('window.__traceEvents()');
   assert.equal((await snapshot()).fullscreenHidden,false,'Fullscreen must be visible in menu');
   for(const height of [320,360,375,420]){
     const width=Math.round(height*20/9);
-    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
     await waitFor(s=>Math.abs(s.rect.height-height)<2,'resize '+height);
     let state=await snapshot();
     assert.equal(state.action,'START');
