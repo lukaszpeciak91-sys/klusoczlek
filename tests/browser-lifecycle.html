@@ -16,15 +16,16 @@ window.__snapshot=() => {
   const menu=game.scene.getScene('Menu');
   if(!arena?.sys||!menu?.sys)return null;
   const canvas=game.canvas.getBoundingClientRect();
-  const action=menu.sys.isActive()?menu.input._list.find(o=>o.input&&o.width>150):null;
+  const actions=menu.sys.isActive()?menu.input._list.filter(o=>o.input&&o.width>150).map(o=>({x:o.x,y:o.y,width:o.width,height:o.height,label:menu.children.list.find(t=>t.type==='Text'&&['NOWA GRA','WZNÓW'].includes(t.text)&&Math.abs(t.y-o.y)<1)?.text})):[];
   const hud=arena.sys.isActive()?arena.input._list.find(o=>o.input&&o.width===185):null;
   return {
     menu:game.scene.isActive('Menu'),arena:game.scene.isActive('Arena'),arenaPaused:game.scene.isPaused('Arena'),
-    action:action?.input?.enabled ? (menu.children.list.find(o=>o.type==='Text'&&['START','WZNÓW'].includes(o.text))?.text) : null,
+    actions,
     menuButton:hud?{x:hud.x,y:hud.y,width:hud.width,height:hud.height}:null,
-    button:action?{x:action.x,y:action.y,width:action.width,height:action.height}:null,
+    button:actions[0]??null,
     rect:{x:canvas.x,y:canvas.y,width:canvas.width,height:canvas.height},
     player:arena.player?{x:arena.player.x,y:arena.player.y}:null,
+    playerId:arena.player===window.__identity?.player,
     physics:arena.physics?.world?.isPaused??null,
     camera:arena.cameras?.main?.id??null,
     fullscreenHidden:document.getElementById('fullscreen-button').hidden,
