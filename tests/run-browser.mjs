@@ -4,21 +4,24 @@ import { access } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const port = 5187;
-const url = `http://127.0.0.1:${port}/tests/browser-lifecycle.html`;
+const url = `http://127.0.0.1:${port}/klusoczlek/tests/browser-lifecycle.html`;
 let browser;
 for (const executable of [process.env.CHROME_BIN, '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser']) {
   if (!executable) continue;
   try { await access(executable); browser = executable; break; } catch {}
 }
 if (!browser) throw Error('Chromium/Chrome not found; browser integration must not be silently skipped.');
-const server = spawn('npm', ['run','dev','--','--host','127.0.0.1','--port',String(port),'--strictPort'],{stdio:'ignore'});
+const server = spawn('npm', ['run','dev','--','--host','127.0.0.1','--port',String(port),'--strictPort'],{stdio:['ignore','pipe','pipe']});
+let serverOutput = '';
+server.stdout.on('data', chunk => serverOutput += chunk.toString());
+server.stderr.on('data', chunk => serverOutput += chunk.toString());
 try {
   let ready = false;
   for (let i=0;i<90;i++) {
     try { const r=await fetch(url); if(r.ok){ready=true;break;} } catch {}
     await sleep(200);
   }
-  assert.ok(ready, 'Vite browser harness did not start');
+  assert.ok(ready, 'Vite browser harness did not start: ' + serverOutput.slice(-1500));
   const chrome = spawn(browser,['--headless','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--virtual-time-budget=10000','--dump-dom',url],{stdio:['ignore','pipe','pipe']});
   let output='', errors='';
   chrome.stdout.on('data',c=>output+=c.toString());
