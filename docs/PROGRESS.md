@@ -134,3 +134,8 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Original-art filename/grid/pivot/muzzle contract in ASSETS and machine-readable source; all assets PENDING.
 - Pure octant and vector/pose helpers plus manifest verification tests; current marker physics/camera and scene runtime unchanged.
 - No binaries, artwork, packages, deploy or merge. CI and npm commands must be verified externally; no local npm run claimed.
+
+## PR12 audit fix — 2026-10-25
+- Reduced character spritesheets from 8 to 4 animation phases per direction/state (192 → 96 frames); weapon sheets remain separate 3×1.
+- Clarified provisional dialogue portrait identities and repaired DECISIONS markdown decision table/statuses.
+- Contract tests updated; runtime physics, camera, input and fallback untouched. Pending independent re-audit and CI verification.
