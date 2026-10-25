@@ -31,6 +31,8 @@ window.__snapshot=() => {
     fullscreenVisible:getComputedStyle(document.getElementById('fullscreen-button')).display!=='none',
     focused:document.hasFocus(),hidden:document.hidden,portrait:innerHeight>innerWidth,
     sceneStatus:{menu:menu.sys.settings.status,arena:arena.sys.settings.status},
+    sceneOrder:game.scene.scenes.map(scene=>scene.sys.settings.key),
+    menuOverArena:game.scene.scenes.indexOf(menu)>game.scene.scenes.indexOf(arena),
     trace:window.__trace.slice(-20),
     samePlayer:!window.__identity||arena.player===window.__identity.player,
     sameCamera:!window.__identity||arena.cameras?.main===window.__identity.camera,
