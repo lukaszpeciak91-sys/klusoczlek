@@ -18,6 +18,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - run: npm run test:browser
       - name: Verify Pages output
         run: test -f dist/index.html
       - uses: actions/upload-artifact@v4
