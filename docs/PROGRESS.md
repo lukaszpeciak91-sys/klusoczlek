@@ -108,6 +108,13 @@
 - Browser test uses DevTools real touch coordinates for 20 MENU/WZNÓW cycles, validates dual buttons and fresh session, fullscreen HTML visibility, joystick-safe viewport sizes.
 - Actual full-screen enter/exit automated coverage limited by headless browser restrictions. Android Chrome manual smoke required.
 
+## PR11 — fullscreen exit layout recovery (2026-10-25; audit pending)
+- Real Android Chrome evidence: after exiting fullscreen, Main Menu buttons and canvas appear clipped/displaced despite working toggle.
+- Root-cause candidate: fullscreen promise and fullscreenchange can precede the Android browser toolbar restoring the safe-area game container size. The existing single ScaleManager refresh misses subsequent container-only layout changes.
+- Minimal fix: observe the actual #game safe-area element with ResizeObserver and call the already established viewport update/Phaser Scale.refresh when its box changes. The observer is disconnected at game destroy. No extra viewport manager, manual scaling, fixed timeouts or CSS transforms.
+- Browser regression now asserts Phaser logical scale, canvas rect and parent box re-align after each native fullscreen toggle and that menu hitboxes remain within the recovered viewport.
+- Remaining: real Android Chrome after address-bar restoration, fullscreen entry/exit multiple times, Arena HUD/joystick and menu hit areas. Chrome headless cannot replicate the mobile browser's address bar perfectly.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
