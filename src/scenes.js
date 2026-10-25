@@ -42,8 +42,8 @@ export class MenuScene extends Phaser.Scene {
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', 66).setColor(COLORS.accent);
     const subtitle = label(this, initial.centerX, initial.subtitleY, 'RETRO SURVIVAL // PROTOTYP', 21);
     const start = button(this, initial.centerX, initial.startY, 270, 82, 'START', () => this.scene.start('Arena'));
-    const resize = (width) => {
-      const layout = menuLayout(width);
+    const resize = () => {
+      const layout = menuLayout(this.scale.width);
       title.setX(layout.centerX);
       subtitle.setX(layout.centerX);
       start.background.setX(layout.centerX);
@@ -84,7 +84,7 @@ export class ArenaScene extends Phaser.Scene {
       fontFamily: 'monospace', fontSize: '25px', color: COLORS.white,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(61);
     menuButton.on('pointerdown', () => this.openPause());
-    const resizeHud = (_size) => {
+    const resizeHud = () => {
       const pos = arenaHudLayout(this.scale.height);
       menuButton.setPosition(pos.menuX, pos.menuY);
       menuLabel.setPosition(pos.menuX, pos.menuY);
@@ -177,8 +177,8 @@ export class PauseScene extends Phaser.Scene {
       this.scene.stop('Arena');
       this.scene.start('Menu');
     });
-    const resize = (width) => {
-      const layout = pauseLayout(width);
+    const resize = () => {
+      const layout = pauseLayout(this.scale.width);
       heading.setX(layout.centerX);
       for (const control of [resumeButton, exitButton]) {
         control.background.setX(layout.centerX);
