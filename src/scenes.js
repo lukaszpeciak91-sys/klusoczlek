@@ -38,16 +38,16 @@ export class MenuScene extends Phaser.Scene {
 
   create() {
     this.cameras.main.setBackgroundColor(COLORS.background);
-    const initial = menuLayout(this.scale.width);
-    const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', 66).setColor(COLORS.accent);
-    const subtitle = label(this, initial.centerX, initial.subtitleY, 'RETRO SURVIVAL // PROTOTYP', 21);
-    const start = button(this, initial.centerX, initial.startY, 270, 82, 'START', () => this.scene.start('Arena'));
+    const initial = menuLayout(this.scale.width, this.scale.height);
+    const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
+    const subtitle = label(this, initial.centerX, initial.subtitleY, 'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
+    const start = button(this, initial.centerX, initial.startY, initial.startWidth, initial.startHeight, 'START', () => this.scene.start('Arena'));
     const resize = () => {
-      const layout = menuLayout(this.scale.width);
-      title.setX(layout.centerX);
-      subtitle.setX(layout.centerX);
-      start.background.setX(layout.centerX);
-      start.caption.setX(layout.centerX);
+      const layout = menuLayout(this.scale.width, this.scale.height);
+      title.setPosition(layout.centerX, layout.titleY).setFontSize(layout.titleSize);
+      subtitle.setPosition(layout.centerX, layout.subtitleY).setFontSize(layout.subtitleSize);
+      start.background.setPosition(layout.centerX, layout.startY).setSize(layout.startWidth, layout.startHeight);
+      start.caption.setPosition(layout.centerX, layout.startY);
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, resize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, resize));
@@ -76,7 +76,7 @@ export class ArenaScene extends Phaser.Scene {
     this.pauseGate = createPauseGate();
     this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
     this.joystick = createJoystick(this);
-    const hud = arenaHudLayout(this.scale.height);
+    const hud = arenaHudLayout(this.scale.height, this.scale.width);
     const menuButton = this.add.rectangle(hud.menuX, hud.menuY, 185, 58, COLORS.panel)
       .setStrokeStyle(3, COLORS.border).setScrollFactor(0).setDepth(60)
       .setInteractive({ useHandCursor: true });
@@ -85,7 +85,7 @@ export class ArenaScene extends Phaser.Scene {
     }).setOrigin(0.5).setScrollFactor(0).setDepth(61);
     menuButton.on('pointerdown', () => this.openPause());
     const resizeHud = () => {
-      const pos = arenaHudLayout(this.scale.height);
+      const pos = arenaHudLayout(this.scale.height, this.scale.width);
       menuButton.setPosition(pos.menuX, pos.menuY);
       menuLabel.setPosition(pos.menuX, pos.menuY);
       this.joystick.reposition(pos.joystickX, pos.joystickY);
@@ -101,7 +101,7 @@ export class ArenaScene extends Phaser.Scene {
     };
     this.onBlur = () => { this.resetMovement(); this.physics.world.pause(); };
     this.onFocus = () => {
-      if (!document.hidden && document.hasFocus() && window.innerWidth >= window.innerHeight && !this.scene.isPaused('Arena')) {
+      if (!document.hidden && document.hasFocus() && window.innerWidth >= window.innerHeight && !this.scene.isPaused('Arena') && this.pauseGate.state === 'playing') {
         this.physics.world.resume();
       }
     };
@@ -132,7 +132,6 @@ export class ArenaScene extends Phaser.Scene {
   openPause() {
     if (!this.pauseGate.open()) return;
     this.resetMovement();
-    this.physics.world.pause();
     this.scene.launch('Pause');
     this.scene.pause();
   }
@@ -159,18 +158,18 @@ export class PauseScene extends Phaser.Scene {
   constructor() { super('Pause'); }
 
   create() {
-    const initial = pauseLayout(this.scale.width);
+    const initial = pauseLayout(this.scale.width, this.scale.height);
     this.cameras.main.setBackgroundColor('rgba(14,16,26,0.92)');
-    const heading = label(this, initial.centerX, initial.titleY, 'PAUZA', 46).setColor(COLORS.accent);
-    const resumeButton = button(this, initial.centerX, initial.resumeY, 270, 70, 'WZNÓW', () => {
+    const heading = label(this, initial.centerX, initial.titleY, 'PAUZA', initial.titleSize).setColor(COLORS.accent);
+    const resumeButton = button(this, initial.centerX, initial.resumeY, initial.resumeWidth, initial.buttonHeight, 'WZNÓW', () => {
       const arena = this.scene.get('Arena');
       if (document.hidden || window.innerHeight > window.innerWidth || !arena.pauseGate.resume()) return;
       arena.resetMovement();
-      arena.physics.world.resume();
       this.scene.resume('Arena');
+      arena.onFocus();
       this.scene.stop();
     });
-    const exitButton = button(this, initial.centerX, initial.exitY, 300, 70, 'MENU GŁÓWNE', () => {
+    const exitButton = button(this, initial.centerX, initial.exitY, initial.exitWidth, initial.buttonHeight, 'MENU GŁÓWNE', () => {
       const arena = this.scene.get('Arena');
       if (!arena.pauseGate.exit()) return;
       arena.resetMovement();
@@ -178,11 +177,14 @@ export class PauseScene extends Phaser.Scene {
       this.scene.start('Menu');
     });
     const resize = () => {
-      const layout = pauseLayout(this.scale.width);
-      heading.setX(layout.centerX);
-      for (const control of [resumeButton, exitButton]) {
-        control.background.setX(layout.centerX);
-        control.caption.setX(layout.centerX);
+      const layout = pauseLayout(this.scale.width, this.scale.height);
+      heading.setPosition(layout.centerX, layout.titleY).setFontSize(layout.titleSize);
+      for (const [control, y, width] of [
+        [resumeButton, layout.resumeY, layout.resumeWidth],
+        [exitButton, layout.exitY, layout.exitWidth],
+      ]) {
+        control.background.setPosition(layout.centerX, y).setSize(width, layout.buttonHeight);
+        control.caption.setPosition(layout.centerX, y);
       }
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, resize);
