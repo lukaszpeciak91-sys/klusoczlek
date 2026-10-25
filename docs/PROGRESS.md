@@ -175,3 +175,7 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Added docs/art/ART_BIBLE.md, CHARACTER_SPEC.md, ENVIRONMENT_SPEC.md, ASSET_QA.md; linked from technical ASSETS.md.
 - Artistic approvals separated from D030 eight-frame runtime contract and pending graphics. Verified user-uploaded player PNG path exists; approved ground PNG still absent, procedural ground remains active.
 - No binary, gameplay, manifest, dependency or deployment changes. Art review and physical Android validation remain separate acceptance gates.
+
+## Arena approved texture rendering (pending independent audit)
+- Runtime validates pending 1024×1024 `public/assets/terrain/arena-ground.png` using Vite BASE_URL and creates a world-space Phaser TileSprite under gameplay objects. Procedural ground/grid remains a fallback for missing or invalid PNG and is destroyed after successful texture load.
+- World size, physics/camera, obstacles, combat, player, HUD and fullscreen unchanged. No binary artwork changed. QA: unit + actual Chromium full browser tests and Android device check remain distinct.
