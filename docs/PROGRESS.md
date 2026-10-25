@@ -52,6 +52,14 @@
 - Manual smoke: Android Chrome i desktop: rozdzielczości 16:9 / 20:9 / 21:9, fullscreen przed i po START, safe area, wyśrodkowanie HUD, MENU→WZNÓW zachowuje pozycję, MENU GŁÓWNE resetuje sesję, szybkie dwukliki, obrót w pion, przejście aplikacji w tło, powrót i ponowne sterowanie.
 - Nie dodano przeciwników, broni, drugiego joysticka, ani binarnych assetów.
 
+## PR04 audit fix — responsive UI after resize (pending re-audit)
+- Menu title, subtitle and START reposition to current logical center after Phaser Scale resize.
+- Pause heading, WZNÓW and MENU GŁÓWNE similarly move without scene restart.
+- MENU HUD and mobile joystick are repositioned with viewport height. Joystick pointer origin changes together with visible graphics and clears captured input on resize.
+- Added `src/ui-layout.js` and focused `tests/ui-layout.test.js`; no added assets/dependencies/gameplay.
+- Verify in Android Chrome: start landscape, rotate, enter/exit fullscreen, resize desktop, pause then resize, confirm UI remains aligned; verify camera/player state is preserved.
+- Verification: npm ci / npm test / npm run build require actual execution results from CI, not inferred success.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
