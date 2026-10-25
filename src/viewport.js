@@ -2,6 +2,11 @@
 export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
 
+export function logicalViewport(width, height) {
+  if (!(width > 0 && height > 0)) return { width: GAME_WIDTH, height: GAME_HEIGHT };
+  return { width: Math.round(GAME_HEIGHT * width / height), height: GAME_HEIGHT };
+}
+
 export function isPortrait(width, height) {
   return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > width;
 }
@@ -45,6 +50,7 @@ export function enforceOrientationOnSceneStart(scene) {
 
 export function setupViewport(game) {
   const rotateMessage = document.getElementById('rotate-message');
+  const container = document.getElementById('game');
   const portrait = () => isPortrait(window.innerWidth, window.innerHeight);
   const controller = createOrientationController({
     portrait,
@@ -58,6 +64,11 @@ export function setupViewport(game) {
     rotateMessage.hidden = !rotated;
     document.body.classList.toggle('portrait', rotated);
     controller.sync();
+    const rect = container.getBoundingClientRect();
+    const size = logicalViewport(rect.width, rect.height);
+    if (game.scale.width !== size.width || game.scale.height !== size.height) {
+      game.scale.resize(size.width, size.height);
+    }
     game.scale.refresh();
   };
   sceneStarted = scene => {
@@ -66,10 +77,12 @@ export function setupViewport(game) {
     // This check happens during create, before the first scene update tick.
   };
   window.addEventListener('resize', update);
+  document.addEventListener('fullscreenchange', update);
   window.addEventListener('orientationchange', update);
   document.addEventListener('visibilitychange', update);
   game.events.once('destroy', () => {
     window.removeEventListener('resize', update);
+    document.removeEventListener('fullscreenchange', update);
     window.removeEventListener('orientationchange', update);
     document.removeEventListener('visibilitychange', update);
     sceneStarted = () => {};
