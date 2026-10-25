@@ -82,6 +82,14 @@
 - Added `tests/pause-lifecycle.test.js` simulating SceneManager RESUME notifications, blocked/recoverable resume, player-coordinate continuity, focus/visibility/orientation conditions.
 - Removed literal escaped `\\n` in DECISIONS.md. CI and on-device touch smoke required.
 
+## PR06 cross-project follow-up — real Phaser browser integration (2026-10-25)
+- Read existing scene/viewport/gate code and inspected GitHub Actions failure logs before adjusting test infrastructure.
+- Added `tests/browser-lifecycle.html` exercising the actual Phaser 3 Game, SceneManager, Arena scene, Pause overlay and button event, including a blocked resume and a successful resume retaining exact player coordinates/object and camera identity.
+- Added `tests/run-browser.mjs` with headless Chrome and Vite, and CI `npm run test:browser` following build. Browser test is not a synthetic RESUME event or mocked gate.
+- First browser CI failed because Vite uses base `/klusoczlek/`; corrected harness URL. Follow-up runner also launches Vite directly to avoid orphan npm child process.
+- Verified failure categories and scope: no evidence justifying viewport settling. No runtime gameplay change required by currently exercised integration path.
+- Limitations: Chrome headless browser event emission is not a true physical Android touchscreen; orientation/focus and overlay pointer hit-testing across rapid resizes still need real-device smoke. No merge/deploy/binary assets.
+
 ## Dalej
 - Audyt PR01 → testy → autoryzacja merge.
 - Następny etap po akceptacji: PR02 — wejście i ruch.
