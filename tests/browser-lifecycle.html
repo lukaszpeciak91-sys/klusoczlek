@@ -50,7 +50,7 @@ window.__snapshot=() => {
       targetCount:arena.targets.length,
       layoutIndex:arena.layoutIndex,
       obstacles:arena.obstacles.map(o=>({type:o.type,x:o.x,y:o.y,hp:o.hp,alive:o.alive,visualActive:o.sprite.active,depth:o.sprite.depth})),
-      groundActive:arena.ground?.active,groundDepth:arena.ground?.depth,groundType:arena.ground?.type,groundWidth:arena.ground?.width,groundHeight:arena.ground?.height,groundTileX:arena.ground?.tilePositionX??null,groundTileY:arena.ground?.tilePositionY??null,groundGridActive:arena.groundGrid?.active??false,groundTextureWidth:arena.ground?.texture?.source?.[0]?.width??null,groundTextureHeight:arena.ground?.texture?.source?.[0]?.height??null,worldWidth:arena.physics?.world?.bounds?.width,worldHeight:arena.physics?.world?.bounds?.height,
+      groundActive:arena.ground?.active,groundDepth:arena.ground?.depth,groundType:arena.ground?.type,groundWidth:arena.ground?.width,groundHeight:arena.ground?.height,groundTileX:arena.ground?.tilePositionX??null,groundTileY:arena.ground?.tilePositionY??null,groundGridActive:arena.groundGrid?.active??false,groundTextureWidth:game.textures.get('klusoczlek-arena-ground')?.source?.[0]?.width??null,groundTextureHeight:game.textures.get('klusoczlek-arena-ground')?.source?.[0]?.height??null,worldWidth:arena.physics?.world?.bounds?.width,worldHeight:arena.physics?.world?.bounds?.height,
       blockerBodyCount:arena.obstacleBodies?.getChildren().filter(o=>o.active).length,
       hp:arena.playerHp,defeated:arena.defeated,
       enemies:arena.enemies.map(e=>({x:e.x,y:e.y,hp:e.hp})),
