@@ -60,6 +60,7 @@ export function enforceOrientationOnSceneStart(scene) {
 
 export function setupViewport(game) {
   const rotateMessage = document.getElementById('rotate-message');
+  const gameBox = document.getElementById('game');
   const portrait = () => isPortrait(window.innerWidth, window.innerHeight);
   const controller = createOrientationController({
     portrait,
@@ -82,11 +83,16 @@ export function setupViewport(game) {
     // Phaser's scene lifecycle may start a scene after initial viewport synchronization.
     // This check happens during create, before the first scene update tick.
   };
+  // Android browser chrome may restore its layout viewport after fullscreenchange.
+  // Observe the actual safe-area game box instead of guessing a delay.
+  const boxObserver = new ResizeObserver(() => update());
+  boxObserver.observe(gameBox);
   window.addEventListener('resize', update);
   document.addEventListener('fullscreenchange', update);
   window.addEventListener('orientationchange', update);
   document.addEventListener('visibilitychange', update);
   game.events.once('destroy', () => {
+    boxObserver.disconnect();
     window.removeEventListener('resize', update);
     document.removeEventListener('fullscreenchange', update);
     window.removeEventListener('orientationchange', update);
