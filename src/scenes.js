@@ -138,7 +138,7 @@ export class ArenaScene extends Phaser.Scene {
     document.addEventListener('visibilitychange', this.onVisibility);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       // Phaser may have removed the player body before SHUTDOWN; do not access it here.
-      this.physics.world.resume();
+      // Phaser has already torn down Arcade Physics by SHUTDOWN; no physics calls here.
       window.removeEventListener('blur', this.onBlur);
       window.removeEventListener('focus', this.onFocus);
       window.removeEventListener('resize', this.onResize);
