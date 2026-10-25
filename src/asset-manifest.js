@@ -1,7 +1,7 @@
 // Asset handoff contract only. Paths resolve through Vite BASE_URL in runtime integration.
 export const assetManifest=Object.freeze([
   {id:'player',path:'player/player.png',width:256,height:1536,frameWidth:64,frameHeight:64,columns:4,rows:24,alpha:true,kind:'sheet',status:'pending'},
-  ...['bobrozombi','zubrokryptyda','enemy_fast'].map(id=>({id,path:`enemies/${id}.png`,width:192,height:1152,frameWidth:48,frameHeight:48,columns:8,rows:24,alpha:true,kind:'sheet',status:'pending'})),
+  ...['bobrozombi','zubrokryptyda','enemy_fast'].map(id=>({id,path:`enemies/${id}.png`,width:192,height:1152,frameWidth:48,frameHeight:48,columns:4,rows:24,alpha:true,kind:'sheet',status:'pending'})),
   ...['rapid','heavy','spread'].map(id=>({id:`weapon_${id}`,path:`weapons/${id}.png`,width:96,height:32,frameWidth:32,frameHeight:32,columns:3,rows:1,alpha:true,kind:'sheet',status:'pending'})),
   {id:'health_beer',path:'pickups/health_beer.png',width:32,height:32,frameWidth:32,frameHeight:32,columns:1,rows:1,alpha:true,kind:'image',status:'pending'},
   ...['high','medium','low'].map(id=>({id:`hp_${id}`,path:`portraits/hp_${id}.png`,width:128,height:128,frameWidth:128,frameHeight:128,columns:1,rows:1,alpha:true,kind:'image',status:'pending'})),
