@@ -125,7 +125,7 @@ try {
   }
   await clickControl('hud');
   await waitFor(s=>s.menu&&s.action==='WZNÓW','last Menu');
-  await evaluate('window.__game.scene.stop("Arena");window.__game.scene.stop("Menu");window.__game.scene.start("Menu")');
+  await evaluate('window.__game.scene.stop("Arena");window.__game.scene.stop("Menu");window.__game.scene.start("Menu");true');
   await waitFor(s=>s.menu&&s.action==='START','START after session termination');
   console.log('PASS real Phaser pointer clicks: 10 MENU/WZNÓW cycles, same player/camera, physics, START after session end');
 
