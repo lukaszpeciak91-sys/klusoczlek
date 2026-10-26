@@ -396,7 +396,7 @@ try {
   for(let attempt=0;attempt<50&&delayedRequest===null;attempt++)await sleep(80);
   assert.ok(delayedRequest,'Expected real pending PNG request');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');window.__deadSession={scene:a,player:a.player,visual:a.playerVisual};window.__game.scene.stop('Arena');window.__game.scene.start('Menu');return true})()");
-  await waitFor(v=>v.menu&&!v.arena,'Arena stopped during pending PNG');
+  assert.equal(await evaluate('window.__game.scene.isActive("Menu")&&!window.__game.scene.isActive("Arena")'),true,'Arena did not stop during pending PNG');
   holdLoad=false;
   await cdp('Fetch.fulfillRequest',{requestId:delayedRequest,responseCode:200,
     responseHeaders:[{name:'Content-Type',value:'image/png'},{name:'Cache-Control',value:'no-store'}],body:sheetBase64});
