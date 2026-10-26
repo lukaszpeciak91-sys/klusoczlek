@@ -13,6 +13,10 @@ setupViewport(game);
 document.getElementById('fullscreen-button').addEventListener('click', () => toggleFullscreen(document.getElementById('game-shell'), () => game.scale.refresh()));
 window.__identity=null;
 window.__trace=[];
+window.__visualSession=()=>{const a=game.scene.getScene('Arena');return {player:a.player,shadow:a.playerVisual?.shadow,sprite:a.playerVisual?.sprite};};
+window.__sessionHistory=[];
+window.__captureVisualSession=()=>{const v=window.__visualSession();window.__sessionHistory.push(v);return window.__sessionHistory.length;};
+window.__sessionIntegrity=()=>{const a=game.scene.getScene('Arena'),now=window.__visualSession();return {current:{shadowActive:!!now.shadow?.active,spriteActive:!!now.sprite?.active,shadowMatches:now.shadow===a.playerVisual?.shadow,bodyRadius:a.player?.body?.radius},past:window.__sessionHistory.map(v=>({playerSame:v.player===now.player,shadowSame:v.shadow===now.shadow,spriteSame:v.sprite===now.sprite,shadowActive:!!v.shadow?.active,spriteActive:!!v.sprite?.active}))};};
 
 window.__snapshot=() => {
   const arena=game.scene.getScene('Arena');
