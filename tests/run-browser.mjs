@@ -310,6 +310,13 @@ try {
   await clickControl('NOWA GRA');
   const art=await waitFor(s=>s.arena&&s.playerVisual?.loaded,'actual synthetic RGBA sprite load');
   assert.deepEqual(art.playerVisual.textureFrames,Array(8).fill(true),'Phaser did not produce eight 64x64 frames');
+  assert.equal(art.playerVisual.visualScale,1.30,'Loaded sprite scale');
+  assert.equal(art.playerVisual.shadowCount,1,'One contact shadow after loading');
+  assert.equal(art.playerVisual.shadowDepth,10);
+  assert.equal(art.playerVisual.shadowAlpha,0.24);
+  assert.equal(art.playerVisual.shadowAngle,0);
+  assert.equal(art.playerVisual.shadowX,art.player.x);
+  assert.equal(art.playerVisual.shadowY,art.player.y+17);
   assert.equal(art.playerVisual.physicsVisible,false,'Marker not hidden after successful load');
   assert.equal(art.playerVisual.bodyRadius,17);
   assert.equal(art.playerVisual.followIdentity,true);
@@ -326,6 +333,9 @@ try {
   await sleep(120); // Allow Arcade velocity reset and renderer to settle after keyup.
   const afterMove=await snapshot();
   assert.ok(afterMove.player.x>beforeMove.player.x+5,'Original keyboard movement regressed with sprite');
+  assert.equal(afterMove.playerVisual.shadowCount,1);
+  assert.ok(Math.abs(afterMove.playerVisual.shadowX-afterMove.player.x)<1);
+  assert.ok(Math.abs(afterMove.playerVisual.shadowY-afterMove.player.y-17)<1);
   assert.ok(Math.abs(afterMove.playerVisual.visualX-afterMove.player.x)<1,'Visual not attached to moving physics object');
   console.log('PASS synthetic in-memory RGBA: actual 8 Phaser frames, facing, nearest, fallback, physics and camera');
   await cdp('Fetch.disable');
