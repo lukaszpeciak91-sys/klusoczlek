@@ -2,6 +2,8 @@ import { playerFrame } from './combat-contract.js';
 import { assetManifest } from './asset-manifest.js';
 
 export const VISUAL_MOTION=Object.freeze({enabled:true,swayDegrees:2.5,bobPixels:1.5,hertz:2.2,blendRate:9});
+export const PLAYER_VISUAL_SCALE=1.30;
+export const CONTACT_SHADOW=Object.freeze({width:35,height:12,fill:0x241b16,alpha:0.24,offsetY:17,depth:10});
 export const PLAYER_ART_KEY='aloes-eight-directions';
 const PLAYER_ART=assetManifest.find(a=>a.id==='player');
 export const PLAYER_ART_PATH=PLAYER_ART.path;
@@ -21,8 +23,9 @@ export function visualMotion(seconds,moving,blend=0,options=VISUAL_MOTION){
  bob:Math.sin(phase*2)*options.bobPixels*weight};
 }
 export function visualPosition(player,bob=0){return {x:player.x,y:player.y+bob};}
+export function shadowPosition(player){return {x:player.x,y:player.y+CONTACT_SHADOW.offsetY};}
 export function createPlayerVisual(scene,player,indicator,Phaser){
- let sprite=null,alive=true,elapsed=0,blend=0;
+ let shadow=null,sprite=null,alive=true,elapsed=0,blend=0;
  const texture=scene.textures;
  async function load(){
   const uri=assetUrl(import.meta.env.BASE_URL,PLAYER_ART_PATH);
@@ -41,7 +44,9 @@ export function createPlayerVisual(scene,player,indicator,Phaser){
    }
    if(!alive)return;
    sprite=scene.add.sprite(player.x,player.y,PLAYER_ART_KEY,playerFrame('s')).setOrigin(0.5).setDepth(11);
-   sprite.setScale(1);
+   sprite.setScale(PLAYER_VISUAL_SCALE);
+   const shadowAt=shadowPosition(player);
+   shadow=scene.add.ellipse(shadowAt.x,shadowAt.y,CONTACT_SHADOW.width,CONTACT_SHADOW.height,CONTACT_SHADOW.fill,CONTACT_SHADOW.alpha).setDepth(CONTACT_SHADOW.depth);
    sprite.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
    player.setVisible(false);indicator.setVisible(false);
   }catch(err){if(alive)console.info('[Aloes] procedural fallback:',err.message);}
@@ -55,7 +60,8 @@ export function createPlayerVisual(scene,player,indicator,Phaser){
   blend=motion.blend;
   const p=visualPosition(player,motion.bob);
   sprite.setPosition(p.x,p.y).setRotation(motion.angle).setFrame(playerFrame(facing));
+  if(shadow?.active){const at=shadowPosition(player);shadow.setPosition(at.x,at.y);}
  }
- function destroy(){alive=false;if(sprite){sprite.destroy();sprite=null;}player.setVisible(true);indicator.setVisible(true);}
- return {update,destroy,get sprite(){return sprite;},get loaded(){return Boolean(sprite?.active);}};
+ function destroy(){alive=false;if(sprite){sprite.destroy();sprite=null;}if(shadow){shadow.destroy();shadow=null;}player.setVisible(true);indicator.setVisible(true);}
+ return {update,destroy,get sprite(){return sprite;},get shadow(){return shadow;},get loaded(){return Boolean(sprite?.active);}};
 }

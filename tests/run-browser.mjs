@@ -310,6 +310,13 @@ try {
   await clickControl('NOWA GRA');
   const art=await waitFor(s=>s.arena&&s.playerVisual?.loaded,'actual synthetic RGBA sprite load');
   assert.deepEqual(art.playerVisual.textureFrames,Array(8).fill(true),'Phaser did not produce eight 64x64 frames');
+  assert.equal(art.playerVisual.visualScale,1.30,'Loaded sprite scale');
+  assert.equal(art.playerVisual.shadowCount,1,'One contact shadow after loading');
+  assert.equal(art.playerVisual.shadowDepth,10);
+  assert.equal(art.playerVisual.shadowAlpha,0.24);
+  assert.equal(art.playerVisual.shadowAngle,0);
+  assert.equal(art.playerVisual.shadowX,art.player.x);
+  assert.equal(art.playerVisual.shadowY,art.player.y+17);
   assert.equal(art.playerVisual.physicsVisible,false,'Marker not hidden after successful load');
   assert.equal(art.playerVisual.bodyRadius,17);
   assert.equal(art.playerVisual.followIdentity,true);
@@ -326,10 +333,85 @@ try {
   await sleep(120); // Allow Arcade velocity reset and renderer to settle after keyup.
   const afterMove=await snapshot();
   assert.ok(afterMove.player.x>beforeMove.player.x+5,'Original keyboard movement regressed with sprite');
+  assert.equal(afterMove.playerVisual.shadowCount,1);
+  assert.ok(Math.abs(afterMove.playerVisual.shadowX-afterMove.player.x)<1);
+  assert.ok(Math.abs(afterMove.playerVisual.shadowY-afterMove.player.y-17)<1);
   assert.ok(Math.abs(afterMove.playerVisual.visualX-afterMove.player.x)<1,'Visual not attached to moving physics object');
   console.log('PASS synthetic in-memory RGBA: actual 8 Phaser frames, facing, nearest, fallback, physics and camera');
-  await cdp('Fetch.disable');
+
+  // Three consecutive Arena -> MENU -> NOWA GRA cycles with real Phaser objects.
+  for(let cycle=0;cycle<3;cycle++){
+    await evaluate('window.__captureVisualSession()');
+    const prior=await snapshot();
+    assert.equal(prior.playerVisual.shadowCount,1);
+    await clickControl('hud');
+    const paused=await waitFor(v=>v.menu&&v.arenaPaused&&v.actions.length===2,'menu visual cycle '+cycle);
+    assert.equal(paused.playerVisual.shadowCount,1,'Menu duplicated visual shadow');
+    const frozen=await evaluate("(()=>{const v=window.__visualSession();window.__resumeIdentity={player:v.player,shadow:v.shadow,sprite:v.sprite};return true;})()");
+    assert.equal(frozen,true);
+    await clickControl('WZNÓW');
+    const resumed=await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'resume visual cycle '+cycle);
+    const identity=await evaluate("(()=>{const v=window.__visualSession(),saved=window.__resumeIdentity;return {player:v.player===saved.player,shadow:v.shadow===saved.shadow,sprite:v.sprite===saved.sprite};})()");
+    assert.deepEqual(identity,{player:true,shadow:true,sprite:true},'WZNÓW recreated Arena objects');
+    assert.equal(resumed.playerVisual.shadowCount,1);
+    assert.ok(Math.abs(resumed.playerVisual.shadowX-resumed.player.x)<1);
+    assert.ok(Math.abs(resumed.playerVisual.shadowY-resumed.player.y-17)<1);
+    await clickControl('hud');
+    await waitFor(v=>v.menu&&v.arenaPaused,'menu before replacement '+cycle);
+    await clickControl('NOWA GRA');
+    const fresh=await waitFor(v=>v.arena&&!v.menu&&v.playerVisual?.loaded,'recreated sprite '+cycle);
+    const integrity=await evaluate('window.__sessionIntegrity()');
+    assert.equal(fresh.playerVisual.shadowCount,1,'Multiple contact shadows on restart '+cycle);
+    assert.equal(fresh.playerVisual.visualScale,1.30);
+    assert.equal(fresh.playerVisual.bodyRadius,17);
+    assert.equal(integrity.current.shadowActive,true);
+    assert.equal(integrity.current.spriteActive,true);
+    assert.equal(integrity.current.shadowMatches,true);
+    for(const former of integrity.past){
+      assert.equal(former.playerSame,false,'Reused former physics player');
+      assert.equal(former.shadowSame,false,'Reused former shadow');
+      assert.equal(former.spriteSame,false,'Reused former sprite');
+      assert.equal(former.shadowActive,false,'Orphan shadow survived shutdown');
+      assert.equal(former.spriteActive,false,'Orphan Aloes sprite survived shutdown');
+    }
+  }
+  console.log('PASS three Arena/MENU/NOWA GRA cycles; stable WZNÓW identity, single active shadow/sprite, old visuals destroyed');
+
+  // Hold the first player PNG HTTP request after page reload: no texture is cached.
+  let holdLoad=true,delayedRequest=null;
   socket.removeEventListener('message',onFetch);
+  const onDelayedFetch=event=>{
+    const message=JSON.parse(event.data);
+    if(message.method!=='Fetch.requestPaused')return;
+    const id=message.params.requestId;
+    if(holdLoad&&delayedRequest===null){delayedRequest=id;return;}
+    cdp('Fetch.fulfillRequest',{requestId:id,responseCode:200,
+      responseHeaders:[{name:'Content-Type',value:'image/png'},{name:'Cache-Control',value:'no-store'}],body:sheetBase64})
+      .catch(error=>console.error('Delayed fixture fulfillment failed',error));
+  };
+  socket.addEventListener('message',onDelayedFetch);
+  await cdp('Page.reload',{ignoreCache:true});
+  await waitFor(v=>v.menu&&!v.arena&&v.actions.length===1,'fresh game before delayed load');
+  await clickControl('NOWA GRA');
+  for(let attempt=0;attempt<50&&delayedRequest===null;attempt++)await sleep(80);
+  assert.ok(delayedRequest,'Expected real pending PNG request');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');window.__deadSession={scene:a,player:a.player,visual:a.playerVisual};window.__game.scene.stop('Arena');window.__game.scene.start('Menu');return true})()");
+  assert.equal(await evaluate('window.__game.scene.isActive("Menu")&&!window.__game.scene.isActive("Arena")'),true,'Arena did not stop during pending PNG');
+  holdLoad=false;
+  await cdp('Fetch.fulfillRequest',{requestId:delayedRequest,responseCode:200,
+    responseHeaders:[{name:'Content-Type',value:'image/png'},{name:'Cache-Control',value:'no-store'}],body:sheetBase64});
+  await sleep(250);
+  const dead=await evaluate("(()=>{const d=window.__deadSession;return {loaded:d.visual.loaded,shadow:d.visual.shadow!==null,sprite:d.visual.sprite!==null,shadowCount:d.scene.children.list.filter(o=>o.type==='Ellipse'&&o.depth===10&&o.active).length};})()");
+  assert.deepEqual(dead,{loaded:false,shadow:false,sprite:false,shadowCount:0},'Delayed response revived destroyed visuals');
+  await clickControl('NOWA GRA');
+  const recovered=await waitFor(v=>v.arena&&v.playerVisual?.loaded,'Arena recovers after delayed previous load');
+  assert.equal(recovered.playerVisual.shadowCount,1);
+  assert.equal(recovered.playerVisual.visualScale,1.30);
+  assert.equal(recovered.playerVisual.bodyRadius,17);
+  console.log('PASS delayed PNG after Arena shutdown: no orphan visuals, later Arena loads normally');
+  await cdp('Fetch.disable');
+  socket.removeEventListener('message',onDelayedFetch);
+
 
 
 } finally {

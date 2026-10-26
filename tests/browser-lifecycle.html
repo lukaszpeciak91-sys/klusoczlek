@@ -13,6 +13,10 @@ setupViewport(game);
 document.getElementById('fullscreen-button').addEventListener('click', () => toggleFullscreen(document.getElementById('game-shell'), () => game.scale.refresh()));
 window.__identity=null;
 window.__trace=[];
+window.__visualSession=()=>{const a=game.scene.getScene('Arena');return {player:a.player,shadow:a.playerVisual?.shadow,sprite:a.playerVisual?.sprite};};
+window.__sessionHistory=[];
+window.__captureVisualSession=()=>{const v=window.__visualSession();window.__sessionHistory.push(v);return window.__sessionHistory.length;};
+window.__sessionIntegrity=()=>{const a=game.scene.getScene('Arena'),now=window.__visualSession();return {current:{shadowActive:!!now.shadow?.active,spriteActive:!!now.sprite?.active,shadowMatches:now.shadow===a.playerVisual?.shadow,bodyRadius:a.player?.body?.radius},past:window.__sessionHistory.map(v=>({playerSame:v.player===now.player,shadowSame:v.shadow===now.shadow,spriteSame:v.sprite===now.sprite,shadowActive:!!v.shadow?.active,spriteActive:!!v.sprite?.active}))};};
 
 window.__snapshot=() => {
   const arena=game.scene.getScene('Arena');
@@ -32,7 +36,7 @@ window.__snapshot=() => {
     player:arena.player?{x:arena.player.x,y:arena.player.y}:null,
     playerId:arena.player===window.__identity?.player,
     physics:arena.physics?.world?.isPaused??null,
-    playerVisual:arena.playerVisual?{loaded:arena.playerVisual.loaded,physicsVisible:arena.player.visible,visualX:arena.playerVisual.sprite?.x??null,visualY:arena.playerVisual.sprite?.y??null,frame:arena.playerVisual.sprite?.frame?.name??null,rotation:arena.playerVisual.sprite?.rotation??null,filter:arena.playerVisual.sprite?.texture?.source?.[0]?.scaleMode??null,textureFrames:game.textures.exists(PLAYER_ART_KEY)?Array.from({length:8},(_,i)=>game.textures.get(PLAYER_ART_KEY).has(String(i))):[],markerDepth:arena.player.depth,visualDepth:arena.playerVisual.sprite?.depth??null,bodyRadius:arena.player.body?.radius??null,followIdentity:arena.cameras.main._follow===arena.player}:null,
+    playerVisual:arena.playerVisual?{loaded:arena.playerVisual.loaded,physicsVisible:arena.player.visible,visualScale:arena.playerVisual.sprite?.scaleX??null,shadowCount:arena.children.list.filter(o=>o.type==='Ellipse'&&o.depth===10).length,shadowX:arena.playerVisual.shadow?.x??null,shadowY:arena.playerVisual.shadow?.y??null,shadowAngle:arena.playerVisual.shadow?.rotation??null,shadowDepth:arena.playerVisual.shadow?.depth??null,shadowAlpha:arena.playerVisual.shadow?.fillAlpha??null,visualX:arena.playerVisual.sprite?.x??null,visualY:arena.playerVisual.sprite?.y??null,frame:arena.playerVisual.sprite?.frame?.name??null,rotation:arena.playerVisual.sprite?.rotation??null,filter:arena.playerVisual.sprite?.texture?.source?.[0]?.scaleMode??null,textureFrames:game.textures.exists(PLAYER_ART_KEY)?Array.from({length:8},(_,i)=>game.textures.get(PLAYER_ART_KEY).has(String(i))):[],markerDepth:arena.player.depth,visualDepth:arena.playerVisual.sprite?.depth??null,bodyRadius:arena.player.body?.radius??null,followIdentity:arena.cameras?.main?._follow===arena.player}:null,
     camera:arena.cameras?.main?.id??null,
     fullscreenHidden:document.getElementById('fullscreen-button').hidden,
     fullscreenActive:Boolean(document.fullscreenElement),
@@ -51,7 +55,7 @@ window.__snapshot=() => {
       layoutIndex:arena.layoutIndex,
       obstacles:arena.obstacles.map(o=>({type:o.type,x:o.x,y:o.y,hp:o.hp,alive:o.alive,visualActive:o.sprite.active,depth:o.sprite.depth})),
       groundActive:arena.ground?.active,groundDepth:arena.ground?.depth,groundType:arena.ground?.type,groundWidth:arena.ground?.width,groundHeight:arena.ground?.height,groundTileX:arena.ground?.tilePositionX??null,groundTileY:arena.ground?.tilePositionY??null,groundGridActive:arena.groundGrid?.active??false,groundTextureWidth:game.textures.get('klusoczlek-arena-ground')?.source?.[0]?.width??null,groundTextureHeight:game.textures.get('klusoczlek-arena-ground')?.source?.[0]?.height??null,worldWidth:arena.physics?.world?.bounds?.width,worldHeight:arena.physics?.world?.bounds?.height,
-      blockerBodyCount:arena.obstacleBodies?.getChildren().filter(o=>o.active).length,
+      blockerBodyCount:arena.sys.isActive()?arena.obstacleBodies?.getChildren().filter(o=>o.active).length:null,
       hp:arena.playerHp,defeated:arena.defeated,
       enemies:arena.enemies.map(e=>({x:e.x,y:e.y,hp:e.hp})),
     }:null,

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {assetUrl,validPngHeader,visualMotion,visualPosition,VISUAL_MOTION} from '../src/character-visual.js';
+import {assetUrl,validPngHeader,visualMotion,visualPosition,VISUAL_MOTION,PLAYER_VISUAL_SCALE,CONTACT_SHADOW,shadowPosition} from '../src/character-visual.js';
 function header(width,height,type=6){const b=new Uint8Array(26);b.set([137,80,78,71,13,10,26,10]);const d=new DataView(b.buffer);d.setUint32(16,width);d.setUint32(20,height);b[24]=8;b[25]=type;return b;}
 test('BASE_URL resolves project root and nested deployments',()=>{assert.equal(assetUrl('/klusoczlek/','player/player.png'),'/klusoczlek/assets/player/player.png');assert.equal(assetUrl('/','player/player.png'),'/assets/player/player.png');});
 test('PNG requires exact RGBA dimensions, bit depth and signature',()=>{
@@ -19,3 +19,5 @@ test('visual motion does not move physics coordinates and settles when idle',()=
  assert.deepEqual(visualPosition({x:230,y:410},1.5),{x:230,y:411.5});
  const noMotion=visualMotion({delta:0.2,elapsed:1},true,1,{...VISUAL_MOTION,enabled:false});assert.equal(noMotion.angle,0);assert.equal(noMotion.bob,0);
 });
+
+test('visual scale and grounded shadow contract',()=>{assert.equal(PLAYER_VISUAL_SCALE,1.30);assert.equal(CONTACT_SHADOW.depth,10);assert.ok(CONTACT_SHADOW.alpha>=0.20&&CONTACT_SHADOW.alpha<=0.28);assert.ok(CONTACT_SHADOW.width>CONTACT_SHADOW.height);assert.deepEqual(shadowPosition({x:123,y:456}),{x:123,y:456+CONTACT_SHADOW.offsetY});});
