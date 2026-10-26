@@ -138,10 +138,22 @@ try {
   await clickControl('NOWA GRA');
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   assert.equal((await snapshot()).fullscreenVisible,false);
+  const illustrated=await waitFor(s=>s.controls?.groundType==='TileSprite','approved ground TileSprite load');
+  assert.equal(illustrated.controls.groundGridActive,false,'Grid still visible over artwork');
+  assert.equal(illustrated.controls.groundWidth,1800);
+  assert.equal(illustrated.controls.groundHeight,1200);
+  assert.equal(illustrated.controls.groundTextureWidth,1024);
+  assert.equal(illustrated.controls.groundTextureHeight,1024);
+  assert.equal(illustrated.controls.worldWidth,1800);
+  assert.equal(illustrated.controls.worldHeight,1200);
+  const tileBefore=[illustrated.controls.groundTileX,illustrated.controls.groundTileY];
   await evaluate('window.__movePlayer()');
+  const tileAfter=await snapshot();
+  assert.deepEqual([tileAfter.controls.groundTileX,tileAfter.controls.groundTileY],tileBefore,'Tile world phase moved with camera');
+  console.log('PASS real approved ground: TileSprite 1800x1200, native 1024 tiles, no grid, world-aligned camera');
   const artState=await snapshot();
-  assert.equal(artState.playerVisual.loaded,false,'Missing optional art must fall back');
-  assert.equal(artState.playerVisual.physicsVisible,true,'Missing art hid physics marker');
+  assert.equal(artState.playerVisual.loaded,true,'Approved player PNG should render independently of ground');
+  assert.equal(artState.playerVisual.physicsVisible,false,'Illustrated player marker should be hidden');
   assert.equal(artState.playerVisual.bodyRadius,17,'Changed Arcade collision radius');
   assert.equal(artState.playerVisual.followIdentity,true,'Camera stopped following physics player');
   // Two simultaneous *real CDP touch points*, right-first to test independent capture.
