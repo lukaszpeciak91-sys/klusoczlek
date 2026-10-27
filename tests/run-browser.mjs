@@ -313,7 +313,7 @@ try {
       body:sheetBase64}).then(()=>pending.delete(id)).catch(err=>{throw err;});
   };
   socket.addEventListener('message',onFetch);
-  await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/player/player.png*',requestStage:'Request'}]});
+  await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/player/player*.png*',requestStage:'Request'}]});
   await cdp('Page.enable');
   await cdp('Page.reload',{ignoreCache:true});
   await waitFor(s=>s.menu&&s.actions.length===1,'synthetic sprite fresh page');
