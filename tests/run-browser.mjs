@@ -409,6 +409,28 @@ try {
   assert.equal(recovered.playerVisual.visualScale,1.30);
   assert.equal(recovered.playerVisual.bodyRadius,17);
   console.log('PASS delayed PNG after Arena shutdown: no orphan visuals, later Arena loads normally');
+  // Load all four optional variants with the existing in-memory eight-frame PNG.
+  await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/player/player-*.png*',requestStage:'Request'}]});
+  for(const id of ['unarmed','blunderbuss','rifle','flamethrower']){
+    await evaluate("window.__game.scene.getScene('Arena').playerVisual.setVariant('"+id+"')");
+    const selected=await waitFor(v=>v.arena&&v.playerVisual.appliedVariant===id,'variant '+id);
+    assert.equal(selected.playerVisual.visualScale,1.30);
+    assert.equal(selected.playerVisual.shadowCount,1);
+    assert.equal(selected.playerVisual.bodyRadius,17);
+    assert.equal(selected.playerVisual.followIdentity,true);
+  }
+  await evaluate("(()=>{const v=window.__game.scene.getScene('Arena').playerVisual;v.setVariant('unarmed');v.setVariant('blunderbuss');v.setVariant('rifle');v.setVariant('flamethrower');return true;})()");
+  const rapid=await waitFor(v=>v.playerVisual.appliedVariant==='flamethrower','rapid switch last request wins');
+  assert.equal(rapid.playerVisual.shadowCount,1);
+  await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'variant menu');
+  await clickControl('WZNÓW');
+  const resumedVariant=await waitFor(v=>v.arena&&!v.menu,'variant resume');
+  assert.equal(resumedVariant.playerVisual.appliedVariant,'flamethrower');
+  await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'variant reset menu');
+  await clickControl('NOWA GRA');
+  const defaultVariant=await waitFor(v=>v.arena&&v.playerVisual.appliedVariant==='flamethrower','new Arena visual default');
+  assert.equal(defaultVariant.playerVisual.requestedVariant,'flamethrower');
+  console.log('PASS optional variants: all four synthetic sheets, rapid selection, resume, reset, physics and single shadow');
   await cdp('Fetch.disable');
   socket.removeEventListener('message',onDelayedFetch);
 
