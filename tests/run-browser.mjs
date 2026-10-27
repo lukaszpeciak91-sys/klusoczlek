@@ -139,6 +139,16 @@ try {
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   assert.equal((await snapshot()).fullscreenVisible,false);
   // Initial equipment is gameplay state, independent of optional PNG availability.
+  const firstPickup=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),p=a.pickups[0],cam=a.cameras.main;
+    return {id:p.id,x:p.x,y:p.y,left:cam.worldView.x,right:cam.worldView.right,top:cam.worldView.y,bottom:cam.worldView.bottom,
+      obstacles:a.obstacles.filter(o=>o.alive).map(o=>({x:o.x,y:o.y,r:o.sprite.width/2}))};
+  })()`);
+  assert.equal(firstPickup.id,'blunderbuss');
+  assert.ok(firstPickup.x>firstPickup.left+25&&firstPickup.x<firstPickup.right-25);
+  assert.ok(firstPickup.y>firstPickup.top+25&&firstPickup.y<firstPickup.bottom-25);
+  assert.ok(firstPickup.obstacles.every(o=>Math.hypot(firstPickup.x-o.x,firstPickup.y-o.y)>o.r+20));
+
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'unarmed');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups[0];a.player.setPosition(p.x,p.y);a.player.body.reset(p.x,p.y);return true})()");
@@ -442,32 +452,68 @@ try {
   assert.equal(defaultVariant.playerVisual.requestedVariant,'unarmed');
   console.log('PASS optional variants: all four synthetic sheets, rapid selection, resume, reset, physics and single shadow');
   // Real Phaser Arena progression: exercise shared death path, drops and bounded replacement.
-  const progression=await evaluate(`(()=>{
+  // Exercise real Arena update/proximity and a placement failure that survives MENU/WZNÓW.
+  const killOne=async()=>evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
-    const milestones=[];
-    let maximum=a.enemies.length;
-    for(let count=1;count<=18;count++){
-      if(!a.enemies.some(e=>!e.dead))a.spawnReplacement();
-      const enemy=a.enemies.find(e=>!e.dead);
-      if(!enemy)throw Error('Encounter stalled at '+count);
-      enemy.hp=0;
-      if(!a.finalizeEnemyDeath(enemy))throw Error('Death not finalized');
-      if(a.finalizeEnemyDeath(enemy))throw Error('Duplicate death counted');
-      a.enemies=a.enemies.filter(e=>!e.dead);
-      if(count===5||count===10)milestones.push({kill:count,pickups:a.pickups.map(p=>p.id)});
-      if(a.enemies.length<3&&a.totalSpawned<18)a.spawnReplacement();
-      maximum=Math.max(maximum,a.enemies.length);
-    }
-    return {kills:a.kills,total:a.totalSpawned,maximum,completed:a.completed,
-      pickups:a.pickups.map(p=>p.id),milestones,weapon:a.weapon};
+    if(!a.enemies.some(e=>!e.dead))a.spawnReplacement();
+    const e=a.enemies.find(e=>!e.dead);
+    if(!e)throw Error('Encounter stalled');
+    e.hp=0;
+    if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
+    a.enemies=a.enemies.filter(e=>!e.dead);
+    if(a.enemies.length<3&&a.totalSpawned<18)a.spawnReplacement();
+    return {kills:a.kills,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
+  for(let i=0;i<4;i++)await killOne();
+  await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    a.obstacles.push({type:'rock',alive:true,x:900,y:600,sprite:{width:5000},hitUntil:Infinity,
+      // The helper uses obstacleRadius, so use an artificial blocker at each placement candidate.
+      __fixture:true});
+    // Suppress placement by occupying candidate positions with artificial rocks.
+    const e=a.enemies.find(e=>!e.dead);
+    for(const [dx,dy] of [[0,0],[36,0],[-36,0],[0,36],[0,-36],[50,50],[-50,50],[50,-50],[-50,-50]])
+      a.obstacles.push({type:'rock',alive:true,x:e.x+dx,y:e.y+dy,__fixture:true});
+    return true;
+  })()`);
+  const fifth=await killOne();
+  assert.equal(fifth.kills,5);
+  assert.equal(fifth.pending,1);
+  assert.ok(!fifth.pickups.includes('rifle'));
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'menu pending reward');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').pendingRewards.size"),1);
+  await clickControl('WZNÓW');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'resume pending reward');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.obstacles=a.obstacles.filter(o=>!o.__fixture);return true})()");
+  await sleep(100);
+  const rifle=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pickups.find(p=>p.id==='rifle')?{x:a.pickups.find(p=>p.id==='rifle').x,y:a.pickups.find(p=>p.id==='rifle').y,pending:a.pendingRewards.size}:null})()");
+  assert.ok(rifle&&rifle.pending===0);
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='rifle');a.player.body.reset(p.x,p.y);return true})()");
+  await sleep(95);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'rifle');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
+  for(let i=0;i<5;i++)await killOne();
+  const flame=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pickups.find(p=>p.id==='flamethrower')?{x:a.pickups.find(p=>p.id==='flamethrower').x,y:a.pickups.find(p=>p.id==='flamethrower').y}:null})()");
+  assert.ok(flame);
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='flamethrower');a.player.body.reset(p.x,p.y);return true})()");
+  await sleep(95);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
+  for(let i=0;i<8;i++)await killOne();
+  const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones]}})()");
   assert.equal(progression.kills,18);
   assert.equal(progression.total,18);
-  assert.ok(progression.maximum<=3);
   assert.equal(progression.completed,true);
-  assert.deepEqual(progression.milestones.map(m=>m.kill),[5,10]);
-  assert.deepEqual(progression.pickups.slice(1),['rifle','flamethrower']);
-  console.log('PASS real Arena death path: 18 unique deaths, max 3 concurrent, once-only drops #5/#10, completion');
+  assert.equal(progression.pending,0);
+  assert.deepEqual(progression.markers,[5,10]);
+  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 18 unique deaths');
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'menu before reset');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
+  const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
+  assert.deepEqual(reset,{kills:0,total:3,weapon:null,pending:0,triggered:0,pickups:['blunderbuss']});
   await cdp('Fetch.disable');
   socket.removeEventListener('message',onDelayedFetch);
 
