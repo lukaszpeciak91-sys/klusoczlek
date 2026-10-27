@@ -518,13 +518,7 @@ try {
     const identity={player,camera,follow:camera._follow};
     a.weapon='rifle';a.stopWeaponFire();
     const t=a.time.now;
-    const shots=[0,35,70,140,210,439,440].map(dt=>{
-      const count=a.firingState.weapon==='rifle'
-        ?0:0;
-      return count;
-    });
-    // Call the same pure firing scheduler used by Arena on actual Phaser objects
-    // through the Arena input and update loop below; probe recoil independently.
+    // Character recoil uses the existing independent visual renderer.
     a.playerVisual.recoil();
     a.playerVisual.update('e',false,16);
     const recoil={x:a.playerVisual.sprite?.x,physicsX:player.x,followSame:camera._follow===player};
@@ -541,6 +535,32 @@ try {
   assert.ok(combatProbe.particles<=60);
   assert.equal(combatProbe.weapon,'flamethrower');
   console.log('PASS Phaser visual recoil physics/camera isolation, procedural flame and weapon state');
+  // Real mouse-held rifle and flamethrower on the Phaser frame loop.
+  const fireScreen=await snapshot();
+  const fireX=fireScreen.rect.x+fireScreen.scale.width/2+120;
+  const fireY=fireScreen.rect.y+fireScreen.scale.height/2;
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='rifle';a.stopWeaponFire();a.projectiles.forEach(p=>p.object.destroy());a.projectiles=[];return true})()");
+  await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:fireX,y:fireY,button:'none'});
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:fireX,y:fireY,button:'left',buttons:1,clickCount:1});
+  await sleep(195);
+  const rifleShot=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {count:a.projectiles.length,radius:a.projectiles[0]?.radius,velocity:a.projectiles[0]?.vx,burst:a.firingState.burstShots}})()");
+  assert.equal(rifleShot.count,3,'Rifle should fire three projectiles in first burst');
+  assert.equal(rifleShot.radius,3);
+  assert.ok(rifleShot.velocity>700);
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:fireX,y:fireY,button:'left',buttons:0,clickCount:1});
+  await sleep(50);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').firingState.burstShots"),0,'Released rifle kept scheduled burst');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='flamethrower';a.stopWeaponFire();return true})()");
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:fireX,y:fireY,button:'left',buttons:1,clickCount:1});
+  await sleep(220);
+  const flaming=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {particles:a.flameParticles.length,projectiles:a.projectiles.length,active:a.firingState.active}})()");
+  assert.ok(flaming.particles>0&&flaming.particles<=60,'Flame particles not bounded and rendered');
+  assert.equal(flaming.active,true);
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:fireX,y:fireY,button:'left',buttons:0,clickCount:1});
+  await sleep(40);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').firingState.active"),false);
+  console.log('PASS real held mouse: rifle three-shot burst, release cancellation, flame visual stream and stop');
+
   await cdp('Fetch.disable');
   socket.removeEventListener('message',onDelayedFetch);
 
