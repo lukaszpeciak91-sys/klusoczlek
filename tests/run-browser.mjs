@@ -560,6 +560,26 @@ try {
   await sleep(40);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').firingState.active"),false);
   console.log('PASS real held mouse: rifle three-shot burst, release cancellation, flame visual stream and stop');
+  // One authoritative barrel explosion path when flame applies three cooldown-limited hits.
+  const flameBarrel=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'), barrel=a.obstacles.find(o=>o.type==='barrel');
+    barrel.x=a.player.x+132;barrel.y=a.player.y;barrel.sprite.setPosition(barrel.x,barrel.y);
+    barrel.sprite.body.updateFromGameObject();
+    a.weapon='flamethrower';a.stopWeaponFire();
+    a.flameCooldowns.clear();
+    const aim={x:1,y:0},now=a.time.now;
+    const beforeHp=a.playerHp;
+    for(let i=0;i<3;i++)a.applyFlame(aim,now+300*i);
+    const after={alive:barrel.alive,hp:barrel.hp,effects:a.explosionEffects.length,playerHp:a.playerHp,beforeHp};
+    a.applyFlame(aim,now+1500);
+    return {...after,effectsAfter:a.explosionEffects.length};
+  })()`);
+  assert.equal(flameBarrel.alive,false,'Flamethrower did not explode barrel after three hits');
+  assert.equal(flameBarrel.hp,0);
+  assert.equal(flameBarrel.effects,flameBarrel.effectsAfter,'Repeated flame re-exploded the barrel');
+  assert.equal(flameBarrel.playerHp,flameBarrel.beforeHp,'Barrel beyond explosion range injured player');
+  console.log('PASS real Phaser flame-barrel damage cooldown, one-shot explosion and no self-flame damage');
+
 
   await cdp('Fetch.disable');
   socket.removeEventListener('message',onDelayedFetch);
