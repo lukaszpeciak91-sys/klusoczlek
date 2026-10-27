@@ -6,7 +6,8 @@ import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
 import { resolvePose } from './combat-contract.js';
-import { resolveAim, shouldFire, muzzlePoint, PROJECTILE_SPEED } from './shooting.js';
+import { resolveAim, muzzlePoint } from './shooting.js';
+import {COMBAT_TUNING,createFiringState,resetFiring,firingStep,flameTargetVisible,cooldownReady} from './weapon-combat.js';
 import { ENCOUNTER, enemySpawns, advanceEnemy, applyEnemyHit, applyPlayerContact, segmentHitsCircle } from './bobrozombi.js';
 import { menuLayout, arenaHudLayout } from './ui-layout.js';
 import { enforceOrientationOnSceneStart } from './viewport.js';
@@ -126,6 +127,10 @@ export class ArenaScene extends Phaser.Scene {
     this.aimJoystick = createJoystick(this,'right');
     this.lastFacing='s';
     this.lastShotAt=null;
+    this.firingState=createFiringState();
+    this.flameParticles=[];
+    this.flameCooldowns=new Map();
+    this.flameEmissionAt=null;
     this.projectiles=[];
     this.playerHp=ENCOUNTER.playerMaxHp;
     this.invulnerableUntil=0;
@@ -185,7 +190,7 @@ export class ArenaScene extends Phaser.Scene {
       this.joystick.reposition(pos.joystickX, pos.joystickY);
       this.aimJoystick.reposition(pos.aimX,pos.aimY);
       this.mouseHeld=false;
-      this.lastShotAt=null;
+      this.stopWeaponFire();
       this.hpText.setX(this.scale.width/2);
       this.completeText.setX(this.scale.width/2);
     };
@@ -198,7 +203,7 @@ export class ArenaScene extends Phaser.Scene {
       this.joystick.reset();
       this.aimJoystick.reset();
       this.mouseHeld=false;
-      this.lastShotAt=null;
+      this.stopWeaponFire();
       this.input.keyboard.resetKeys();
     };
     this.onBlur = () => { this.resetMovement(); this.physics.world.pause(); };
@@ -231,6 +236,9 @@ export class ArenaScene extends Phaser.Scene {
       this.pickups.length=0;
       this.enemies.length=0;
       this.projectiles.length=0;
+      for(const p of this.flameParticles)p.object.destroy();
+      this.flameParticles.length=0;
+      this.flameCooldowns.clear();
       this.obstacles.length=0;
       this.explosionEffects.length=0;
       this.playerVisual.destroy();
@@ -264,12 +272,100 @@ export class ArenaScene extends Phaser.Scene {
     for(const pickup of this.pickups){
       if(!pickupCollected(this.player,pickup))continue;
       this.weapon=pickup.id;
+      this.stopWeaponFire();
       void this.playerVisual.setVariant(pickup.id);
       pickup.object.destroy();
       pickup.collected=true;
       this.refreshWeaponHud();
     }
     this.pickups=this.pickups.filter(p=>!p.collected);
+  }
+
+  stopWeaponFire(){
+    resetFiring(this.firingState,this.weapon);
+    this.lastShotAt=null;
+    this.flameEmissionAt=null;
+  }
+
+  spawnShot(aim,weapon,now){
+    const tune=COMBAT_TUNING[weapon];
+    const origin=muzzlePoint(this.player.x,this.player.y,aim);
+    const bullet=this.add.circle(origin.x,origin.y,tune.radius,tune.color).setDepth(8);
+    this.projectiles.push({object:bullet,vx:aim.x*tune.speed,vy:aim.y*tune.speed,radius:tune.radius,damage:tune.damage});
+    this.lastShotAt=now;
+    if(weapon==='rifle')this.playerVisual.recoil();
+  }
+
+  updateFlameParticles(now,delta){
+    for(const p of this.flameParticles){
+      p.age+=delta;
+      p.object.setPosition(p.object.x+p.vx*delta/1000,p.object.y+p.vy*delta/1000);
+      p.object.setAlpha(Math.max(0,1-p.age/p.life)*0.82);
+      if(p.age>=p.life)p.object.destroy();
+    }
+    this.flameParticles=this.flameParticles.filter(p=>p.object.active);
+  }
+
+  emitFlame(origin,aim,now){
+    const tune=COMBAT_TUNING.flamethrower;
+    if(this.flameEmissionAt!==null&&now-this.flameEmissionAt<tune.particleInterval)return;
+    this.flameEmissionAt=now;
+    if(this.flameParticles.length>=tune.maxParticles)return;
+    const wobble=Math.sin(now*0.021)*0.21;
+    const angle=Math.atan2(aim.y,aim.x)+wobble;
+    const speed=160+(Math.sin(now*0.017)+1)*52;
+    const dir={x:Math.cos(angle),y:Math.sin(angle)};
+    const start={x:origin.x+aim.x*6,y:origin.y+aim.y*6};
+    const end={x:start.x+dir.x*speed*0.24,y:start.y+dir.y*speed*0.24};
+    if(segmentObstacleHit(start,end,this.obstacles,0))return;
+    const life=180+(Math.sin(now*0.031)+1)*85;
+    const color=[0xffd65d,0xff903b,0xf14b27][Math.floor(now/67)%3];
+    const object=this.add.circle(start.x,start.y,3.4+(Math.sin(now*0.034)+1)*1.6,color,0.8).setDepth(13);
+    this.flameParticles.push({object,vx:dir.x*speed,vy:dir.y*speed,age:0,life});
+  }
+
+  applyFlame(aim,now){
+    const origin=muzzlePoint(this.player.x,this.player.y,aim);
+    const tune=COMBAT_TUNING.flamethrower;
+    this.emitFlame(origin,aim,now);
+    for(const enemy of this.enemies){
+      if(enemy.dead||enemy.hp<=0||!flameTargetVisible(origin,aim,enemy,ENCOUNTER.enemyRadius,this.obstacles))continue;
+      if(!cooldownReady(this.flameCooldowns,enemy,now,tune.damageInterval))continue;
+      enemy.hp=applyEnemyHit(enemy.hp,tune.damage);
+      enemy.hitUntil=now+120;
+      if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
+      else enemy.sprite.setAlpha(0.45);
+    }
+    for(const obstacle of this.obstacles){
+      if(!obstacle.alive||obstacle.type!=='barrel')continue;
+      if(!flameTargetVisible(origin,aim,obstacle,obstacleRadius(obstacle.type),this.obstacles))continue;
+      if(!cooldownReady(this.flameCooldowns,obstacle,now,tune.barrelInterval))continue;
+      this.hitObstacle(obstacle,now);
+    }
+  }
+
+  hitObstacle(blocked,now){
+    const outcome=damageObstacle(blocked);
+    if(blocked.type==='barrel'&&blocked.alive)blocked.sprite.setAlpha(0.5);
+    blocked.hitUntil=now+120;
+    if(!outcome.exploded)return;
+    blocked.sprite.destroy();
+    const blast=this.add.circle(blocked.x,blocked.y,OBSTACLE_RULES.explosionRadius,0xf1a33a,0.32).setDepth(14);
+    this.explosionEffects.push({sprite:blast,until:now+180});
+    for(const enemy of this.enemies){
+      if(enemy.hp>0&&inExplosion(enemy,blocked)){
+        enemy.hp=applyEnemyHit(enemy.hp,OBSTACLE_RULES.enemyExplosionDamage);
+        enemy.hitUntil=now+120;
+        if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
+        else enemy.sprite.setAlpha(0.45);
+      }
+    }
+    if(inExplosion(this.player,blocked)){
+      const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},now);
+      this.playerHp=hp.hp;this.invulnerableUntil=hp.invulnerableUntil;
+      this.hpText.setText('HP: '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
+      if(this.playerHp===0){this.defeated=true;this.resetMovement();this.openMenu();}
+    }
   }
 
   retryPendingRewards(){
@@ -364,48 +460,24 @@ export class ArenaScene extends Phaser.Scene {
     this.playerVisual.update(pose.facing,pose.movement.x!==0||pose.movement.y!==0,this.game.loop.delta);
     const angle=({e:0,se:1,s:2,sw:3,w:4,nw:5,n:6,ne:7})[pose.facing]*Math.PI/4;
     this.facingMarker.clear().lineStyle(5,0x162a31).lineBetween(this.player.x,this.player.y,this.player.x+Math.cos(angle)*27,this.player.y+Math.sin(angle)*27).fillStyle(0x92d7e8).fillCircle(this.player.x+Math.cos(angle)*27,this.player.y+Math.sin(angle)*27,5);
-    if(!firing)this.lastShotAt=null;
-    if(shouldFire(this.time.now,this.lastShotAt,firing)){
-      this.lastShotAt=this.time.now;
-      const origin=muzzlePoint(this.player.x,this.player.y,aiming);
-      const bullet=this.add.circle(origin.x,origin.y,5,0xffe8a2).setDepth(8);
-      this.projectiles.push({object:bullet,vx:aiming.x*PROJECTILE_SPEED,vy:aiming.y*PROJECTILE_SPEED});
-    }
-    const seconds=Math.min(this.game.loop.delta,50)/1000;
+    const now=this.time.now;
+    const count=firingStep(this.firingState,this.weapon,firing,now);
+    for(let i=0;i<count;i++)this.spawnShot(aiming,this.weapon,now);
+    if(firing&&this.weapon==='flamethrower')this.applyFlame(aiming,now);
+    const delta=Math.min(this.game.loop.delta,50);
+    this.updateFlameParticles(this.time.now,delta);
+    if(this.defeated)return;
+    const seconds=delta/1000;
     for(const item of this.projectiles){
       const old={x:item.object.x,y:item.object.y};
       item.object.x+=item.vx*seconds;item.object.y+=item.vy*seconds;
-      const blocked=segmentObstacleHit(old,item.object,this.obstacles);
-      if(blocked){
-        const outcome=damageObstacle(blocked);
-        if(blocked.type==='barrel'&&blocked.alive)blocked.sprite.setAlpha(0.5);
-        blocked.hitUntil=this.time.now+120;
-        item.hit=true;
-        if(outcome.exploded){
-          blocked.sprite.destroy(); // Underlay remains untouched.
-          const blast=this.add.circle(blocked.x,blocked.y,OBSTACLE_RULES.explosionRadius,0xf1a33a,0.32).setDepth(14);
-          this.explosionEffects.push({sprite:blast,until:this.time.now+180});
-          for(const enemy of this.enemies){
-            if(enemy.hp>0&&inExplosion(enemy,blocked)){
-              enemy.hp=applyEnemyHit(enemy.hp,OBSTACLE_RULES.enemyExplosionDamage);
-              enemy.hitUntil=this.time.now+120;
-              if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
-              else enemy.sprite.setAlpha(0.45);
-            }
-          }
-          if(inExplosion(this.player,blocked)){
-            const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},this.time.now);
-            this.playerHp=hp.hp;this.invulnerableUntil=hp.invulnerableUntil;
-            this.hpText.setText('HP: '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
-            if(this.playerHp===0){this.defeated=true;this.resetMovement();this.openMenu();return;}
-          }
-        }
-      }
+      const blocked=segmentObstacleHit(old,item.object,this.obstacles,item.radius);
+      if(blocked){this.hitObstacle(blocked,this.time.now);item.hit=true;if(this.defeated)return;}
       if(item.hit){item.object.destroy();continue;}
       for(const enemy of this.enemies){
         if(enemy.hp<=0)continue;
-        if(segmentHitsCircle(old,item.object,enemy,ENCOUNTER.enemyRadius+5)){
-          enemy.hp=applyEnemyHit(enemy.hp);
+        if(segmentHitsCircle(old,item.object,enemy,ENCOUNTER.enemyRadius+item.radius)){
+          enemy.hp=applyEnemyHit(enemy.hp,item.damage);
           enemy.hitUntil=this.time.now+120;
           enemy.sprite.setAlpha(0.45);
           item.hit=true;
