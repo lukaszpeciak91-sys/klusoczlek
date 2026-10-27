@@ -467,13 +467,10 @@ try {
   for(let i=0;i<4;i++)await killOne();
   await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
-    a.obstacles.push({type:'rock',alive:true,x:900,y:600,sprite:{width:5000},hitUntil:Infinity,
-      // The helper uses obstacleRadius, so use an artificial blocker at each placement candidate.
-      __fixture:true});
     // Suppress placement by occupying candidate positions with artificial rocks.
     const e=a.enemies.find(e=>!e.dead);
     for(const [dx,dy] of [[0,0],[36,0],[-36,0],[0,36],[0,-36],[50,50],[-50,50],[50,-50],[-50,-50]])
-      a.obstacles.push({type:'rock',alive:true,x:e.x+dx,y:e.y+dy,__fixture:true});
+      a.obstacles.push({type:'rock',alive:true,x:e.x+dx,y:e.y+dy,sprite:{active:true,depth:4,width:62,setAlpha(){}},hitUntil:Infinity,__fixture:true});
     return true;
   })()`);
   const fifth=await killOne();
