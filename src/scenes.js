@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
-import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected } from './weapon-progression.js';
+import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
 import { resolvePose } from './combat-contract.js';
@@ -275,7 +275,8 @@ export class ArenaScene extends Phaser.Scene {
   retryPendingRewards(){
     for(const [milestone,reward] of this.pendingRewards){
       // Retain the reward until it exists as an actual world pickup.
-      const point=dropPoint(reward.origin,this.obstacles);
+      reward.attempts=(reward.attempts||0)+1;
+      const point=dropPoint(reward.origin,this.obstacles)||(reward.attempts>=3?fallbackRewardPoint(this.player,this.obstacles):null);
       if(point&&this.addPickup(reward.id,point)){
         this.pendingRewards.delete(milestone);
         this.triggeredMilestones.add(milestone);
