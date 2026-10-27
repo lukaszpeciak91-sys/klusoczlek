@@ -299,7 +299,9 @@ export class ArenaScene extends Phaser.Scene {
   updateFlameParticles(now,delta){
     for(const p of this.flameParticles){
       p.age+=delta;
-      p.object.setPosition(p.object.x+p.vx*delta/1000,p.object.y+p.vy*delta/1000);
+      const next={x:p.object.x+p.vx*delta/1000,y:p.object.y+p.vy*delta/1000};
+      if(segmentObstacleHit(p.object,next,this.obstacles,0)){p.object.destroy();continue;}
+      p.object.setPosition(next.x,next.y);
       p.object.setAlpha(Math.max(0,1-p.age/p.life)*0.82);
       if(p.age>=p.life)p.object.destroy();
     }
@@ -461,6 +463,7 @@ export class ArenaScene extends Phaser.Scene {
     const angle=({e:0,se:1,s:2,sw:3,w:4,nw:5,n:6,ne:7})[pose.facing]*Math.PI/4;
     this.facingMarker.clear().lineStyle(5,0x162a31).lineBetween(this.player.x,this.player.y,this.player.x+Math.cos(angle)*27,this.player.y+Math.sin(angle)*27).fillStyle(0x92d7e8).fillCircle(this.player.x+Math.cos(angle)*27,this.player.y+Math.sin(angle)*27,5);
     const now=this.time.now;
+    if(!firing)this.lastShotAt=null;
     const count=firingStep(this.firingState,this.weapon,firing,now);
     for(let i=0;i<count;i++)this.spawnShot(aiming,this.weapon,now);
     if(firing&&this.weapon==='flamethrower')this.applyFlame(aiming,now);
