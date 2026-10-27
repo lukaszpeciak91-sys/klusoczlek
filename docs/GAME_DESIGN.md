@@ -30,3 +30,6 @@ HUD shows HP, active weapon and wave. HP portrait bands: >60%, 30–60% inclusiv
 
 ## Out of scope
 No full combat, AI, waves, health/pickup implementation, final assets, backend, save system or dependency changes during this contract PR. All URLs must honor Vite base `/klusoczlek/`. Real Android Chrome touch/fullscreen smoke is required before shipping control changes.
+
+## 18-enemy appearance prototype (2026-10-27)
+Current prototype starts unarmed, requires collecting a nearby blunderbuss token before firing, drops rifle on confirmed death #5 and flamethrower on death #10; 18 Bobrozombi total, at most three concurrent. All three weapons temporarily use the existing projectile configuration. This does not replace the future three-weapon balance and wave design.
