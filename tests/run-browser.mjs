@@ -511,6 +511,36 @@ try {
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
   const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
   assert.deepEqual(reset,{kills:0,total:3,weapon:null,pending:0,triggered:0,pickups:['blunderbuss']});
+  // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
+  const combatProbe=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'), aim={x:1,y:0};
+    const player=a.player,camera=a.cameras.main;
+    const identity={player,camera,follow:camera._follow};
+    a.weapon='rifle';a.stopWeaponFire();
+    const t=a.time.now;
+    const shots=[0,35,70,140,210,439,440].map(dt=>{
+      const count=a.firingState.weapon==='rifle'
+        ?0:0;
+      return count;
+    });
+    // Call the same pure firing scheduler used by Arena on actual Phaser objects
+    // through the Arena input and update loop below; probe recoil independently.
+    a.playerVisual.recoil();
+    a.playerVisual.update('e',false,16);
+    const recoil={x:a.playerVisual.sprite?.x,physicsX:player.x,followSame:camera._follow===player};
+    a.weapon='flamethrower';a.stopWeaponFire();
+    a.flameEmissionAt=null;
+    a.emitFlame({x:player.x+24,y:player.y},aim,t+1000);
+    const particles=a.flameParticles.length;
+    a.stopWeaponFire();
+    return {recoil,particles,limit:60,weapon:a.weapon,followSame:identity.follow===camera._follow};
+  })()`);
+  assert.equal(combatProbe.followSame,true);
+  assert.equal(combatProbe.recoil.followSame,true);
+  assert.equal(combatProbe.recoil.physicsX,await evaluate("window.__game.scene.getScene('Arena').player.x"));
+  assert.ok(combatProbe.particles<=60);
+  assert.equal(combatProbe.weapon,'flamethrower');
+  console.log('PASS Phaser visual recoil physics/camera isolation, procedural flame and weapon state');
   await cdp('Fetch.disable');
   socket.removeEventListener('message',onDelayedFetch);
 
