@@ -44,3 +44,17 @@ export function safeEnemySpawn(player,obstacles,index){
  return null;
 }
 export function pickupCollected(player,pickup){return Math.hypot(player.x-pickup.x,player.y-pickup.y)<=43;}
+
+export function fallbackRewardPoint(player,obstacles){
+ // If death location stays blocked, search the traversable area deterministically.
+ const candidates=[];
+ for(const distance of [85,130,190,260]){
+  for(let step=0;step<8;step++){
+   const angle=step*Math.PI/4;
+   candidates.push({x:player.x+Math.cos(angle)*distance,y:player.y+Math.sin(angle)*distance});
+  }
+ }
+ for(let y=48;y<ARENA.height-48;y+=64)
+  for(let x=48;x<ARENA.width-48;x+=64)candidates.push({x,y});
+ return candidates.find(p=>clearPoint(p,obstacles)&&Math.hypot(p.x-player.x)>52)||null;
+}
