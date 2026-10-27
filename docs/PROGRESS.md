@@ -184,3 +184,8 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Unarmed session start, procedural blunderbuss/rifle/flamethrower tokens, 18 Bobrozombi capped at 3 concurrent, milestones #5/#10, unified enemy deaths, compact HUD, completion text.
 - User supplies all four PNG sheets manually. No binaries or deployment in this branch.
 - Browser QA, npm commands, GitHub CI and independent audit still required; do not treat unverified code as GREEN.
+
+## PR22 — distinct firing modes, pending independent audit
+- Centralized pure combat tuning and burst scheduler for PUKAWKA / KARABIN / MIOTACZ; no ammo or added binaries.
+- Visual-only rifle recoil, continuous bounded code-drawn flame particles with deterministic cone damage and obstacle occlusion; barrel explosion continues using existing shared death path.
+- Extended unit and real Chromium regressions; physical Android Chrome / Canvas fallback performance and audio acceptance remain separate.
