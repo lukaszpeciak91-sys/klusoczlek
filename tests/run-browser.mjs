@@ -138,6 +138,12 @@ try {
   await clickControl('NOWA GRA');
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   assert.equal((await snapshot()).fullscreenVisible,false);
+  // Initial equipment is gameplay state, independent of optional PNG availability.
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'unarmed');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups[0];a.player.setPosition(p.x,p.y);a.player.body.reset(p.x,p.y);return true})()");
+  await sleep(75);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'blunderbuss');
   const illustrated=await waitFor(s=>s.controls?.groundType==='TileSprite','approved ground TileSprite load');
   assert.equal(illustrated.controls.groundGridActive,false,'Grid still visible over artwork');
   assert.equal(illustrated.controls.groundWidth,1800);
@@ -248,6 +254,10 @@ try {
   assert.ok(fresh.controls.obstacles.every(o=>o.depth>fresh.controls.groundDepth),'Foreground obstacles layered under ground');
   assert.equal(fresh.controls.groundActive,true);
   assert.notEqual(fresh.controls.layoutIndex,retainedLayout,'NOWA GRA did not select next predefined layout');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups[0];a.player.body.reset(p.x,p.y);return true})()");
+  await sleep(80);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'blunderbuss');
   // Exercise actual Phaser projectile collision and barrel removal while not modifying the ground.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const b=a.obstacles.find(o=>o.type==='barrel');b.x=a.player.x+130;b.y=a.player.y;b.sprite.setPosition(b.x,b.y);b.sprite.body.updateFromGameObject();return true})()");
   const barrelAim=await snapshot();
@@ -271,7 +281,7 @@ try {
   await sleep(850);
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:cx+140,y:cy,button:'left',buttons:0,clickCount:1});
   const killed=await snapshot();
-  assert.ok(killed.controls.enemies.length<3,'Actual mouse projectiles did not kill enemy');
+  assert.ok(await evaluate("window.__game.scene.getScene('Arena').kills>=1"),'Actual mouse projectiles did not kill enemy');
   // Contact HP and defeat, while Phaser owns the running scene.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.x=a.player.x;e.y=a.player.y;e.sprite.setPosition(e.x,e.y)}return true})()");
   const damaged=await waitFor(s=>s.controls.hp<5,'Contact damage');
@@ -428,8 +438,8 @@ try {
   assert.equal(resumedVariant.playerVisual.appliedVariant,'flamethrower');
   await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'variant reset menu');
   await clickControl('NOWA GRA');
-  const defaultVariant=await waitFor(v=>v.arena&&v.playerVisual.appliedVariant==='flamethrower','new Arena visual default');
-  assert.equal(defaultVariant.playerVisual.requestedVariant,'flamethrower');
+  const defaultVariant=await waitFor(v=>v.arena&&v.playerVisual.requestedVariant==='unarmed','new Arena visual default');
+  assert.equal(defaultVariant.playerVisual.requestedVariant,'unarmed');
   console.log('PASS optional variants: all four synthetic sheets, rapid selection, resume, reset, physics and single shadow');
   await cdp('Fetch.disable');
   socket.removeEventListener('message',onDelayedFetch);
