@@ -137,6 +137,7 @@ export class ArenaScene extends Phaser.Scene {
     this.spawnDueAt=null;
     this.pickups=[];
     this.triggeredMilestones=new Set();
+    this.pendingRewards=new Map();
     this.enemies=enemySpawns(this.player).map(({x,y})=>{
       const sprite=this.add.container(x,y).setDepth(9);
       sprite.add(this.add.ellipse(0,0,42,37,0x745a44).setStrokeStyle(3,0x211b18));
@@ -271,6 +272,17 @@ export class ArenaScene extends Phaser.Scene {
     this.pickups=this.pickups.filter(p=>!p.collected);
   }
 
+  retryPendingRewards(){
+    for(const [milestone,reward] of this.pendingRewards){
+      // Retain the reward until it exists as an actual world pickup.
+      const point=dropPoint(reward.origin,this.obstacles);
+      if(point&&this.addPickup(reward.id,point)){
+        this.pendingRewards.delete(milestone);
+        this.triggeredMilestones.add(milestone);
+      }
+    }
+  }
+
   finalizeEnemyDeath(enemy){
     if(enemy.dead||enemy.hp>0)return false;
     enemy.dead=true;
@@ -279,9 +291,8 @@ export class ArenaScene extends Phaser.Scene {
     if(this.kills===5||this.kills===10){
       const id=this.kills===5?'rifle':'flamethrower';
       if(!this.triggeredMilestones.has(this.kills)){
-        this.triggeredMilestones.add(this.kills);
-        const at=dropPoint(enemy,this.obstacles);
-        if(at)this.addPickup(id,at);
+        this.pendingRewards.set(this.kills,{id,origin:{x:enemy.x,y:enemy.y}});
+        this.retryPendingRewards();
       }
     }
     this.refreshWeaponHud();
@@ -325,6 +336,7 @@ export class ArenaScene extends Phaser.Scene {
       this.player.body.setVelocity(0, 0);
       return;
     }
+    this.retryPendingRewards();
     this.collectPickups();
     if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){this.spawnDueAt=null;this.spawnReplacement();if(this.enemies.filter(e=>!e.dead).length<3&&this.totalSpawned<18&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;}
     const keys = this.keys;
