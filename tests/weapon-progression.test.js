@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WEAPONS,initialPickupPoint,dropPoint,safeEnemySpawn,pickupCollected,clearPoint } from '../src/weapon-progression.js';
+import { WEAPONS,initialPickupPoint,dropPoint,safeEnemySpawn,pickupCollected,clearPoint,fallbackRewardPoint } from '../src/weapon-progression.js';
 import { ARENA } from '../src/movement.js';
 const player={x:ARENA.width/2,y:ARENA.height/2};
 test('initial blunderbuss is visible and clear on 320x240 landscape',()=>{
@@ -27,4 +27,12 @@ test('spawn sequence deterministic and remote from player, inside arena',()=>{
 test('three pickup variants and labels remain distinct',()=>{
  assert.deepEqual(Object.keys(WEAPONS),['blunderbuss','rifle','flamethrower']);
  assert.equal(new Set(Object.values(WEAPONS).map(x=>x.color)).size,3);
+});
+
+test('blocked death location uses a safe world fallback',()=>{
+ const blockers=[{type:'rock',x:player.x,y:player.y,alive:true}];
+ const p=fallbackRewardPoint(player,blockers);
+ assert.ok(p);
+ assert.ok(clearPoint(p,blockers));
+ assert.ok(Math.hypot(p.x-player.x)>52);
 });
