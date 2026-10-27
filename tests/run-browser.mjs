@@ -441,6 +441,33 @@ try {
   const defaultVariant=await waitFor(v=>v.arena&&v.playerVisual.requestedVariant==='unarmed','new Arena visual default');
   assert.equal(defaultVariant.playerVisual.requestedVariant,'unarmed');
   console.log('PASS optional variants: all four synthetic sheets, rapid selection, resume, reset, physics and single shadow');
+  // Real Phaser Arena progression: exercise shared death path, drops and bounded replacement.
+  const progression=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    const milestones=[];
+    let maximum=a.enemies.length;
+    for(let count=1;count<=18;count++){
+      if(!a.enemies.some(e=>!e.dead))a.spawnReplacement();
+      const enemy=a.enemies.find(e=>!e.dead);
+      if(!enemy)throw Error('Encounter stalled at '+count);
+      enemy.hp=0;
+      if(!a.finalizeEnemyDeath(enemy))throw Error('Death not finalized');
+      if(a.finalizeEnemyDeath(enemy))throw Error('Duplicate death counted');
+      a.enemies=a.enemies.filter(e=>!e.dead);
+      if(count===5||count===10)milestones.push({kill:count,pickups:a.pickups.map(p=>p.id)});
+      if(a.enemies.length<3&&a.totalSpawned<18)a.spawnReplacement();
+      maximum=Math.max(maximum,a.enemies.length);
+    }
+    return {kills:a.kills,total:a.totalSpawned,maximum,completed:a.completed,
+      pickups:a.pickups.map(p=>p.id),milestones,weapon:a.weapon};
+  })()`);
+  assert.equal(progression.kills,18);
+  assert.equal(progression.total,18);
+  assert.ok(progression.maximum<=3);
+  assert.equal(progression.completed,true);
+  assert.deepEqual(progression.milestones.map(m=>m.kill),[5,10]);
+  assert.deepEqual(progression.pickups.slice(1),['rifle','flamethrower']);
+  console.log('PASS real Arena death path: 18 unique deaths, max 3 concurrent, once-only drops #5/#10, completion');
   await cdp('Fetch.disable');
   socket.removeEventListener('message',onDelayedFetch);
 
