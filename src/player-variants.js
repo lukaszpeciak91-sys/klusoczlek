@@ -1,5 +1,5 @@
 import {assetManifest} from './asset-manifest.js';
-export const DEFAULT_PLAYER_VARIANT='flamethrower';
+export const DEFAULT_PLAYER_VARIANT='unarmed';
 export const PLAYER_VARIANTS=Object.freeze({
  unarmed:Object.freeze({path:'player/player-unarmed.png',key:'aloes-unarmed'}),
  blunderbuss:Object.freeze({path:'player/player-blunderbuss.png',key:'aloes-blunderbuss'}),
