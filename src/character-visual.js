@@ -75,7 +75,7 @@ export function createPlayerVisual(scene,player,indicator,Phaser){
   player.setVisible(false);indicator.setVisible(false);
   applied=key===LEGACY_PLAYER.key?'legacy':id;
  }
- // Start with the approved flamethrower appearance; legacy artwork remains the fallback.
+ // Start with the unarmed appearance; legacy artwork remains the fallback.
  void select(DEFAULT_PLAYER_VARIANT);
  function update(facing,moving,deltaMs){
   lastFacing=facing;
