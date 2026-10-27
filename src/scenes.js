@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
+import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
 import { resolvePose } from './combat-contract.js';
@@ -129,6 +130,13 @@ export class ArenaScene extends Phaser.Scene {
     this.playerHp=ENCOUNTER.playerMaxHp;
     this.invulnerableUntil=0;
     this.defeated=false;
+    this.completed=false;
+    this.weapon=null;
+    this.kills=0;
+    this.totalSpawned=0;
+    this.spawnDueAt=null;
+    this.pickups=[];
+    this.triggeredMilestones=new Set();
     this.enemies=enemySpawns(this.player).map(({x,y})=>{
       const sprite=this.add.container(x,y).setDepth(9);
       sprite.add(this.add.ellipse(0,0,42,37,0x745a44).setStrokeStyle(3,0x211b18));
@@ -136,15 +144,21 @@ export class ArenaScene extends Phaser.Scene {
       sprite.add(this.add.rectangle(11,-2,13,7,0xf1ddac));
       sprite.add(this.add.circle(-8,-9,4,0xe64b48));
       sprite.add(this.add.circle(8,-9,4,0xe64b48));
-      return {x,y,hp:ENCOUNTER.enemyHp,sprite,hitUntil:0};
+      return {x,y,hp:ENCOUNTER.enemyHp,sprite,hitUntil:0,dead:false};
     });
+    this.totalSpawned=this.enemies.length;
     this.hpText=this.add.text(this.scale.width/2,13,'HP: '+this.playerHp+'/'+ENCOUNTER.playerMaxHp,
       {fontFamily:'monospace',fontSize:'23px',color:'#f3e8d1'})
       .setOrigin(0.5,0).setScrollFactor(0).setDepth(64);
+    this.weaponText=this.add.text(12,12,'BROŃ: BRAK   0/18',{fontFamily:'monospace',fontSize:'16px',color:'#f3e8d1'}).setScrollFactor(0).setDepth(64);
+    this.completeText=this.add.text(this.scale.width/2,55,'18/18 — OCZYSZCZONO ARENĘ',{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76',backgroundColor:'#1b2330'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65).setVisible(false);
     this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
       this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
     this.facingMarker=this.add.graphics().setDepth(12);
     this.playerVisual=createPlayerVisual(this,this.player,this.facingMarker,Phaser);
+    void this.playerVisual.setVariant('unarmed');
+    this.addPickup('blunderbuss',initialPickupPoint(this.player,this.cameras.main,this.scale,this.obstacles));
+    this.refreshWeaponHud();
     this.mouseHeld=false;
     this.mouseAim={x:0,y:0};
     const mouseDown=p=>{if(p.wasTouch===false&&p.leftButtonDown())this.mouseHeld=true;};
@@ -172,6 +186,7 @@ export class ArenaScene extends Phaser.Scene {
       this.mouseHeld=false;
       this.lastShotAt=null;
       this.hpText.setX(this.scale.width/2);
+      this.completeText.setX(this.scale.width/2);
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, resizeHud);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
@@ -211,6 +226,8 @@ export class ArenaScene extends Phaser.Scene {
     window.addEventListener('resize', this.onResize);
     document.addEventListener('visibilitychange', this.onVisibility);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      for(const pickup of this.pickups)pickup.object.destroy();
+      this.pickups.length=0;
       this.enemies.length=0;
       this.projectiles.length=0;
       this.obstacles.length=0;
@@ -225,6 +242,72 @@ export class ArenaScene extends Phaser.Scene {
     });
     enforceOrientationOnSceneStart(this);
     this.onResize();
+  }
+
+  refreshWeaponHud(){
+    this.weaponText.setText('BROŃ: '+(this.weapon?WEAPONS[this.weapon].label:'BRAK')+'   '+this.kills+'/18');
+  }
+
+  addPickup(id,point){
+    if(!point)return false;
+    const def=WEAPONS[id];
+    const token=this.add.container(point.x,point.y).setDepth(7);
+    token.add(this.add.ellipse(0,13,42,13,0x17120f,0.35));
+    token.add(this.add.circle(0,0,18,def.color).setStrokeStyle(3,0x282027));
+    token.add(this.add.text(0,-1,def.symbol,{fontFamily:'monospace',fontSize:'21px',color:'#ffffff',fontStyle:'bold'}).setOrigin(0.5));
+    this.pickups.push({id,x:point.x,y:point.y,object:token});
+    return true;
+  }
+
+  collectPickups(){
+    for(const pickup of this.pickups){
+      if(!pickupCollected(this.player,pickup))continue;
+      this.weapon=pickup.id;
+      void this.playerVisual.setVariant(pickup.id);
+      pickup.object.destroy();
+      pickup.collected=true;
+      this.refreshWeaponHud();
+    }
+    this.pickups=this.pickups.filter(p=>!p.collected);
+  }
+
+  finalizeEnemyDeath(enemy){
+    if(enemy.dead||enemy.hp>0)return false;
+    enemy.dead=true;
+    enemy.sprite.destroy();
+    this.kills++;
+    if(this.kills===5||this.kills===10){
+      const id=this.kills===5?'rifle':'flamethrower';
+      if(!this.triggeredMilestones.has(this.kills)){
+        this.triggeredMilestones.add(this.kills);
+        const at=dropPoint(enemy,this.obstacles);
+        if(at)this.addPickup(id,at);
+      }
+    }
+    this.refreshWeaponHud();
+    if(this.kills===18){
+      this.completed=true;
+      this.spawnDueAt=null;
+      this.completeText.setVisible(true);
+      this.resetMovement();
+    }else if(this.totalSpawned<18&&this.spawnDueAt===null){
+      this.spawnDueAt=this.time.now+380;
+    }
+    return true;
+  }
+
+  spawnReplacement(){
+    if(this.defeated||this.completed||this.totalSpawned>=18||this.enemies.filter(e=>!e.dead).length>=3)return;
+    const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned);
+    if(!at){this.spawnDueAt=this.time.now+380;return;}
+    const sprite=this.add.container(at.x,at.y).setDepth(9);
+    sprite.add(this.add.ellipse(0,0,42,37,0x745a44).setStrokeStyle(3,0x211b18));
+    sprite.add(this.add.rectangle(-11,-2,13,7,0xf1ddac));
+    sprite.add(this.add.rectangle(11,-2,13,7,0xf1ddac));
+    sprite.add(this.add.circle(-8,-9,4,0xe64b48));
+    sprite.add(this.add.circle(8,-9,4,0xe64b48));
+    this.enemies.push({...at,hp:ENCOUNTER.enemyHp,sprite,hitUntil:0,dead:false});
+    this.totalSpawned++;
   }
 
   openMenu() {
@@ -242,6 +325,8 @@ export class ArenaScene extends Phaser.Scene {
       this.player.body.setVelocity(0, 0);
       return;
     }
+    this.collectPickups();
+    if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){this.spawnDueAt=null;this.spawnReplacement();if(this.enemies.filter(e=>!e.dead).length<3&&this.totalSpawned<18&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;}
     const keys = this.keys;
     const x = Number(keys.D.isDown || keys.RIGHT.isDown) -
       Number(keys.A.isDown || keys.LEFT.isDown);
@@ -259,7 +344,8 @@ export class ArenaScene extends Phaser.Scene {
     }
     const stickAim=this.aimJoystick.held?resolveAim(this.aimJoystick.direction.x,this.aimJoystick.direction.y):{x:0,y:0};
     const aiming=this.aimJoystick.held?stickAim:(this.mouseHeld?this.mouseAim:{x:0,y:0});
-    const firing=Boolean((this.aimJoystick.held||this.mouseHeld)&&(aiming.x||aiming.y));
+    const aimingHeld=Boolean((this.aimJoystick.held||this.mouseHeld)&&(aiming.x||aiming.y));
+    const firing=Boolean(this.weapon&&!this.completed&&aimingHeld);
     const pose=resolvePose({movement:direction,aim:aiming,aimActive:firing,lastFacing:this.lastFacing});
     this.lastFacing=pose.facing;
     this.playerVisual.update(pose.facing,pose.movement.x!==0||pose.movement.y!==0,this.game.loop.delta);
@@ -290,7 +376,7 @@ export class ArenaScene extends Phaser.Scene {
             if(enemy.hp>0&&inExplosion(enemy,blocked)){
               enemy.hp=applyEnemyHit(enemy.hp,OBSTACLE_RULES.enemyExplosionDamage);
               enemy.hitUntil=this.time.now+120;
-              if(enemy.hp===0)enemy.sprite.destroy();
+              if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
               else enemy.sprite.setAlpha(0.45);
             }
           }
@@ -310,7 +396,7 @@ export class ArenaScene extends Phaser.Scene {
           enemy.hitUntil=this.time.now+120;
           enemy.sprite.setAlpha(0.45);
           item.hit=true;
-          if(enemy.hp===0)enemy.sprite.destroy();
+          if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
           break;
         }
       }
@@ -350,7 +436,8 @@ export class ArenaScene extends Phaser.Scene {
         }
       }
     }
-    this.enemies=this.enemies.filter(enemy=>enemy.hp>0);
+    this.enemies=this.enemies.filter(enemy=>!enemy.dead);
+    this.collectPickups();
   }
 }
 
