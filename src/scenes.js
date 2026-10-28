@@ -3,7 +3,7 @@ import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
 import {createHpFaceHud} from './hp-face-hud.js';
-import { createBobrozombiRenderer,createBocianolakRenderer } from './enemy-visual.js';
+import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
 import {ENEMY_TYPES,ENEMY_SCHEDULE,TOTAL_ENEMIES,typeAt,moveEnemy} from './enemy-types.js';
 import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
@@ -146,7 +146,7 @@ export class ArenaScene extends Phaser.Scene {
     this.pickups=[];
     this.triggeredMilestones=new Set();
     this.pendingRewards=new Map();
-    this.enemyRenderers={bobrozombi:createBobrozombiRenderer(this,Phaser),bocianolak:createBocianolakRenderer(this,Phaser)};
+    this.enemyRenderers={bobrozombi:createBobrozombiRenderer(this,Phaser),bocianolak:createBocianolakRenderer(this,Phaser),zubrokryptyda:createZubrokryptydaRenderer(this,Phaser)};
     this.enemyRenderer=this.enemyRenderers.bobrozombi;
     this.enemies=enemySpawns(this.player).map(({x,y},index)=>this.createEnemy(typeAt(index),{x,y},index));
     this.totalSpawned=this.enemies.length;
@@ -445,9 +445,13 @@ export class ArenaScene extends Phaser.Scene {
 
   spawnReplacement(){
     if(this.defeated||this.completed||this.totalSpawned>=TOTAL_ENEMIES||this.enemies.filter(e=>!e.dead).length>=3)return;
-    const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned);
+    const nextType=typeAt(this.totalSpawned);
+    if(nextType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda')){
+      this.spawnDueAt=this.time.now+380;return;
+    }
+    const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[nextType].radius);
     if(!at){this.spawnDueAt=this.time.now+380;return;}
-    this.enemies.push(this.createEnemy(typeAt(this.totalSpawned),at,this.totalSpawned));
+    this.enemies.push(this.createEnemy(nextType,at,this.totalSpawned));
     this.totalSpawned++;
   }
 
