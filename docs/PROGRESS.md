@@ -189,3 +189,9 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Centralized pure combat tuning and burst scheduler for PUKAWKA / KARABIN / MIOTACZ; no ammo or added binaries.
 - Visual-only rifle recoil, continuous bounded code-drawn flame particles with deterministic cone damage and obstacle occlusion; barrel explosion continues using existing shared death path.
 - Extended unit and real Chromium regressions; physical Android Chrome / Canvas fallback performance and audio acceptance remain separate.
+
+## Bobrozombi V2 production sprite integration — PR awaiting audit
+
+- Optional 768×96 RGBA, eight 96×96 direction frames; nearest-neighbor texture, independent 0.75 art scale.
+- Shared enemy renderer handles both initial and replacement spawns, missing/invalid image fallback and shutdown cleanup.
+- Existing combat and Arena mechanics deliberately unchanged. Binary artwork supplied manually by user; real artwork QA remains pending until uploaded.
