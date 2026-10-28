@@ -135,8 +135,33 @@ try {
   } else {
     console.log('INFO: Chromium fullscreen API unsupported; Android manual toggle required');
   }
+  // Geometry from real rendered Phaser GameObjects, not only calculated layout numbers.
+  const assertHudBounds=async(label)=>{
+    const geometry=await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena'),w=a.scale.width,h=a.scale.height;
+      const button=a.input._list.find(o=>o.input&&o.width===a.hudLayout.menuWidth);
+      const actual=o=>{const b=o.getBounds();return {x:b.x,y:b.y,right:b.right,bottom:b.bottom,width:b.width,height:b.height};};
+      const portrait=actual(a.hpFace.root),menu=actual(button),weapon=actual(a.weaponText),kills=actual(a.killsText),hp=actual(a.hpText);
+      return {w,h,portrait,menu,weapon,kills,hp,stickTop:a.hudLayout.joystickY-a.hudLayout.joystickRadius,
+        rightStickTop:a.hudLayout.aimY-a.hudLayout.joystickRadius,
+        portraitSquare:Math.abs(portrait.width-portrait.height)<2};
+    })()`);
+    const {w,h,menu,portrait,weapon,kills,hp}=geometry;
+    for(const box of [menu,portrait,weapon,kills,hp]){
+      assert.ok(box.x>=-1&&box.y>=-1&&box.right<=w+1&&box.bottom<=h+1,label+' clipped '+JSON.stringify(geometry));
+    }
+    const separate=(a,b)=>a.right<=b.x+1||b.right<=a.x+1||a.bottom<=b.y+1||b.bottom<=a.y+1;
+    assert.ok(separate(menu,weapon),label+' MENU/weapon overlap');
+    assert.ok(separate(menu,kills),label+' MENU/kills overlap');
+    assert.ok(separate(portrait,weapon)&&separate(portrait,kills),label+' portrait/text overlap');
+    assert.ok(portrait.x>w*0.55,label+' portrait not upper right');
+    assert.ok(geometry.portraitSquare,label+' distorted portrait');
+    assert.ok(hp.bottom<Math.min(geometry.stickTop,geometry.rightStickTop),label+' HP hits joystick');
+    return geometry;
+  };
   await clickControl('NOWA GRA');
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
+  await assertHudBounds('initial create');
   assert.equal((await snapshot()).fullscreenVisible,false);
   // Initial equipment is gameplay state, independent of optional PNG availability.
   const firstPickup=await evaluate(`(()=>{
@@ -682,12 +707,14 @@ try {
     assert.ok(layout.weapon.x+layout.weapon.width<layout.face.x-layout.face.r,'Weapon overlaps portrait');
     assert.ok(layout.kills.x+layout.kills.width<layout.face.x-layout.face.r,'Kill counter overlaps portrait');
     assert.ok(layout.hp.y+layout.hp.height<layout.joystickTop,'HP overlaps joysticks');
+    await assertHudBounds('resize '+width+'x'+height);
     if(width===320||width===800){
       const screenshot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
       await writeFile('dist/hud-preview-'+width+'x'+height+'.png',Buffer.from(screenshot.data,'base64'));
     }
   }
   console.log('PASS synthetic five-portrait Phaser textures, HP states 4/3/0, same-HP pulse suppression, 320/568/800 landscape HUD screenshots');
+  await assertHudBounds('after HP loss');
   await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
   await evaluate("window.__game.scale.refresh();true");
   // Actual barrel explosion updates the same HP face without modifying damage math.
