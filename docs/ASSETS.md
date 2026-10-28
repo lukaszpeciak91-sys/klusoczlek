@@ -16,7 +16,7 @@ Character frames are indexed left-to-right: E=0, SE=1, S=2, SW=3, W=4, NW=5, N=6
 | player/player.png | 512×64 | 8×1 of 64×64 | yes | Aloes Podpalacz, 8 frames |
 | enemies/bobrozombi.png | 768×96 | 8×1 of 96×96 | yes | Bobrozombi V2, approved optional visual; scale 0.75, gameplay radius 21 |
 | enemies/bocianolak.png | 1024×160 | 8×1 of 128×160 | yes | Bocianołak V1, second type; optional renderer, manual user upload |
-| enemies/zubrokryptyda.png | 384×48 | 8×1 of 48×48 | yes | heavy enemy |
+| enemies/zubrokryptyda.png | 1536×192 | 8×1 of 192×192 | yes | heavy enemy |
 | enemies/enemy_fast.png | 384×48 | 8×1 of 48×48 | yes | fast enemy, name provisional |
 | weapons/rapid.png | 96×32 | 3×1 of 32×32 | yes | ground pickup / HUD / fired indicator |
 | weapons/heavy.png | 96×32 | 3×1 of 32×32 | yes | ground pickup / HUD / fired indicator |
