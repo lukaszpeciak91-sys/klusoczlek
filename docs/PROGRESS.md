@@ -201,3 +201,9 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Five user-approved optional 128×128 RGBA portraits hp_5.png through hp_1.png at public/assets/portraits/, user manual upload only; no binaries. Previous three-band active contract superseded.
 - Strict PNG validation, stale async selection guard, fallback procedural numeric face; 0 HP subdued. Real HP losses trigger 160 ms pulse, not invulnerability overlap.
 - Unit tests, real Chromium Canvas tests, and screenshot-based layout acceptance required; physical Android Chrome and real approved portrait art remain manual acceptance. No merge/deploy before audit.
+
+## Bocianołak V1 — mixed 28-enemy Arena (PR25, pending independent audit)
+- Authoritative ordered schedule: 18 Bobrozombi, 10 Bocianołak, three living at once. New type appears after initial Bobrozombi onboarding, shared reward milestones #5 and #10, completion at #28.
+- New type registry and deterministic lateral weaving, preserving Bobrozombi's existing 65 px/s direct pursuit.
+- Shared optional renderer supports user-provided `public/assets/enemies/bocianolak.png` (1024×160 RGBA, 8 frames 128×160) and distinctive procedural fallback; production PNG must be uploaded manually.
+- Type-specific HP/radius/speed used in movement, obstacles, flame, projectiles and player contact. Physical Android and approved-real-art QA remain pending. No binary art, deploy, merge or Żubrokryptyda.

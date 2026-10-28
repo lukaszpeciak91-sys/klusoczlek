@@ -3,7 +3,8 @@ import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
 import {createHpFaceHud} from './hp-face-hud.js';
-import { createBobrozombiRenderer } from './enemy-visual.js';
+import { createBobrozombiRenderer,createBocianolakRenderer } from './enemy-visual.js';
+import {ENEMY_TYPES,ENEMY_SCHEDULE,TOTAL_ENEMIES,typeAt,moveEnemy} from './enemy-types.js';
 import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
@@ -145,20 +146,19 @@ export class ArenaScene extends Phaser.Scene {
     this.pickups=[];
     this.triggeredMilestones=new Set();
     this.pendingRewards=new Map();
-    this.enemyRenderer=createBobrozombiRenderer(this,Phaser);
-    this.enemies=enemySpawns(this.player).map(({x,y})=>({
-      x,y,hp:ENCOUNTER.enemyHp,sprite:this.enemyRenderer.create(x,y),hitUntil:0,dead:false,facing:'s'
-    }));
+    this.enemyRenderers={bobrozombi:createBobrozombiRenderer(this,Phaser),bocianolak:createBocianolakRenderer(this,Phaser)};
+    this.enemyRenderer=this.enemyRenderers.bobrozombi;
+    this.enemies=enemySpawns(this.player).map(({x,y},index)=>this.createEnemy(typeAt(index),{x,y},index));
     this.totalSpawned=this.enemies.length;
     this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
     this.hpText=this.add.text(0,0,'HP 5/5',{fontFamily:'monospace',fontSize:'14px',color:'#f3e8d1'})
       .setOrigin(0.5,0).setScrollFactor(0).setDepth(81);
     this.weaponText=this.add.text(0,0,'BRAK',{fontFamily:'monospace',fontSize:'17px',color:'#f3e8d1'})
       .setScrollFactor(0).setDepth(64);
-    this.killsText=this.add.text(0,0,'0/18',{fontFamily:'monospace',fontSize:'16px',color:'#f3e8d1'})
+    this.killsText=this.add.text(0,0,'0/'+TOTAL_ENEMIES,{fontFamily:'monospace',fontSize:'16px',color:'#f3e8d1'})
       .setScrollFactor(0).setDepth(64);
     this.hpFace=createHpFaceHud(this,Phaser);
-    this.completeText=this.add.text(this.scale.width/2,55,'18/18 — OCZYSZCZONO ARENĘ',{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76',backgroundColor:'#1b2330'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65).setVisible(false);
+    this.completeText=this.add.text(this.scale.width/2,55,TOTAL_ENEMIES+'/'+TOTAL_ENEMIES+' — OCZYSZCZONO ARENĘ',{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76',backgroundColor:'#1b2330'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65).setVisible(false);
     this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
       this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
     this.facingMarker=this.add.graphics().setDepth(12);
@@ -240,7 +240,7 @@ export class ArenaScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for(const pickup of this.pickups)pickup.object.destroy();
       this.pickups.length=0;
-      this.enemyRenderer.shutdown();
+      for(const renderer of Object.values(this.enemyRenderers))renderer.shutdown();
       for(const enemy of this.enemies)if(enemy.sprite.active)enemy.sprite.destroy();
       this.enemies.length=0;
       this.projectiles.length=0;
@@ -262,9 +262,15 @@ export class ArenaScene extends Phaser.Scene {
     this.onResize();
   }
 
+  createEnemy(type,point,index){
+    const def=ENEMY_TYPES[type];
+    return {...point,type,seed:index,hp:def.hp,
+      sprite:this.enemyRenderers[type].create(point.x,point.y),hitUntil:0,dead:false,facing:'s'};
+  }
+
   refreshWeaponHud(){
     this.weaponText.setText('BROŃ: '+(this.weapon?WEAPONS[this.weapon].label:'BRAK'));
-    this.killsText.setText('ZABÓJSTWA: '+this.kills+'/18');
+    this.killsText.setText('ZABÓJSTWA: '+this.kills+'/'+TOTAL_ENEMIES);
   }
 
   setPlayerHp(next){
@@ -348,7 +354,7 @@ export class ArenaScene extends Phaser.Scene {
     const tune=COMBAT_TUNING.flamethrower;
     this.emitFlame(origin,aim,now);
     for(const enemy of this.enemies){
-      if(enemy.dead||enemy.hp<=0||!flameTargetVisible(origin,aim,enemy,ENCOUNTER.enemyRadius,this.obstacles))continue;
+      if(enemy.dead||enemy.hp<=0||!flameTargetVisible(origin,aim,enemy,ENEMY_TYPES[enemy.type].radius,this.obstacles))continue;
       if(!cooldownReady(this.flameCooldowns,enemy,now,tune.damageInterval))continue;
       enemy.hp=applyEnemyHit(enemy.hp,tune.damage);
       enemy.hitUntil=now+120;
@@ -412,23 +418,22 @@ export class ArenaScene extends Phaser.Scene {
       }
     }
     this.refreshWeaponHud();
-    if(this.kills===18){
+    if(this.kills===TOTAL_ENEMIES){
       this.completed=true;
       this.spawnDueAt=null;
       this.completeText.setVisible(true);
       this.resetMovement();
-    }else if(this.totalSpawned<18&&this.spawnDueAt===null){
+    }else if(this.totalSpawned<TOTAL_ENEMIES&&this.spawnDueAt===null){
       this.spawnDueAt=this.time.now+380;
     }
     return true;
   }
 
   spawnReplacement(){
-    if(this.defeated||this.completed||this.totalSpawned>=18||this.enemies.filter(e=>!e.dead).length>=3)return;
+    if(this.defeated||this.completed||this.totalSpawned>=TOTAL_ENEMIES||this.enemies.filter(e=>!e.dead).length>=3)return;
     const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned);
     if(!at){this.spawnDueAt=this.time.now+380;return;}
-    this.enemies.push({...at,hp:ENCOUNTER.enemyHp,
-      sprite:this.enemyRenderer.create(at.x,at.y),hitUntil:0,dead:false,facing:'s'});
+    this.enemies.push(this.createEnemy(typeAt(this.totalSpawned),at,this.totalSpawned));
     this.totalSpawned++;
   }
 
@@ -450,7 +455,7 @@ export class ArenaScene extends Phaser.Scene {
     this.hpFace.update(this.game.loop.delta);
     this.retryPendingRewards();
     this.collectPickups();
-    if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){this.spawnDueAt=null;this.spawnReplacement();if(this.enemies.filter(e=>!e.dead).length<3&&this.totalSpawned<18&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;}
+    if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){this.spawnDueAt=null;this.spawnReplacement();if(this.enemies.filter(e=>!e.dead).length<3&&this.totalSpawned<TOTAL_ENEMIES&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;}
     const keys = this.keys;
     const x = Number(keys.D.isDown || keys.RIGHT.isDown) -
       Number(keys.A.isDown || keys.LEFT.isDown);
@@ -492,7 +497,7 @@ export class ArenaScene extends Phaser.Scene {
       if(item.hit){item.object.destroy();continue;}
       for(const enemy of this.enemies){
         if(enemy.hp<=0)continue;
-        if(segmentHitsCircle(old,item.object,enemy,ENCOUNTER.enemyRadius+item.radius)){
+        if(segmentHitsCircle(old,item.object,enemy,ENEMY_TYPES[enemy.type].radius+item.radius)){
           enemy.hp=applyEnemyHit(enemy.hp,item.damage);
           enemy.hitUntil=this.time.now+120;
           enemy.sprite.setAlpha(0.45);
@@ -519,12 +524,12 @@ export class ArenaScene extends Phaser.Scene {
     this.explosionEffects=this.explosionEffects.filter(e=>e.sprite.active);
     for(const enemy of this.enemies){
       if(enemy.hp<=0)continue;
-      const next=advanceEnemy(enemy,this.player,seconds);
-      const blockedPosition=resolveObstaclePosition(enemy,next,ENCOUNTER.enemyRadius,this.obstacles);
+      const next=moveEnemy(enemy,this.player,seconds,this.time.now/1000);
+      const blockedPosition=resolveObstaclePosition(enemy,next,ENEMY_TYPES[enemy.type].radius,this.obstacles);
       enemy.x=blockedPosition.x;enemy.y=blockedPosition.y;
-      this.enemyRenderer.update(enemy,this.player);
+      this.enemyRenderers[enemy.type].update(enemy,this.player);
       if(this.time.now>=enemy.hitUntil)enemy.sprite.setAlpha(1);
-      if(Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<=ENCOUNTER.enemyRadius+17){
+      if(Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<=ENEMY_TYPES[enemy.type].radius+17){
         const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},this.time.now);
         this.setPlayerHp(hp.hp);
         this.invulnerableUntil=hp.invulnerableUntil;

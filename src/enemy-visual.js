@@ -3,29 +3,51 @@ import { assetUrl, validPngHeader } from './character-visual.js';
 
 export const BOBROZOMBI_ASSET=Object.freeze({path:'enemies/bobrozombi.png',key:'enemy-bobrozombi-v2',width:768,height:96,frameWidth:96,frameHeight:96});
 export const BOBROZOMBI_VISUAL_SCALE=0.75;
+export const BOCIANOLAK_ASSET=Object.freeze({path:'enemies/bocianolak.png',key:'enemy-bocianolak-v1',width:1024,height:160,frameWidth:128,frameHeight:160});
+export const BOCIANOLAK_VISUAL_SCALE=0.65;
+export const BOCIANOLAK_FEET_OFFSET=-47;
 export const BOBROZOMBI_FEET_OFFSET=-13;
 export function bobrozombiFrame(x,y,playerX,playerY,lastFacing='s'){
   return FACINGS.indexOf(facingOf(playerX-x,playerY-y,lastFacing));
 }
-export function createBobrozombiRenderer(scene,Phaser){
+export function createBobrozombiRenderer(scene,Phaser){return createEnemyRenderer(scene,Phaser,'bobrozombi');}
+export function createBocianolakRenderer(scene,Phaser){return createEnemyRenderer(scene,Phaser,'bocianolak');}
+function createEnemyRenderer(scene,Phaser,type){
+  const stork=type==='bocianolak';
+  const asset=stork?BOCIANOLAK_ASSET:BOBROZOMBI_ASSET;
+  const scale=stork?BOCIANOLAK_VISUAL_SCALE:BOBROZOMBI_VISUAL_SCALE;
+  const offset=stork?BOCIANOLAK_FEET_OFFSET:BOBROZOMBI_FEET_OFFSET;
+  const artKey=type+'-art',facingKey=type+'-facing';
   const containers=new Set();
   let alive=true,ready=false,failed=false;
   const texture=scene.textures;
   const attach=container=>{
-    if(!alive||!container.active||!ready||container.getData('bobrozombi-art'))return;
-    const image=scene.add.sprite(0,BOBROZOMBI_FEET_OFFSET,BOBROZOMBI_ASSET.key,container.getData('bobrozombi-facing')??2)
-      .setOrigin(0.5).setScale(BOBROZOMBI_VISUAL_SCALE);
+    if(!alive||!container.active||!ready||container.getData(artKey))return;
+    const image=scene.add.sprite(0,offset,asset.key,container.getData(facingKey)??2)
+      .setOrigin(0.5).setScale(scale);
     container.add(image);
-    container.setData('bobrozombi-art',image);
+    container.setData(artKey,image);
     for(const child of container.list)if(child!==image)child.setVisible(false);
   };
   const create=(x,y)=>{
     const container=scene.add.container(x,y).setDepth(9);
-    container.add(scene.add.ellipse(0,0,42,37,0x745a44).setStrokeStyle(3,0x211b18));
-    container.add(scene.add.rectangle(-11,-2,13,7,0xf1ddac));
-    container.add(scene.add.rectangle(11,-2,13,7,0xf1ddac));
-    container.add(scene.add.circle(-8,-9,4,0xe64b48));
-    container.add(scene.add.circle(8,-9,4,0xe64b48));
+    if(stork){
+      // Small visible stork silhouette remains playable when the approved PNG is absent.
+      container.add(scene.add.ellipse(0,-13,23,40,0xe4e0d3).setStrokeStyle(2,0x343137));
+      container.add(scene.add.ellipse(0,-39,16,26,0xf2ead6).setStrokeStyle(2,0x343137));
+      container.add(scene.add.triangle(1,-37,4,-4,35,0,4,4,0xc45135).setRotation(0));
+      container.add(scene.add.ellipse(-19,-14,16,10,0x323038));
+      container.add(scene.add.ellipse(19,-14,16,10,0x323038));
+      container.add(scene.add.rectangle(-5,18,4,31,0xb94936));
+      container.add(scene.add.rectangle(5,18,4,31,0xb94936));
+      container.add(scene.add.circle(3,-44,2,0x201b19));
+    }else{
+      container.add(scene.add.ellipse(0,0,42,37,0x745a44).setStrokeStyle(3,0x211b18));
+      container.add(scene.add.rectangle(-11,-2,13,7,0xf1ddac));
+      container.add(scene.add.rectangle(11,-2,13,7,0xf1ddac));
+      container.add(scene.add.circle(-8,-9,4,0xe64b48));
+      container.add(scene.add.circle(8,-9,4,0xe64b48));
+    }
     containers.add(container);
     container.once(Phaser.GameObjects.Events.DESTROY,()=>containers.delete(container));
     attach(container);
@@ -35,8 +57,8 @@ export function createBobrozombiRenderer(scene,Phaser){
     const facing=bobrozombiFrame(enemy.x,enemy.y,player.x,player.y,enemy.facing||'s');
     enemy.facing=FACINGS[facing];
     enemy.sprite.setPosition(enemy.x,enemy.y);
-    enemy.sprite.setData('bobrozombi-facing',facing);
-    const art=enemy.sprite.getData('bobrozombi-art');
+    enemy.sprite.setData(facingKey,facing);
+    const art=enemy.sprite.getData(artKey);
     if(art?.active)art.setFrame(facing);
   };
   const shutdown=()=>{alive=false;containers.clear();};
@@ -44,12 +66,12 @@ export function createBobrozombiRenderer(scene,Phaser){
   // One request per Arena session, independent of individual enemy spawns.
   const loading=(async()=>{
     try{
-      if(!texture.exists(BOBROZOMBI_ASSET.key)){
-        const uri=assetUrl(import.meta.env.BASE_URL,BOBROZOMBI_ASSET.path);
+      if(!texture.exists(asset.key)){
+        const uri=assetUrl(import.meta.env.BASE_URL,asset.path);
         const response=await fetch(uri,{cache:'no-cache'});
         if(!response.ok)throw Error('PNG HTTP '+response.status);
         const bytes=new Uint8Array(await response.arrayBuffer());
-        if(!validPngHeader(bytes,BOBROZOMBI_ASSET))throw Error('expected 768x96 8-bit RGBA PNG');
+        if(!validPngHeader(bytes,asset))throw Error('expected '+asset.width+'x'+asset.height+' 8-bit RGBA PNG');
         const local=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
         try{
           const image=new Image();
@@ -58,19 +80,19 @@ export function createBobrozombiRenderer(scene,Phaser){
             image.onerror=()=>reject(Error('PNG decode failed'));
             image.src=local;
           });
-          if(image.naturalWidth!==768||image.naturalHeight!==96)throw Error('decoded PNG dimensions mismatch');
+          if(image.naturalWidth!==asset.width||image.naturalHeight!==asset.height)throw Error('decoded PNG dimensions mismatch');
           if(!alive)return;
-          if(!texture.exists(BOBROZOMBI_ASSET.key))
-            texture.addSpriteSheet(BOBROZOMBI_ASSET.key,image,{frameWidth:96,frameHeight:96});
+          if(!texture.exists(asset.key))
+            texture.addSpriteSheet(asset.key,image,{frameWidth:asset.frameWidth,frameHeight:asset.frameHeight});
         }finally{URL.revokeObjectURL(local);}
       }
       if(!alive)return;
-      texture.get(BOBROZOMBI_ASSET.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+      texture.get(asset.key).setFilter(Phaser.Textures.FilterMode.NEAREST);
       ready=true;
       for(const c of containers)attach(c);
     }catch(error){
       failed=true;
-      if(alive)console.info('[Bobrozombi] procedural fallback:',error.message);
+      if(alive)console.info('['+type+'] procedural fallback:',error.message);
     }
   })();
   return {create,update,shutdown,loading,get loaded(){return ready;},get fallback(){return failed;}};

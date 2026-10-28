@@ -15,6 +15,7 @@ Character frames are indexed left-to-right: E=0, SE=1, S=2, SW=3, W=4, NW=5, N=6
 |---|---:|---|---|---|
 | player/player.png | 512×64 | 8×1 of 64×64 | yes | Aloes Podpalacz, 8 frames |
 | enemies/bobrozombi.png | 768×96 | 8×1 of 96×96 | yes | Bobrozombi V2, approved optional visual; scale 0.75, gameplay radius 21 |
+| enemies/bocianolak.png | 1024×160 | 8×1 of 128×160 | yes | Bocianołak V1, second type; optional renderer, manual user upload |
 | enemies/zubrokryptyda.png | 384×48 | 8×1 of 48×48 | yes | heavy enemy |
 | enemies/enemy_fast.png | 384×48 | 8×1 of 48×48 | yes | fast enemy, name provisional |
 | weapons/rapid.png | 96×32 | 3×1 of 32×32 | yes | ground pickup / HUD / fired indicator |
@@ -63,3 +64,6 @@ User-supplied `public/assets/enemies/bobrozombi.png`: exact 768×96 8-bit RGBA P
 ## HP face HUD V1 — authoritative five-state contract
 
 The historical three-band `hp_high.png` / `hp_medium.png` / `hp_low.png` proposal is superseded and **not active**. User manually uploads five original, approved 128×128 RGBA PNGs to `public/assets/portraits/hp_5.png`, `hp_4.png`, `hp_3.png`, `hp_2.png`, and `hp_1.png`; all paths below `public/assets/portraits/` use those exact names. Each has transparent pixels outside its circular art and its own background inside. Current HP 5/4/3/2/1 uses corresponding exact file; 0 reuses `hp_1.png` subdued. All artwork is optional at runtime: missing/invalid art falls back to a procedural numeric HUD face; no binaries are committed. The HUD uses Vite BASE_URL, validates PNG byte header and 128×128 RGBA dimensions, and ignores stale async responses after HP changes.
+
+## Bocianołak V1 (second enemy; 28-enemy arena)
+Approved optional `public/assets/enemies/bocianolak.png`: 1024×160, eight consecutive 128×160 8-bit RGBA frames (E, SE, S, SW, W, NW, N, NE), transparent exterior, no spacing. Source feet near y153. Visual scale is a named independent constant, not physics-derived; creature uses 2 HP, 85 px/s, radius 18 with bounded lateral weaving. Arena schedules 18 Bobrozombi and 10 Bocianołak, max three living, rewards at total kills 5 and 10. User uploads PNG manually; absent/invalid binary has code-drawn fallback.

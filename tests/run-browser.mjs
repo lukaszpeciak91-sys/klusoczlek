@@ -463,10 +463,11 @@ try {
     e.hp=0;
     if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
     a.enemies=a.enemies.filter(e=>!e.dead);
-    if(a.enemies.length<3&&a.totalSpawned<18)a.spawnReplacement();
-    return {kills:a.kills,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
+    if(a.enemies.length<3&&a.totalSpawned<28)a.spawnReplacement();
+    return {kills:a.kills,type:e.type,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
-  for(let i=0;i<4;i++)await killOne();
+  const typesDefeated=[];
+  for(let i=0;i<4;i++)typesDefeated.push((await killOne()).type);
   await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
     // Suppress placement by occupying candidate positions with artificial rocks.
@@ -475,7 +476,7 @@ try {
       a.obstacles.push({type:'rock',alive:true,x:e.x+dx,y:e.y+dy,sprite:{active:true,depth:4,width:62,setAlpha(){}},hitUntil:Infinity,__fixture:true});
     return true;
   })()`);
-  const fifth=await killOne();
+  const fifth=await killOne();typesDefeated.push(fifth.type);
   assert.equal(fifth.kills,5);
   assert.equal(fifth.pending,1);
   assert.ok(!fifth.pickups.includes('rifle'));
@@ -492,27 +493,80 @@ try {
   await sleep(95);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'rifle');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
-  for(let i=0;i<5;i++)await killOne();
+  for(let i=0;i<5;i++)typesDefeated.push((await killOne()).type);
   const flame=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pickups.find(p=>p.id==='flamethrower')?{x:a.pickups.find(p=>p.id==='flamethrower').x,y:a.pickups.find(p=>p.id==='flamethrower').y}:null})()");
   assert.ok(flame);
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='flamethrower');a.player.body.reset(p.x,p.y);return true})()");
   await sleep(95);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
-  for(let i=0;i<8;i++)await killOne();
+  for(let i=0;i<18;i++)typesDefeated.push((await killOne()).type);
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones]}})()");
-  assert.equal(progression.kills,18);
-  assert.equal(progression.total,18);
+  assert.equal(progression.kills,28);
+  assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,18);
+  assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,10);
+  assert.equal(progression.total,28);
   assert.equal(progression.completed,true);
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[5,10]);
-  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 18 unique deaths');
+  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 28 unique deaths');
   await clickControl('hud');
   await waitFor(v=>v.menu&&v.arenaPaused,'menu before reset');
   await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
   const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
   assert.deepEqual(reset,{kills:0,total:3,weapon:null,pending:0,triggered:0,pickups:['blunderbuss']});
+  const postponedSpawn=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(e=>!e.dead);
+    e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(v=>!v.dead);
+    const r=46,W=1800,H=1200;
+    for(const [x,y] of [[r,r],[W-r,r],[W-r,H-r],[r,H-r],[W/2,r],[W-r,H/2],[W/2,H-r],[r,H/2]])
+      a.obstacles.push({type:'rock',x,y,alive:true,__spawnFixture:true});
+    const before=a.totalSpawned;a.spawnDueAt=null;
+    a.spawnReplacement();const blocked={before,after:a.totalSpawned,retry:a.spawnDueAt!==null};
+    a.obstacles=a.obstacles.filter(o=>!o.__spawnFixture);
+    a.spawnReplacement();
+    return {...blocked,recovered:a.totalSpawned,nextType:a.enemies.at(-1).type,active:a.enemies.filter(v=>!v.dead).length};
+  })()`);
+  assert.equal(postponedSpawn.after,postponedSpawn.before,'Blocked spawn consumed schedule entry');
+  assert.equal(postponedSpawn.retry,true,'Blocked spawn did not schedule retry');
+  assert.equal(postponedSpawn.recovered,postponedSpawn.before+1,'Scheduled enemy lost after obstruction cleared');
+  assert.ok(postponedSpawn.active<=3);
+  console.log('PASS Arena blocked spawn: unchanged schedule counter and safe retry after obstacles clear');
+  // In-memory valid 8-frame 1024x160 PNG-shaped artwork through Phaser Canvas textures.
+  await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),key='enemy-bocianolak-v1';
+    if(!a.textures.exists(key)){
+      const c=document.createElement('canvas');c.width=1024;c.height=160;
+      const g=c.getContext('2d');
+      for(let k=0;k<8;k++){
+        g.fillStyle='hsl('+k*39+',45%,65%)';
+        g.fillRect(k*128+38,16,50,141);
+      }
+      a.textures.addSpriteSheet(key,c,{frameWidth:128,frameHeight:160});
+    }
+    return true;
+  })()`);
+  await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'stork synthetic reload');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new scene with synthetic stork');
+  const storkVisual=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    const e=a.createEnemy('bocianolak',{x:600,y:500},6);
+    a.enemyRenderers.bocianolak.update(e,{x:660,y:500});
+    const art=e.sprite.getData('bocianolak-art');
+    const snapshot={loaded:a.enemyRenderers.bocianolak.loaded,visible:!!art?.active,
+      scale:art?.scaleX,frame:art?.frame?.name,offset:art?.y,
+      fallbackVisible:e.sprite.list.some(child=>child!==art&&child.visible)};
+    e.sprite.destroy();return snapshot;
+  })()`);
+  assert.equal(storkVisual.loaded,true);
+  assert.equal(storkVisual.visible,true);
+  assert.equal(storkVisual.scale,0.65);
+  assert.equal(Number(storkVisual.frame),0);
+  assert.equal(storkVisual.offset,-47);
+  assert.equal(storkVisual.fallbackVisible,false);
+  console.log('PASS real Canvas Phaser: synthetic 1024x160 directional Bocianołak spritesheet, feet anchor and no duplicate fallback');
   // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
   const combatProbe=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'), aim={x:1,y:0};
