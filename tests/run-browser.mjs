@@ -175,7 +175,7 @@ try {
   assert.ok(firstPickup.obstacles.every(o=>Math.hypot(firstPickup.x-o.x,firstPickup.y-o.y)>o.r+20));
 
   const initialToken=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {symbol:a.weaponText.text,color:a.weaponTokenBody.fillColor,kills:a.killsText.text}})()");
-  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/28'});
+  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/32'});
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'unarmed');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups[0];a.player.setPosition(p.x,p.y);a.player.body.reset(p.x,p.y);return true})()");
@@ -492,7 +492,7 @@ try {
     e.hp=0;
     if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
     a.enemies=a.enemies.filter(e=>!e.dead);
-    if(a.enemies.length<3&&a.totalSpawned<28)a.spawnReplacement();
+    if(a.enemies.length<3&&a.totalSpawned<32)a.spawnReplacement();
     return {kills:a.kills,type:e.type,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
   const typesDefeated=[];
@@ -531,17 +531,18 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
-  for(let i=0;i<18;i++)typesDefeated.push((await killOne()).type);
+  for(let i=0;i<22;i++)typesDefeated.push((await killOne()).type);
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones]}})()");
-  assert.equal(progression.kills,28);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'28/28');
+  assert.equal(progression.kills,32);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'32/32');
   assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,18);
   assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,10);
-  assert.equal(progression.total,28);
+  assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,4);
+  assert.equal(progression.total,32);
   assert.equal(progression.completed,true);
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[5,10]);
-  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 28 unique deaths');
+  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 32 unique deaths');
   await clickControl('hud');
   await waitFor(v=>v.menu&&v.arenaPaused,'menu before reset');
   await clickControl('NOWA GRA');
