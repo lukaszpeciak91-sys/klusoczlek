@@ -30,3 +30,6 @@ HUD shows HP, active weapon and wave. HP portrait bands: >60%, 30–60% inclusiv
 
 ## Out of scope
 No full combat, AI, waves, health/pickup implementation, final assets, backend, save system or dependency changes during this contract PR. All URLs must honor Vite base `/klusoczlek/`. Real Android Chrome touch/fullscreen smoke is required before shipping control changes.
+
+## 18-enemy appearance prototype (2026-10-27)
+Current prototype starts unarmed, requires collecting a nearby blunderbuss token before firing, drops rifle on confirmed death #5 and flamethrower on death #10; 18 Bobrozombi total, at most three concurrent. Weapon behavior prototype: pukawka shoots 5px bullets every 180 ms at 510 px/s; karabin shoots three 3px rounds spaced 70 ms, with a 300 ms break between bursts, at 750 px/s; miotacz uses an obstacle-aware 145px/50° continuous flame cone, at most 60 short-lived procedural particles and 250 ms per-target damage cadence. This does not replace the future three-weapon balance and wave design.

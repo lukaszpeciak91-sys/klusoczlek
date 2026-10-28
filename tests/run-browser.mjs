@@ -138,6 +138,22 @@ try {
   await clickControl('NOWA GRA');
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   assert.equal((await snapshot()).fullscreenVisible,false);
+  // Initial equipment is gameplay state, independent of optional PNG availability.
+  const firstPickup=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),p=a.pickups[0],cam=a.cameras.main;
+    return {id:p.id,x:p.x,y:p.y,left:cam.worldView.x,right:cam.worldView.right,top:cam.worldView.y,bottom:cam.worldView.bottom,
+      obstacles:a.obstacles.filter(o=>o.alive).map(o=>({x:o.x,y:o.y,r:o.sprite.width/2}))};
+  })()`);
+  assert.equal(firstPickup.id,'blunderbuss');
+  assert.ok(firstPickup.x>firstPickup.left+25&&firstPickup.x<firstPickup.right-25);
+  assert.ok(firstPickup.y>firstPickup.top+25&&firstPickup.y<firstPickup.bottom-25);
+  assert.ok(firstPickup.obstacles.every(o=>Math.hypot(firstPickup.x-o.x,firstPickup.y-o.y)>o.r+20));
+
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'unarmed');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups[0];a.player.setPosition(p.x,p.y);a.player.body.reset(p.x,p.y);return true})()");
+  await sleep(75);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'blunderbuss');
   const illustrated=await waitFor(s=>s.controls?.groundType==='TileSprite','approved ground TileSprite load');
   assert.equal(illustrated.controls.groundGridActive,false,'Grid still visible over artwork');
   assert.equal(illustrated.controls.groundWidth,1800);
@@ -248,6 +264,10 @@ try {
   assert.ok(fresh.controls.obstacles.every(o=>o.depth>fresh.controls.groundDepth),'Foreground obstacles layered under ground');
   assert.equal(fresh.controls.groundActive,true);
   assert.notEqual(fresh.controls.layoutIndex,retainedLayout,'NOWA GRA did not select next predefined layout');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups[0];a.player.body.reset(p.x,p.y);return true})()");
+  await sleep(80);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'blunderbuss');
   // Exercise actual Phaser projectile collision and barrel removal while not modifying the ground.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const b=a.obstacles.find(o=>o.type==='barrel');b.x=a.player.x+130;b.y=a.player.y;b.sprite.setPosition(b.x,b.y);b.sprite.body.updateFromGameObject();return true})()");
   const barrelAim=await snapshot();
@@ -271,7 +291,7 @@ try {
   await sleep(850);
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:cx+140,y:cy,button:'left',buttons:0,clickCount:1});
   const killed=await snapshot();
-  assert.ok(killed.controls.enemies.length<3,'Actual mouse projectiles did not kill enemy');
+  assert.ok(await evaluate("window.__game.scene.getScene('Arena').kills>=1"),'Actual mouse projectiles did not kill enemy');
   // Contact HP and defeat, while Phaser owns the running scene.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.x=a.player.x;e.y=a.player.y;e.sprite.setPosition(e.x,e.y)}return true})()");
   const damaged=await waitFor(s=>s.controls.hp<5,'Contact damage');
@@ -303,7 +323,7 @@ try {
       body:sheetBase64}).then(()=>pending.delete(id)).catch(err=>{throw err;});
   };
   socket.addEventListener('message',onFetch);
-  await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/player/player.png*',requestStage:'Request'}]});
+  await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/player/player*.png*',requestStage:'Request'}]});
   await cdp('Page.enable');
   await cdp('Page.reload',{ignoreCache:true});
   await waitFor(s=>s.menu&&s.actions.length===1,'synthetic sprite fresh page');
@@ -428,9 +448,139 @@ try {
   assert.equal(resumedVariant.playerVisual.appliedVariant,'flamethrower');
   await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'variant reset menu');
   await clickControl('NOWA GRA');
-  const defaultVariant=await waitFor(v=>v.arena&&v.playerVisual.appliedVariant==='flamethrower','new Arena visual default');
-  assert.equal(defaultVariant.playerVisual.requestedVariant,'flamethrower');
+  const defaultVariant=await waitFor(v=>v.arena&&v.playerVisual.requestedVariant==='unarmed','new Arena visual default');
+  assert.equal(defaultVariant.playerVisual.requestedVariant,'unarmed');
   console.log('PASS optional variants: all four synthetic sheets, rapid selection, resume, reset, physics and single shadow');
+  // Real Phaser Arena progression: exercise shared death path, drops and bounded replacement.
+  // Exercise real Arena update/proximity and a placement failure that survives MENU/WZNÓW.
+  const killOne=async()=>evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    if(!a.enemies.some(e=>!e.dead))a.spawnReplacement();
+    const e=a.enemies.find(e=>!e.dead);
+    if(!e)throw Error('Encounter stalled');
+    e.hp=0;
+    if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
+    a.enemies=a.enemies.filter(e=>!e.dead);
+    if(a.enemies.length<3&&a.totalSpawned<18)a.spawnReplacement();
+    return {kills:a.kills,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
+  })()`);
+  for(let i=0;i<4;i++)await killOne();
+  await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    // Suppress placement by occupying candidate positions with artificial rocks.
+    const e=a.enemies.find(e=>!e.dead);
+    for(const [dx,dy] of [[0,0],[36,0],[-36,0],[0,36],[0,-36],[50,50],[-50,50],[50,-50],[-50,-50]])
+      a.obstacles.push({type:'rock',alive:true,x:e.x+dx,y:e.y+dy,sprite:{active:true,depth:4,width:62,setAlpha(){}},hitUntil:Infinity,__fixture:true});
+    return true;
+  })()`);
+  const fifth=await killOne();
+  assert.equal(fifth.kills,5);
+  assert.equal(fifth.pending,1);
+  assert.ok(!fifth.pickups.includes('rifle'));
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'menu pending reward');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').pendingRewards.size"),1);
+  await clickControl('WZNÓW');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'resume pending reward');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.obstacles=a.obstacles.filter(o=>!o.__fixture);return true})()");
+  await sleep(100);
+  const rifle=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pickups.find(p=>p.id==='rifle')?{x:a.pickups.find(p=>p.id==='rifle').x,y:a.pickups.find(p=>p.id==='rifle').y,pending:a.pendingRewards.size}:null})()");
+  assert.ok(rifle&&rifle.pending===0);
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='rifle');a.player.body.reset(p.x,p.y);return true})()");
+  await sleep(95);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'rifle');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
+  for(let i=0;i<5;i++)await killOne();
+  const flame=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pickups.find(p=>p.id==='flamethrower')?{x:a.pickups.find(p=>p.id==='flamethrower').x,y:a.pickups.find(p=>p.id==='flamethrower').y}:null})()");
+  assert.ok(flame);
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='flamethrower');a.player.body.reset(p.x,p.y);return true})()");
+  await sleep(95);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
+  for(let i=0;i<8;i++)await killOne();
+  const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones]}})()");
+  assert.equal(progression.kills,18);
+  assert.equal(progression.total,18);
+  assert.equal(progression.completed,true);
+  assert.equal(progression.pending,0);
+  assert.deepEqual(progression.markers,[5,10]);
+  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 18 unique deaths');
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'menu before reset');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
+  const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
+  assert.deepEqual(reset,{kills:0,total:3,weapon:null,pending:0,triggered:0,pickups:['blunderbuss']});
+  // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
+  const combatProbe=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'), aim={x:1,y:0};
+    const player=a.player,camera=a.cameras.main;
+    const identity={player,camera,follow:camera._follow};
+    a.weapon='rifle';a.stopWeaponFire();
+    const t=a.time.now;
+    // Character recoil uses the existing independent visual renderer.
+    a.playerVisual.recoil();
+    a.playerVisual.update('e',false,16);
+    const recoil={x:a.playerVisual.sprite?.x,physicsX:player.x,followSame:camera._follow===player};
+    a.weapon='flamethrower';a.stopWeaponFire();
+    a.flameEmissionAt=null;
+    a.emitFlame({x:player.x+24,y:player.y},aim,t+1000);
+    const particles=a.flameParticles.length;
+    a.stopWeaponFire();
+    return {recoil,particles,limit:60,weapon:a.weapon,followSame:identity.follow===camera._follow};
+  })()`);
+  assert.equal(combatProbe.followSame,true);
+  assert.equal(combatProbe.recoil.followSame,true);
+  assert.equal(combatProbe.recoil.physicsX,await evaluate("window.__game.scene.getScene('Arena').player.x"));
+  assert.ok(combatProbe.particles<=60);
+  assert.equal(combatProbe.weapon,'flamethrower');
+  console.log('PASS Phaser visual recoil physics/camera isolation, procedural flame and weapon state');
+  // Real mouse-held rifle and flamethrower on the Phaser frame loop.
+  const fireScreen=await snapshot();
+  const fireX=fireScreen.rect.x+fireScreen.scale.width/2+120;
+  const fireY=fireScreen.rect.y+fireScreen.scale.height/2;
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='rifle';a.stopWeaponFire();a.projectiles.forEach(p=>p.object.destroy());a.projectiles=[];return true})()");
+  await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:fireX,y:fireY,button:'none'});
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:fireX,y:fireY,button:'left',buttons:1,clickCount:1});
+  await sleep(195);
+  const rifleShot=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {count:a.projectiles.length,radius:a.projectiles[0]?.radius,velocity:a.projectiles[0]?.vx,burst:a.firingState.burstShots}})()");
+  assert.equal(rifleShot.count,3,'Rifle should fire three projectiles in first burst');
+  assert.equal(rifleShot.radius,3);
+  assert.ok(rifleShot.velocity>700);
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:fireX,y:fireY,button:'left',buttons:0,clickCount:1});
+  await sleep(50);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').firingState.burstShots"),0,'Released rifle kept scheduled burst');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='flamethrower';a.stopWeaponFire();return true})()");
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:fireX,y:fireY,button:'left',buttons:1,clickCount:1});
+  await sleep(220);
+  const flaming=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {particles:a.flameParticles.length,projectiles:a.projectiles.length,active:a.firingState.active}})()");
+  assert.ok(flaming.particles>0&&flaming.particles<=60,'Flame particles not bounded and rendered');
+  assert.equal(flaming.active,true);
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:fireX,y:fireY,button:'left',buttons:0,clickCount:1});
+  await sleep(40);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').firingState.active"),false);
+  console.log('PASS real held mouse: rifle three-shot burst, release cancellation, flame visual stream and stop');
+  // One authoritative barrel explosion path when flame applies three cooldown-limited hits.
+  const flameBarrel=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'), barrel=a.obstacles.find(o=>o.type==='barrel');
+    barrel.x=a.player.x+132;barrel.y=a.player.y;barrel.sprite.setPosition(barrel.x,barrel.y);
+    barrel.sprite.body.updateFromGameObject();
+    a.weapon='flamethrower';a.stopWeaponFire();
+    a.flameCooldowns.clear();
+    const aim={x:1,y:0},now=a.time.now;
+    const beforeHp=a.playerHp;
+    for(let i=0;i<3;i++)a.applyFlame(aim,now+300*i);
+    const after={alive:barrel.alive,hp:barrel.hp,effects:a.explosionEffects.length,playerHp:a.playerHp,beforeHp};
+    a.applyFlame(aim,now+1500);
+    return {...after,effectsAfter:a.explosionEffects.length};
+  })()`);
+  assert.equal(flameBarrel.alive,false,'Flamethrower did not explode barrel after three hits');
+  assert.equal(flameBarrel.hp,0);
+  assert.equal(flameBarrel.effects,flameBarrel.effectsAfter,'Repeated flame re-exploded the barrel');
+  assert.equal(flameBarrel.playerHp,flameBarrel.beforeHp,'Barrel beyond explosion range injured player');
+  console.log('PASS real Phaser flame-barrel damage cooldown, one-shot explosion and no self-flame damage');
+
+
   await cdp('Fetch.disable');
   socket.removeEventListener('message',onDelayedFetch);
 
