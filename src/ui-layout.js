@@ -21,8 +21,8 @@ export function arenaHudLayout(height,width=960){
  const portraitSize=compact?62:74;
  const portraitX=width-12-portraitSize/2,portraitY=12+portraitSize/2;
  const textX=12+menuWidth+12;
- const weaponFont=compact?14:17;
- const killsFont=compact?13:16;
+ const weaponFont=width<420?11:compact?14:17;
+ const killsFont=width<420?10:compact?13:16;
  return {
   menuX,menuY,menuWidth,menuHeight,menuFont:compact?19:23,
   portraitX,portraitY,portraitSize,
