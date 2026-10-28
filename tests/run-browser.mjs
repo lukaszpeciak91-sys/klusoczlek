@@ -636,8 +636,61 @@ try {
   console.log('PASS synthetic five-portrait Phaser textures, HP states 4/3/0, same-HP pulse suppression, 320/568/800 landscape HUD screenshots');
   await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
   await evaluate("window.__game.scale.refresh();true");
+  // Actual barrel explosion updates the same HP face without modifying damage math.
+  const explosionHud=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    a.setPlayerHp(5);a.invulnerableUntil=0;
+    const x=a.player.x+65,y=a.player.y;
+    const sprite=a.add.rectangle(x,y,43,48,0xba3c29);
+    const barrel={type:'barrel',x,y,hp:1,alive:true,sprite,hitUntil:0};
+    a.obstacles.push(barrel);
+    a.hitObstacle(barrel,a.time.now);
+    return {hp:a.playerHp,face:a.hpFace.current,alive:barrel.alive};
+  })()`);
+  assert.deepEqual(explosionHud,{hp:4,face:'hp_4',alive:false});
+  console.log('PASS real Phaser barrel explosion maps player HP to fourth portrait');
   await cdp('Fetch.disable');
   socket.removeEventListener('message',onDelayedFetch);
+  // Async race: a slower hp_2 fetch must never overwrite a newer hp_4.
+  const portraitBase64=await evaluate(`(()=>{
+    const c=document.createElement('canvas');c.width=c.height=128;
+    const g=c.getContext('2d');g.fillStyle='#bd8240';g.beginPath();g.arc(64,64,60,0,7);g.fill();
+    return c.toDataURL('image/png').split(',')[1];
+  })()`);
+  await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    for(const n of [2,4])a.textures.remove('aloes-hud-hp_'+n);
+    return true;
+  })()`);
+  let heldPortrait=null;
+  const portraitFetch=event=>{
+    const message=JSON.parse(event.data);
+    if(message.method!=='Fetch.requestPaused')return;
+    const id=message.params.requestId,url=message.params.request.url;
+    if(url.includes('hp_2.png')){heldPortrait=id;return;}
+    cdp('Fetch.fulfillRequest',{requestId:id,responseCode:200,
+      responseHeaders:[{name:'Content-Type',value:'image/png'}],body:portraitBase64}).catch(()=>{});
+  };
+  socket.addEventListener('message',portraitFetch);
+  await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/portraits/hp_*.png*',requestStage:'Request'}]});
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.hpFace.setHp(2);a.hpFace.setHp(4);return true})()");
+  for(let k=0;k<30&&!heldPortrait;k++)await sleep(35);
+  assert.ok(heldPortrait,'Delayed HP2 portrait request not observed');
+  for(let k=0;k<40;k++){
+    const key=await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key");
+    if(key==='aloes-hud-hp_4')break;
+    await sleep(35);
+  }
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_4');
+  await cdp('Fetch.fulfillRequest',{requestId:heldPortrait,responseCode:200,
+    responseHeaders:[{name:'Content-Type',value:'image/png'}],body:portraitBase64});
+  await sleep(140);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_4',
+    'Stale portrait load overwrote the latest HP');
+  await cdp('Fetch.disable');
+  socket.removeEventListener('message',portraitFetch);
+  console.log('PASS delayed portrait fetch races: old HP2 load cannot overwrite current HP4');
+
 
 
 
