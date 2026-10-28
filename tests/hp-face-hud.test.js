@@ -17,16 +17,14 @@ test('strict PNG RGBA 128 by 128 validator',()=>{
  b[23]=127;assert.equal(isValidPortraitPng(b),false);
  b[23]=128;b[25]=2;assert.equal(isValidPortraitPng(b),false);
 });
-test('responsive HUD elements do not collide at narrow landscape widths',()=>{
+test('compact status ribbon zones and joystick clearance',()=>{
  for(const [w,h] of [[320,240],[568,320],[640,360],[800,360],[960,540]]){
   const p=arenaHudLayout(h,w);
-  const menuRight=p.menuX+p.menuWidth/2;
-  const portraitLeft=p.portraitX-p.portraitSize/2;
-  const longest=Math.max(14*'ZABÓJSTWA: 18/18'.length*0.58,14*'BROŃ: MIOTACZ'.length*0.58);
-  assert.ok(p.weaponX>menuRight);
-  assert.ok(p.killsX>menuRight);
-  assert.ok(p.killsX+longest<portraitLeft,`hud collision at ${w}x${h}`);
+  assert.ok(p.weaponX-p.tokenSize/2>p.menuX+p.menuWidth/2);
+  assert.ok(p.skullX-p.skullSize/2>p.weaponX+p.tokenSize/2);
+  assert.ok(p.killsX+String('28/28').length*p.countFont*.64<p.portraitX-p.portraitSize/2,`count collision ${w}`);
+  assert.ok(p.portraitX+p.portraitSize/2<w);
   assert.ok(p.portraitY+p.portraitSize/2<h/2);
-  assert.ok(p.joystickY-p.joystickRadius>p.portraitY+p.portraitSize/2);
+  assert.ok(p.hpY+p.hpFont*1.3<p.joystickY-p.joystickRadius);
  }
 });
