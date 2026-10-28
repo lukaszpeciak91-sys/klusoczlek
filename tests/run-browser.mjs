@@ -516,6 +516,23 @@ try {
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
   const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
   assert.deepEqual(reset,{kills:0,total:3,weapon:null,pending:0,triggered:0,pickups:['blunderbuss']});
+  const postponedSpawn=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(e=>!e.dead);
+    e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(v=>!v.dead);
+    const r=46,W=1800,H=1200;
+    for(const [x,y] of [[r,r],[W-r,r],[W-r,H-r],[r,H-r],[W/2,r],[W-r,H/2],[W/2,H-r],[r,H/2]])
+      a.obstacles.push({type:'rock',x,y,alive:true,__spawnFixture:true});
+    const before=a.totalSpawned;a.spawnDueAt=null;
+    a.spawnReplacement();const blocked={before,after:a.totalSpawned,retry:a.spawnDueAt!==null};
+    a.obstacles=a.obstacles.filter(o=>!o.__spawnFixture);
+    a.spawnReplacement();
+    return {...blocked,recovered:a.totalSpawned,nextType:a.enemies.at(-1).type,active:a.enemies.filter(v=>!v.dead).length};
+  })()`);
+  assert.equal(postponedSpawn.after,postponedSpawn.before,'Blocked spawn consumed schedule entry');
+  assert.equal(postponedSpawn.retry,true,'Blocked spawn did not schedule retry');
+  assert.equal(postponedSpawn.recovered,postponedSpawn.before+1,'Scheduled enemy lost after obstruction cleared');
+  assert.ok(postponedSpawn.active<=3);
+  console.log('PASS Arena blocked spawn: unchanged schedule counter and safe retry after obstacles clear');
   // In-memory valid 8-frame 1024x160 PNG-shaped artwork through Phaser Canvas textures.
   await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'),key='enemy-bocianolak-v1';
