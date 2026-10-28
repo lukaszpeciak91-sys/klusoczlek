@@ -26,7 +26,7 @@ Three equally viable alternative weapons: rapid, heavy, spread (working identifi
 Current player is a Phaser Arcade-enabled 17px-radius circle whose **same GameObject** is tracked by the camera. Final sprite work must not replace the camera target or resize the physics hitbox according to sheet size. Attach a visual sprite to player world coordinates or convert the existing physics GameObject with exact preserved x/y, circular body radius 17, world bounds and camera target identity; test first. Current marker remains the deterministic code-drawn fallback. Sprite origins and rendering scale are defined in ASSETS.md.
 
 ## HUD / portrait
-HUD shows HP, active weapon and wave. HP portrait bands: >60%, 30–60% inclusive, <30%. Publishing likenesses requires explicit authorization. Narrative text may appear at start, between waves and end, without a cutscene system.
+HUD shows HP, active weapon and wave. Aloes HP portrait states: exact hp_5/hp_4/hp_3/hp_2/hp_1 PNGs for 5/4/3/2/1 HP, and subdued hp_1 at 0 HP; numeric fallback when optional art is missing. Publishing likenesses requires explicit authorization. Narrative text may appear at start, between waves and end, without a cutscene system.
 
 ## Out of scope
 No full combat, AI, waves, health/pickup implementation, final assets, backend, save system or dependency changes during this contract PR. All URLs must honor Vite base `/klusoczlek/`. Real Android Chrome touch/fullscreen smoke is required before shipping control changes.
