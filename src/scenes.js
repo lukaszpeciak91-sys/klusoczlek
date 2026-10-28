@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
+import { createBobrozombiRenderer } from './enemy-visual.js';
 import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
@@ -143,15 +144,10 @@ export class ArenaScene extends Phaser.Scene {
     this.pickups=[];
     this.triggeredMilestones=new Set();
     this.pendingRewards=new Map();
-    this.enemies=enemySpawns(this.player).map(({x,y})=>{
-      const sprite=this.add.container(x,y).setDepth(9);
-      sprite.add(this.add.ellipse(0,0,42,37,0x745a44).setStrokeStyle(3,0x211b18));
-      sprite.add(this.add.rectangle(-11,-2,13,7,0xf1ddac));
-      sprite.add(this.add.rectangle(11,-2,13,7,0xf1ddac));
-      sprite.add(this.add.circle(-8,-9,4,0xe64b48));
-      sprite.add(this.add.circle(8,-9,4,0xe64b48));
-      return {x,y,hp:ENCOUNTER.enemyHp,sprite,hitUntil:0,dead:false};
-    });
+    this.enemyRenderer=createBobrozombiRenderer(this,Phaser);
+    this.enemies=enemySpawns(this.player).map(({x,y})=>({
+      x,y,hp:ENCOUNTER.enemyHp,sprite:this.enemyRenderer.create(x,y),hitUntil:0,dead:false,facing:'s'
+    }));
     this.totalSpawned=this.enemies.length;
     this.hpText=this.add.text(this.scale.width/2,13,'HP: '+this.playerHp+'/'+ENCOUNTER.playerMaxHp,
       {fontFamily:'monospace',fontSize:'23px',color:'#f3e8d1'})
@@ -234,6 +230,8 @@ export class ArenaScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for(const pickup of this.pickups)pickup.object.destroy();
       this.pickups.length=0;
+      this.enemyRenderer.shutdown();
+      for(const enemy of this.enemies)if(enemy.sprite.active)enemy.sprite.destroy();
       this.enemies.length=0;
       this.projectiles.length=0;
       for(const p of this.flameParticles)p.object.destroy();
@@ -410,13 +408,8 @@ export class ArenaScene extends Phaser.Scene {
     if(this.defeated||this.completed||this.totalSpawned>=18||this.enemies.filter(e=>!e.dead).length>=3)return;
     const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned);
     if(!at){this.spawnDueAt=this.time.now+380;return;}
-    const sprite=this.add.container(at.x,at.y).setDepth(9);
-    sprite.add(this.add.ellipse(0,0,42,37,0x745a44).setStrokeStyle(3,0x211b18));
-    sprite.add(this.add.rectangle(-11,-2,13,7,0xf1ddac));
-    sprite.add(this.add.rectangle(11,-2,13,7,0xf1ddac));
-    sprite.add(this.add.circle(-8,-9,4,0xe64b48));
-    sprite.add(this.add.circle(8,-9,4,0xe64b48));
-    this.enemies.push({...at,hp:ENCOUNTER.enemyHp,sprite,hitUntil:0,dead:false});
+    this.enemies.push({...at,hp:ENCOUNTER.enemyHp,
+      sprite:this.enemyRenderer.create(at.x,at.y),hitUntil:0,dead:false,facing:'s'});
     this.totalSpawned++;
   }
 
@@ -509,7 +502,7 @@ export class ArenaScene extends Phaser.Scene {
       const next=advanceEnemy(enemy,this.player,seconds);
       const blockedPosition=resolveObstaclePosition(enemy,next,ENCOUNTER.enemyRadius,this.obstacles);
       enemy.x=blockedPosition.x;enemy.y=blockedPosition.y;
-      enemy.sprite.setPosition(enemy.x,enemy.y);
+      this.enemyRenderer.update(enemy,this.player);
       if(this.time.now>=enemy.hitUntil)enemy.sprite.setAlpha(1);
       if(Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<=ENCOUNTER.enemyRadius+17){
         const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},this.time.now);
