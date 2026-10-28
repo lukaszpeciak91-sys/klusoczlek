@@ -463,7 +463,7 @@ try {
     e.hp=0;
     if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
     a.enemies=a.enemies.filter(e=>!e.dead);
-    if(a.enemies.length<3&&a.totalSpawned<18)a.spawnReplacement();
+    if(a.enemies.length<3&&a.totalSpawned<28)a.spawnReplacement();
     return {kills:a.kills,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
   for(let i=0;i<4;i++)await killOne();
@@ -499,14 +499,14 @@ try {
   await sleep(95);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
-  for(let i=0;i<8;i++)await killOne();
+  for(let i=0;i<18;i++)await killOne();
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones]}})()");
-  assert.equal(progression.kills,18);
-  assert.equal(progression.total,18);
+  assert.equal(progression.kills,28);
+  assert.equal(progression.total,28);
   assert.equal(progression.completed,true);
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[5,10]);
-  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 18 unique deaths');
+  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 28 unique deaths');
   await clickControl('hud');
   await waitFor(v=>v.menu&&v.arenaPaused,'menu before reset');
   await clickControl('NOWA GRA');
