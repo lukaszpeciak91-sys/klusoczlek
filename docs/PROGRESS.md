@@ -212,3 +212,10 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - One translucent warm-rustic top panel: existing MENU on left, procedural equipped-weapon token (uses exact WEAPONS symbols/colors), compact skull and X/28 counter, five-state Aloes face on right with numeric HP below.
 - No legacy weapon-name or ZABÓJSTWA label. Responsive layout is applied at Arena creation and each Phaser resize; real Phaser GameObject bounds are tested at compact landscape sizes.
 - No binary art, player physics, aim, enemy or weapon-rule changes. Physical Android screenshot acceptance remains pending.
+
+## PR28 — Żubrokryptyda V2 (audit gate)
+- Third optional shared-renderer enemy at `public/assets/enemies/zubrokryptyda.png`, 1536×192 8-bit RGBA; eight 192×192 E,SE,S,SW,W,NW,N,NE frames, transparent outside silhouette; manual upload, no binary commits.
+- Experimental render scale 0.55, grounded baseline offset -48.4, unique horned heavy procedural fallback.
+- Heavy 8HP, 42 px/s, radius 30, damage 1, direct pursuit; prior two enemy balances untouched.
+- 18+10+4 = 32 scheduled enemies, heavy spawn ordinals 13/20/27/32, max three living and one heavy, blocked spawns retry without consumption. Existing weapon milestones 5 and 10 remain.
+- Original approved art and physical Android testing remain pending until manually available; no merge/deploy.
