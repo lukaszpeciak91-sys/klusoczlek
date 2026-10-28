@@ -31,11 +31,23 @@ function createEnemyRenderer(scene,Phaser,type){
   };
   const create=(x,y)=>{
     const container=scene.add.container(x,y).setDepth(9);
-    container.add(scene.add.ellipse(0,0,stork?30:42,stork?54:37,stork?0xd8d3be:0x745a44).setStrokeStyle(3,0x211b18));
-    container.add(scene.add.rectangle(-11,-2,13,7,0xf1ddac));
-    container.add(scene.add.rectangle(11,-2,13,7,0xf1ddac));
-    container.add(scene.add.circle(-8,-9,4,0xe64b48));
-    container.add(scene.add.circle(8,-9,4,0xe64b48));
+    if(stork){
+      // Small visible stork silhouette remains playable when the approved PNG is absent.
+      container.add(scene.add.ellipse(0,-13,23,40,0xe4e0d3).setStrokeStyle(2,0x343137));
+      container.add(scene.add.ellipse(0,-39,16,26,0xf2ead6).setStrokeStyle(2,0x343137));
+      container.add(scene.add.triangle(1,-37,4,-4,35,0,4,4,0xc45135).setRotation(0));
+      container.add(scene.add.ellipse(-19,-14,16,10,0x323038));
+      container.add(scene.add.ellipse(19,-14,16,10,0x323038));
+      container.add(scene.add.rectangle(-5,18,4,31,0xb94936));
+      container.add(scene.add.rectangle(5,18,4,31,0xb94936));
+      container.add(scene.add.circle(3,-44,2,0x201b19));
+    }else{
+      container.add(scene.add.ellipse(0,0,42,37,0x745a44).setStrokeStyle(3,0x211b18));
+      container.add(scene.add.rectangle(-11,-2,13,7,0xf1ddac));
+      container.add(scene.add.rectangle(11,-2,13,7,0xf1ddac));
+      container.add(scene.add.circle(-8,-9,4,0xe64b48));
+      container.add(scene.add.circle(8,-9,4,0xe64b48));
+    }
     containers.add(container);
     container.once(Phaser.GameObjects.Events.DESTROY,()=>containers.delete(container));
     attach(container);
