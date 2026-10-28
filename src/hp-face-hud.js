@@ -67,11 +67,11 @@ export function createHpFaceHud(scene,Phaser){
  function update(delta){
   pulse=Math.max(0,pulse-delta);
   const t=pulse/160;
-  frame.setStrokeStyle(3,t?0xb18b46+0:0xb18b46);
-  if(t)frame.setStrokeStyle(3,0xb85343,1);
-  root.setScale((root.getData('diameter')||74)/74);
+  frame.setStrokeStyle(3,t?0xb85343:0xb18b46,1);
+  root.setScale((root.getData('diameter')||74)/74*(1+0.06*t));
   if(image)image.setAlpha(hp===0?0.45:1);
   placeholder.setAlpha(hp===0?0.6:1);
+  faceText.setAlpha(hp===0?0.65:1);
  }
  function destroy(){alive=false;request++;root.destroy();}
  void select();
