@@ -141,19 +141,19 @@ try {
       const a=window.__game.scene.getScene('Arena'),w=a.scale.width,h=a.scale.height;
       const button=a.input._list.find(o=>o.input&&o.width===a.hudLayout.menuWidth);
       const actual=o=>{const b=o.getBounds();return {x:b.x,y:b.y,right:b.right,bottom:b.bottom,width:b.width,height:b.height};};
-      const portrait=actual(a.hpFace.root),menu=actual(button),weapon=actual(a.weaponText),kills=actual(a.killsText),hp=actual(a.hpText);
-      return {w,h,portrait,menu,weapon,kills,hp,stickTop:a.hudLayout.joystickY-a.hudLayout.joystickRadius,
+      const portrait=actual(a.hpFace.root),menu=actual(button),weapon=actual(a.weaponToken),skull=actual(a.skullIcon),kills=actual(a.killsText),hp=actual(a.hpText),panel=actual(a.hudPanel);
+      return {w,h,portrait,menu,weapon,skull,kills,hp,panel,stickTop:a.hudLayout.joystickY-a.hudLayout.joystickRadius,
         rightStickTop:a.hudLayout.aimY-a.hudLayout.joystickRadius,
         portraitSquare:Math.abs(portrait.width-portrait.height)<2};
     })()`);
-    const {w,h,menu,portrait,weapon,kills,hp}=geometry;
-    for(const box of [menu,portrait,weapon,kills,hp]){
+    const {w,h,menu,portrait,weapon,skull,kills,hp,panel}=geometry;
+    for(const box of [menu,portrait,weapon,skull,kills,hp,panel]){
       assert.ok(box.x>=-1&&box.y>=-1&&box.right<=w+1&&box.bottom<=h+1,label+' clipped '+JSON.stringify(geometry));
     }
     const separate=(a,b)=>a.right<=b.x+1||b.right<=a.x+1||a.bottom<=b.y+1||b.bottom<=a.y+1;
     assert.ok(separate(menu,weapon),label+' MENU/weapon overlap');
-    assert.ok(separate(menu,kills),label+' MENU/kills overlap');
-    assert.ok(separate(portrait,weapon)&&separate(portrait,kills),label+' portrait/text overlap');
+    assert.ok(separate(menu,kills)&&separate(weapon,skull)&&separate(skull,kills),label+' controls overlap');
+    assert.ok(separate(portrait,weapon)&&separate(portrait,skull)&&separate(portrait,kills),label+' portrait/text overlap');
     assert.ok(portrait.x>w*0.55,label+' portrait not upper right');
     assert.ok(geometry.portraitSquare,label+' distorted portrait');
     assert.ok(hp.bottom<Math.min(geometry.stickTop,geometry.rightStickTop),label+' HP hits joystick');
@@ -174,11 +174,15 @@ try {
   assert.ok(firstPickup.y>firstPickup.top+25&&firstPickup.y<firstPickup.bottom-25);
   assert.ok(firstPickup.obstacles.every(o=>Math.hypot(firstPickup.x-o.x,firstPickup.y-o.y)>o.r+20));
 
+  const initialToken=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {symbol:a.weaponText.text,color:a.weaponTokenBody.fillColor,kills:a.killsText.text}})()");
+  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/28'});
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'unarmed');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups[0];a.player.setPosition(p.x,p.y);a.player.body.reset(p.x,p.y);return true})()");
   await sleep(75);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'blunderbuss');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weaponText.text"),'ϟ');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weaponTokenBody.fillColor"),0xb59b46);
   const illustrated=await waitFor(s=>s.controls?.groundType==='TileSprite','approved ground TileSprite load');
   assert.equal(illustrated.controls.groundGridActive,false,'Grid still visible over artwork');
   assert.equal(illustrated.controls.groundWidth,1800);
@@ -517,6 +521,7 @@ try {
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='rifle');a.player.body.reset(p.x,p.y);return true})()");
   await sleep(95);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'rifle');
+  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['⊕',0x2499ad]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
   for(let i=0;i<5;i++)typesDefeated.push((await killOne()).type);
   const flame=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pickups.find(p=>p.id==='flamethrower')?{x:a.pickups.find(p=>p.id==='flamethrower').x,y:a.pickups.find(p=>p.id==='flamethrower').y}:null})()");
@@ -524,10 +529,12 @@ try {
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='flamethrower');a.player.body.reset(p.x,p.y);return true})()");
   await sleep(95);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
+  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
   for(let i=0;i<18;i++)typesDefeated.push((await killOne()).type);
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones]}})()");
   assert.equal(progression.kills,28);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'28/28');
   assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,18);
   assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,10);
   assert.equal(progression.total,28);
@@ -693,20 +700,6 @@ try {
     await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
     await evaluate("window.__game.scale.refresh();true");
     await sleep(100);
-    const layout=await evaluate(`(()=>{
-      const a=window.__game.scene.getScene('Arena'),l=a.hudLayout;
-      return {menu:{x:l.menuX,w:l.menuWidth,y:l.menuY,h:l.menuHeight},
-        weapon:{x:a.weaponText.x,y:a.weaponText.y,width:a.weaponText.width,height:a.weaponText.height},
-        kills:{x:a.killsText.x,y:a.killsText.y,width:a.killsText.width,height:a.killsText.height},
-        face:{x:l.portraitX,y:l.portraitY,r:l.portraitSize/2},
-        hp:{x:a.hpText.x,y:a.hpText.y,width:a.hpText.width,height:a.hpText.height},
-        joystickTop:l.joystickY-l.joystickRadius,renderer:a.game.config.renderType};
-    })()`);
-    assert.ok(layout.weapon.x>layout.menu.x+layout.menu.w/2,'MENU overlaps weapon');
-    assert.ok(layout.kills.x>layout.menu.x+layout.menu.w/2,'MENU overlaps kills');
-    assert.ok(layout.weapon.x+layout.weapon.width<layout.face.x-layout.face.r,'Weapon overlaps portrait');
-    assert.ok(layout.kills.x+layout.kills.width<layout.face.x-layout.face.r,'Kill counter overlaps portrait');
-    assert.ok(layout.hp.y+layout.hp.height<layout.joystickTop,'HP overlaps joysticks');
     await assertHudBounds('resize '+width+'x'+height);
     if(width===320||width===800){
       const screenshot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});

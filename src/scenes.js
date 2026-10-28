@@ -153,10 +153,15 @@ export class ArenaScene extends Phaser.Scene {
     this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
     this.hpText=this.add.text(0,0,'HP 5/5',{fontFamily:'monospace',fontSize:'14px',color:'#f3e8d1'})
       .setOrigin(0.5,0).setScrollFactor(0).setDepth(81);
-    this.weaponText=this.add.text(0,0,'BRAK',{fontFamily:'monospace',fontSize:'17px',color:'#f3e8d1'})
-      .setScrollFactor(0).setDepth(64);
-    this.killsText=this.add.text(0,0,'0/'+TOTAL_ENEMIES,{fontFamily:'monospace',fontSize:'16px',color:'#f3e8d1'})
-      .setScrollFactor(0).setDepth(64);
+    this.weaponToken=this.add.container(0,0).setScrollFactor(0).setDepth(66);
+    this.weaponTokenBody=this.add.circle(0,0,17,0x6b6153).setStrokeStyle(2,COLORS.border);
+    this.weaponText=this.add.text(0,0,'—',{fontFamily:'monospace',fontSize:'21px',fontStyle:'bold',color:'#ffffff'})
+      .setOrigin(0.5);
+    this.weaponToken.add([this.weaponTokenBody,this.weaponText]);
+    this.skullIcon=this.add.text(0,0,'☠',{fontFamily:'sans-serif',fontSize:'23px',color:'#d7b978'})
+      .setOrigin(0.5).setScrollFactor(0).setDepth(66);
+    this.killsText=this.add.text(0,0,'0/'+TOTAL_ENEMIES,{fontFamily:'monospace',fontSize:'20px',color:'#f3e8d1'})
+      .setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
     this.hpFace=createHpFaceHud(this,Phaser);
     this.completeText=this.add.text(this.scale.width/2,55,TOTAL_ENEMIES+'/'+TOTAL_ENEMIES+' — OCZYSZCZONO ARENĘ',{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76',backgroundColor:'#1b2330'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65).setVisible(false);
     this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
@@ -177,6 +182,8 @@ export class ArenaScene extends Phaser.Scene {
       for(const event of ['pointerup','pointerupoutside','pointercancel'])this.input.off(event,mouseUp);
     });
     const hud = this.hudLayout;
+    this.hudPanel=this.add.rectangle(hud.panelX,hud.panelY,hud.panelWidth,hud.panelHeight,0x251c17,0.72)
+      .setOrigin(0,0).setStrokeStyle(1,0x94794e,0.76).setScrollFactor(0).setDepth(58);
     const menuButton = this.add.rectangle(hud.menuX, hud.menuY, hud.menuWidth, hud.menuHeight, COLORS.panel)
       .setStrokeStyle(3, COLORS.border).setScrollFactor(0).setDepth(60)
       .setInteractive({ useHandCursor: true });
@@ -194,8 +201,11 @@ export class ArenaScene extends Phaser.Scene {
       this.aimJoystick.reposition(pos.aimX,pos.aimY);
       this.mouseHeld=false;
       this.stopWeaponFire();
-      this.weaponText.setPosition(pos.weaponX,pos.weaponY).setFontSize(pos.weaponFont);
-      this.killsText.setPosition(pos.killsX,pos.killsY).setFontSize(pos.killsFont);
+      this.hudPanel.setPosition(pos.panelX,pos.panelY).setSize(pos.panelWidth,pos.panelHeight);
+      this.weaponToken.setPosition(pos.weaponX,pos.weaponY);
+      this.weaponToken.setScale(pos.tokenSize/42);
+      this.skullIcon.setPosition(pos.skullX,pos.skullY).setFontSize(pos.skullSize);
+      this.killsText.setPosition(pos.killsX,pos.killsY).setFontSize(pos.countFont);
       this.hpText.setPosition(pos.hpX,pos.hpY).setFontSize(pos.hpFont);
       this.hpFace.resize(pos);
       this.completeText.setX(this.scale.width/2);
@@ -271,8 +281,10 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   refreshWeaponHud(){
-    this.weaponText.setText('BROŃ: '+(this.weapon?WEAPONS[this.weapon].label:'BRAK'));
-    this.killsText.setText('ZABÓJSTWA: '+this.kills+'/'+TOTAL_ENEMIES);
+    const selected=this.weapon?WEAPONS[this.weapon]:null;
+    this.weaponText.setText(selected?.symbol||'—');
+    this.weaponTokenBody.setFillStyle(selected?.color??0x6b6153);
+    this.killsText.setText(this.kills+'/'+TOTAL_ENEMIES);
   }
 
   setPlayerHp(next){

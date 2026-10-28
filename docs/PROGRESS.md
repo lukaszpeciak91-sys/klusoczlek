@@ -207,3 +207,8 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - New type registry and deterministic lateral weaving, preserving Bobrozombi's existing 65 px/s direct pursuit.
 - Shared optional renderer supports user-provided `public/assets/enemies/bocianolak.png` (1024×160 RGBA, 8 frames 128×160) and distinctive procedural fallback; production PNG must be uploaded manually.
 - Type-specific HP/radius/speed used in movement, obstacles, flame, projectiles and player contact. Physical Android and approved-real-art QA remain pending. No binary art, deploy, merge or Żubrokryptyda.
+
+## HUD V2 — compact retro status ribbon (PR27; independent audit pending)
+- One translucent warm-rustic top panel: existing MENU on left, procedural equipped-weapon token (uses exact WEAPONS symbols/colors), compact skull and X/28 counter, five-state Aloes face on right with numeric HP below.
+- No legacy weapon-name or ZABÓJSTWA label. Responsive layout is applied at Arena creation and each Phaser resize; real Phaser GameObject bounds are tested at compact landscape sizes.
+- No binary art, player physics, aim, enemy or weapon-rule changes. Physical Android screenshot acceptance remains pending.
