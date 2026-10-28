@@ -49,12 +49,13 @@ test('combat invariants remain independent of source sprite resolution',()=>{
  const out=advanceEnemy({x:100,y:100,hp:3},{x:200,y:100},1);
  assert.equal(out.x,165);assert.equal(out.y,100);
 });
-test('both spawn paths use the shared enemy renderer and retain death cleanup',()=>{
+test('both types use the shared renderer and retain death cleanup',()=>{
  const src=readFileSync(new URL('../src/scenes.js',import.meta.url),'utf8');
- assert.match(src,/this\.enemyRenderer=createBobrozombiRenderer\(this,Phaser\)/);
- assert.equal((src.match(/this\.enemyRenderer\.create\(/g)||[]).length,2);
- assert.match(src,/this\.enemyRenderer\.update\(enemy,this\.player\)/);
+ assert.match(src,/this\.enemyRenderers=\{bobrozombi:createBobrozombiRenderer/);
+ assert.match(src,/bocianolak:createBocianolakRenderer/);
+ assert.match(src,/this\.enemyRenderers\[type\]\.create/);
+ assert.match(src,/this\.enemyRenderers\[enemy\.type\]\.update/);
  assert.match(src,/enemy\.sprite\.destroy\(\)/);
- assert.match(src,/this\.enemyRenderer\.shutdown\(\)/);
- assert.match(src,/if\(this\.kills===18\)/);
+ assert.match(src,/renderer\.shutdown\(\)/);
+ assert.match(src,/if\(this\.kills===TOTAL_ENEMIES\)/);
 });
