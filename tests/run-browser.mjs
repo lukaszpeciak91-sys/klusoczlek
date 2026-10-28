@@ -600,6 +600,56 @@ try {
   assert.equal(storkVisual.offset,-47);
   assert.equal(storkVisual.fallbackVisible,false);
   console.log('PASS real Canvas Phaser: synthetic 1024x160 directional Bocianołak spritesheet, feet anchor and no duplicate fallback');
+  // Synthetic Żubrokryptyda V2 sheet; no user binary committed.
+  await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),key='enemy-zubrokryptyda-v2';
+    if(!a.textures.exists(key)){
+      const c=document.createElement('canvas');c.width=1536;c.height=192;
+      const g=c.getContext('2d');
+      for(let k=0;k<8;k++){
+        g.fillStyle='hsl('+k*39+',35%,43%)';
+        g.fillRect(k*192+34,12,124,174);
+      }
+      a.textures.addSpriteSheet(key,c,{frameWidth:192,frameHeight:192});
+    }
+    return true;
+  })()`);
+  await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'heavy synthetic reload');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new scene with synthetic heavy');
+  const heavyVisual=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    const e=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
+    a.enemyRenderers.zubrokryptyda.update(e,{x:710,y:500});
+    const art=e.sprite.getData('zubrokryptyda-art');
+    const rendered={loaded:a.enemyRenderers.zubrokryptyda.loaded,visible:!!art?.active,
+      frame:art?.frame?.name,scale:art?.scaleX,offset:art?.y,
+      fallbackVisible:e.sprite.list.some(child=>child!==art&&child.visible)};
+    e.sprite.destroy();return rendered;
+  })()`);
+  assert.equal(heavyVisual.loaded,true);
+  assert.equal(heavyVisual.visible,true);
+  assert.equal(Number(heavyVisual.frame),0);
+  assert.equal(heavyVisual.scale,0.55);
+  assert.equal(heavyVisual.offset,-48.4);
+  assert.equal(heavyVisual.fallbackVisible,false);
+  console.log('PASS real Canvas Phaser: synthetic heavy 1536x192 eight-frame render, nearest scale, ground offset, no duplicate fallback');
+  const heavyQueue=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),saved=a.enemies,savedTotal=a.totalSpawned,savedDue=a.spawnDueAt;
+    const activeHeavy=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
+    a.enemies=[activeHeavy];a.totalSpawned=19;a.spawnDueAt=null;
+    a.spawnReplacement();
+    const blocked={total:a.totalSpawned,retry:a.spawnDueAt!==null};
+    activeHeavy.dead=true;activeHeavy.sprite.destroy();a.enemies=[];
+    a.spawnReplacement();
+    const unblocked={total:a.totalSpawned,type:a.enemies[0]?.type,active:a.enemies.filter(e=>!e.dead).length};
+    a.enemies.forEach(e=>e.sprite.destroy());
+    a.enemies=saved;a.totalSpawned=savedTotal;a.spawnDueAt=savedDue;
+    return {blocked,unblocked};
+  })()`);
+  assert.deepEqual(heavyQueue.blocked,{total:19,retry:true});
+  assert.deepEqual(heavyQueue.unblocked,{total:20,type:'zubrokryptyda',active:1});
+  console.log('PASS real Arena queued heavy spawn: one living heavy maximum, no lost schedule entry');
   // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
   const combatProbe=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'), aim={x:1,y:0};
