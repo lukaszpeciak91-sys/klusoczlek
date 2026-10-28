@@ -2,6 +2,7 @@
 export const assetManifest=Object.freeze([
   {id:'player',path:'player/player.png',width:512,height:64,frameWidth:64,frameHeight:64,columns:8,rows:1,alpha:true,kind:'sheet',status:'pending'},
   {id:'bobrozombi',path:'enemies/bobrozombi.png',width:768,height:96,frameWidth:96,frameHeight:96,columns:8,rows:1,alpha:true,kind:'sheet',status:'pending'},
+  {id:'bocianolak',path:'enemies/bocianolak.png',width:1024,height:160,frameWidth:128,frameHeight:160,columns:8,rows:1,alpha:true,kind:'sheet',status:'pending'},
   ...['zubrokryptyda','enemy_fast'].map(id=>({id,path:`enemies/${id}.png`,width:384,height:48,frameWidth:48,frameHeight:48,columns:8,rows:1,alpha:true,kind:'sheet',status:'pending'})),
   ...['rapid','heavy','spread'].map(id=>({id:`weapon_${id}`,path:`weapons/${id}.png`,width:96,height:32,frameWidth:32,frameHeight:32,columns:3,rows:1,alpha:true,kind:'sheet',status:'pending'})),
   {id:'health_beer',path:'pickups/health_beer.png',width:32,height:32,frameWidth:32,frameHeight:32,columns:1,rows:1,alpha:true,kind:'image',status:'pending'},
