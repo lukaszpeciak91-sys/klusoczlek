@@ -15,20 +15,35 @@ export function menuLayout(width, height = 540) {
 }
 export function arenaHudLayout(height,width=960){
  const radius=46,padding=14;
- const compact=width<620;
- const menuWidth=compact?90:148,menuHeight=compact?44:52;
- const menuX=12+menuWidth/2,menuY=12+menuHeight/2;
- const portraitSize=compact?62:74;
- const portraitX=width-12-portraitSize/2,portraitY=12+portraitSize/2;
- const textX=12+menuWidth+12;
- const weaponFont=width<420?11:compact?14:17;
- const killsFont=width<420?10:compact?13:16;
+ // One connected ribbon, with the portrait anchored to its right end.
+ const compact=width<600,tiny=width<390;
+ const margin=tiny?5:10, gap=tiny?4:compact?7:11;
+ const menuWidth=tiny?67:compact?82:104;
+ const menuHeight=tiny?40:compact?44:46;
+ const tokenSize=tiny?30:compact?36:42;
+ const skullSize=tiny?17:compact?20:24;
+ const portraitSize=tiny?58:compact?68:82;
+ const countFont=tiny?13:compact?17:20;
+ const hpFont=tiny?10:compact?12:13;
+ const barHeight=Math.max(menuHeight+12,portraitSize+24);
+ const panelX=margin,panelY=margin,panelWidth=width-2*margin;
+ const centerY=panelY+barHeight/2-5;
+ const menuX=panelX+7+menuWidth/2;
+ const weaponX=menuX+menuWidth/2+gap+tokenSize/2;
+ const portraitX=panelX+panelWidth-7-portraitSize/2;
+ const portraitY=panelY+7+portraitSize/2;
+ const hpY=portraitY+portraitSize/2+1;
+ const countX=weaponX+tokenSize/2+gap;
+ const countRight=portraitX-portraitSize/2-gap;
  return {
-  menuX,menuY,menuWidth,menuHeight,menuFont:compact?19:23,
+  panelX,panelY,panelWidth,panelHeight:barHeight,
+  menuX,menuY:centerY,menuWidth,menuHeight,menuFont:tiny?15:compact?18:20,
+  weaponX,weaponY:centerY,tokenSize,
+  skullX:countX+skullSize/2,skullY:centerY,skullSize,
+  killsX:countX+skullSize+gap/2,killsY:centerY,countFont,
+  countRight,
   portraitX,portraitY,portraitSize,
-  weaponX:textX,weaponY:compact?18:21,weaponFont,
-  killsX:textX,killsY:compact?43:49,killsFont,
-  hpX:portraitX,hpY:portraitY+portraitSize/2+4,hpFont:compact?12:14,
+  hpX:portraitX,hpY,hpFont,
   joystickX:radius+padding,
   joystickY:Math.max(radius+padding,height-radius-padding),
   joystickRadius:radius,
