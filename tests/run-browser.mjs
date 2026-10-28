@@ -521,6 +521,7 @@ try {
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='rifle');a.player.body.reset(p.x,p.y);return true})()");
   await sleep(95);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'rifle');
+  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['⊕',0x2499ad]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
   for(let i=0;i<5;i++)typesDefeated.push((await killOne()).type);
   const flame=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pickups.find(p=>p.id==='flamethrower')?{x:a.pickups.find(p=>p.id==='flamethrower').x,y:a.pickups.find(p=>p.id==='flamethrower').y}:null})()");
@@ -528,10 +529,12 @@ try {
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='flamethrower');a.player.body.reset(p.x,p.y);return true})()");
   await sleep(95);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
+  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
   for(let i=0;i<18;i++)typesDefeated.push((await killOne()).type);
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones]}})()");
   assert.equal(progression.kills,28);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'28/28');
   assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,18);
   assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,10);
   assert.equal(progression.total,28);
