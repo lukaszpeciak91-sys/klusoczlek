@@ -200,6 +200,8 @@ export class ArenaScene extends Phaser.Scene {
       this.hpFace.resize(pos);
       this.completeText.setX(this.scale.width/2);
     };
+    // Apply positions during initial Arena creation, even if Phaser emits no RESIZE.
+    resizeHud();
     this.scale.on(Phaser.Scale.Events.RESIZE, resizeHud);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
       this.scale.off(Phaser.Scale.Events.RESIZE, resizeHud));
