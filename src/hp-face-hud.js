@@ -47,7 +47,7 @@ export function createHpFaceHud(scene,Phaser){
     else image.setTexture(key);
     image.setDisplaySize(68,68);
     image.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
-    image.setVisible(true);placeholder.setVisible(false);faceText.setVisible(false);
+    image.setVisible(true).setAlpha(hp===0?0.45:1);placeholder.setVisible(false);faceText.setVisible(false);
   }else{
     image?.setVisible(false);placeholder.setVisible(true);faceText.setVisible(true);
   }
@@ -57,7 +57,10 @@ export function createHpFaceHud(scene,Phaser){
   if(value===hp)return;
   const lost=value<hp;hp=value;
   faceText.setText(String(value));
-  if(lost)pulse=160;
+  if(lost){pulse=160;frame.setStrokeStyle(3,0xb85343,1);}
+  image?.setAlpha(hp===0?0.45:1);
+  placeholder.setAlpha(hp===0?0.6:1);
+  faceText.setAlpha(hp===0?0.65:1);
   void select();
  }
  function resize(layout){
