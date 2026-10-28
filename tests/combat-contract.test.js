@@ -25,7 +25,15 @@ test('8 direction single-pose frame mapping and manifest',()=>{
  const chars=assetManifest.filter(a=>['player','bobrozombi','zubrokryptyda','enemy_fast'].includes(a.id));
  for(const asset of chars){assert.equal(asset.columns,8);assert.equal(asset.rows,1);assert.equal(asset.width,asset.frameWidth*8);assert.equal(asset.height,asset.frameHeight);}
  assert.equal(chars[0].width,512);assert.equal(chars[0].height,64);
- for(const e of chars.slice(1)){assert.equal(e.width,384);assert.equal(e.height,48);}
+ const bobrozombi=chars.find(a=>a.id==='bobrozombi');
+ assert.equal(bobrozombi.path,'enemies/bobrozombi.png');
+ assert.equal(bobrozombi.width,768);assert.equal(bobrozombi.height,96);
+ assert.equal(bobrozombi.frameWidth,96);assert.equal(bobrozombi.frameHeight,96);
+ for(const id of ['zubrokryptyda','enemy_fast']){
+  const enemy=chars.find(a=>a.id===id);
+  assert.equal(enemy.width,384);assert.equal(enemy.height,48);
+  assert.equal(enemy.frameWidth,48);assert.equal(enemy.frameHeight,48);
+ }
  for(const w of assetManifest.filter(a=>a.id.startsWith('weapon_'))){assert.equal(w.columns,3);assert.equal(w.rows,1);}
  assert.equal(assetManifest.find(a=>a.id==='dialogue_aloes').approval,'approved_identity');
  assert.ok(!validateAssetManifest([...assetManifest,assetManifest[0]]));
