@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { access, mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
@@ -296,6 +296,7 @@ try {
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.x=a.player.x;e.y=a.player.y;e.sprite.setPosition(e.x,e.y)}return true})()");
   const damaged=await waitFor(s=>s.controls.hp<5,'Contact damage');
   assert.equal(damaged.controls.hp,4);
+  assert.equal(damaged.faceHud.current,'hp_4','Enemy contact did not change Aloes portrait');
   await sleep(200);
   assert.equal((await snapshot()).controls.hp,4,'Invulnerability failed on continuous overlap');
   await waitFor(s=>s.menu&&s.arenaPaused&&s.controls.defeated,'Defeat opens existing Menu');
@@ -304,6 +305,7 @@ try {
   await clickControl('NOWA GRA');
   const revived=await waitFor(s=>s.arena&&!s.menu&&!s.controls.defeated,'New game after defeat');
   assert.equal(revived.controls.hp,5);
+  assert.equal(revived.faceHud.current,'hp_5','NOWA GRA portrait did not reset');
   assert.equal(revived.controls.enemies.length,3);
   console.log('PASS real Phaser shots -> enemy death, contact invulnerability, defeat, clean NEW GAME');
   await clickControl('hud');
@@ -581,6 +583,59 @@ try {
   console.log('PASS real Phaser flame-barrel damage cooldown, one-shot explosion and no self-flame damage');
 
 
+  // In-memory synthetic 128x128 circular portrait artwork; no binary asset committed.
+  await evaluate(`(()=>{
+    const arena=window.__game.scene.getScene('Arena'),t=arena.textures;
+    for(let hp=1;hp<=5;hp++){
+      const c=document.createElement('canvas');c.width=c.height=128;
+      const ctx=c.getContext('2d');
+      ctx.fillStyle=['','#7d3432','#a25a39','#af8547','#8aa76c','#67916b'][hp];
+      ctx.beginPath();ctx.arc(64,64,61,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fbe2a2';ctx.font='bold 54px sans-serif';ctx.textAlign='center';ctx.fillText(hp,64,83);
+      const key='aloes-hud-hp_'+hp;
+      if(!t.exists(key))t.addImage(key,c);
+    }
+    arena.hpFace.setHp(4);
+    return true;
+  })()`);
+  await sleep(65);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_4');
+  await evaluate("window.__game.scene.getScene('Arena').setPlayerHp(3)");
+  await sleep(55);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_3');
+  const faceDamage=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const before=a.hpFace.pulse;a.setPlayerHp(3);return {before,after:a.hpFace.pulse}})()");
+  assert.equal(faceDamage.before,faceDamage.after,'Same HP retriggered portrait damage pulse');
+  await evaluate("window.__game.scene.getScene('Arena').setPlayerHp(0)");
+  await sleep(60);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.current"),'hp_1');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_1');
+  // Test portrait and layout across tight landscape/fullscreen-equivalent resizes.
+  for(const [width,height] of [[320,240],[568,320],[800,360]]){
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+    await evaluate("window.__game.scale.refresh();true");
+    await sleep(100);
+    const layout=await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena'),l=a.hudLayout;
+      return {menu:{x:l.menuX,w:l.menuWidth,y:l.menuY,h:l.menuHeight},
+        weapon:{x:a.weaponText.x,y:a.weaponText.y,width:a.weaponText.width,height:a.weaponText.height},
+        kills:{x:a.killsText.x,y:a.killsText.y,width:a.killsText.width,height:a.killsText.height},
+        face:{x:l.portraitX,y:l.portraitY,r:l.portraitSize/2},
+        hp:{x:a.hpText.x,y:a.hpText.y,width:a.hpText.width,height:a.hpText.height},
+        joystickTop:l.joystickY-l.joystickRadius,renderer:a.game.config.renderType};
+    })()`);
+    assert.ok(layout.weapon.x>layout.menu.x+layout.menu.w/2,'MENU overlaps weapon');
+    assert.ok(layout.kills.x>layout.menu.x+layout.menu.w/2,'MENU overlaps kills');
+    assert.ok(layout.weapon.x+layout.weapon.width<layout.face.x-layout.face.r,'Weapon overlaps portrait');
+    assert.ok(layout.kills.x+layout.kills.width<layout.face.x-layout.face.r,'Kill counter overlaps portrait');
+    assert.ok(layout.hp.y+layout.hp.height<layout.joystickTop,'HP overlaps joysticks');
+    if(width===320||width===800){
+      const screenshot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+      await writeFile('dist/hud-preview-'+width+'x'+height+'.png',Buffer.from(screenshot.data,'base64'));
+    }
+  }
+  console.log('PASS synthetic five-portrait Phaser textures, HP states 4/3/0, same-HP pulse suppression, 320/568/800 landscape HUD screenshots');
+  await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
+  await evaluate("window.__game.scale.refresh();true");
   await cdp('Fetch.disable');
   socket.removeEventListener('message',onDelayedFetch);
 
