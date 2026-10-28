@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
+import {createHpFaceHud} from './hp-face-hud.js';
 import { createBobrozombiRenderer } from './enemy-visual.js';
 import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
@@ -149,10 +150,14 @@ export class ArenaScene extends Phaser.Scene {
       x,y,hp:ENCOUNTER.enemyHp,sprite:this.enemyRenderer.create(x,y),hitUntil:0,dead:false,facing:'s'
     }));
     this.totalSpawned=this.enemies.length;
-    this.hpText=this.add.text(this.scale.width/2,13,'HP: '+this.playerHp+'/'+ENCOUNTER.playerMaxHp,
-      {fontFamily:'monospace',fontSize:'23px',color:'#f3e8d1'})
-      .setOrigin(0.5,0).setScrollFactor(0).setDepth(64);
-    this.weaponText=this.add.text(12,12,'BROŃ: BRAK   0/18',{fontFamily:'monospace',fontSize:'16px',color:'#f3e8d1'}).setScrollFactor(0).setDepth(64);
+    this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
+    this.hpText=this.add.text(0,0,'HP 5/5',{fontFamily:'monospace',fontSize:'14px',color:'#f3e8d1'})
+      .setOrigin(0.5,0).setScrollFactor(0).setDepth(81);
+    this.weaponText=this.add.text(0,0,'BRAK',{fontFamily:'monospace',fontSize:'17px',color:'#f3e8d1'})
+      .setScrollFactor(0).setDepth(64);
+    this.killsText=this.add.text(0,0,'0/18',{fontFamily:'monospace',fontSize:'16px',color:'#f3e8d1'})
+      .setScrollFactor(0).setDepth(64);
+    this.hpFace=createHpFaceHud(this,Phaser);
     this.completeText=this.add.text(this.scale.width/2,55,'18/18 — OCZYSZCZONO ARENĘ',{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76',backgroundColor:'#1b2330'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65).setVisible(false);
     this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
       this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
@@ -171,23 +176,28 @@ export class ArenaScene extends Phaser.Scene {
       this.input.off('pointerdown',mouseDown);
       for(const event of ['pointerup','pointerupoutside','pointercancel'])this.input.off(event,mouseUp);
     });
-    const hud = arenaHudLayout(this.scale.height, this.scale.width);
-    const menuButton = this.add.rectangle(hud.menuX, hud.menuY, 185, 58, COLORS.panel)
+    const hud = this.hudLayout;
+    const menuButton = this.add.rectangle(hud.menuX, hud.menuY, hud.menuWidth, hud.menuHeight, COLORS.panel)
       .setStrokeStyle(3, COLORS.border).setScrollFactor(0).setDepth(60)
       .setInteractive({ useHandCursor: true });
     const menuLabel = this.add.text(hud.menuX, hud.menuY, 'MENU', {
-      fontFamily: 'monospace', fontSize: '25px', color: COLORS.white,
+      fontFamily: 'monospace', fontSize: hud.menuFont+'px', color: COLORS.white,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(61);
     menuButton.on('pointerdown', () => this.openMenu());
     const resizeHud = () => {
       const pos = arenaHudLayout(this.scale.height, this.scale.width);
-      menuButton.setPosition(pos.menuX, pos.menuY);
+      this.hudLayout=pos;
+      menuButton.setPosition(pos.menuX, pos.menuY).setSize(pos.menuWidth,pos.menuHeight);
+      menuLabel.setFontSize(pos.menuFont);
       menuLabel.setPosition(pos.menuX, pos.menuY);
       this.joystick.reposition(pos.joystickX, pos.joystickY);
       this.aimJoystick.reposition(pos.aimX,pos.aimY);
       this.mouseHeld=false;
       this.stopWeaponFire();
-      this.hpText.setX(this.scale.width/2);
+      this.weaponText.setPosition(pos.weaponX,pos.weaponY).setFontSize(pos.weaponFont);
+      this.killsText.setPosition(pos.killsX,pos.killsY).setFontSize(pos.killsFont);
+      this.hpText.setPosition(pos.hpX,pos.hpY).setFontSize(pos.hpFont);
+      this.hpFace.resize(pos);
       this.completeText.setX(this.scale.width/2);
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, resizeHud);
@@ -240,6 +250,7 @@ export class ArenaScene extends Phaser.Scene {
       this.obstacles.length=0;
       this.explosionEffects.length=0;
       this.playerVisual.destroy();
+      this.hpFace.destroy();
       // Phaser may have removed the player body before SHUTDOWN; do not access it here.
       // Phaser has already torn down Arcade Physics by SHUTDOWN; no physics calls here.
       window.removeEventListener('blur', this.onBlur);
@@ -252,7 +263,15 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   refreshWeaponHud(){
-    this.weaponText.setText('BROŃ: '+(this.weapon?WEAPONS[this.weapon].label:'BRAK')+'   '+this.kills+'/18');
+    this.weaponText.setText('BROŃ: '+(this.weapon?WEAPONS[this.weapon].label:'BRAK'));
+    this.killsText.setText('ZABÓJSTWA: '+this.kills+'/18');
+  }
+
+  setPlayerHp(next){
+    const before=this.playerHp;
+    this.playerHp=Math.max(0,Math.min(ENCOUNTER.playerMaxHp,Math.floor(next)));
+    if(this.playerHp!==before)this.hpFace.setHp(this.playerHp);
+    this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
   }
 
   addPickup(id,point){
@@ -362,8 +381,8 @@ export class ArenaScene extends Phaser.Scene {
     }
     if(inExplosion(this.player,blocked)){
       const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},now);
-      this.playerHp=hp.hp;this.invulnerableUntil=hp.invulnerableUntil;
-      this.hpText.setText('HP: '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
+      this.setPlayerHp(hp.hp);this.invulnerableUntil=hp.invulnerableUntil;
+      this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
       if(this.playerHp===0){this.defeated=true;this.resetMovement();this.openMenu();}
     }
   }
@@ -428,6 +447,7 @@ export class ArenaScene extends Phaser.Scene {
       this.player.body.setVelocity(0, 0);
       return;
     }
+    this.hpFace.update(this.game.loop.delta);
     this.retryPendingRewards();
     this.collectPickups();
     if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){this.spawnDueAt=null;this.spawnReplacement();if(this.enemies.filter(e=>!e.dead).length<3&&this.totalSpawned<18&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;}
@@ -506,9 +526,9 @@ export class ArenaScene extends Phaser.Scene {
       if(this.time.now>=enemy.hitUntil)enemy.sprite.setAlpha(1);
       if(Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<=ENCOUNTER.enemyRadius+17){
         const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},this.time.now);
-        this.playerHp=hp.hp;
+        this.setPlayerHp(hp.hp);
         this.invulnerableUntil=hp.invulnerableUntil;
-        this.hpText.setText('HP: '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
+        this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
         if(this.playerHp===0){
           this.defeated=true;
           this.resetMovement();

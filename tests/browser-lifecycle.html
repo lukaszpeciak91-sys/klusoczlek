@@ -24,11 +24,12 @@ window.__snapshot=() => {
   if(!arena?.sys||!menu?.sys)return null;
   const canvas=game.canvas.getBoundingClientRect();
   const actions=menu.sys.isActive()?menu.input._list.filter(o=>o.input&&o.width>150).map(o=>({x:o.x,y:o.y,width:o.width,height:o.height,label:menu.children.list.find(t=>t.type==='Text'&&['NOWA GRA','WZNÓW'].includes(t.text)&&Math.abs(t.y-o.y)<1)?.text})):[];
-  const hud=arena.sys.isActive()?arena.input._list.find(o=>o.input&&o.width===185):null;
+  const hud=arena.sys.isActive()?arena.input._list.find(o=>o.input&&o.width===arena.hudLayout?.menuWidth):null;
   return {
     menu:game.scene.isActive('Menu'),arena:game.scene.isActive('Arena'),arenaPaused:game.scene.isPaused('Arena'),
     actions,
     menuButton:hud?{x:hud.x,y:hud.y,width:hud.width,height:hud.height}:null,
+    faceHud:arena.hpFace?{hp:arena.hpFace.hp,current:arena.hpFace.current,texture:arena.hpFace.image?.texture?.key??null,portraitX:arena.hudLayout.portraitX,portraitY:arena.hudLayout.portraitY,portraitSize:arena.hudLayout.portraitSize,weaponX:arena.hudLayout.weaponX,killsX:arena.hudLayout.killsX,menuWidth:arena.hudLayout.menuWidth}:null,
     button:actions[0]??null,
     rect:{x:canvas.x,y:canvas.y,width:canvas.width,height:canvas.height},
     gameBox:(()=>{const r=document.getElementById('game').getBoundingClientRect();return {width:r.width,height:r.height};})(),
