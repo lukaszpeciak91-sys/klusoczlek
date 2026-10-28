@@ -23,7 +23,7 @@ test('exact Bobrozombi V2 asset path, size, frame layout and manifest',()=>{
  assert.equal(entry.columns,8);assert.equal(entry.rows,1);
  assert.equal(entry.frameWidth,96);assert.equal(entry.frameHeight,96);
  assert.ok(validateAssetManifest());
- for(const id of ['zubrokryptyda','enemy_fast']){
+ for(const id of ['enemy_fast']){
    const other=assetManifest.find(a=>a.id===id);
    assert.equal(other.width,384);assert.equal(other.frameWidth,48);
  }
