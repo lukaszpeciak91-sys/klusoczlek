@@ -195,3 +195,9 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Optional 768×96 RGBA, eight 96×96 direction frames; nearest-neighbor texture, independent 0.75 art scale.
 - Shared enemy renderer handles both initial and replacement spawns, missing/invalid image fallback and shutdown cleanup.
 - Existing combat and Arena mechanics deliberately unchanged. Binary artwork supplied manually by user; real artwork QA remains pending until uploaded.
+
+## PR24 — ALOES HP face HUD V1 / layout collision repair (awaiting audit)
+- One responsive HUD layout: MENU touch area left, weapon and kills separate, Aloes HP portrait and numeric HP right, twin sticks unchanged. All positions update on Phaser resize.
+- Five user-approved optional 128×128 RGBA portraits hp_5.png through hp_1.png at public/assets/portraits/, user manual upload only; no binaries. Previous three-band active contract superseded.
+- Strict PNG validation, stale async selection guard, fallback procedural numeric face; 0 HP subdued. Real HP losses trigger 160 ms pulse, not invulnerability overlap.
+- Unit tests, real Chromium Canvas tests, and screenshot-based layout acceptance required; physical Android Chrome and real approved portrait art remain manual acceptance. No merge/deploy before audit.
