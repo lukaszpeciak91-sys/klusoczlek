@@ -21,9 +21,11 @@ Character frames are indexed left-to-right: E=0, SE=1, S=2, SW=3, W=4, NW=5, N=6
 | weapons/heavy.png | 96×32 | 3×1 of 32×32 | yes | ground pickup / HUD / fired indicator |
 | weapons/spread.png | 96×32 | 3×1 of 32×32 | yes | ground pickup / HUD / fired indicator |
 | pickups/health_beer.png | 32×32 | single frame | yes | health pickup |
-| portraits/hp_high.png | 128×128 | single frame | yes | HP >60% |
-| portraits/hp_medium.png | 128×128 | single frame | yes | HP 30–60% |
-| portraits/hp_low.png | 128×128 | single frame | yes | HP <30% |
+| portraits/hp_5.png | 128×128 | single frame | yes | Aloes face for 5 HP |
+| portraits/hp_4.png | 128×128 | single frame | yes | Aloes face for 4 HP |
+| portraits/hp_3.png | 128×128 | single frame | yes | Aloes face for 3 HP |
+| portraits/hp_2.png | 128×128 | single frame | yes | Aloes face for 2 HP |
+| portraits/hp_1.png | 128×128 | single frame | yes | Aloes face for 1 HP and 0 HP (subdued) |
 | terrain/arena-ground.png | 1024×1024 | seamless tile | no | approved repeating Arena underlay, below obstacles, characters and effects |
 | dialogue/player.png | 192×192 | single frame | yes | dialogue speaker |
 | dialogue/aloes.png | 192×192 | single frame | yes | finale speaker |
@@ -57,3 +59,7 @@ Four optional **512×64, 8-bit RGBA** horizontal spritesheets, eight contiguous 
 ## Bobrozombi V2 — optional runtime visual integration
 
 User-supplied `public/assets/enemies/bobrozombi.png`: exact 768×96 8-bit RGBA PNG, horizontal 8×96×96 frames E, SE, S, SW, W, NW, N, NE. Transparent background and no baked ground shadow. Runtime validates PNG metadata, decodes once per Arena startup, shares one Phaser texture, and renders at initial scale 0.75 with a feet-baseline offset; procedural enemy fallback remains fully playable if missing or invalid. Source frame is not a physics body: HP 3, speed 65, collision radius 21 remain unchanged. Visual final approval on physical Android requires the manually uploaded approved PNG. Other enemy sheet contracts remain 384×48.
+
+## HP face HUD V1 — authoritative five-state contract
+
+The historical three-band `hp_high.png` / `hp_medium.png` / `hp_low.png` proposal is superseded and **not active**. User manually uploads five original, approved 128×128 RGBA PNGs to `public/assets/portraits/hp_5.png`, `hp_4.png`, `hp_3.png`, `hp_2.png`, and `hp_1.png`; all paths below `public/assets/portraits/` use those exact names. Each has transparent pixels outside its circular art and its own background inside. Current HP 5/4/3/2/1 uses corresponding exact file; 0 reuses `hp_1.png` subdued. All artwork is optional at runtime: missing/invalid art falls back to a procedural numeric HUD face; no binaries are committed. The HUD uses Vite BASE_URL, validates PNG byte header and 128×128 RGBA dimensions, and ignores stale async responses after HP changes.
