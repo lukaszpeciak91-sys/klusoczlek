@@ -422,6 +422,7 @@ export class ArenaScene extends Phaser.Scene {
   finalizeEnemyDeath(enemy){
     if(enemy.dead||enemy.hp>0)return false;
     enemy.dead=true;
+    this.flameCooldowns.delete(enemy);
     enemy.sprite.destroy();
     this.kills++;
     if(this.kills===5||this.kills===10){
