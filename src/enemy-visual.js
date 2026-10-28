@@ -13,7 +13,7 @@ export function createBobrozombiRenderer(scene,Phaser){
   const texture=scene.textures;
   const attach=container=>{
     if(!alive||!container.active||!ready||container.getData('bobrozombi-art'))return;
-    const image=scene.add.sprite(0,BOBROZOMBI_FEET_OFFSET,BOBROZOMBI_ASSET.key,2)
+    const image=scene.add.sprite(0,BOBROZOMBI_FEET_OFFSET,BOBROZOMBI_ASSET.key,container.getData('bobrozombi-facing')??2)
       .setOrigin(0.5).setScale(BOBROZOMBI_VISUAL_SCALE);
     container.add(image);
     container.setData('bobrozombi-art',image);
@@ -35,6 +35,7 @@ export function createBobrozombiRenderer(scene,Phaser){
     const facing=bobrozombiFrame(enemy.x,enemy.y,player.x,player.y,enemy.facing||'s');
     enemy.facing=FACINGS[facing];
     enemy.sprite.setPosition(enemy.x,enemy.y);
+    enemy.sprite.setData('bobrozombi-facing',facing);
     const art=enemy.sprite.getData('bobrozombi-art');
     if(art?.active)art.setFrame(facing);
   };
