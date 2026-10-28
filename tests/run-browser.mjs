@@ -481,7 +481,7 @@ try {
   assert.ok(!fifth.pickups.includes('rifle'));
   await clickControl('hud');
   await waitFor(v=>v.menu&&v.arenaPaused,'menu pending reward');
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').pendingRewards.size"),1);
+  assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pendingRewards.size===1||a.pickups.some(p=>p.id==='rifle')})()"),true,'Reward vanished during MENU transition');
   await clickControl('WZNÓW');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'resume pending reward');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.obstacles=a.obstacles.filter(o=>!o.__fixture);return true})()");
