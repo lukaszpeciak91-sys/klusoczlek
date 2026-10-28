@@ -13,18 +13,28 @@ export function menuLayout(width, height = 540) {
     startHeight: Math.min(82, h * 0.17),
   };
 }
-export function arenaHudLayout(height, width = 960) {
-  const radius = 46; // 92 px diameter, with a reachable touch halo.
-  const padding = 14;
-  return {
-    menuX: Math.min(105, width / 2),
-    menuY: 37,
-    joystickX: radius + padding,
-    joystickY: Math.max(radius + padding, height - radius - padding),
-    joystickRadius: radius,
-    aimX: Math.max(radius+padding,width-radius-padding),
-    aimY: Math.max(radius+padding,height-radius-padding),
-  };
+export function arenaHudLayout(height,width=960){
+ const radius=46,padding=14;
+ const compact=width<620;
+ const menuWidth=compact?90:148,menuHeight=compact?44:52;
+ const menuX=12+menuWidth/2,menuY=12+menuHeight/2;
+ const portraitSize=compact?62:74;
+ const portraitX=width-12-portraitSize/2,portraitY=12+portraitSize/2;
+ const textX=12+menuWidth+12;
+ const weaponFont=compact?14:17;
+ const killsFont=compact?13:16;
+ return {
+  menuX,menuY,menuWidth,menuHeight,menuFont:compact?19:23,
+  portraitX,portraitY,portraitSize,
+  weaponX:textX,weaponY:compact?18:21,weaponFont,
+  killsX:textX,killsY:compact?43:49,killsFont,
+  hpX:portraitX,hpY:portraitY+portraitSize/2+4,hpFont:compact?12:14,
+  joystickX:radius+padding,
+  joystickY:Math.max(radius+padding,height-radius-padding),
+  joystickRadius:radius,
+  aimX:Math.max(radius+padding,width-radius-padding),
+  aimY:Math.max(radius+padding,height-radius-padding)
+ };
 }
 export function pauseLayout(width, height = 540) {
   const h = Math.max(height, 1);
