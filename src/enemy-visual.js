@@ -4,8 +4,8 @@ import { assetUrl, validPngHeader } from './character-visual.js';
 export const BOBROZOMBI_ASSET=Object.freeze({path:'enemies/bobrozombi.png',key:'enemy-bobrozombi-v2',width:768,height:96,frameWidth:96,frameHeight:96});
 export const BOBROZOMBI_VISUAL_SCALE=0.75;
 export const BOCIANOLAK_ASSET=Object.freeze({path:'enemies/bocianolak.png',key:'enemy-bocianolak-v1',width:1024,height:160,frameWidth:128,frameHeight:160});
-export const BOCIANOLAK_VISUAL_SCALE=0.58;
-export const BOCIANOLAK_FEET_OFFSET=-43;
+export const BOCIANOLAK_VISUAL_SCALE=0.65;
+export const BOCIANOLAK_FEET_OFFSET=-47;
 export const BOBROZOMBI_FEET_OFFSET=-13;
 export function bobrozombiFrame(x,y,playerX,playerY,lastFacing='s'){
   return FACINGS.indexOf(facingOf(playerX-x,playerY-y,lastFacing));
