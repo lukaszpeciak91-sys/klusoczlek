@@ -16,7 +16,7 @@ test('type registry preserves beaver balance and adds slightly faster stork',()=
 });
 test('approved Bocianołak horizontal sheet and eight directional frame indices',()=>{
  assert.deepEqual([BOCIANOLAK_ASSET.path,BOCIANOLAK_ASSET.width,BOCIANOLAK_ASSET.height,BOCIANOLAK_ASSET.frameWidth,BOCIANOLAK_ASSET.frameHeight],['enemies/bocianolak.png',1024,160,128,160]);
- assert.equal(BOCIANOLAK_VISUAL_SCALE,0.58);assert.equal(BOCIANOLAK_FEET_OFFSET,-43);
+ assert.equal(BOCIANOLAK_VISUAL_SCALE,0.65);assert.equal(BOCIANOLAK_FEET_OFFSET,-47);
  assert.ok(validateAssetManifest());
  assert.ok(assetManifest.some(a=>a.id==='bocianolak'&&a.columns===8&&a.rows===1));
  assert.deepEqual([[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]].map(([x,y])=>bobrozombiFrame(0,0,x,y)),[0,1,2,3,4,5,6,7]);
