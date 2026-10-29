@@ -651,6 +651,38 @@ try {
   assert.deepEqual(heavyQueue.blocked,{total:19,retry:true});
   assert.deepEqual(heavyQueue.unblocked,{total:20,type:'zubrokryptyda',active:1});
   console.log('PASS real Arena queued heavy spawn: one living heavy maximum, no lost schedule entry');
+  // Gait on an actual Phaser Sprite: internal transform only, 3 distinct profiles.
+  const gaitProbe=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),types=['bobrozombi','bocianolak','zubrokryptyda'];
+    const result=[];
+    for(let i=0;i<types.length;i++){
+      const type=types[i],e=a.createEnemy(type,{x:530+i*130,y:450},i+12),renderer=a.enemyRenderers[type];
+      const sprite=e.sprite,oldX=sprite.x,oldY=sprite.y;
+      const image=()=>sprite.getData(type+'-art');
+      renderer.update(e,{x:e.x+100,y:e.y},i===0?65/60:i===1?85/60:42/60,1/60);
+      const initial=sprite.getData(type+'-gait');
+      const first=initial?{phase:initial.phase,intensity:initial.intensity}:null;
+      for(let k=0;k<60;k++)renderer.update(e,{x:e.x+100,y:e.y},[65,85,42][i]/60,1/60);
+      const moved={rotation:image()?.rotation,y:image()?.y,phase:sprite.getData(type+'-gait')?.phase};
+      for(let k=0;k<120;k++)renderer.update(e,{x:e.x+100,y:e.y},0,1/60);
+      const idle={rotation:image()?.rotation,y:image()?.y,phase:sprite.getData(type+'-gait')?.phase};
+      result.push({type,first,moved,idle,oldX,oldY,x:sprite.x,y:sprite.y,
+        scale:image()?.scaleX,visible:image()?.visible,alive:image()?.active});
+      sprite.destroy();
+    }
+    return result;
+  })()`);
+  assert.equal(gaitProbe.length,3);
+  for(const item of gaitProbe){
+    assert.equal(item.x,item.oldX,'gait moved enemy container');
+    assert.equal(item.y,item.oldY,'gait moved enemy container');
+    assert.ok(item.first&&item.first.intensity>0,'walking did not blend in '+item.type);
+    assert.equal(item.moved.phase,item.idle.phase,'blocked walking phase changed '+item.type);
+    assert.ok(Math.abs(item.idle.rotation)<0.001,'idle rotation remains '+item.type);
+    assert.ok(item.visible&&item.alive,'art missing '+item.type);
+  }
+  assert.deepEqual(gaitProbe.map(e=>e.scale),[0.75,0.65,0.55]);
+  console.log('PASS real Phaser enemy gait: three visual-only profiles, distance phase, static enemy containers, idle recovery and original scales');
   // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
   const combatProbe=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'), aim={x:1,y:0};
