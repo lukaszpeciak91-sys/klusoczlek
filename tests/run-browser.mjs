@@ -903,7 +903,11 @@ try {
     if(!e)throw Error('Need a living enemy to assert narrative freeze');
     const x=e.x,y=e.y;
     const activeBefore=a.deathBursts.some(v=>v.graphics.active&&!v.done);
-    a.markNarrativeBoundary('before-first-bocianolak');
+    // Trigger via the first genuine scheduled Bocianołak, not a fabricated boundary.
+    a.episode.wave=1;a.episode.spawned=7;a.episode.state='active';
+    a.introducedEnemyTypes.delete('before-first-bocianolak');
+    a.pendingIntroductions.delete('before-first-bocianolak');
+    a.spawnReplacement();
     return {accepted,id:a.dialogueState.id,paused:a.physics.world.isPaused,x,y,active:activeBefore&&a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length};
   })()`);
   assert.equal(life.accepted,true);
