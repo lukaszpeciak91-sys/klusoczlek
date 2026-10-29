@@ -769,6 +769,43 @@ try {
   assert.equal(flameBarrel.effects,flameBarrel.effectsAfter,'Repeated flame re-exploded the barrel');
   assert.equal(flameBarrel.playerHp,flameBarrel.beforeHp,'Barrel beyond explosion range injured player');
   console.log('PASS real Phaser flame-barrel damage cooldown, one-shot explosion and no self-flame damage');
+  // Exercise the actual Phaser Arena hit pipeline, render objects and movement update.
+  const panicStart=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    const e=a.enemies.find(e=>e.type==='bobrozombi'&&!e.dead);
+    if(!e)throw Error('Missing living Bobrozombi');
+    e.x=a.player.x+95;e.y=a.player.y;e.hp=3;
+    a.flameCooldowns.clear();
+    const before={x:e.x,hp:e.hp};
+    a.applyFlame({x:1,y:0},a.time.now);
+    window.__panicTestEnemy=e;
+    return {before,afterHp:e.hp,burning:e.ignition.ignitedAt!==null,visual:!!e.burningFx?.graphics.active,stream:a.flameStream.commandBuffer.length};
+  })()`);
+  assert.equal(panicStart.afterHp,panicStart.before.hp-1,'Real flame damage changed');
+  assert.equal(panicStart.burning,true,'Visible flame hit did not ignite living enemy');
+  assert.equal(panicStart.visual,true,'No attached fire VFX after ignition');
+  assert.ok(panicStart.stream>0,'Flame stream not drawn');
+  await sleep(160);
+  const panicMove=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__panicTestEnemy;return {x:e.x,burning:!!e.burningFx?.graphics.active,visualX:e.burningFx?.graphics.x,visualY:e.burningFx?.graphics.y,playerX:a.player.x}})()");
+  assert.ok(panicMove.x>panicStart.before.x+2,'Real Arena frame did not retreat away from Aloes');
+  assert.equal(panicMove.visualX,panicMove.x,'Attached fire VFX lagged behind enemy');
+  const panicScreen=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/flamethrower-v2-ignition-chromium.png',Buffer.from(panicScreen.data,'base64'));
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'burning enemy MENU pause');
+  const freeze=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__panicTestEnemy;return {now:a.time.now,until:e.ignition.burningUntil,x:e.x}})()");
+  await sleep(270);
+  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__panicTestEnemy;return {now:a.time.now,until:e.ignition.burningUntil,x:e.x}})()"),freeze,'Burning advanced during MENU');
+  await clickControl('WZNÓW');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'burning enemy resume');
+  const extinguish=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=window.__panicTestEnemy;
+    e.ignition.burningUntil=a.time.now+35;return true;
+  })()`);
+  await sleep(115);
+  assert.equal(await evaluate("window.__panicTestEnemy.burningFx"),null,'Burning overlay did not extinguish');
+  console.log('PASS real Chromium ignite, flee, attached VFX, screenshot, pause/resume and extinguish');
+
 
 
   // In-memory synthetic 128x128 circular portrait artwork; no binary asset committed.
