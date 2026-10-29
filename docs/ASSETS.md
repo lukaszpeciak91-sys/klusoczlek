@@ -21,7 +21,6 @@ Character frames are indexed left-to-right: E=0, SE=1, S=2, SW=3, W=4, NW=5, N=6
 | weapons/rapid.png | 96×32 | 3×1 of 32×32 | yes | ground pickup / HUD / fired indicator |
 | weapons/heavy.png | 96×32 | 3×1 of 32×32 | yes | ground pickup / HUD / fired indicator |
 | weapons/spread.png | 96×32 | 3×1 of 32×32 | yes | ground pickup / HUD / fired indicator |
-| pickups/health_beer.png | 32×32 | single frame | yes | health pickup |
 | portraits/hp_5.png | 128×128 | single frame | yes | Aloes face for 5 HP |
 | portraits/hp_4.png | 128×128 | single frame | yes | Aloes face for 4 HP |
 | portraits/hp_3.png | 128×128 | single frame | yes | Aloes face for 3 HP |
