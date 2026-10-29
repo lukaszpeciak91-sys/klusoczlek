@@ -4,7 +4,8 @@ import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
 import {createHpFaceHud} from './hp-face-hud.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
-import {ENEMY_TYPES,ENEMY_SCHEDULE,TOTAL_ENEMIES,typeAt,moveEnemy} from './enemy-types.js';
+import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
+import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceEpisode,terminateEpisode,healedHp} from './episode.js';
 import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
@@ -53,8 +54,10 @@ export class MenuScene extends Phaser.Scene {
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
     const hasSession = this.scene.isPaused('Arena');
-    const defeated = hasSession && this.scene.get('Arena').defeated;
-    const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'PRZEGRANA — NOWA GRA':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
+    const terminal = hasSession && this.scene.get('Arena').episode?.ended;
+    const defeated = terminal && this.scene.get('Arena').episode.state==='defeat';
+    const victorious=terminal&&!defeated;
+    const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
     const startY = hasSession ? initial.startY - Math.min(44, this.scale.height * 0.12) : initial.startY;
     const resumeY = initial.startY + Math.min(44, this.scale.height * 0.12);
     const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
@@ -64,7 +67,7 @@ export class MenuScene extends Phaser.Scene {
       if (hasSession) this.scene.stop('Arena');
       this.scene.start('Arena');
     });
-    const resume = hasSession && !defeated ? button(this, initial.centerX, resumeY, initial.startWidth, initial.startHeight, 'WZNÓW', () => {
+    const resume = hasSession && !terminal ? button(this, initial.centerX, resumeY, initial.startWidth, initial.startHeight, 'WZNÓW', () => {
       if (!allowed()) return;
       this.navigating = true;
       const arena = this.scene.get('Arena');
@@ -137,6 +140,7 @@ export class ArenaScene extends Phaser.Scene {
     this.projectiles=[];
     this.playerHp=ENCOUNTER.playerMaxHp;
     this.invulnerableUntil=0;
+    this.episode=createEpisode();
     this.defeated=false;
     this.completed=false;
     this.weapon=null;
@@ -148,8 +152,12 @@ export class ArenaScene extends Phaser.Scene {
     this.pendingRewards=new Map();
     this.enemyRenderers={bobrozombi:createBobrozombiRenderer(this,Phaser),bocianolak:createBocianolakRenderer(this,Phaser),zubrokryptyda:createZubrokryptydaRenderer(this,Phaser)};
     this.enemyRenderer=this.enemyRenderers.bobrozombi;
-    this.enemies=enemySpawns(this.player).map(({x,y},index)=>this.createEnemy(typeAt(index),{x,y},index));
+    this.enemies=enemySpawns(this.player).map(({x,y},index)=>{
+      const type=nextType(this.episode);recordSpawn(this.episode);
+      return this.createEnemy(type,{x,y},index);
+    });
     this.totalSpawned=this.enemies.length;
+    this.narrativeEvents=new Set(['before-wave-1']);
     this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
     this.hpText=this.add.text(0,0,'HP 5/5',{fontFamily:'monospace',fontSize:'14px',color:'#f3e8d1'})
       .setOrigin(0.5,0).setScrollFactor(0).setDepth(81);
@@ -163,7 +171,8 @@ export class ArenaScene extends Phaser.Scene {
     this.killsText=this.add.text(0,0,'0/'+TOTAL_ENEMIES,{fontFamily:'monospace',fontSize:'20px',color:'#f3e8d1'})
       .setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
     this.hpFace=createHpFaceHud(this,Phaser);
-    this.completeText=this.add.text(this.scale.width/2,55,TOTAL_ENEMIES+'/'+TOTAL_ENEMIES+' — OCZYSZCZONO ARENĘ',{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76',backgroundColor:'#1b2330'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65).setVisible(false);
+    this.waveText=this.add.text(this.scale.width/2,100,'FALA 1/'+TOTAL_WAVES,{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76',backgroundColor:'#1b2330'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65);
+    this.completeText=this.add.text(this.scale.width/2,55,'ZWYCIĘSTWO!',{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65).setVisible(false);
     this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
       this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
     this.facingMarker=this.add.graphics().setDepth(12);
@@ -206,6 +215,7 @@ export class ArenaScene extends Phaser.Scene {
       this.hpText.setPosition(pos.hpX,pos.hpY).setFontSize(pos.hpFont);
       this.hpFace.resize(pos);
       this.completeText.setX(this.scale.width/2);
+      this.waveText.setX(this.scale.width/2);
     };
     // Apply positions during initial Arena creation, even if Phaser emits no RESIZE.
     resizeHud();
@@ -293,7 +303,7 @@ export class ArenaScene extends Phaser.Scene {
 
   addPickup(id,point){
     if(!point)return false;
-    const def=WEAPONS[id];
+    const def=id==='health'?{color:0xb93542,symbol:'♥'}:WEAPONS[id];
     const token=this.add.container(point.x,point.y).setDepth(7);
     token.add(this.add.ellipse(0,13,42,13,0x17120f,0.35));
     token.add(this.add.circle(0,0,18,def.color).setStrokeStyle(3,0x282027));
@@ -305,6 +315,11 @@ export class ArenaScene extends Phaser.Scene {
   collectPickups(){
     for(const pickup of this.pickups){
       if(!pickupCollected(this.player,pickup))continue;
+      if(pickup.id==='health'){
+        if(this.playerHp<=0||this.playerHp>=ENCOUNTER.playerMaxHp)continue;
+        this.setPlayerHp(healedHp(this.playerHp,ENCOUNTER.playerMaxHp));
+        pickup.object.destroy();pickup.collected=true;continue;
+      }
       this.weapon=pickup.id;
       this.stopWeaponFire();
       void this.playerVisual.setVariant(pickup.id);
@@ -400,7 +415,7 @@ export class ArenaScene extends Phaser.Scene {
       const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},now);
       this.setPlayerHp(hp.hp);this.invulnerableUntil=hp.invulnerableUntil;
       this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
-      if(this.playerHp===0){this.defeated=true;this.resetMovement();this.openMenu();}
+      if(this.playerHp===0)this.endEpisode('defeat');
     }
   }
 
@@ -430,20 +445,25 @@ export class ArenaScene extends Phaser.Scene {
       }
     }
     this.refreshWeaponHud();
-    if(this.kills===TOTAL_ENEMIES){
-      this.completed=true;
+    const living=this.enemies.filter(e=>!e.dead).length;
+    const event=recordDeath(this.episode,living,this.time.now);
+    if(event==='wave-cleared'){
+      if(HEALTH_AFTER_WAVES.includes(this.episode.wave+1))this.dropHealthReward();
+      this.waveText.setText('FALA '+(this.episode.wave+2)+'/'+TOTAL_WAVES).setVisible(true);
       this.spawnDueAt=null;
-      this.completeText.setVisible(true);
-      this.resetMovement();
-    }else if(this.totalSpawned<TOTAL_ENEMIES&&this.spawnDueAt===null){
+    }else if(event==='final-cleared'){
+      this.narrativeEvents.add('after-final-enemy');
+      this.spawnDueAt=null;
+    }else if(nextType(this.episode)!==null&&this.spawnDueAt===null){
       this.spawnDueAt=this.time.now+380;
     }
     return true;
   }
 
   spawnReplacement(){
-    if(this.defeated||this.completed||this.totalSpawned>=TOTAL_ENEMIES||this.enemies.filter(e=>!e.dead).length>=3)return;
-    const nextType=typeAt(this.totalSpawned);
+    const nextTypeValue=nextType(this.episode);
+    if(this.episode.state!=='active'||this.defeated||this.completed||!nextTypeValue||this.enemies.filter(e=>!e.dead).length>=waveCapacity(this.episode))return;
+    const nextType=nextTypeValue;
     if(nextType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda')){
       this.spawnDueAt=this.time.now+380;return;
     }
@@ -451,6 +471,21 @@ export class ArenaScene extends Phaser.Scene {
     if(!at){this.spawnDueAt=this.time.now+380;return;}
     this.enemies.push(this.createEnemy(nextType,at,this.totalSpawned));
     this.totalSpawned++;
+    recordSpawn(this.episode);
+  }
+
+  dropHealthReward(){
+    const point=fallbackRewardPoint(this.player,this.obstacles);
+    if(point)this.addPickup('health',point);
+    else this.pendingHealth=(this.pendingHealth||0)+1;
+  }
+  endEpisode(outcome){
+    if(outcome==='victory'&&this.playerHp<=0)return this.endEpisode('defeat');
+    if(!terminateEpisode(this.episode,outcome))return;
+    this.defeated=outcome==='defeat';this.completed=outcome==='victory';
+    this.spawnDueAt=null;this.resetMovement();this.physics.world.pause();
+    this.completeText.setText(outcome==='victory'?'ZWYCIĘSTWO!':'KONIEC GRY').setVisible(true);
+    this.openMenu();
   }
 
   openMenu() {
@@ -464,14 +499,27 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   update() {
-    if (this.defeated || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
+    if (this.episode.ended || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);
       return;
     }
     this.hpFace.update(this.game.loop.delta);
     this.retryPendingRewards();
+    if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles);if(p&&this.addPickup('health',p))this.pendingHealth--;}
     this.collectPickups();
-    if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){this.spawnDueAt=null;this.spawnReplacement();if(this.enemies.filter(e=>!e.dead).length<3&&this.totalSpawned<TOTAL_ENEMIES&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;}
+    if(this.episode.state==='intermission'&&advanceEpisode(this.episode,this.time.now)){
+      if(this.episode.wave===1)this.narrativeEvents.add('before-first-bocianolak');
+      if(this.episode.wave===2)this.narrativeEvents.add('before-first-zubrokryptyda');
+      this.waveText.setText('FALA '+(this.episode.wave+1)+'/'+TOTAL_WAVES).setVisible(true);
+      this.spawnDueAt=this.time.now;
+    }
+    if(this.episode.state==='final-pending'){
+      this.endEpisode(this.playerHp<=0?'defeat':'victory');return;
+    }
+    if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){
+      this.spawnDueAt=null;this.spawnReplacement();
+      if(this.episode.state==='active'&&this.enemies.filter(e=>!e.dead).length<waveCapacity(this.episode)&&nextType(this.episode)!==null&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;
+    }
     const keys = this.keys;
     const x = Number(keys.D.isDown || keys.RIGHT.isDown) -
       Number(keys.A.isDown || keys.LEFT.isDown);
@@ -552,9 +600,7 @@ export class ArenaScene extends Phaser.Scene {
         this.invulnerableUntil=hp.invulnerableUntil;
         this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
         if(this.playerHp===0){
-          this.defeated=true;
-          this.resetMovement();
-          this.openMenu();
+          this.endEpisode('defeat');
           return;
         }
       }
