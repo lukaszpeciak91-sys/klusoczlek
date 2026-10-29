@@ -463,13 +463,13 @@ export class ArenaScene extends Phaser.Scene {
   spawnReplacement(){
     const nextTypeValue=nextType(this.episode);
     if(this.episode.state!=='active'||this.defeated||this.completed||!nextTypeValue||this.enemies.filter(e=>!e.dead).length>=waveCapacity(this.episode))return;
-    const nextType=nextTypeValue;
-    if(nextType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda')){
+    const nextEnemyType=nextTypeValue;
+    if(nextEnemyType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda')){
       this.spawnDueAt=this.time.now+380;return;
     }
-    const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[nextType].radius);
+    const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[nextEnemyType].radius);
     if(!at){this.spawnDueAt=this.time.now+380;return;}
-    this.enemies.push(this.createEnemy(nextType,at,this.totalSpawned));
+    this.enemies.push(this.createEnemy(nextEnemyType,at,this.totalSpawned));
     this.totalSpawned++;
     recordSpawn(this.episode);
   }
