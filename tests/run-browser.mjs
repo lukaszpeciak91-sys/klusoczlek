@@ -324,8 +324,8 @@ try {
   assert.ok(await evaluate("window.__game.scene.getScene('Arena').kills>=1"),'Actual mouse projectiles did not kill enemy');
   // Contact HP and defeat, while Phaser owns the running scene.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.x=a.player.x;e.y=a.player.y;e.sprite.setPosition(e.x,e.y)}return true})()");
-  const probe=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const before=a.playerHp;a.update();return {before,after:a.playerHp,state:a.episode.state,invulnerableUntil:a.invulnerableUntil,now:a.time.now,physicsPaused:a.physics.world.isPaused,enemies:a.enemies.map(e=>({hp:e.hp,dead:e.dead,x:e.x,y:e.y}))}})()");
-  console.log('EPISODE CONTACT DIAGNOSTIC',JSON.stringify(probe));
+  const episodeContactProbe=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const before=a.playerHp;a.update();return {before,after:a.playerHp,state:a.episode.state,invulnerableUntil:a.invulnerableUntil,now:a.time.now,physicsPaused:a.physics.world.isPaused,enemies:a.enemies.map(e=>({hp:e.hp,dead:e.dead,x:e.x,y:e.y}))}})()");
+  console.log('EPISODE CONTACT DIAGNOSTIC',JSON.stringify(episodeContactProbe));
   const damaged=await waitFor(s=>s.controls.hp<5,'Contact damage');
   assert.equal(damaged.controls.hp,4);
   assert.equal(damaged.faceHud.current,'hp_4','Enemy contact did not change Aloes portrait');
