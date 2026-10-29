@@ -1,4 +1,10 @@
-import {assetUrl,validPngHeader} from './character-visual.js';
+import {assetUrl} from './character-visual.js';
+export function validDialoguePng(bytes){
+ const signature=[137,80,78,71,13,10,26,10];
+ if(bytes.length<26||!signature.every((b,i)=>bytes[i]===b))return false;
+ const value=i=>(bytes[i]*16777216+bytes[i+1]*65536+bytes[i+2]*256+bytes[i+3])>>>0;
+ return value(16)===192&&value(20)===192&&bytes[24]===8&&(bytes[25]===2||bytes[25]===6);
+}
 import {currentDialogue,advanceDialogue} from './dialogue-data.js';
 const PORTRAITS=['aloes','bobrozombi','bocianolak','zubrokryptyda'];
 export function createDialoguePanel(scene,Phaser,onFinish){
@@ -42,7 +48,7 @@ export function createDialoguePanel(scene,Phaser,onFinish){
     const response=await fetch(assetUrl(import.meta.env.BASE_URL,'dialogue/dialogue-'+key+'.png'),{cache:'no-cache'});
     if(!response.ok)throw Error('missing');
     const bytes=new Uint8Array(await response.arrayBuffer());
-    if(!validPngHeader(bytes,{width:192,height:192}))throw Error('invalid portrait');
+    if(!validDialoguePng(bytes))throw Error('invalid portrait');
     const blob=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
     try{
      const image=new Image();
