@@ -862,7 +862,7 @@ try {
   console.log('PASS delayed portrait fetch races: old HP2 load cannot overwrite current HP4');
 
   // Real Phaser heart pickup and pause-frozen intermission, on a clean Arena session.
-  await clickControl('hud');
+  if(!(await snapshot()).menu)await clickControl('hud');
   await waitFor(v=>v.menu&&v.arenaPaused,'episode health test menu');
   await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'episode health test arena');
