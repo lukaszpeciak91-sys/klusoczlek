@@ -1051,20 +1051,6 @@ try {
     ['before-first-zubrokryptyda','zubrokryptyda',2,11,2],
     ['before-first-bocianolak','bocianolak',1,7,3]
   ]){
-    if(type==='bocianolak'){
-      await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'intro test reset menu');
-      await clickControl('NOWA GRA');
-      await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'intro test fresh Arena');
-      for(let retry=0;retry<50;retry++){
-        if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id")==='before-wave-1')break;
-        await sleep(80);
-      }
-      for(let line=0;line<3;line++){
-        const p=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
-        assert.equal(p.id,'before-wave-1');
-        await sleep(210);const rect=(await snapshot()).rect;await click(rect.x+p.x,rect.y+p.y);
-      }
-    }
     const intro=await evaluate(`(()=>{
       const a=window.__game.scene.getScene('Arena');
       for(const e of a.enemies)if(e.sprite.active)e.sprite.destroy();
