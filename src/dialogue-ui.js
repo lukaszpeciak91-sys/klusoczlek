@@ -31,6 +31,12 @@ export function createDialoguePanel(scene,Phaser,onFinish){
   speaker.setPosition(tx,y+11).setFontSize(Math.max(11,Math.min(16,w/47)));
   text.setPosition(tx,y+32).setFontSize(Math.max(11,Math.min(15,w/53))).setWordWrapWidth(tw);
   const by=y+height-19,bx=x+width-52;
+  // Shrink typography only when necessary to leave a clear button lane.
+  const available=by-21-(y+32);
+  for(let size=Math.max(11,Math.min(15,w/53));size>=9;size-=0.5){
+   text.setFontSize(size);
+   if(text.height<=available)break;
+  }
   button.setPosition(bx,by).setSize(Math.min(88,Math.max(68,width*0.16)),31);
   caption.setPosition(bx,by).setFontSize(Math.max(11,Math.min(15,w/55)));
   for(const image of images.values())image.setPosition(px,py).setDisplaySize(p,p);
@@ -38,6 +44,7 @@ export function createDialoguePanel(scene,Phaser,onFinish){
  const render=state=>{
   const line=currentDialogue(state);if(!line)return;
   speaker.setText(line[1]);text.setText(line[2]);initial.setText(line[1].slice(0,1));
+  layout();
   for(const [key,image] of images)image.setVisible(key===line[0]);
   initial.setVisible(!images.has(line[0]));
  };
