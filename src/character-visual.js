@@ -1,3 +1,4 @@
+import {makeFeedback,recordHit,pose,hitActive} from './combat-feedback.js';
 import { playerFrame } from './combat-contract.js';
 import { PLAYER_VARIANTS, DEFAULT_PLAYER_VARIANT, LEGACY_PLAYER, PLAYER_SHEET, playerVariant } from './player-variants.js';
 
@@ -27,6 +28,7 @@ export function shadowPosition(player){return {x:player.x,y:player.y+CONTACT_SHA
 export function createPlayerVisual(scene,player,indicator,Phaser){
  let shadow=null,sprite=null,alive=true,elapsed=0,blend=0,requested=DEFAULT_PLAYER_VARIANT,applied=null,requestId=0;
  let lastFacing='s',recoilRemaining=0;
+ const feedback=makeFeedback();
  const inFlight=new Map();
  const texture=scene.textures;
  async function ensureTexture(def){
@@ -84,12 +86,14 @@ export function createPlayerVisual(scene,player,indicator,Phaser){
   const motion=visualMotion({delta:Math.min(deltaMs/1000,0.05),elapsed},moving,blend);
   blend=motion.blend;
   const p=visualPosition(player,motion.bob);
+  const hit=pose(feedback,'aloes',scene.time.now);
   recoilRemaining=Math.max(0,recoilRemaining-deltaMs);
   const kick=recoilRemaining/105;
-  sprite.setPosition(p.x+(kick?Math.sin(recoilRemaining*0.24)*1.6*kick:0),p.y)
-   .setRotation(motion.angle+Math.sin(recoilRemaining*0.14)*0.025*kick).setFrame(playerFrame(facing));
+  sprite.setPosition(p.x+hit.x+(kick?Math.sin(recoilRemaining*0.24)*1.6*kick:0),p.y+hit.y)
+   .setRotation(motion.angle+hit.angle+Math.sin(recoilRemaining*0.14)*0.025*kick).setFrame(playerFrame(facing));
+  sprite.setTint(hitActive(feedback,scene.time.now)?0xff4747:0xffffff);
   if(shadow?.active){const at=shadowPosition(player);shadow.setPosition(at.x,at.y);}
  }
  function destroy(){alive=false;requestId++;if(sprite){sprite.destroy();sprite=null;}if(shadow){shadow.destroy();shadow=null;}player.setVisible(true);indicator.setVisible(true);}
- return {update,destroy,recoil(){recoilRemaining=105;},setVariant:select,get requestedVariant(){return requested;},get appliedVariant(){return applied;},get sprite(){return sprite;},get shadow(){return shadow;},get loaded(){return Boolean(sprite?.active);}};
+ return {update,destroy,hit(source){return recordHit(feedback,scene.time.now,source,player);},recoil(){recoilRemaining=105;},setVariant:select,get requestedVariant(){return requested;},get appliedVariant(){return applied;},get sprite(){return sprite;},get shadow(){return shadow;},get loaded(){return Boolean(sprite?.active);}};
 }
