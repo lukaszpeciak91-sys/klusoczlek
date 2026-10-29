@@ -1055,6 +1055,10 @@ try {
       await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'intro test reset menu');
       await clickControl('NOWA GRA');
       await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'intro test fresh Arena');
+      for(let retry=0;retry<50;retry++){
+        if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id")==='before-wave-1')break;
+        await sleep(80);
+      }
       for(let line=0;line<3;line++){
         const p=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
         assert.equal(p.id,'before-wave-1');
