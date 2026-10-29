@@ -567,9 +567,19 @@ try {
   assert.deepEqual(progression.markers,[5,10]);
   console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 66 unique deaths');
   await sleep(120);
-  const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,first:a.consumeNarrativeBoundary('after-final-enemy'),second:a.consumeNarrativeBoundary('after-final-enemy')}})()");
-  assert.deepEqual(heldFinal,{state:'final-pending',held:true,first:true,second:false},'Final dialogue hold must block premature victory');
-  await evaluate("window.__game.scene.getScene('Arena').releaseFinalOutcome()");
+  const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,id:a.dialogueState.id,first:a.consumeNarrativeBoundary('after-final-enemy')}})()");
+  assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'after-final-enemy',first:false},'Final dialogue must own the consumed one-shot boundary');
+  for(let line=0;line<3;line++){
+    const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,state:a.episode.state}})()");
+    assert.equal(before.id,'after-final-enemy');assert.equal(before.index,line);
+    assert.equal(before.state,'final-pending','Victory occurred while dialogue active');
+    await sleep(205);
+    const bounds=(await snapshot()).rect;
+    await click(bounds.x+before.x,bounds.y+before.y);
+    const after=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index}})()");
+    assert.equal(after.id,line===2?null:'after-final-enemy','Final DALEJ tap skipped or failed');
+    if(line<2)assert.equal(after.index,line+1);
+  }
   await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   await clickControl('NOWA GRA');
