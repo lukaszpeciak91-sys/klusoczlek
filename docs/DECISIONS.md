@@ -24,7 +24,7 @@ Status: ACCEPTED / PROVISIONAL / OPEN / SUPERSEDED. Daty ISO.
 | D015 | ACCEPTED | Klasyczne, oddzielone przerwami fale; kolejna fala dopiero po pokonaniu poprzedniej | Czytelny postęp i satysfakcja z etapów |
 
 | D016 | PROVISIONAL | Lekka fabuła opowiadana tekstem na starcie, między falami i w finale, bez cutscenek/systemu dialogów | Klimat bez rozbudowy kodu |
-| D017 | PROVISIONAL | Piwo jako podnoszony pickup przywracający HP zamiast automatycznego leczenia między falami | Prosty wybór gracza; wartości i spawny do ustalenia |
+| D017 | SUPERSEDED | Dawna propozycja piwa jako pickupu HP | Zastąpiona neutralnym symbolem serca w Epizodzie 1 Part A |
 
 | D018 | ACCEPTED | Finałowa kwestia Aloesa: „Żegnajcie... Przyjaciele...” | Celowo absurdalna, niewyjaśniona puenta |
 | D019 | ACCEPTED | Trzy czaty: orkiestracja i audyt, implementacja, grafika; osobny audyt tylko w razie potrzeby | Minimalne koszty koordynacji |
