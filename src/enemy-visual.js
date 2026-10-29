@@ -7,16 +7,21 @@ export const BOCIANOLAK_ASSET=Object.freeze({path:'enemies/bocianolak.png',key:'
 export const BOCIANOLAK_VISUAL_SCALE=0.65;
 export const BOCIANOLAK_FEET_OFFSET=-47;
 export const BOBROZOMBI_FEET_OFFSET=-13;
+export const ZUBROKRYPTYDA_ASSET=Object.freeze({path:'enemies/zubrokryptyda.png',key:'enemy-zubrokryptyda-v2',width:1536,height:192,frameWidth:192,frameHeight:192});
+export const ZUBROKRYPTYDA_VISUAL_SCALE=0.55;
+// (184-96)*0.55 => 48.4 pixels above sprite-frame center.
+export const ZUBROKRYPTYDA_FEET_OFFSET=-48.4;
 export function bobrozombiFrame(x,y,playerX,playerY,lastFacing='s'){
   return FACINGS.indexOf(facingOf(playerX-x,playerY-y,lastFacing));
 }
 export function createBobrozombiRenderer(scene,Phaser){return createEnemyRenderer(scene,Phaser,'bobrozombi');}
 export function createBocianolakRenderer(scene,Phaser){return createEnemyRenderer(scene,Phaser,'bocianolak');}
+export function createZubrokryptydaRenderer(scene,Phaser){return createEnemyRenderer(scene,Phaser,'zubrokryptyda');}
 function createEnemyRenderer(scene,Phaser,type){
-  const stork=type==='bocianolak';
-  const asset=stork?BOCIANOLAK_ASSET:BOBROZOMBI_ASSET;
-  const scale=stork?BOCIANOLAK_VISUAL_SCALE:BOBROZOMBI_VISUAL_SCALE;
-  const offset=stork?BOCIANOLAK_FEET_OFFSET:BOBROZOMBI_FEET_OFFSET;
+  const stork=type==='bocianolak',heavy=type==='zubrokryptyda';
+  const asset=heavy?ZUBROKRYPTYDA_ASSET:stork?BOCIANOLAK_ASSET:BOBROZOMBI_ASSET;
+  const scale=heavy?ZUBROKRYPTYDA_VISUAL_SCALE:stork?BOCIANOLAK_VISUAL_SCALE:BOBROZOMBI_VISUAL_SCALE;
+  const offset=heavy?ZUBROKRYPTYDA_FEET_OFFSET:stork?BOCIANOLAK_FEET_OFFSET:BOBROZOMBI_FEET_OFFSET;
   const artKey=type+'-art',facingKey=type+'-facing';
   const containers=new Set();
   let alive=true,ready=false,failed=false;
@@ -31,7 +36,18 @@ function createEnemyRenderer(scene,Phaser,type){
   };
   const create=(x,y)=>{
     const container=scene.add.container(x,y).setDepth(9);
-    if(stork){
+    if(heavy){
+      // Distinctive massive horned beast, present even without optional approved PNG.
+      container.add(scene.add.ellipse(0,-27,98,69,0x554833).setStrokeStyle(4,0x292923));
+      container.add(scene.add.ellipse(0,-51,67,49,0x6d5c41).setStrokeStyle(3,0x30291f));
+      container.add(scene.add.triangle(-39,-71,-59,-87,-34,-66,-18,-79,0xd9c7a0));
+      container.add(scene.add.triangle(39,-71,18,-79,34,-66,59,-87,0xd9c7a0));
+      container.add(scene.add.ellipse(0,-42,31,25,0x907959));
+      container.add(scene.add.circle(-15,-57,4,0xe8b46e));
+      container.add(scene.add.circle(15,-57,4,0xe8b46e));
+      container.add(scene.add.rectangle(-28,10,15,33,0x392f25));
+      container.add(scene.add.rectangle(28,10,15,33,0x392f25));
+    }else if(stork){
       // Small visible stork silhouette remains playable when the approved PNG is absent.
       container.add(scene.add.ellipse(0,-13,23,40,0xe4e0d3).setStrokeStyle(2,0x343137));
       container.add(scene.add.ellipse(0,-39,16,26,0xf2ead6).setStrokeStyle(2,0x343137));

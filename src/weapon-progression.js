@@ -31,15 +31,15 @@ export function dropPoint(enemy,obstacles){
  }
  return null;
 }
-export function safeEnemySpawn(player,obstacles,index){
- const r=ENCOUNTER.enemyRadius+25;
+export function safeEnemySpawn(player,obstacles,index,radius=ENCOUNTER.enemyRadius){
+ const r=radius+25;
  const options=[
   {x:r,y:r},{x:ARENA.width-r,y:r},{x:ARENA.width-r,y:ARENA.height-r},{x:r,y:ARENA.height-r},
   {x:ARENA.width/2,y:r},{x:ARENA.width-r,y:ARENA.height/2},{x:ARENA.width/2,y:ARENA.height-r},{x:r,y:ARENA.height/2}
  ];
  for(let i=0;i<options.length;i++){
   const point=options[(index+i)%options.length];
-  if(Math.hypot(point.x-player.x,point.y-player.y)>=ENCOUNTER.minSpawnDistance&&clearPoint(point,obstacles,ENCOUNTER.enemyRadius+4))return point;
+  if(Math.hypot(point.x-player.x,point.y-player.y)>=ENCOUNTER.minSpawnDistance&&clearPoint(point,obstacles,radius+4))return point;
  }
  return null;
 }

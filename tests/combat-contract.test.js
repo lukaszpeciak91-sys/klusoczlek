@@ -29,11 +29,13 @@ test('8 direction single-pose frame mapping and manifest',()=>{
  assert.equal(bobrozombi.path,'enemies/bobrozombi.png');
  assert.equal(bobrozombi.width,768);assert.equal(bobrozombi.height,96);
  assert.equal(bobrozombi.frameWidth,96);assert.equal(bobrozombi.frameHeight,96);
- for(const id of ['zubrokryptyda','enemy_fast']){
+ for(const id of ['enemy_fast']){
   const enemy=chars.find(a=>a.id===id);
   assert.equal(enemy.width,384);assert.equal(enemy.height,48);
   assert.equal(enemy.frameWidth,48);assert.equal(enemy.frameHeight,48);
  }
+ const heavy=chars.find(a=>a.id==='zubrokryptyda');
+ assert.deepEqual([heavy.width,heavy.height,heavy.frameWidth,heavy.frameHeight],[1536,192,192,192]);
  for(const w of assetManifest.filter(a=>a.id.startsWith('weapon_'))){assert.equal(w.columns,3);assert.equal(w.rows,1);}
  assert.equal(assetManifest.find(a=>a.id==='dialogue_aloes').approval,'approved_identity');
  assert.ok(!validateAssetManifest([...assetManifest,assetManifest[0]]));

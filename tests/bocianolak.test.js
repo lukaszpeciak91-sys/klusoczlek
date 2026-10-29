@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {ENEMY_TYPES,ENEMY_SCHEDULE,TOTAL_ENEMIES,moveEnemy} from '../src/enemy-types.js';
 import {BOCIANOLAK_ASSET,BOCIANOLAK_VISUAL_SCALE,BOCIANOLAK_FEET_OFFSET,bobrozombiFrame} from '../src/enemy-visual.js';
 import {validateAssetManifest,assetManifest} from '../src/asset-manifest.js';
-test('28 deterministic mixed enemies, starts with three beavers',()=>{
- assert.equal(TOTAL_ENEMIES,28);
+test('32 deterministic mixed enemies, starts with three beavers',()=>{
+ assert.equal(TOTAL_ENEMIES,32);
  assert.equal(ENEMY_SCHEDULE.filter(x=>x==='bobrozombi').length,18);
  assert.equal(ENEMY_SCHEDULE.filter(x=>x==='bocianolak').length,10);
+ assert.equal(ENEMY_SCHEDULE.filter(x=>x==='zubrokryptyda').length,4);
  assert.deepEqual(ENEMY_SCHEDULE.slice(0,3),['bobrozombi','bobrozombi','bobrozombi']);
  assert.ok(ENEMY_SCHEDULE.slice(3,16).includes('bocianolak'));
 });
