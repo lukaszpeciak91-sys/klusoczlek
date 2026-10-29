@@ -911,6 +911,7 @@ try {
   })()`);
   await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
+    a.hpFace.setHp(5); // Avoid removing an in-use Canvas texture; still test delayed HP2 -> HP4 race.
     for(const n of [2,4])a.textures.remove('aloes-hud-hp_'+n);
     return true;
   })()`);
