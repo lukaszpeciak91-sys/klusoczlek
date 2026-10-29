@@ -577,6 +577,19 @@ try {
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[5,10]);
   console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 66 unique deaths');
+  // The actual 66th gameplay death must leave a live burst throughout the final narrative.
+  const finalBurstAtStart=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,kills:a.kills,active:a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length}})()");
+  assert.equal(finalBurstAtStart.kills,66);
+  assert.equal(finalBurstAtStart.state,'final-pending');
+  assert.equal(finalBurstAtStart.id,'after-final-enemy');
+  assert.equal(finalBurstAtStart.active,true,'Final enemy burst must exist at final-pending boundary');
+  const finalShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/combat-feedback-final-enemy-active.png',Buffer.from(finalShot.data,'base64'));
+  await sleep(560);
+  const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended}})()");
+  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false},'Death bursts must complete while final narrative freezes combat');
+  const finalAfterShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/combat-feedback-final-enemy-expired.png',Buffer.from(finalAfterShot.data,'base64'));
   await sleep(120);
   const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,id:a.dialogueState.id,first:a.consumeNarrativeBoundary('after-final-enemy')}})()");
   assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'after-final-enemy',first:false},'Final dialogue must own the consumed one-shot boundary');
@@ -868,8 +881,10 @@ try {
     const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
     const x=e.x,y=e.y;
     a.markNarrativeBoundary('before-first-bocianolak');
-    return {id:a.dialogueState.id,paused:a.physics.world.isPaused,x,y};
+    return {id:a.dialogueState.id,paused:a.physics.world.isPaused,x,y,active:a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length};
   })()`);
+  assert.equal(life.active,true,'Dialogue started without an active enemy death burst');
+  assert.ok(life.count>0);
   assert.equal(life.id,'before-first-bocianolak');
   assert.equal(life.paused,true);
   await sleep(520);
