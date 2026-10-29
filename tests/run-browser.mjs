@@ -117,6 +117,8 @@ try {
         if(!status.ready){await sleep(60);continue;}
         if(status.id!=='before-wave-1')break;
         assert.equal(await evaluate("window.__game.scene.getScene('Arena').physics.world.isPaused"),true,'Opening must freeze combat');
+        const sticks=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].map(j=>({visible:j.base.visible,knob:j.knob.visible,enabled:j.enabled,held:j.held,pointer:j.pointerId}))})()");
+        assert.ok(sticks.every(j=>!j.visible&&!j.knob&&!j.enabled&&!j.held&&j.pointer===null),'Both sticks must be disabled during dialogue '+JSON.stringify(sticks));
         if(status.index===0){
           for(const [width,height] of [[320,240],[568,320],[800,360]]){
             await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
@@ -133,6 +135,9 @@ try {
         await click(rect.x+status.button.x,rect.y+status.button.y);
       }
       assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null,'Opening failed to complete');
+      const restored=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].map(j=>({visible:j.base.visible,knob:j.knob.visible,enabled:j.enabled,held:j.held,pointer:j.pointerId}))})()");
+      assert.ok(restored.every(j=>j.visible&&j.knob&&j.enabled&&!j.held&&j.pointer===null),'Sticks must restore without stale captures '+JSON.stringify(restored));
+
     }
   }
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
