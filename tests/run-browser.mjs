@@ -86,6 +86,11 @@ try {
       socket.send(JSON.stringify({ id, method, params }));
     });
   }
+  socket.addEventListener('message', event=>{
+    const message=JSON.parse(event.data);
+    if(message.method==='Runtime.exceptionThrown')console.log('PHASER UNCAUGHT EXCEPTION',JSON.stringify(message.params.exceptionDetails));
+  });
+  await cdp('Runtime.enable');
   async function evaluate(expression) {
     const response = await cdp('Runtime.evaluate', {expression, returnByValue:true, awaitPromise:true});
     if(response.exceptionDetails) throw Error('Browser JavaScript: '+JSON.stringify(response.exceptionDetails));
