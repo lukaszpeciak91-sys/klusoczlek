@@ -996,6 +996,43 @@ try {
   console.log('PASS real Chromium DALEJ: Bocianołak and Żubrokryptyda full conversations');
 
 
+  // Combat Feedback V1: actual Arena frame, actual accepted contact and real render objects.
+  if(!(await snapshot()).menu)await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'combat feedback reset menu');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'combat feedback Arena');
+  const contactBefore=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
+    a.player.body.reset(900,600);e.x=922;e.y=600;
+    a.setPlayerHp(5);a.invulnerableUntil=0;
+    return {hp:a.playerHp,enemy:e.type,playerX:a.player.x,enemyX:e.x};
+  })()`);
+  await sleep(125);
+  const contactAfter=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
+    const fx=a.enemyRenderers[e.type].feedbackOf(e);
+    return {hp:a.playerHp,at:fx.attackAt,now:a.time.now,bodyX:e.x,playerX:a.player.x};
+  })()`);
+  assert.equal(contactAfter.hp,contactBefore.hp-1,'Contact event must remain exactly one HP');
+  assert.ok(contactAfter.at>0&&contactAfter.at<=contactAfter.now,'Accepted contact did not animate');
+  const screen=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/combat-feedback-contact.png',Buffer.from(screen.data,'base64'));
+  const afterEnemyDeath=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
+    e.hp=0;const first=a.finalizeEnemyDeath(e),second=a.finalizeEnemyDeath(e);
+    return {first,second,kills:a.kills,bursts:a.deathBursts.length,graphics:a.deathBursts[0]?.graphics.active};
+  })()`);
+  assert.deepEqual(afterEnemyDeath,{first:true,second:false,kills:1,bursts:1,graphics:true});
+  const enemyDeathShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/combat-feedback-enemy-death.png',Buffer.from(enemyDeathShot.data,'base64'));
+  await evaluate("window.__game.scene.getScene('Arena').setPlayerHp(0)");
+  await waitFor(v=>v.menu&&v.arenaPaused,'combat feedback fatal player');
+  assert.equal(await evaluate("window.__game.scene.getScene('Menu').terminalBurst?.graphics.active"),true,'Aloes death burst not visible in terminal Menu');
+  const deathShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/combat-feedback-aloes-death.png',Buffer.from(deathShot.data,'base64'));
+  console.log('PASS real Chromium contact lunge, single HP loss, exactly-once enemy pixel death, terminal Aloes red disintegration');
+
+
 
 
 
