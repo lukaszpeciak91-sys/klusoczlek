@@ -11,7 +11,7 @@ function ignored(path) {
  return r.status===0;
 }
 test('every manifest directory is tracked by a .gitkeep',()=>{
- assert.deepEqual(dirs,['dialogue','enemies','obstacles','pickups','player','portraits','terrain','weapons']);
+ assert.deepEqual(dirs,['dialogue','enemies','obstacles','player','portraits','terrain','weapons']);
  for(const dir of dirs){
   assert.ok(existsSync('public/assets/'+dir+'/.gitkeep'),dir);
   assert.equal(ignored('public/assets/'+dir+'/.gitkeep'),false,dir);
