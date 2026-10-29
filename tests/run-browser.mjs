@@ -1109,6 +1109,9 @@ try {
   for(const [type,id] of [['bocianolak','before-first-bocianolak'],['zubrokryptyda','before-first-zubrokryptyda']]){
     const state=await evaluate(`(()=>{
       const a=window.__game.scene.getScene('Arena'),id='${id}',type='${type}',view=a.cameras.main.worldView;
+      if(!a.__r1SavedEnemies)a.__r1SavedEnemies=a.enemies;
+      else for(const e of a.enemies)e.sprite.destroy();
+      a.enemies=[];
       a.introducedEnemyTypes.delete(id);a.pendingIntroductions.delete(id);a.narrativeEvents.delete(id);
       const original=a.createEnemy(type,{x:view.x-150,y:view.y+view.height/2},61);
       a.enemies.push(original);a.pendingIntroductions.set(id,original);
@@ -1139,6 +1142,7 @@ try {
     }
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
   }
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();a.enemies=a.__r1SavedEnemies;delete a.__r1SavedEnemies;return true})()");
   console.log('PASS Chromium PR36 R1: original offscreen/dead, later visible living replacement, pending once-only narrative');
 
 
