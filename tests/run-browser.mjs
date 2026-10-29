@@ -878,11 +878,17 @@ try {
   assert.equal(faceDamage.before,faceDamage.after,'Same HP retriggered portrait damage pulse');
   // A living Arena with a dialogue must freeze combat while game-clock VFX expires.
   const life=await evaluate(`(()=>{
-    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
+    const a=window.__game.scene.getScene('Arena'),victim=a.enemies.find(v=>!v.dead);
+    victim.hp=0;
+    const accepted=a.finalizeEnemyDeath(victim);
+    const e=a.enemies.find(v=>!v.dead);
+    if(!e)throw Error('Need a living enemy to assert narrative freeze');
     const x=e.x,y=e.y;
+    const activeBefore=a.deathBursts.some(v=>v.graphics.active&&!v.done);
     a.markNarrativeBoundary('before-first-bocianolak');
-    return {id:a.dialogueState.id,paused:a.physics.world.isPaused,x,y,active:a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length};
+    return {accepted,id:a.dialogueState.id,paused:a.physics.world.isPaused,x,y,active:activeBefore&&a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length};
   })()`);
+  assert.equal(life.accepted,true);
   assert.equal(life.active,true,'Dialogue started without an active enemy death burst');
   assert.ok(life.count>0);
   assert.equal(life.id,'before-first-bocianolak');
