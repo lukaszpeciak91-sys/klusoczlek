@@ -14,6 +14,7 @@ export function createJoystick(scene, side='left') {
   const direction = { x: 0, y: 0 };
   let pointerId = null;
   let held=false;
+  let enabled=true;
   const update = pointer => {
     // Pointer coordinates are screen-local; joystick elements ignore camera scrolling.
     const dx = pointer.x - x;
@@ -26,20 +27,26 @@ export function createJoystick(scene, side='left') {
     knob.setPosition(x + direction.x * radius, y + direction.y * radius);
   };
   const down = pointer => {
-    if (pointerId !== null) return;
+    if (!enabled || !scene.sys.isActive() || pointerId !== null) return;
     if (Math.hypot(pointer.x - x, pointer.y - y) > radius * 1.4) return;
     if(pointer.wasTouch===false)return;
     pointerId = pointer.id;
     held=true;
     update(pointer);
   };
-  const move = pointer => { if (pointer.id === pointerId) update(pointer); };
+  const move = pointer => { if (enabled && pointer.id === pointerId) update(pointer); };
   const release = pointer => { if (pointer.id === pointerId) reset(); };
   function reset() {
     pointerId = null;
     held=false;
     direction.x = direction.y = 0;
     knob.setPosition(x, y);
+  }
+  function setEnabled(value) {
+    enabled=Boolean(value);
+    reset();
+    base.setVisible(enabled);
+    knob.setVisible(enabled);
   }
   scene.input.on('pointerdown', down);
   scene.input.on('pointermove', move);
@@ -61,5 +68,5 @@ export function createJoystick(scene, side='left') {
     base.setPosition(x, y);
     knob.setPosition(x, y);
   }
-  return { direction, reset, reposition, get held(){return held;},get pointerId(){return pointerId;} };
+  return { direction, reset, reposition, setEnabled, get enabled(){return enabled;},get base(){return base;},get knob(){return knob;},get held(){return held;},get pointerId(){return pointerId;} };
 }

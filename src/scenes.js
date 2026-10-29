@@ -253,9 +253,14 @@ export class ArenaScene extends Phaser.Scene {
       this.stopWeaponFire();
       this.input.keyboard.resetKeys();
     };
-    this.onBlur = () => { this.resetMovement(); this.physics.world.pause(); };
+    this.syncJoysticks=()=>{
+      const allowed=!this.dialogueLoading&&!this.dialogueState?.id&&this.canResume()&&!this.scene.isPaused('Arena')&&!this.episode.ended;
+      this.joystick.setEnabled(allowed);this.aimJoystick.setEnabled(allowed);
+    };
+    this.onBlur = () => { this.resetMovement(); this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);this.physics.world.pause(); };
     this.canResume = () => !document.hidden && document.hasFocus() && window.innerWidth >= window.innerHeight;
     this.onFocus = () => {
+      this.syncJoysticks();
       if (this.canResume() && !this.dialogueLoading && !this.dialogueState?.id && !this.scene.isPaused('Arena')) {
         this.physics.world.resume();
       }
@@ -263,6 +268,7 @@ export class ArenaScene extends Phaser.Scene {
     // Resume is delivered by Phaser after the Arena scene state switches.
     this.events.on(Phaser.Scenes.Events.RESUME, () => {
       document.getElementById('fullscreen-button').hidden = true;
+      this.syncJoysticks();
       if (this.canResume() && !this.dialogueLoading && !this.dialogueState?.id) this.physics.world.resume();
       else this.physics.world.pause();
     });
@@ -307,10 +313,12 @@ export class ArenaScene extends Phaser.Scene {
       if(this.canResume())this.physics.world.resume();
       if(id==='after-final-enemy')this.releaseFinalOutcome();
       this.resetMovement();
+      this.syncJoysticks();
     });
     // Opening boundary was already queued in create, before UI existed.
     // No combat update runs while assets load or an opening line is visible.
     this.dialogueLoading=true;
+    this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
     this.cameras.main.fadeOut(1,0,0,0);
     this.time.paused=true;
     this.physics.world.pause();
@@ -353,6 +361,7 @@ export class ArenaScene extends Phaser.Scene {
       if(!beginDialogue(this.dialogueState,id))return false;
       if(id==='after-final-enemy')this.holdFinalOutcome();
       this.resetMovement();this.physics.world.pause();this.time.paused=true;
+      this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
       this.dialoguePanel.show(this.dialogueState);
       return true;
     }
@@ -614,6 +623,7 @@ export class ArenaScene extends Phaser.Scene {
   openMenu() {
     if (this.scene.isPaused('Arena') || this.scene.isActive('Menu')) return;
     this.resetMovement();
+    this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
     this.flameStream.clear();
     this.physics.world.pause();
     this.scene.pause();
