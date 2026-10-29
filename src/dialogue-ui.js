@@ -14,9 +14,9 @@ export function createDialoguePanel(scene,Phaser,onFinish){
  const initial=scene.add.text(0,0,'?',{fontFamily:'monospace',fontSize:'28px',color:'#f4deb0'}).setOrigin(0.5);
  const speaker=scene.add.text(0,0,'',{fontFamily:'monospace',fontSize:'16px',fontStyle:'bold',color:'#f0c97f'}).setOrigin(0);
  const text=scene.add.text(0,0,'',{fontFamily:'monospace',fontSize:'15px',color:'#f5ead7',wordWrap:{width:350,useAdvancedWrap:true}}).setOrigin(0);
- const button=scene.add.rectangle(0,0,85,32,0x4e4030).setStrokeStyle(1,0xdac184).setInteractive({useHandCursor:true});
- const caption=scene.add.text(0,0,'DALEJ',{fontFamily:'monospace',fontSize:'15px',color:'#fff4db'}).setOrigin(0.5);
- shell.add([bg,portraitBox,initial,speaker,text,button,caption]);
+ const button=scene.add.rectangle(0,0,85,32,0x4e4030).setStrokeStyle(1,0xdac184).setScrollFactor(0).setDepth(112).setInteractive({useHandCursor:true}).setVisible(false);
+ const caption=scene.add.text(0,0,'DALEJ',{fontFamily:'monospace',fontSize:'15px',color:'#fff4db'}).setOrigin(0.5).setScrollFactor(0).setDepth(113).setVisible(false);
+ shell.add([bg,portraitBox,initial,speaker,text]);
  const images=new Map();
  let disposed=false,active=false,blockedUntil=0;
  const layout=()=>{
@@ -70,14 +70,14 @@ export function createDialoguePanel(scene,Phaser,onFinish){
   blockedUntil=scene.game.loop.time+180;
   const ended=advanceDialogue(scene.dialogueState);
   if(ended==='next'){render(scene.dialogueState);return;}
-  if(ended){active=false;shell.setVisible(false);onFinish(ended);}
+  if(ended){active=false;shell.setVisible(false);button.setVisible(false);caption.setVisible(false);onFinish(ended);}
  });
  const resize=()=>{if(!disposed)layout();};
  scene.scale.on(Phaser.Scale.Events.RESIZE,resize);
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
-  disposed=true;scene.scale.off(Phaser.Scale.Events.RESIZE,resize);shell.destroy();images.clear();
+  disposed=true;scene.scale.off(Phaser.Scale.Events.RESIZE,resize);shell.destroy();button.destroy();caption.destroy();images.clear();
  });
  layout();
- return {loading,loaded,get active(){return active;},show(state){active=true;blockedUntil=scene.game.loop.time+180;render(state);layout();shell.setVisible(true);},
-  hide(){active=false;shell.setVisible(false);},get shell(){return shell;},get button(){return button;},get text(){return text;}};
+ return {loading,loaded,get active(){return active;},show(state){active=true;blockedUntil=scene.game.loop.time+180;render(state);layout();shell.setVisible(true);button.setVisible(true);caption.setVisible(true);},
+  hide(){active=false;shell.setVisible(false);button.setVisible(false);caption.setVisible(false);},get shell(){return shell;},get button(){return button;},get text(){return text;}};
 }
