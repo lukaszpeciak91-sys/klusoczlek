@@ -182,8 +182,6 @@ export class ArenaScene extends Phaser.Scene {
       for(const event of ['pointerup','pointerupoutside','pointercancel'])this.input.off(event,mouseUp);
     });
     const hud = this.hudLayout;
-    this.hudPanel=this.add.rectangle(hud.panelX,hud.panelY,hud.panelWidth,hud.panelHeight,0x251c17,0.72)
-      .setOrigin(0,0).setStrokeStyle(1,0x94794e,0.76).setScrollFactor(0).setDepth(58);
     const menuButton = this.add.rectangle(hud.menuX, hud.menuY, hud.menuWidth, hud.menuHeight, COLORS.panel)
       .setStrokeStyle(3, COLORS.border).setScrollFactor(0).setDepth(60)
       .setInteractive({ useHandCursor: true });
@@ -201,7 +199,6 @@ export class ArenaScene extends Phaser.Scene {
       this.aimJoystick.reposition(pos.aimX,pos.aimY);
       this.mouseHeld=false;
       this.stopWeaponFire();
-      this.hudPanel.setPosition(pos.panelX,pos.panelY).setSize(pos.panelWidth,pos.panelHeight);
       this.weaponToken.setPosition(pos.weaponX,pos.weaponY);
       this.weaponToken.setScale(pos.tokenSize/42);
       this.skullIcon.setPosition(pos.skullX,pos.skullY).setFontSize(pos.skullSize);
