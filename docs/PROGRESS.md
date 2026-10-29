@@ -225,3 +225,11 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Bobrozombi: 1.8 Hz, ±3° sway, 1.8 px vertical shuffle; Bocianołak: 2.7 Hz, ±2°, 2.8 px; Żubrokryptyda: 1.1 Hz, ±1.5°, 1.2 px. Sprite scales and feet offsets retained. Counter-offset keeps rotating image feet anchored to enemy container.
 - Motion applies to loaded PNG sprites only; procedural fallbacks remain static. No authored animation frames: directional 8-frame poses retain inherent silhouette constraints. No per-enemy tweens/timers/assets.
 - User-approved PNG appearance on physical Android requires manual visual acceptance. No merge or deploy.
+
+## Episode 1 — Part A, six-wave foundation (independent audit pending)
+- Six deterministic waves of 8/10/12/12/12/12 (66 total), max alive 3/3/4/4/4/5, species Bobrozombi then Bocianołak then Żubrokryptyda, preserving existing type stats. Wave scheduler is pure and lives in src/episode.js.
+- A wave only clears after its quota spawned and died; 3000ms Phaser-game-time intermissions. The pause state freezes time. FALA X/6 announcement.
+- Neutral procedural ♥ health token (+2 HP, capped at 5, not consumed at full HP) awarded after waves 2, 4 and 5, with retry for unavailable safe placement and no beer assets.
+- Mutually exclusive episode states: active, intermission, final-pending, victory or defeat. Victory from final-pending after final enemy death, allowing Part B dialogue before terminal outcome. Defeat wins if simultaneous.
+- One-shot narrative boundary names: before-wave-1, before-first-bocianolak, before-first-zubrokryptyda, after-final-enemy. No cutscene content now.
+- Existing HUD V2.1, player visuals, combat, enemy balancing and approved assets retained; no binary changes.
