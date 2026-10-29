@@ -863,7 +863,32 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_3');
   const faceDamage=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const before=a.hpFace.pulse;a.setPlayerHp(3);return {before,after:a.hpFace.pulse}})()");
   assert.equal(faceDamage.before,faceDamage.after,'Same HP retriggered portrait damage pulse');
-  await evaluate("window.__game.scene.getScene('Arena').setPlayerHp(0)");
+  // A living Arena with a dialogue must freeze combat while game-clock VFX expires.
+  const life=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
+    const x=e.x,y=e.y;
+    a.markNarrativeBoundary('before-first-bocianolak');
+    return {id:a.dialogueState.id,paused:a.physics.world.isPaused,x,y};
+  })()`);
+  assert.equal(life.id,'before-first-bocianolak');
+  assert.equal(life.paused,true);
+  await sleep(520);
+  const finished=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
+    return {id:a.dialogueState.id,count:a.deathBursts.length,x:e.x,y:e.y};
+  })()`);
+  assert.equal(finished.count,0,'Death particles leaked across dialogue');
+  assert.equal(finished.id,'before-first-bocianolak');
+  assert.equal(finished.x,life.x);assert.equal(finished.y,life.y);
+  // Dismiss the narrative before verifying terminal presentation.
+  for(let i=0;i<3;i++){
+    await sleep(205);
+    const pos=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
+    const rect=(await snapshot()).rect;
+    await click(rect.x+pos.x,rect.y+pos.y);
+  }
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
+    await evaluate("window.__game.scene.getScene('Arena').setPlayerHp(0)");
   await sleep(60);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.current"),'hp_1');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_1');
@@ -1031,7 +1056,29 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Menu').terminalBurst?.graphics.active"),true,'Aloes death burst not visible in terminal Menu');
   const deathShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile('dist/combat-feedback-aloes-death.png',Buffer.from(deathShot.data,'base64'));
-  console.log('PASS real Chromium contact lunge, single HP loss, exactly-once enemy pixel death, terminal Aloes red disintegration');
+  const presentation=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),m=window.__game.scene.getScene('Menu');
+    const origin=a.cameras.main.getWorldPoint(0,0);
+    return {hidden:a.playerVisual.sprite?.visible===false,bodyHidden:a.player.visible===false,
+      x:m.terminalBurst.graphics.x,y:m.terminalBurst.graphics.y,
+      expectedX:(a.player.x-origin.x)*a.cameras.main.zoom,
+      expectedY:(a.player.y-origin.y)*a.cameras.main.zoom,
+      active:m.terminalBurst.graphics.active};
+  })()`);
+  assert.equal(presentation.hidden,true,'Original Aloes sprite remains visible under death');
+  assert.equal(presentation.bodyHidden,true);
+  assert.equal(presentation.active,true);
+  // Graphics draws absolute screen coordinates; its own origin stays at (0,0).
+  assert.equal(presentation.x,0);assert.equal(presentation.y,0);
+  for(const [name,delay] of [['mid',145],['late',135]]){
+    await sleep(delay);
+    const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile('dist/combat-feedback-aloes-'+name+'.png',Buffer.from(png.data,'base64'));
+  }
+  await sleep(260);
+  assert.equal(await evaluate("window.__game.scene.getScene('Menu').terminalBurst.done"),true,'Terminal burst failed to expire');
+  assert.equal(await evaluate("window.__game.scene.getScene('Menu').terminalBurst.graphics.active"),false,'Terminal death Graphics leaked');
+    console.log('PASS real Chromium contact lunge, single HP loss, exactly-once enemy pixel death, terminal Aloes red disintegration');
 
 
 
