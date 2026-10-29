@@ -861,6 +861,42 @@ try {
   socket.removeEventListener('message',portraitFetch);
   console.log('PASS delayed portrait fetch races: old HP2 load cannot overwrite current HP4');
 
+  // Real Phaser heart pickup and pause-frozen intermission, on a clean Arena session.
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'episode health test menu');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'episode health test arena');
+  const heart=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),point={x:a.player.x,y:a.player.y};
+    a.addPickup('health',point);a.collectPickups();
+    const full={hp:a.playerHp,persist:a.pickups.some(p=>p.id==='health')};
+    a.setPlayerHp(3);a.collectPickups();
+    const healed={hp:a.playerHp,remaining:a.pickups.filter(p=>p.id==='health').length,face:a.hpFace.current};
+    a.setPlayerHp(1);a.addPickup('health',point);a.collectPickups();
+    const low={hp:a.playerHp,face:a.hpFace.current};
+    a.setPlayerHp(5);return {full,healed,low};
+  })()`);
+  assert.deepEqual(heart,{full:{hp:5,persist:true},healed:{hp:5,remaining:0,face:'hp_5'},low:{hp:3,face:'hp_3'}});
+  const wavePause=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    a.episode.wave=1;a.episode.spawned=10;a.episode.defeated=10;
+    a.episode.state='intermission';a.episode.intermissionUntil=a.time.now+800;
+    a.spawnDueAt=null;
+    return {before:a.time.now,state:a.episode.state};
+  })()`);
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'episode intermission pause');
+  const pausedClock=await evaluate("window.__game.scene.getScene('Arena').time.now");
+  await sleep(260);
+  const pausedClockAfter=await evaluate("window.__game.scene.getScene('Arena').time.now");
+  assert.equal(pausedClockAfter,pausedClock,'Intermission advanced while Arena paused');
+  await clickControl('WZNÓW');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'episode intermission resume');
+  await sleep(950);
+  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,narrative:a.consumeNarrativeBoundary('before-first-zubrokryptyda'),once:a.consumeNarrativeBoundary('before-first-zubrokryptyda')}})()"),{wave:2,state:'active',narrative:true,once:false});
+  console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal, portrait and frozen/renewed intermission with one-shot narrative boundary');
+
+
 
 
 
