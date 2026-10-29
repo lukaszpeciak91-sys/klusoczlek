@@ -111,6 +111,29 @@ try {
     assert.ok(target,'Missing '+which+' interactive hit area '+JSON.stringify(state));
     assert.ok(target.y-target.height/2>=0&&target.y+target.height/2<=state.rect.height,'Button clipped: '+which);
     await click(state.rect.x+target.x,state.rect.y+target.y);
+    if(which==='NOWA GRA'){
+      for(let k=0;k<60;k++){
+        const status=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {ready:!!a.dialoguePanel&&!a.dialogueLoading,id:a.dialogueState?.id??null,index:a.dialogueState?.index??0,button:a.dialoguePanel?.button?{x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}:null}})()");
+        if(!status.ready){await sleep(60);continue;}
+        if(status.id!=='before-wave-1')break;
+        assert.equal(await evaluate("window.__game.scene.getScene('Arena').physics.world.isPaused"),true,'Opening must freeze combat');
+        if(status.index===0){
+          for(const [width,height] of [[320,240],[568,320],[800,360]]){
+            await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+            await evaluate('window.__game.scale.refresh();true');await sleep(80);
+            const geometry=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.dialoguePanel,t=p.text.getBounds(),b=p.button.getBounds();return {width:a.scale.width,height:a.scale.height,text:{x:t.x,y:t.y,right:t.right,bottom:t.bottom},button:{x:b.x,y:b.y,right:b.right,bottom:b.bottom},line:p.text.text}})()");
+            assert.ok(geometry.button.x>=0&&geometry.button.y>=0&&geometry.button.right<=width&&geometry.button.bottom<=height,'DALEJ bounds '+JSON.stringify(geometry));
+            assert.ok(geometry.text.x>=0&&geometry.text.right<=width&&geometry.text.bottom<=geometry.button.y+1,'Dialogue overlaps DALEJ '+JSON.stringify(geometry));
+            const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+            await writeFile('dist/dialogue-opening-'+width+'x'+height+'.png',Buffer.from(shot.data,'base64'));
+          }
+        }
+        const rect=(await snapshot()).rect;
+        await sleep(205);
+        await click(rect.x+status.button.x,rect.y+status.button.y);
+      }
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null,'Opening failed to complete');
+    }
   }
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
   await waitFor(s=>s.menu&&s.actions.length===1&&s.actions[0].label==='NOWA GRA','initial single new game');
@@ -555,9 +578,19 @@ try {
   assert.deepEqual(progression.markers,[5,10]);
   console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 66 unique deaths');
   await sleep(120);
-  const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,first:a.consumeNarrativeBoundary('after-final-enemy'),second:a.consumeNarrativeBoundary('after-final-enemy')}})()");
-  assert.deepEqual(heldFinal,{state:'final-pending',held:true,first:true,second:false},'Final dialogue hold must block premature victory');
-  await evaluate("window.__game.scene.getScene('Arena').releaseFinalOutcome()");
+  const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,id:a.dialogueState.id,first:a.consumeNarrativeBoundary('after-final-enemy')}})()");
+  assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'after-final-enemy',first:false},'Final dialogue must own the consumed one-shot boundary');
+  for(let line=0;line<3;line++){
+    const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,state:a.episode.state}})()");
+    assert.equal(before.id,'after-final-enemy');assert.equal(before.index,line);
+    assert.equal(before.state,'final-pending','Victory occurred while dialogue active');
+    await sleep(205);
+    const bounds=(await snapshot()).rect;
+    await click(bounds.x+before.x,bounds.y+before.y);
+    const after=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index}})()");
+    assert.equal(after.id,line===2?null:'after-final-enemy','Final DALEJ tap skipped or failed');
+    if(line<2)assert.equal(after.index,line+1);
+  }
   await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   await clickControl('NOWA GRA');
@@ -942,8 +975,25 @@ try {
   await clickControl('WZNÓW');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'episode intermission resume');
   await sleep(950);
-  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,narrative:a.consumeNarrativeBoundary('before-first-zubrokryptyda'),once:a.consumeNarrativeBoundary('before-first-zubrokryptyda')}})()"),{wave:2,state:'active',narrative:true,once:false});
+  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,dialogue:a.dialogueState.id,narrative:a.consumeNarrativeBoundary('before-first-zubrokryptyda'),once:a.consumeNarrativeBoundary('before-first-zubrokryptyda')}})()"),{wave:2,state:'active',dialogue:'before-first-zubrokryptyda',narrative:false,once:false});
   console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal, portrait and frozen/renewed intermission with one-shot narrative boundary');
+  // The cutscene is now the owner of the consumed heavy-enemy boundary.
+  for(const [id,count] of [['before-first-zubrokryptyda',2],['before-first-bocianolak',3]]){
+    if(id==='before-first-bocianolak'){
+      await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.markNarrativeBoundary('before-first-bocianolak')})()");
+    }
+    for(let i=0;i<count;i++){
+      const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,paused:a.physics.world.isPaused}})()");
+      assert.equal(before.id,id);assert.equal(before.index,i);assert.equal(before.paused,true);
+      await sleep(210);
+      const rect=(await snapshot()).rect;
+      await click(rect.x+before.x,rect.y+before.y);
+      const after=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index}})()");
+      assert.equal(after.id,i===count-1?null:id,'DALEJ must advance exactly one line');
+      if(i<count-1)assert.equal(after.index,i+1);
+    }
+  }
+  console.log('PASS real Chromium DALEJ: Bocianołak and Żubrokryptyda full conversations');
 
 
 

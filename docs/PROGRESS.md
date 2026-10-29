@@ -242,3 +242,12 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Enemy fire VFX is one reusable Graphics instance per ignited enemy; cleared at expiry, death, scene shutdown.
 - Episode definitions, health drops, weapon milestones and narrative boundaries unchanged.
 - Automated pure contract tests and a real Chromium harness extension were added, but execution and visual QA must be verified from actual CI/browser evidence before merge. Physical Android QA remains outstanding.
+
+
+## Episode 1 Part B — dialogue cutscenes (2026-10-29, pending independent audit)
+- Four approved, fixed text sequences use Part A one-shot boundaries and final hold/release.
+- Single Phaser bottom dialogue UI, 192x192 optional RGB/RGBA portraits, square procedural fallback and no binary uploads.
+- Combat update and Phaser Arena clock pause during dialogues; button input remains active. MENU and WZNÓW must not bypass the freeze.
+- Opening starts before any combat update, including while optional portrait loading is pending; pre-spawned wave-one enemies cannot move or damage Aloes.
+- No wave definitions or gameplay balance modified. Browser harness now advances the opening via actual touch events to preserve existing progression tests.
+- IMPORTANT: CI, real Chromium visual and responsiveness checks, and Android manual smoke remain required; no claim of completed execution.
