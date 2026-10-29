@@ -57,5 +57,5 @@ test('both types use the shared renderer and retain death cleanup',()=>{
  assert.match(src,/this\.enemyRenderers\[enemy\.type\]\.update/);
  assert.match(src,/enemy\.sprite\.destroy\(\)/);
  assert.match(src,/renderer\.shutdown\(\)/);
- assert.match(src,/if\(this\.kills===TOTAL_ENEMIES\)/);
+ assert.match(src,/recordDeath\(this\.episode/);
 });
