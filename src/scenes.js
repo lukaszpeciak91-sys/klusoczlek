@@ -294,11 +294,13 @@ export class ArenaScene extends Phaser.Scene {
     // Opening boundary was already queued in create, before UI existed.
     // No combat update runs while assets load or an opening line is visible.
     this.dialogueLoading=true;
+    this.cameras.main.fadeOut(1,0,0,0);
     this.time.paused=true;
     this.physics.world.pause();
     this.dialoguePanel.loading.finally(()=>{
       if(!this.sys.isActive())return;
       this.dialogueLoading=false;
+      this.cameras.main.fadeIn(280,0,0,0);
       this.tryStartDialogue();
     });
     enforceOrientationOnSceneStart(this);
