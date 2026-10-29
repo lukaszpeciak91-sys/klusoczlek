@@ -11,7 +11,9 @@ export const PANIC_PROFILES=Object.freeze({
 export function createIgnitionState(){return {burningUntil:0,panicImmuneUntil:0,ignitedAt:null};}
 export function isBurning(state,now){return state.ignitedAt!==null&&now<state.burningUntil;}
 export function igniteEnemy(state,type,now){
- if(!PANIC_PROFILES[type]||isBurning(state,now)||now<state.panicImmuneUntil)return false;
+ if(!PANIC_PROFILES[type])return false;
+ advanceIgnition(state,now);
+ if(isBurning(state,now)||now<state.panicImmuneUntil)return false;
  state.ignitedAt=now;
  state.burningUntil=now+PANIC_PROFILES[type].duration;
  return true;
