@@ -675,6 +675,26 @@ try {
   }
   assert.deepEqual(gaitProbe.map(e=>e.scale),[0.75,0.65,0.55]);
   console.log('PASS real Phaser enemy gait: three visual-only profiles, distance phase, static enemy containers, idle recovery and original scales');
+  // Preserve the prior one-heavy concurrency regression under wave-local ordering.
+  const heavyQueue=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    const saved={enemies:a.enemies,total:a.totalSpawned,due:a.spawnDueAt,episode:{...a.episode}};
+    const activeHeavy=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
+    a.enemies=[activeHeavy];a.episode.wave=2;a.episode.spawned=11;a.episode.defeated=0;
+    a.episode.state='active';a.totalSpawned=28;a.spawnDueAt=null;
+    a.spawnReplacement();
+    const blocked={total:a.totalSpawned,spawned:a.episode.spawned,retry:a.spawnDueAt!==null};
+    activeHeavy.dead=true;activeHeavy.sprite.destroy();a.enemies=[];
+    a.spawnReplacement();
+    const unblocked={total:a.totalSpawned,spawned:a.episode.spawned,type:a.enemies[0]?.type};
+    for(const e of a.enemies)e.sprite.destroy();
+    a.enemies=saved.enemies;a.totalSpawned=saved.total;a.spawnDueAt=saved.due;
+    Object.assign(a.episode,saved.episode);
+    return {blocked,unblocked};
+  })()`);
+  assert.deepEqual(heavyQueue.blocked,{total:28,spawned:11,retry:true});
+  assert.deepEqual(heavyQueue.unblocked,{total:29,spawned:12,type:'zubrokryptyda'});
+  console.log('PASS wave-local heavy concurrency gate: blocked second heavy stays queued');
   // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
   const combatProbe=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'), aim={x:1,y:0};
