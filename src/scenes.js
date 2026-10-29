@@ -3,6 +3,8 @@ import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
 import {createHpFaceHud} from './hp-face-hud.js';
+import {recordAttack,recordHit} from './combat-feedback.js';
+import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
@@ -95,7 +97,15 @@ export class MenuScene extends Phaser.Scene {
     const fullscreenButton = document.getElementById('fullscreen-button');
     fullscreenButton.hidden = false;
     this.events.once('shutdown', () => { fullscreenButton.hidden = true; });
+    if(defeated){
+      const arena=this.scene.get('Arena');
+      const at=arena.defeatVisualAt||{x:this.scale.width/2,y:this.scale.height/2};
+      this.terminalBurst=createPixelBurst(this,'aloes',at.x,at.y,7);
+    }
     enforceOrientationOnSceneStart(this);
+  }
+  update(){
+    if(this.terminalBurst&&!this.terminalBurst.done)this.terminalBurst.update(this.game.loop.delta);
   }
 }
 
@@ -129,6 +139,7 @@ export class ArenaScene extends Phaser.Scene {
     }
     this.playerBlocker=this.physics.add.collider(this.player,this.obstacleBodies);
     this.explosionEffects=[];
+    this.deathBursts=[];
     this.cameras.main.setBounds(0, 0, ARENA.width, ARENA.height);
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
 
@@ -276,6 +287,7 @@ export class ArenaScene extends Phaser.Scene {
       this.flameCooldowns.clear();
       this.obstacles.length=0;
       this.explosionEffects.length=0;
+      destroyBursts(this.deathBursts);
       this.playerVisual.destroy();
       this.hpFace.destroy();
       // Phaser may have removed the player body before SHUTDOWN; do not access it here.
@@ -324,6 +336,7 @@ export class ArenaScene extends Phaser.Scene {
     const before=this.playerHp;
     this.playerHp=Math.max(0,Math.min(ENCOUNTER.playerMaxHp,Math.floor(next)));
     if(this.playerHp!==before)this.hpFace.setHp(this.playerHp);
+    if(this.playerHp<before)this.playerVisual?.hit(this.lastDamageSource||{x:this.player.x,y:this.player.y-1});
     this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
     if(this.playerHp===0&&!this.episode.ended)this.endEpisode('defeat');
   }
@@ -467,6 +480,7 @@ export class ArenaScene extends Phaser.Scene {
       if(enemy.dead||enemy.hp<=0||!flameTargetVisible(origin,aim,enemy,ENEMY_TYPES[enemy.type].radius,this.obstacles))continue;
       if(!cooldownReady(this.flameCooldowns,enemy,now,tune.damageInterval))continue;
       enemy.hp=applyEnemyHit(enemy.hp,tune.damage);
+      if(enemy.hp>0)this.enemyHit(enemy,origin,now);
       enemy.hitUntil=now+120;
       if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
       else {
@@ -493,6 +507,7 @@ export class ArenaScene extends Phaser.Scene {
     for(const enemy of this.enemies){
       if(enemy.hp>0&&inExplosion(enemy,blocked)){
         enemy.hp=applyEnemyHit(enemy.hp,OBSTACLE_RULES.enemyExplosionDamage);
+        if(enemy.hp>0)this.enemyHit(enemy,blocked,now);
         enemy.hitUntil=now+120;
         if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
         else enemy.sprite.setAlpha(0.45);
@@ -500,6 +515,7 @@ export class ArenaScene extends Phaser.Scene {
     }
     if(inExplosion(this.player,blocked)){
       const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},now);
+      this.lastDamageSource=blocked;
       this.setPlayerHp(hp.hp);this.invulnerableUntil=hp.invulnerableUntil;
       this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
       if(this.playerHp===0)this.endEpisode('defeat');
@@ -518,9 +534,14 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
+  enemyHit(enemy,source,now){
+    if(!enemy.dead&&enemy.hp>0)recordHit(this.enemyRenderers[enemy.type].feedbackOf(enemy),now,source,enemy);
+  }
+
   finalizeEnemyDeath(enemy){
     if(enemy.dead||enemy.hp>0)return false;
     enemy.dead=true;
+    this.deathBursts.push(createPixelBurst(this,enemy.type,enemy.x,enemy.y,enemy.seed));
     enemy.burningFx?.destroy();enemy.burningFx=null;
     clearIgnition(enemy.ignition);
     this.flameCooldowns.delete(enemy);
@@ -573,6 +594,10 @@ export class ArenaScene extends Phaser.Scene {
     if(!terminateEpisode(this.episode,outcome))return;
     this.defeated=outcome==='defeat';this.completed=outcome==='victory';
     this.spawnDueAt=null;this.resetMovement();this.flameStream.clear();this.physics.world.pause();
+    if(outcome==='defeat'){
+      const point=this.cameras.main.getWorldPoint(0,0);
+      this.defeatVisualAt={x:this.player.x-point.x,y:this.player.y-point.y};
+    }
     this.completeText.setText(outcome==='victory'?'ZWYCIĘSTWO!':'KONIEC GRY').setVisible(true);
     this.openMenu();
   }
@@ -646,6 +671,7 @@ export class ArenaScene extends Phaser.Scene {
     else this.flameStream.clear();
     const delta=Math.min(this.game.loop.delta,50);
     this.updateFlameParticles(this.time.now,delta);
+    updateBursts(this.deathBursts,delta);
     if(this.defeated)return;
     const seconds=delta/1000;
     for(const item of this.projectiles){
@@ -658,6 +684,7 @@ export class ArenaScene extends Phaser.Scene {
         if(enemy.hp<=0)continue;
         if(segmentHitsCircle(old,item.object,enemy,ENEMY_TYPES[enemy.type].radius+item.radius)){
           enemy.hp=applyEnemyHit(enemy.hp,item.damage);
+          if(enemy.hp>0)this.enemyHit(enemy,old,this.time.now);
           enemy.hitUntil=this.time.now+120;
           enemy.sprite.setAlpha(0.45);
           item.hit=true;
@@ -698,6 +725,10 @@ export class ArenaScene extends Phaser.Scene {
       if(this.time.now>=enemy.hitUntil)enemy.sprite.setAlpha(1);
       if(Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<=ENEMY_TYPES[enemy.type].radius+17){
         const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},this.time.now);
+        if(hp.hp<this.playerHp){
+          recordAttack(this.enemyRenderers[enemy.type].feedbackOf(enemy),enemy.type,this.time.now,enemy,this.player);
+          this.lastDamageSource=enemy;
+        }
         this.setPlayerHp(hp.hp);
         this.invulnerableUntil=hp.invulnerableUntil;
         this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
