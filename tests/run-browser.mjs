@@ -540,6 +540,7 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.events.on('episode-boundary',(id,scene)=>{if(id==='after-final-enemy')scene.holdFinalOutcome();});return true})()");
   for(let i=0;i<56;i++)typesDefeated.push((await killOne()).type);
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones]}})()");
   assert.equal(progression.kills,66);
@@ -548,10 +549,14 @@ try {
   assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,23);
   assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,8);
   assert.equal(progression.total,66);
-  assert.ok(['final-pending','victory'].includes(await evaluate("window.__game.scene.getScene('Arena').episode.state")),'Final enemy must reach terminal boundary');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'final-pending');
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[5,10]);
   console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 66 unique deaths');
+  await sleep(120);
+  const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,first:a.consumeNarrativeBoundary('after-final-enemy'),second:a.consumeNarrativeBoundary('after-final-enemy')}})()");
+  assert.deepEqual(heldFinal,{state:'final-pending',held:true,first:true,second:false},'Final dialogue hold must block premature victory');
+  await evaluate("window.__game.scene.getScene('Arena').releaseFinalOutcome()");
   await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   await clickControl('NOWA GRA');
