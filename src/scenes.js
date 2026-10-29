@@ -101,6 +101,7 @@ export class MenuScene extends Phaser.Scene {
       const arena=this.scene.get('Arena');
       const at=arena.defeatVisualAt||{x:this.scale.width/2,y:this.scale.height/2};
       this.terminalBurst=createPixelBurst(this,'aloes',at.x,at.y,7);
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.terminalBurst?.destroy());
     }
     enforceOrientationOnSceneStart(this);
   }
@@ -140,6 +141,9 @@ export class ArenaScene extends Phaser.Scene {
     this.playerBlocker=this.physics.add.collider(this.player,this.obstacleBodies);
     this.explosionEffects=[];
     this.deathBursts=[];
+    // VFX runs on the game clock, independent of frozen/paused combat Scene updates.
+    this.onDeathVfxStep=()=>updateBursts(this.deathBursts,this.game.loop.delta);
+    this.game.events.on('step',this.onDeathVfxStep);
     this.cameras.main.setBounds(0, 0, ARENA.width, ARENA.height);
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
 
@@ -287,6 +291,7 @@ export class ArenaScene extends Phaser.Scene {
       this.flameCooldowns.clear();
       this.obstacles.length=0;
       this.explosionEffects.length=0;
+      this.game.events.off('step',this.onDeathVfxStep);
       destroyBursts(this.deathBursts);
       this.playerVisual.destroy();
       this.hpFace.destroy();
@@ -595,8 +600,12 @@ export class ArenaScene extends Phaser.Scene {
     this.defeated=outcome==='defeat';this.completed=outcome==='victory';
     this.spawnDueAt=null;this.resetMovement();this.flameStream.clear();this.physics.world.pause();
     if(outcome==='defeat'){
-      const point=this.cameras.main.getWorldPoint(0,0);
-      this.defeatVisualAt={x:this.player.x-point.x,y:this.player.y-point.y};
+      const screen=this.cameras.main.getWorldPoint(0,0);
+      const zoom=this.cameras.main.zoom;
+      this.defeatVisualAt={x:(this.player.x-screen.x)*zoom,y:(this.player.y-screen.y)*zoom};
+      this.playerVisual.sprite?.setVisible(false);
+      this.player.setVisible(false);
+      this.facingMarker.setVisible(false);
     }
     this.completeText.setText(outcome==='victory'?'ZWYCIĘSTWO!':'KONIEC GRY').setVisible(true);
     this.openMenu();
@@ -671,7 +680,6 @@ export class ArenaScene extends Phaser.Scene {
     else this.flameStream.clear();
     const delta=Math.min(this.game.loop.delta,50);
     this.updateFlameParticles(this.time.now,delta);
-    updateBursts(this.deathBursts,delta);
     if(this.defeated)return;
     const seconds=delta/1000;
     for(const item of this.projectiles){
