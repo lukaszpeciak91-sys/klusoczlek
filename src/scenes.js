@@ -7,7 +7,7 @@ import {recordAttack,recordHit} from './combat-feedback.js';
 import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
-import {introductionVisible,introductionSpawnPoint} from './intro-visibility.js';
+import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
@@ -374,8 +374,10 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   introductionReady(id){
-    const enemy=this.pendingIntroductions.get(id);
-    return !!enemy&&!enemy.dead&&enemy.hp>0&&introductionVisible(enemy.type,enemy.x,enemy.y,this.cameras.main.worldView);
+    const type=id==='before-first-bocianolak'?'bocianolak':'zubrokryptyda';
+    const enemy=eligibleIntroductionEnemy(type,this.enemies,this.cameras.main.worldView);
+    if(enemy)this.pendingIntroductions.set(id,enemy);
+    return !!enemy;
   }
   consumeNarrativeBoundary(id){
     if(!this.narrativeEvents.has(id))return false;
