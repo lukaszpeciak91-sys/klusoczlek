@@ -548,11 +548,10 @@ try {
   assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,23);
   assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,8);
   assert.equal(progression.total,66);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+  assert.ok(['final-pending','victory'].includes(await evaluate("window.__game.scene.getScene('Arena').episode.state")),'Final enemy must reach terminal boundary');
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[5,10]);
   console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 66 unique deaths');
-  await evaluate("window.__game.scene.getScene('Arena').endEpisode('victory')");
   await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   await clickControl('NOWA GRA');
