@@ -251,3 +251,11 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Opening starts before any combat update, including while optional portrait loading is pending; pre-spawned wave-one enemies cannot move or damage Aloes.
 - No wave definitions or gameplay balance modified. Browser harness now advances the opening via actual touch events to preserve existing progression tests.
 - IMPORTANT: CI, real Chromium visual and responsiveness checks, and Android manual smoke remain required; no claim of completed execution.
+
+
+## Combat Feedback V1 (2026-10-29, pending audit)
+- Visual-only contact lunges on accepted player damage, species-specific attack timing, with the existing enemy art gait composition.
+- Accepted enemy hit tint/recoil and Aloes visual-only red recoil; no HP, movement, contact, weapon or arena balance changes.
+- Deterministic bounded red pixel-death bursts drawn in one Graphics object per effect. Enemy death bookkeeping remains immediate. A fatal Aloes burst is rendered in the terminal Menu scene, since Arena is paused.
+- Six waves, 66 enemy composition, the flamethrower panic subsystem and narrative boundaries remain untouched.
+- Unit and Chromium/browser verification must be checked from actual CI; physical Android QA and pixel-art review remain external acceptance gates.

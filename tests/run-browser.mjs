@@ -577,6 +577,19 @@ try {
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[5,10]);
   console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 66 unique deaths');
+  // The actual 66th gameplay death must leave a live burst throughout the final narrative.
+  const finalBurstAtStart=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,kills:a.kills,active:a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length}})()");
+  assert.equal(finalBurstAtStart.kills,66);
+  assert.equal(finalBurstAtStart.state,'final-pending');
+  assert.equal(finalBurstAtStart.id,'after-final-enemy');
+  assert.equal(finalBurstAtStart.active,true,'Final enemy burst must exist at final-pending boundary');
+  const finalShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/combat-feedback-final-enemy-active.png',Buffer.from(finalShot.data,'base64'));
+  await sleep(560);
+  const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended}})()");
+  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false},'Death bursts must complete while final narrative freezes combat');
+  const finalAfterShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/combat-feedback-final-enemy-expired.png',Buffer.from(finalAfterShot.data,'base64'));
   await sleep(120);
   const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,id:a.dialogueState.id,first:a.consumeNarrativeBoundary('after-final-enemy')}})()");
   assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'after-final-enemy',first:false},'Final dialogue must own the consumed one-shot boundary');
@@ -863,7 +876,40 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_3');
   const faceDamage=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const before=a.hpFace.pulse;a.setPlayerHp(3);return {before,after:a.hpFace.pulse}})()");
   assert.equal(faceDamage.before,faceDamage.after,'Same HP retriggered portrait damage pulse');
-  await evaluate("window.__game.scene.getScene('Arena').setPlayerHp(0)");
+  // A living Arena with a dialogue must freeze combat while game-clock VFX expires.
+  const life=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),victim=a.enemies.find(v=>!v.dead);
+    victim.hp=0;
+    const accepted=a.finalizeEnemyDeath(victim);
+    const e=a.enemies.find(v=>!v.dead);
+    if(!e)throw Error('Need a living enemy to assert narrative freeze');
+    const x=e.x,y=e.y;
+    const activeBefore=a.deathBursts.some(v=>v.graphics.active&&!v.done);
+    a.markNarrativeBoundary('before-first-bocianolak');
+    return {accepted,id:a.dialogueState.id,paused:a.physics.world.isPaused,x,y,active:activeBefore&&a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length};
+  })()`);
+  assert.equal(life.accepted,true);
+  assert.equal(life.active,true,'Dialogue started without an active enemy death burst');
+  assert.ok(life.count>0);
+  assert.equal(life.id,'before-first-bocianolak');
+  assert.equal(life.paused,true);
+  await sleep(520);
+  const finished=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
+    return {id:a.dialogueState.id,count:a.deathBursts.length,x:e.x,y:e.y};
+  })()`);
+  assert.equal(finished.count,0,'Death particles leaked across dialogue');
+  assert.equal(finished.id,'before-first-bocianolak');
+  assert.equal(finished.x,life.x);assert.equal(finished.y,life.y);
+  // Dismiss the narrative before verifying terminal presentation.
+  for(let i=0;i<3;i++){
+    await sleep(205);
+    const pos=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
+    const rect=(await snapshot()).rect;
+    await click(rect.x+pos.x,rect.y+pos.y);
+  }
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
+    await evaluate("window.__game.scene.getScene('Arena').setPlayerHp(0)");
   await sleep(60);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.current"),'hp_1');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_1');
@@ -911,6 +957,7 @@ try {
   })()`);
   await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
+    a.hpFace.setHp(5); // Avoid removing an in-use Canvas texture; still test delayed HP2 -> HP4 race.
     for(const n of [2,4])a.textures.remove('aloes-hud-hp_'+n);
     return true;
   })()`);
@@ -994,6 +1041,72 @@ try {
     }
   }
   console.log('PASS real Chromium DALEJ: Bocianołak and Żubrokryptyda full conversations');
+
+
+  // Combat Feedback V1: actual Arena frame, actual accepted contact and real render objects.
+  if(!(await snapshot()).menu)await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'combat feedback reset menu');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'combat feedback Arena');
+  const contactBefore=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
+    a.player.body.reset(900,600);e.x=922;e.y=600;
+    a.setPlayerHp(5);a.invulnerableUntil=0;
+    return {hp:a.playerHp,enemy:e.type,playerX:a.player.x,enemyX:e.x};
+  })()`);
+  await sleep(125);
+  const contactAfter=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
+    const fx=a.enemyRenderers[e.type].feedbackOf(e);
+    return {hp:a.playerHp,at:fx.attackAt,now:a.time.now,bodyX:e.x,playerX:a.player.x};
+  })()`);
+  assert.equal(contactAfter.hp,contactBefore.hp-1,'Contact event must remain exactly one HP');
+  assert.ok(contactAfter.at>0&&contactAfter.at<=contactAfter.now,'Accepted contact did not animate');
+  const screen=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/combat-feedback-contact.png',Buffer.from(screen.data,'base64'));
+  const afterEnemyDeath=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(v=>!v.dead);
+    e.hp=0;const first=a.finalizeEnemyDeath(e),second=a.finalizeEnemyDeath(e);
+    return {first,second,kills:a.kills,bursts:a.deathBursts.length,graphics:a.deathBursts[0]?.graphics.active};
+  })()`);
+  assert.deepEqual(afterEnemyDeath,{first:true,second:false,kills:1,bursts:1,graphics:true});
+  const enemyDeathShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/combat-feedback-enemy-death.png',Buffer.from(enemyDeathShot.data,'base64'));
+  await evaluate("window.__game.scene.getScene('Arena').setPlayerHp(0)");
+  await waitFor(v=>v.menu&&v.arenaPaused,'combat feedback fatal player');
+  assert.equal(await evaluate("window.__game.scene.getScene('Menu').terminalBurst?.graphics.active"),true,'Aloes death burst not visible in terminal Menu');
+  const deathShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await writeFile('dist/combat-feedback-aloes-death.png',Buffer.from(deathShot.data,'base64'));
+  const presentation=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),m=window.__game.scene.getScene('Menu');
+    const origin=a.cameras.main.getWorldPoint(0,0);
+    return {hidden:a.playerVisual.sprite?.visible===false,bodyHidden:a.player.visible===false,
+      x:m.terminalBurst.graphics.x,y:m.terminalBurst.graphics.y,
+      expectedX:(a.player.x-origin.x)*a.cameras.main.zoom,
+      expectedY:(a.player.y-origin.y)*a.cameras.main.zoom,
+      active:m.terminalBurst.graphics.active};
+  })()`);
+  assert.equal(presentation.hidden,true,'Original Aloes sprite remains visible under death');
+  assert.equal(presentation.bodyHidden,true);
+  assert.equal(presentation.active,true);
+  const center=await evaluate("window.__game.scene.getScene('Arena').defeatVisualAt");
+  assert.ok(Math.abs(center.x-presentation.expectedX)<0.01&&Math.abs(center.y-presentation.expectedY)<0.01,'Camera-to-screen projection incorrect');
+  // Graphics draws absolute screen coordinates; its own origin stays at (0,0).
+  assert.equal(presentation.x,0);assert.equal(presentation.y,0);
+  for(const [name,delay] of [['mid',145],['late',135]]){
+    await sleep(delay);
+    const png=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile('dist/combat-feedback-aloes-'+name+'.png',Buffer.from(png.data,'base64'));
+  }
+  await sleep(260);
+  assert.equal(await evaluate("window.__game.scene.getScene('Menu').terminalBurst.done"),true,'Terminal burst failed to expire');
+  assert.equal(await evaluate("window.__game.scene.getScene('Menu').terminalBurst.graphics.active"),false,'Terminal death Graphics leaked');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'clean Arena after terminal death');
+  const newRun=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,playerVisible:a.playerVisual.sprite?.visible??true}})()");
+  assert.deepEqual(newRun,{bursts:0,ended:false,kills:0,playerVisible:true},'NOWA GRA retained stale effects or state');
+
+    console.log('PASS real Chromium contact lunge, single HP loss, exactly-once enemy pixel death, terminal Aloes red disintegration');
 
 
 

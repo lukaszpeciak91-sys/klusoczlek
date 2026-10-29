@@ -1,3 +1,4 @@
+import {makeFeedback,pose,hitActive} from './combat-feedback.js';
 import {createEnemyGait,advanceEnemyGait} from './enemy-motion.js';
 import { FACINGS, facingOf } from './combat-contract.js';
 import { assetUrl, validPngHeader } from './character-visual.js';
@@ -23,7 +24,7 @@ function createEnemyRenderer(scene,Phaser,type){
   const asset=heavy?ZUBROKRYPTYDA_ASSET:stork?BOCIANOLAK_ASSET:BOBROZOMBI_ASSET;
   const scale=heavy?ZUBROKRYPTYDA_VISUAL_SCALE:stork?BOCIANOLAK_VISUAL_SCALE:BOBROZOMBI_VISUAL_SCALE;
   const offset=heavy?ZUBROKRYPTYDA_FEET_OFFSET:stork?BOCIANOLAK_FEET_OFFSET:BOBROZOMBI_FEET_OFFSET;
-  const artKey=type+'-art',facingKey=type+'-facing',gaitKey=type+'-gait';
+  const artKey=type+'-art',facingKey=type+'-facing',gaitKey=type+'-gait',feedbackKey=type+'-feedback';
   const containers=new Set();
   let alive=true,ready=false,failed=false;
   const texture=scene.textures;
@@ -67,6 +68,8 @@ function createEnemyRenderer(scene,Phaser,type){
       container.add(scene.add.circle(-8,-9,4,0xe64b48));
       container.add(scene.add.circle(8,-9,4,0xe64b48));
     }
+    container.setData('fallback-bases',container.list.map(child=>({child,x:child.x,y:child.y,rotation:child.rotation})));
+    container.setData(feedbackKey,makeFeedback());
     containers.add(container);
     container.once(Phaser.GameObjects.Events.DESTROY,()=>containers.delete(container));
     attach(container);
@@ -79,15 +82,27 @@ function createEnemyRenderer(scene,Phaser,type){
     enemy.sprite.setPosition(enemy.x,enemy.y);
     enemy.sprite.setData(facingKey,facing);
     const art=enemy.sprite.getData(artKey);
+    const feedback=enemy.sprite.getData(feedbackKey);
+    const fx=pose(feedback,type,scene.time.now);
     if(art?.active){
       art.setFrame(facing);
+      art.setTint(hitActive(feedback,scene.time.now)?0xff5a5a:0xffffff);
       let gait=enemy.sprite.getData(gaitKey);
       if(!gait){gait=createEnemyGait(type,enemy.seed);enemy.sprite.setData(gaitKey,gait);}
       advanceEnemyGait(gait,type,distance,seconds);
       // Counter-rotate the sprite center so its feet stay at the container anchor.
-      art.setRotation(gait.rotation).setPosition(-Math.sin(gait.rotation)*offset,offset*Math.cos(gait.rotation)+gait.bob);
+      art.setRotation(gait.rotation+fx.angle).setPosition(-Math.sin(gait.rotation)*offset+fx.x,offset*Math.cos(gait.rotation)+gait.bob+fx.y);
+    }else{
+      // Fallback parts keep stable local coordinates; offset the whole visual only,
+      // never its world collision/container position.
+      for(const base of enemy.sprite.getData('fallback-bases')||[]){
+        if(!base.child.active)continue;
+        base.child.setPosition(base.x+fx.x,base.y+fx.y).setRotation(base.rotation+fx.angle)
+          .setAlpha(hitActive(feedback,scene.time.now)?0.7:1);
+      }
     }
   };
+  const feedbackOf=enemy=>enemy.sprite.getData(feedbackKey);
   const shutdown=()=>{alive=false;containers.clear();};
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN,shutdown);
   // One request per Arena session, independent of individual enemy spawns.
@@ -122,5 +137,5 @@ function createEnemyRenderer(scene,Phaser,type){
       if(alive)console.info('['+type+'] procedural fallback:',error.message);
     }
   })();
-  return {create,update,shutdown,loading,get loaded(){return ready;},get fallback(){return failed;}};
+  return {create,update,feedbackOf,shutdown,loading,get loaded(){return ready;},get fallback(){return failed;}};
 }
