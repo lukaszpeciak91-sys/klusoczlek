@@ -86,6 +86,11 @@ try {
       socket.send(JSON.stringify({ id, method, params }));
     });
   }
+  socket.addEventListener('message', event=>{
+    const message=JSON.parse(event.data);
+    if(message.method==='Runtime.exceptionThrown')console.log('PHASER UNCAUGHT EXCEPTION',JSON.stringify(message.params.exceptionDetails));
+  });
+  await cdp('Runtime.enable');
   async function evaluate(expression) {
     const response = await cdp('Runtime.evaluate', {expression, returnByValue:true, awaitPromise:true});
     if(response.exceptionDetails) throw Error('Browser JavaScript: '+JSON.stringify(response.exceptionDetails));
@@ -176,7 +181,7 @@ try {
   assert.ok(firstPickup.obstacles.every(o=>Math.hypot(firstPickup.x-o.x,firstPickup.y-o.y)>o.r+20));
 
   const initialToken=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {symbol:a.weaponText.text,color:a.weaponTokenBody.fillColor,kills:a.killsText.text}})()");
-  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/32'});
+  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/66'});
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'unarmed');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups[0];a.player.setPosition(p.x,p.y);a.player.body.reset(p.x,p.y);return true})()");
@@ -493,7 +498,10 @@ try {
     e.hp=0;
     if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
     a.enemies=a.enemies.filter(e=>!e.dead);
-    if(a.enemies.length<3&&a.totalSpawned<32)a.spawnReplacement();
+    if(a.episode.state==='intermission'){
+      a.episode.wave++;a.episode.spawned=0;a.episode.defeated=0;a.episode.intermissionUntil=null;a.episode.state='active';
+    }
+    if(a.episode.state==='active'&&a.enemies.filter(e=>!e.dead).length<[3,3,4,4,4,5][a.episode.wave])a.spawnReplacement();
     return {kills:a.kills,type:e.type,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
   const typesDefeated=[];
@@ -532,20 +540,26 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
-  for(let i=0;i<22;i++)typesDefeated.push((await killOne()).type);
-  const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones]}})()");
-  assert.equal(progression.kills,32);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'32/32');
-  assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,18);
-  assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,10);
-  assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,4);
-  assert.equal(progression.total,32);
-  assert.equal(progression.completed,true);
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const original=a.dropHealthReward.bind(a);a.healthAwardCount=0;a.dropHealthReward=()=>{a.healthAwardCount++;return original();};a.events.on('episode-boundary',(id,scene)=>{if(id==='after-final-enemy')scene.holdFinalOutcome();});return true})()");
+  for(let i=0;i<56;i++)typesDefeated.push((await killOne()).type);
+  const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones],healthAwards:a.healthAwardCount||0}})()");
+  assert.equal(progression.kills,66);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'66/66');
+  assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,35);
+  assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,23);
+  assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,8);
+  assert.equal(progression.total,66);
+  assert.equal(progression.healthAwards,3,'Heart awards after waves 2, 4, 5 were not exactly once');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'final-pending');
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[5,10]);
-  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 32 unique deaths');
-  await clickControl('hud');
-  await waitFor(v=>v.menu&&v.arenaPaused,'menu before reset');
+  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 66 unique deaths');
+  await sleep(120);
+  const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,first:a.consumeNarrativeBoundary('after-final-enemy'),second:a.consumeNarrativeBoundary('after-final-enemy')}})()");
+  assert.deepEqual(heldFinal,{state:'final-pending',held:true,first:true,second:false},'Final dialogue hold must block premature victory');
+  await evaluate("window.__game.scene.getScene('Arena').releaseFinalOutcome()");
+  await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
   const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
@@ -635,22 +649,6 @@ try {
   assert.equal(heavyVisual.offset,-48.4);
   assert.equal(heavyVisual.fallbackVisible,false);
   console.log('PASS real Canvas Phaser: synthetic heavy 1536x192 eight-frame render, nearest scale, ground offset, no duplicate fallback');
-  const heavyQueue=await evaluate(`(()=>{
-    const a=window.__game.scene.getScene('Arena'),saved=a.enemies,savedTotal=a.totalSpawned,savedDue=a.spawnDueAt;
-    const activeHeavy=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
-    a.enemies=[activeHeavy];a.totalSpawned=19;a.spawnDueAt=null;
-    a.spawnReplacement();
-    const blocked={total:a.totalSpawned,retry:a.spawnDueAt!==null};
-    activeHeavy.dead=true;activeHeavy.sprite.destroy();a.enemies=[];
-    a.spawnReplacement();
-    const unblocked={total:a.totalSpawned,type:a.enemies[0]?.type,active:a.enemies.filter(e=>!e.dead).length};
-    a.enemies.forEach(e=>e.sprite.destroy());
-    a.enemies=saved;a.totalSpawned=savedTotal;a.spawnDueAt=savedDue;
-    return {blocked,unblocked};
-  })()`);
-  assert.deepEqual(heavyQueue.blocked,{total:19,retry:true});
-  assert.deepEqual(heavyQueue.unblocked,{total:20,type:'zubrokryptyda',active:1});
-  console.log('PASS real Arena queued heavy spawn: one living heavy maximum, no lost schedule entry');
   // Gait on an actual Phaser Sprite: internal transform only, 3 distinct profiles.
   const gaitProbe=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'),types=['bobrozombi','bocianolak','zubrokryptyda'];
@@ -683,6 +681,26 @@ try {
   }
   assert.deepEqual(gaitProbe.map(e=>e.scale),[0.75,0.65,0.55]);
   console.log('PASS real Phaser enemy gait: three visual-only profiles, distance phase, static enemy containers, idle recovery and original scales');
+  // Preserve the prior one-heavy concurrency regression under wave-local ordering.
+  const heavyQueue=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    const saved={enemies:a.enemies,total:a.totalSpawned,due:a.spawnDueAt,episode:{...a.episode}};
+    const activeHeavy=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
+    a.enemies=[activeHeavy];a.episode.wave=2;a.episode.spawned=11;a.episode.defeated=0;
+    a.episode.state='active';a.totalSpawned=28;a.spawnDueAt=null;
+    a.spawnReplacement();
+    const blocked={total:a.totalSpawned,spawned:a.episode.spawned,retry:a.spawnDueAt!==null};
+    activeHeavy.dead=true;activeHeavy.sprite.destroy();a.enemies=[];
+    a.spawnReplacement();
+    const unblocked={total:a.totalSpawned,spawned:a.episode.spawned,type:a.enemies[0]?.type};
+    for(const e of a.enemies)e.sprite.destroy();
+    a.enemies=saved.enemies;a.totalSpawned=saved.total;a.spawnDueAt=saved.due;
+    Object.assign(a.episode,saved.episode);
+    return {blocked,unblocked};
+  })()`);
+  assert.deepEqual(heavyQueue.blocked,{total:28,spawned:11,retry:true});
+  assert.deepEqual(heavyQueue.unblocked,{total:29,spawned:12,type:'zubrokryptyda'});
+  console.log('PASS wave-local heavy concurrency gate: blocked second heavy stays queued');
   // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
   const combatProbe=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'), aim={x:1,y:0};
@@ -779,6 +797,12 @@ try {
   await sleep(60);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.current"),'hp_1');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_1');
+  // HP0 now correctly ends the run; restart to capture the actual Arena HUD,
+  // not the terminal MENU overlay, at mobile landscape viewports.
+  await waitFor(v=>v.menu&&v.arenaPaused,'HP0 defeat outcome');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'HUD screenshot Arena reset');
+  await evaluate("window.__game.scene.getScene('Arena').setPlayerHp(3)");
   // Test portrait and layout across tight landscape/fullscreen-equivalent resizes.
   for(const [width,height] of [[320,240],[568,320],[800,360]]){
     await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
@@ -848,6 +872,42 @@ try {
   await cdp('Fetch.disable');
   socket.removeEventListener('message',portraitFetch);
   console.log('PASS delayed portrait fetch races: old HP2 load cannot overwrite current HP4');
+
+  // Real Phaser heart pickup and pause-frozen intermission, on a clean Arena session.
+  if(!(await snapshot()).menu)await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'episode health test menu');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'episode health test arena');
+  const heart=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena'),point={x:a.player.x,y:a.player.y};
+    a.addPickup('health',point);a.collectPickups();
+    const full={hp:a.playerHp,persist:a.pickups.some(p=>p.id==='health')};
+    a.setPlayerHp(3);a.collectPickups();
+    const healed={hp:a.playerHp,remaining:a.pickups.filter(p=>p.id==='health').length,face:a.hpFace.current};
+    a.setPlayerHp(1);a.addPickup('health',point);a.collectPickups();
+    const low={hp:a.playerHp,face:a.hpFace.current};
+    a.setPlayerHp(5);return {full,healed,low};
+  })()`);
+  assert.deepEqual(heart,{full:{hp:5,persist:true},healed:{hp:5,remaining:0,face:'hp_5'},low:{hp:3,face:'hp_3'}});
+  const wavePause=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');
+    a.episode.wave=1;a.episode.spawned=10;a.episode.defeated=10;
+    a.episode.state='intermission';a.episode.intermissionUntil=a.time.now+800;
+    a.spawnDueAt=null;
+    return {before:a.time.now,state:a.episode.state};
+  })()`);
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'episode intermission pause');
+  const pausedClock=await evaluate("window.__game.scene.getScene('Arena').time.now");
+  await sleep(260);
+  const pausedClockAfter=await evaluate("window.__game.scene.getScene('Arena').time.now");
+  assert.equal(pausedClockAfter,pausedClock,'Intermission advanced while Arena paused');
+  await clickControl('WZNÓW');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'episode intermission resume');
+  await sleep(950);
+  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,narrative:a.consumeNarrativeBoundary('before-first-zubrokryptyda'),once:a.consumeNarrativeBoundary('before-first-zubrokryptyda')}})()"),{wave:2,state:'active',narrative:true,once:false});
+  console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal, portrait and frozen/renewed intermission with one-shot narrative boundary');
+
 
 
 
