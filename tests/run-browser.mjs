@@ -141,13 +141,14 @@ try {
       const a=window.__game.scene.getScene('Arena'),w=a.scale.width,h=a.scale.height;
       const button=a.input._list.find(o=>o.input&&o.width===a.hudLayout.menuWidth);
       const actual=o=>{const b=o.getBounds();return {x:b.x,y:b.y,right:b.right,bottom:b.bottom,width:b.width,height:b.height};};
-      const portrait=actual(a.hpFace.root),menu=actual(button),weapon=actual(a.weaponToken),skull=actual(a.skullIcon),kills=actual(a.killsText),hp=actual(a.hpText),panel=actual(a.hudPanel);
-      return {w,h,portrait,menu,weapon,skull,kills,hp,panel,stickTop:a.hudLayout.joystickY-a.hudLayout.joystickRadius,
+      const portrait=actual(a.hpFace.root),menu=actual(button),weapon=actual(a.weaponToken),skull=actual(a.skullIcon),kills=actual(a.killsText),hp=actual(a.hpText);
+      return {w,h,portrait,menu,weapon,skull,kills,hp,stickTop:a.hudLayout.joystickY-a.hudLayout.joystickRadius,
         rightStickTop:a.hudLayout.aimY-a.hudLayout.joystickRadius,
         portraitSquare:Math.abs(portrait.width-portrait.height)<2};
     })()`);
-    const {w,h,menu,portrait,weapon,skull,kills,hp,panel}=geometry;
-    for(const box of [menu,portrait,weapon,skull,kills,hp,panel]){
+    const {w,h,menu,portrait,weapon,skull,kills,hp}=geometry;
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').hudPanel"),undefined,label+' obsolete full-width HUD panel exists');
+    for(const box of [menu,portrait,weapon,skull,kills,hp]){
       assert.ok(box.x>=-1&&box.y>=-1&&box.right<=w+1&&box.bottom<=h+1,label+' clipped '+JSON.stringify(geometry));
     }
     const separate=(a,b)=>a.right<=b.x+1||b.right<=a.x+1||a.bottom<=b.y+1||b.bottom<=a.y+1;
