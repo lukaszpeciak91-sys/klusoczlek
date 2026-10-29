@@ -1089,6 +1089,8 @@ try {
   assert.equal(presentation.hidden,true,'Original Aloes sprite remains visible under death');
   assert.equal(presentation.bodyHidden,true);
   assert.equal(presentation.active,true);
+  const center=await evaluate("window.__game.scene.getScene('Arena').defeatVisualAt");
+  assert.ok(Math.abs(center.x-presentation.expectedX)<0.01&&Math.abs(center.y-presentation.expectedY)<0.01,'Camera-to-screen projection incorrect');
   // Graphics draws absolute screen coordinates; its own origin stays at (0,0).
   assert.equal(presentation.x,0);assert.equal(presentation.y,0);
   for(const [name,delay] of [['mid',145],['late',135]]){
@@ -1099,6 +1101,11 @@ try {
   await sleep(260);
   assert.equal(await evaluate("window.__game.scene.getScene('Menu').terminalBurst.done"),true,'Terminal burst failed to expire');
   assert.equal(await evaluate("window.__game.scene.getScene('Menu').terminalBurst.graphics.active"),false,'Terminal death Graphics leaked');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'clean Arena after terminal death');
+  const newRun=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,playerVisible:a.playerVisual.sprite?.visible??true}})()");
+  assert.deepEqual(newRun,{bursts:0,ended:false,kills:0,playerVisible:true},'NOWA GRA retained stale effects or state');
+
     console.log('PASS real Chromium contact lunge, single HP loss, exactly-once enemy pixel death, terminal Aloes red disintegration');
 
 
