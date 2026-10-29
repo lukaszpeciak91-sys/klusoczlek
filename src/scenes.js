@@ -5,6 +5,8 @@ import { createPlayerVisual } from './character-visual.js';
 import {createHpFaceHud} from './hp-face-hud.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
+import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
+import {createBurningFx} from './enemy-fire-vfx.js';
 import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceEpisode,terminateEpisode,healedHp} from './episode.js';
 import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
@@ -135,6 +137,7 @@ export class ArenaScene extends Phaser.Scene {
     this.lastShotAt=null;
     this.firingState=createFiringState();
     this.flameParticles=[];
+    this.flameStream=this.add.graphics().setDepth(12);
     this.flameCooldowns=new Map();
     this.flameEmissionAt=null;
     this.projectiles=[];
@@ -261,11 +264,12 @@ export class ArenaScene extends Phaser.Scene {
       for(const pickup of this.pickups)pickup.object.destroy();
       this.pickups.length=0;
       for(const renderer of Object.values(this.enemyRenderers))renderer.shutdown();
-      for(const enemy of this.enemies)if(enemy.sprite.active)enemy.sprite.destroy();
+      for(const enemy of this.enemies){enemy.burningFx?.destroy();clearIgnition(enemy.ignition);if(enemy.sprite.active)enemy.sprite.destroy();}
       this.enemies.length=0;
       this.projectiles.length=0;
       for(const p of this.flameParticles)p.object.destroy();
       this.flameParticles.length=0;
+      this.flameStream.destroy();
       this.flameCooldowns.clear();
       this.obstacles.length=0;
       this.explosionEffects.length=0;
@@ -285,7 +289,7 @@ export class ArenaScene extends Phaser.Scene {
   createEnemy(type,point,index){
     const def=ENEMY_TYPES[type];
     return {...point,type,seed:index,hp:def.hp,
-      sprite:this.enemyRenderers[type].create(point.x,point.y),hitUntil:0,dead:false,facing:'s'};
+      sprite:this.enemyRenderers[type].create(point.x,point.y),hitUntil:0,dead:false,facing:'s',ignition:createIgnitionState(),burningFx:null,fleeFacingVector:null};
   }
 
   refreshWeaponHud(){
@@ -363,6 +367,32 @@ export class ArenaScene extends Phaser.Scene {
     if(weapon==='rifle')this.playerVisual.recoil();
   }
 
+  drawFlameStream(origin,aim,now){
+    const g=this.flameStream,tune=COMBAT_TUNING.flamethrower;
+    g.clear();
+    const normal={x:-aim.y,y:aim.x};
+    // Fan layers share the authoritative cone and stop before blocking obstacles.
+    for(const [color,factor,alpha] of [[0xe7441b,1,0.72],[0xff8c24,0.66,0.84],[0xffed96,0.28,0.95]]){
+      g.fillStyle(color,alpha);
+      let last=origin;
+      for(let i=1;i<=11;i++){
+        const distance=i*tune.range/11;
+        const center={x:origin.x+aim.x*distance,y:origin.y+aim.y*distance};
+        if(segmentObstacleHit(last,center,this.obstacles,0))break;
+        const wave=Math.sin(now*0.022+i*1.7)*2.4;
+        const spread=Math.min(19,distance*Math.tan(tune.halfAngle)*0.45)*factor*(0.95+0.09*Math.sin(now*0.035+i));
+        const tip=Math.max(1,spread*(1-distance/tune.range*0.55));
+        const left={x:center.x+normal.x*(tip+wave*factor),y:center.y+normal.y*(tip+wave*factor)};
+        const right={x:center.x-normal.x*(tip-wave*factor),y:center.y-normal.y*(tip-wave*factor)};
+        // Check both edges, not just the centerline, to avoid fire through walls.
+        if(segmentObstacleHit(last,left,this.obstacles,0)||segmentObstacleHit(last,right,this.obstacles,0))break;
+        g.fillTriangle(last.x,last.y,left.x,left.y,right.x,right.y);
+        last=center;
+      }
+    }
+    g.fillStyle(0xfff4b3,0.96).fillCircle(origin.x,origin.y,5);
+  }
+
   updateFlameParticles(now,delta){
     for(const p of this.flameParticles){
       p.age+=delta;
@@ -396,6 +426,7 @@ export class ArenaScene extends Phaser.Scene {
   applyFlame(aim,now){
     const origin=muzzlePoint(this.player.x,this.player.y,aim);
     const tune=COMBAT_TUNING.flamethrower;
+    this.drawFlameStream(origin,aim,now);
     this.emitFlame(origin,aim,now);
     for(const enemy of this.enemies){
       if(enemy.dead||enemy.hp<=0||!flameTargetVisible(origin,aim,enemy,ENEMY_TYPES[enemy.type].radius,this.obstacles))continue;
@@ -403,7 +434,10 @@ export class ArenaScene extends Phaser.Scene {
       enemy.hp=applyEnemyHit(enemy.hp,tune.damage);
       enemy.hitUntil=now+120;
       if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
-      else enemy.sprite.setAlpha(0.45);
+      else {
+        enemy.sprite.setAlpha(0.45);
+        if(igniteEnemy(enemy.ignition,enemy.type,now))enemy.burningFx=createBurningFx(this,enemy.type);
+      }
     }
     for(const obstacle of this.obstacles){
       if(!obstacle.alive||obstacle.type!=='barrel')continue;
@@ -452,6 +486,8 @@ export class ArenaScene extends Phaser.Scene {
   finalizeEnemyDeath(enemy){
     if(enemy.dead||enemy.hp>0)return false;
     enemy.dead=true;
+    enemy.burningFx?.destroy();enemy.burningFx=null;
+    clearIgnition(enemy.ignition);
     this.flameCooldowns.delete(enemy);
     enemy.sprite.destroy();
     this.kills++;
@@ -501,7 +537,7 @@ export class ArenaScene extends Phaser.Scene {
     if(outcome==='victory'&&this.playerHp<=0)return this.endEpisode('defeat');
     if(!terminateEpisode(this.episode,outcome))return;
     this.defeated=outcome==='defeat';this.completed=outcome==='victory';
-    this.spawnDueAt=null;this.resetMovement();this.physics.world.pause();
+    this.spawnDueAt=null;this.resetMovement();this.flameStream.clear();this.physics.world.pause();
     this.completeText.setText(outcome==='victory'?'ZWYCIĘSTWO!':'KONIEC GRY').setVisible(true);
     this.openMenu();
   }
@@ -509,6 +545,7 @@ export class ArenaScene extends Phaser.Scene {
   openMenu() {
     if (this.scene.isPaused('Arena') || this.scene.isActive('Menu')) return;
     this.resetMovement();
+    this.flameStream.clear();
     this.physics.world.pause();
     this.scene.pause();
     this.scene.launch('Menu');
@@ -569,6 +606,7 @@ export class ArenaScene extends Phaser.Scene {
     const count=firingStep(this.firingState,this.weapon,firing,now);
     for(let i=0;i<count;i++)this.spawnShot(aiming,this.weapon,now);
     if(firing&&this.weapon==='flamethrower')this.applyFlame(aiming,now);
+    else this.flameStream.clear();
     const delta=Math.min(this.game.loop.delta,50);
     this.updateFlameParticles(this.time.now,delta);
     if(this.defeated)return;
@@ -609,10 +647,17 @@ export class ArenaScene extends Phaser.Scene {
     for(const enemy of this.enemies){
       if(enemy.hp<=0)continue;
       const previousX=enemy.x,previousY=enemy.y;
-      const next=moveEnemy(enemy,this.player,seconds,this.time.now/1000);
+      if(advanceIgnition(enemy.ignition,this.time.now)){
+        enemy.burningFx?.destroy();enemy.burningFx=null;
+      }
+      const burning=isBurning(enemy.ignition,this.time.now);
+      const next=burning?fleeStep(enemy,this.player,seconds):moveEnemy(enemy,this.player,seconds,this.time.now/1000);
       const blockedPosition=resolveObstaclePosition(enemy,next,ENEMY_TYPES[enemy.type].radius,this.obstacles);
       enemy.x=blockedPosition.x;enemy.y=blockedPosition.y;
-      this.enemyRenderers[enemy.type].update(enemy,this.player,Math.hypot(enemy.x-previousX,enemy.y-previousY),seconds);
+      const traveled=Math.hypot(enemy.x-previousX,enemy.y-previousY);
+      enemy.fleeFacingVector=burning&&traveled>0.4?{x:enemy.x-previousX,y:enemy.y-previousY}:burning?{x:0,y:0}:null;
+      this.enemyRenderers[enemy.type].update(enemy,this.player,traveled,seconds);
+      if(burning)enemy.burningFx?.update(enemy,this.time.now);
       if(this.time.now>=enemy.hitUntil)enemy.sprite.setAlpha(1);
       if(Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<=ENEMY_TYPES[enemy.type].radius+17){
         const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},this.time.now);
