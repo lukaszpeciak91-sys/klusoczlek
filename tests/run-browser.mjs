@@ -797,6 +797,12 @@ try {
   await sleep(60);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.current"),'hp_1');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').hpFace.image?.texture?.key"),'aloes-hud-hp_1');
+  // HP0 now correctly ends the run; restart to capture the actual Arena HUD,
+  // not the terminal MENU overlay, at mobile landscape viewports.
+  await waitFor(v=>v.menu&&v.arenaPaused,'HP0 defeat outcome');
+  await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'HUD screenshot Arena reset');
+  await evaluate("window.__game.scene.getScene('Arena').setPlayerHp(3)");
   // Test portrait and layout across tight landscape/fullscreen-equivalent resizes.
   for(const [width,height] of [[320,240],[568,320],[800,360]]){
     await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
