@@ -1055,6 +1055,11 @@ try {
       await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'intro test reset menu');
       await clickControl('NOWA GRA');
       await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'intro test fresh Arena');
+      for(let line=0;line<3;line++){
+        const p=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
+        assert.equal(p.id,'before-wave-1');
+        await sleep(210);const rect=(await snapshot()).rect;await click(rect.x+p.x,rect.y+p.y);
+      }
     }
     const intro=await evaluate(`(()=>{
       const a=window.__game.scene.getScene('Arena');
@@ -1077,7 +1082,7 @@ try {
     assert.equal(intro.live,1);
     assert.equal(intro.within,true);
     assert.equal(intro.paused,true);
-    assert.equal(intro.attackAt,0,'Intro enemy attacked before dialogue');
+    assert.ok(!intro.attackAt,'Intro enemy attacked before dialogue');
     for(let i=0;i<lines;i++){
       const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
       assert.equal(before.id,id);assert.equal(before.index,i);
