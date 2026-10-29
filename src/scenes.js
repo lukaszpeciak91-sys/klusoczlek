@@ -158,6 +158,7 @@ export class ArenaScene extends Phaser.Scene {
     });
     this.totalSpawned=this.enemies.length;
     this.narrativeEvents=new Set(['before-wave-1']);
+    this.finalOutcomeHeld=false;
     this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
     this.hpText=this.add.text(0,0,'HP 5/5',{fontFamily:'monospace',fontSize:'14px',color:'#f3e8d1'})
       .setOrigin(0.5,0).setScrollFactor(0).setDepth(81);
@@ -306,6 +307,17 @@ export class ArenaScene extends Phaser.Scene {
     if(!this.narrativeEvents.has(id))return false;
     this.narrativeEvents.delete(id);return true;
   }
+  markNarrativeBoundary(id){
+    if(this.narrativeEvents.has(id))return false;
+    this.narrativeEvents.add(id);
+    this.events.emit('episode-boundary',id,this);
+    return true;
+  }
+  holdFinalOutcome(){
+    if(this.episode.state!=='final-pending'||this.episode.ended)return false;
+    this.finalOutcomeHeld=true;return true;
+  }
+  releaseFinalOutcome(){this.finalOutcomeHeld=false;}
 
   addPickup(id,point){
     if(!point)return false;
@@ -458,7 +470,7 @@ export class ArenaScene extends Phaser.Scene {
       this.waveText.setText('FALA '+(this.episode.wave+2)+'/'+TOTAL_WAVES).setVisible(true);
       this.spawnDueAt=null;
     }else if(event==='final-cleared'){
-      this.narrativeEvents.add('after-final-enemy');
+      this.markNarrativeBoundary('after-final-enemy');
       this.spawnDueAt=null;
     }else if(nextType(this.episode)!==null&&this.spawnDueAt===null){
       this.spawnDueAt=this.time.now+380;
@@ -514,13 +526,15 @@ export class ArenaScene extends Phaser.Scene {
     if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles);if(p&&this.addPickup('health',p))this.pendingHealth--;}
     this.collectPickups();
     if(this.episode.state==='intermission'&&advanceEpisode(this.episode,this.time.now)){
-      if(this.episode.wave===1)this.narrativeEvents.add('before-first-bocianolak');
-      if(this.episode.wave===2)this.narrativeEvents.add('before-first-zubrokryptyda');
+      if(this.episode.wave===1)this.markNarrativeBoundary('before-first-bocianolak');
+      if(this.episode.wave===2)this.markNarrativeBoundary('before-first-zubrokryptyda');
       this.waveText.setText('FALA '+(this.episode.wave+1)+'/'+TOTAL_WAVES).setVisible(true);
       this.spawnDueAt=this.time.now;
     }
     if(this.episode.state==='final-pending'){
-      this.endEpisode(this.playerHp<=0?'defeat':'victory');return;
+      if(this.playerHp<=0)this.endEpisode('defeat');
+      else if(!this.finalOutcomeHeld)this.endEpisode('victory');
+      return;
     }
     if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){
       this.spawnDueAt=null;this.spawnReplacement();
