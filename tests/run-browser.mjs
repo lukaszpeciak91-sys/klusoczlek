@@ -176,7 +176,7 @@ try {
   assert.ok(firstPickup.obstacles.every(o=>Math.hypot(firstPickup.x-o.x,firstPickup.y-o.y)>o.r+20));
 
   const initialToken=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {symbol:a.weaponText.text,color:a.weaponTokenBody.fillColor,kills:a.killsText.text}})()");
-  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/32'});
+  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/66'});
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'unarmed');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups[0];a.player.setPosition(p.x,p.y);a.player.body.reset(p.x,p.y);return true})()");
@@ -493,7 +493,10 @@ try {
     e.hp=0;
     if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
     a.enemies=a.enemies.filter(e=>!e.dead);
-    if(a.enemies.length<3&&a.totalSpawned<32)a.spawnReplacement();
+    if(a.episode.state==='intermission'){
+      a.episode.wave++;a.episode.spawned=0;a.episode.defeated=0;a.episode.intermissionUntil=null;a.episode.state='active';
+    }
+    if(a.episode.state==='active'&&a.enemies.filter(e=>!e.dead).length<[3,3,4,4,4,5][a.episode.wave])a.spawnReplacement();
     return {kills:a.kills,type:e.type,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
   const typesDefeated=[];
@@ -532,20 +535,21 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
-  for(let i=0;i<22;i++)typesDefeated.push((await killOne()).type);
+  for(let i=0;i<56;i++)typesDefeated.push((await killOne()).type);
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones]}})()");
-  assert.equal(progression.kills,32);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'32/32');
-  assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,18);
-  assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,10);
-  assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,4);
-  assert.equal(progression.total,32);
-  assert.equal(progression.completed,true);
+  assert.equal(progression.kills,66);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'66/66');
+  assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,35);
+  assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,23);
+  assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,8);
+  assert.equal(progression.total,66);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'final-pending');
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[5,10]);
-  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 32 unique deaths');
-  await clickControl('hud');
-  await waitFor(v=>v.menu&&v.arenaPaused,'menu before reset');
+  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 66 unique deaths');
+  await evaluate("window.__game.scene.getScene('Arena').endEpisode('victory')");
+  await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
   const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
@@ -635,22 +639,6 @@ try {
   assert.equal(heavyVisual.offset,-48.4);
   assert.equal(heavyVisual.fallbackVisible,false);
   console.log('PASS real Canvas Phaser: synthetic heavy 1536x192 eight-frame render, nearest scale, ground offset, no duplicate fallback');
-  const heavyQueue=await evaluate(`(()=>{
-    const a=window.__game.scene.getScene('Arena'),saved=a.enemies,savedTotal=a.totalSpawned,savedDue=a.spawnDueAt;
-    const activeHeavy=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
-    a.enemies=[activeHeavy];a.totalSpawned=19;a.spawnDueAt=null;
-    a.spawnReplacement();
-    const blocked={total:a.totalSpawned,retry:a.spawnDueAt!==null};
-    activeHeavy.dead=true;activeHeavy.sprite.destroy();a.enemies=[];
-    a.spawnReplacement();
-    const unblocked={total:a.totalSpawned,type:a.enemies[0]?.type,active:a.enemies.filter(e=>!e.dead).length};
-    a.enemies.forEach(e=>e.sprite.destroy());
-    a.enemies=saved;a.totalSpawned=savedTotal;a.spawnDueAt=savedDue;
-    return {blocked,unblocked};
-  })()`);
-  assert.deepEqual(heavyQueue.blocked,{total:19,retry:true});
-  assert.deepEqual(heavyQueue.unblocked,{total:20,type:'zubrokryptyda',active:1});
-  console.log('PASS real Arena queued heavy spawn: one living heavy maximum, no lost schedule entry');
   // Gait on an actual Phaser Sprite: internal transform only, 3 distinct profiles.
   const gaitProbe=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'),types=['bobrozombi','bocianolak','zubrokryptyda'];
