@@ -241,14 +241,14 @@ export class ArenaScene extends Phaser.Scene {
     this.onBlur = () => { this.resetMovement(); this.physics.world.pause(); };
     this.canResume = () => !document.hidden && document.hasFocus() && window.innerWidth >= window.innerHeight;
     this.onFocus = () => {
-      if (this.canResume() && !this.scene.isPaused('Arena') && !this.scene.isPaused('Arena')) {
+      if (this.canResume() && !this.dialogueLoading && !this.dialogueState?.id && !this.scene.isPaused('Arena')) {
         this.physics.world.resume();
       }
     };
     // Resume is delivered by Phaser after the Arena scene state switches.
     this.events.on(Phaser.Scenes.Events.RESUME, () => {
       document.getElementById('fullscreen-button').hidden = true;
-      if (this.canResume()) this.physics.world.resume();
+      if (this.canResume() && !this.dialogueLoading && !this.dialogueState?.id) this.physics.world.resume();
       else this.physics.world.pause();
     });
     this.onVisibility = () => {
@@ -287,7 +287,7 @@ export class ArenaScene extends Phaser.Scene {
     });
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
       this.time.paused=false;
-      this.physics.world.resume();
+      if(this.canResume())this.physics.world.resume();
       if(id==='after-final-enemy')this.releaseFinalOutcome();
       this.resetMovement();
     });
