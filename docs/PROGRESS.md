@@ -231,5 +231,5 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - A wave only clears after its quota spawned and died; 3000ms Phaser-game-time intermissions. The pause state freezes time. FALA X/6 announcement.
 - Neutral procedural ♥ health token (+2 HP, capped at 5, not consumed at full HP) awarded after waves 2, 4 and 5, with retry for unavailable safe placement and no beer assets.
 - Mutually exclusive episode states: active, intermission, final-pending, victory or defeat. Victory from final-pending after final enemy death, allowing Part B dialogue before terminal outcome. Defeat wins if simultaneous.
-- One-shot narrative boundary names: before-wave-1, before-first-bocianolak, before-first-zubrokryptyda, after-final-enemy. No cutscene content now.
+- One-shot narrative boundary names: before-wave-1, before-first-bocianolak, before-first-zubrokryptyda, after-final-enemy; `Arena.consumeNarrativeBoundary(id)` consumes exactly once. The native Scene `episode-boundary` event notifies listeners; Part B may call `holdFinalOutcome()` from the final-enemy event, then `releaseFinalOutcome()` after final dialogue so victory is not shown early. No cutscene content now.
 - Existing HUD V2.1, player visuals, combat, enemy balancing and approved assets retained; no binary changes.
