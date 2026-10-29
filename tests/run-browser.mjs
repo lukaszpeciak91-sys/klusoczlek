@@ -748,6 +748,7 @@ try {
   const heavyQueue=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
     const saved={enemies:a.enemies,total:a.totalSpawned,due:a.spawnDueAt,episode:{...a.episode}};
+    a.introducedEnemyTypes.add('before-first-zubrokryptyda'); // Separate test covers live visual introduction.
     const activeHeavy=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
     a.enemies=[activeHeavy];a.episode.wave=2;a.episode.spawned=11;a.episode.defeated=0;
     a.episode.state='active';a.totalSpawned=28;a.spawnDueAt=null;
