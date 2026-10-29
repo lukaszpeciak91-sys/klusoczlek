@@ -124,6 +124,8 @@ try {
             const geometry=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.dialoguePanel,t=p.text.getBounds(),b=p.button.getBounds();return {width:a.scale.width,height:a.scale.height,text:{x:t.x,y:t.y,right:t.right,bottom:t.bottom},button:{x:b.x,y:b.y,right:b.right,bottom:b.bottom},line:p.text.text}})()");
             assert.ok(geometry.button.x>=0&&geometry.button.y>=0&&geometry.button.right<=width&&geometry.button.bottom<=height,'DALEJ bounds '+JSON.stringify(geometry));
             assert.ok(geometry.text.x>=0&&geometry.text.right<=width&&geometry.text.bottom<=geometry.button.y+1,'Dialogue overlaps DALEJ '+JSON.stringify(geometry));
+            const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+            await writeFile('dist/dialogue-opening-'+width+'x'+height+'.png',Buffer.from(shot.data,'base64'));
           }
         }
         const rect=(await snapshot()).rect;
@@ -975,6 +977,23 @@ try {
   await sleep(950);
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,dialogue:a.dialogueState.id,narrative:a.consumeNarrativeBoundary('before-first-zubrokryptyda'),once:a.consumeNarrativeBoundary('before-first-zubrokryptyda')}})()"),{wave:2,state:'active',dialogue:'before-first-zubrokryptyda',narrative:false,once:false});
   console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal, portrait and frozen/renewed intermission with one-shot narrative boundary');
+  // The cutscene is now the owner of the consumed heavy-enemy boundary.
+  for(const [id,count] of [['before-first-zubrokryptyda',2],['before-first-bocianolak',3]]){
+    if(id==='before-first-bocianolak'){
+      await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.markNarrativeBoundary('before-first-bocianolak')})()");
+    }
+    for(let i=0;i<count;i++){
+      const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,paused:a.physics.world.isPaused}})()");
+      assert.equal(before.id,id);assert.equal(before.index,i);assert.equal(before.paused,true);
+      await sleep(210);
+      const rect=(await snapshot()).rect;
+      await click(rect.x+before.x,rect.y+before.y);
+      const after=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index}})()");
+      assert.equal(after.id,i===count-1?null:id,'DALEJ must advance exactly one line');
+      if(i<count-1)assert.equal(after.index,i+1);
+    }
+  }
+  console.log('PASS real Chromium DALEJ: Bocianołak and Żubrokryptyda full conversations');
 
 
 
