@@ -609,6 +609,8 @@ try {
   for(let line=0;line<3;line++){
     const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,state:a.episode.state}})()");
     assert.equal(before.id,'after-final-enemy');assert.equal(before.index,line);
+    const isolated=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.knob.visible&&!j.held&&j.pointerId===null)})()");
+    assert.equal(isolated,true,'Both joysticks must remain isolated across dialogue lines');
     assert.equal(before.state,'final-pending','Victory occurred while dialogue active');
     await sleep(205);
     const bounds=(await snapshot()).rect;
@@ -1045,6 +1047,8 @@ try {
     for(let i=0;i<count;i++){
       const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,paused:a.physics.world.isPaused}})()");
       assert.equal(before.id,id);assert.equal(before.index,i);assert.equal(before.paused,true);
+      const isolated=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.knob.visible&&!j.held&&j.pointerId===null)})()");
+      assert.equal(isolated,true,'Both joysticks must remain isolated across dialogue lines');
       await sleep(210);
       const rect=(await snapshot()).rect;
       await click(rect.x+before.x,rect.y+before.y);
