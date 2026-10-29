@@ -60,8 +60,8 @@ export function createDialoguePanel(scene,Phaser,onFinish){
  }
  const loading=load();
  button.on('pointerdown',()=>{
-  if(!active||disposed||scene.time.now<blockedUntil||!scene.canResume())return;
-  blockedUntil=scene.time.now+180;
+  if(!active||disposed||scene.game.loop.time<blockedUntil||!scene.canResume())return;
+  blockedUntil=scene.game.loop.time+180;
   const ended=advanceDialogue(scene.dialogueState);
   if(ended==='next'){render(scene.dialogueState);return;}
   if(ended){active=false;shell.setVisible(false);onFinish(ended);}
@@ -72,6 +72,6 @@ export function createDialoguePanel(scene,Phaser,onFinish){
   disposed=true;scene.scale.off(Phaser.Scale.Events.RESIZE,resize);shell.destroy();images.clear();
  });
  layout();
- return {loading,loaded,get active(){return active;},show(state){active=true;blockedUntil=scene.time.now+180;render(state);layout();shell.setVisible(true);},
+ return {loading,loaded,get active(){return active;},show(state){active=true;blockedUntil=scene.game.loop.time+180;render(state);layout();shell.setVisible(true);},
   hide(){active=false;shell.setVisible(false);},get shell(){return shell;},get button(){return button;},get text(){return text;}};
 }
