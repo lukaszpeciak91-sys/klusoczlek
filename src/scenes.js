@@ -7,6 +7,7 @@ import {recordAttack,recordHit} from './combat-feedback.js';
 import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
+import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
@@ -180,6 +181,8 @@ export class ArenaScene extends Phaser.Scene {
     this.narrativeEvents=new Set(['before-wave-1']);
     this.finalOutcomeHeld=false;
     this.dialogueState=createDialogueState();
+    this.pendingIntroductions=new Map();
+    this.introducedEnemyTypes=new Set();
     this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
     this.hpText=this.add.text(0,0,'HP 5/5',{fontFamily:'monospace',fontSize:'14px',color:'#f3e8d1'})
       .setOrigin(0.5,0).setScrollFactor(0).setDepth(81);
@@ -357,7 +360,9 @@ export class ArenaScene extends Phaser.Scene {
   tryStartDialogue(){
     if(this.dialogueLoading||this.dialogueState.id||this.episode.ended)return false;
     for(const id of ['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy']){
+      if((id==='before-first-bocianolak'||id==='before-first-zubrokryptyda')&&!this.introductionReady(id))continue;
       if(!this.consumeNarrativeBoundary(id))continue;
+      if(this.pendingIntroductions.has(id)){this.introducedEnemyTypes.add(id);this.pendingIntroductions.delete(id);}
       if(!beginDialogue(this.dialogueState,id))return false;
       if(id==='after-final-enemy')this.holdFinalOutcome();
       this.resetMovement();this.physics.world.pause();this.time.paused=true;
@@ -368,6 +373,12 @@ export class ArenaScene extends Phaser.Scene {
     return false;
   }
 
+  introductionReady(id){
+    const type=id==='before-first-bocianolak'?'bocianolak':'zubrokryptyda';
+    const enemy=eligibleIntroductionEnemy(type,this.enemies,this.cameras.main.worldView);
+    if(enemy)this.pendingIntroductions.set(id,enemy);
+    return !!enemy;
+  }
   consumeNarrativeBoundary(id){
     if(!this.narrativeEvents.has(id))return false;
     this.narrativeEvents.delete(id);return true;
@@ -591,11 +602,22 @@ export class ArenaScene extends Phaser.Scene {
     if(nextEnemyType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda')){
       this.spawnDueAt=this.time.now+380;return;
     }
-    const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[nextEnemyType].radius);
+    const introductionId=nextEnemyType==='bocianolak'?'before-first-bocianolak':nextEnemyType==='zubrokryptyda'?'before-first-zubrokryptyda':null;
+    const pending=introductionId&&this.pendingIntroductions.get(introductionId);
+    const firstIntroduction=introductionId&&!this.introducedEnemyTypes.has(introductionId)&&(!pending||pending.dead||pending.hp<=0);
+    const radius=ENEMY_TYPES[nextEnemyType].radius;
+    const at=(firstIntroduction?introductionSpawnPoint(nextEnemyType,this.player,this.obstacles,this.cameras.main.worldView,radius):null)
+      ||safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,radius);
     if(!at){this.spawnDueAt=this.time.now+380;return;}
-    this.enemies.push(this.createEnemy(nextEnemyType,at,this.totalSpawned));
+    const created=this.createEnemy(nextEnemyType,at,this.totalSpawned);
+    this.enemies.push(created);
     this.totalSpawned++;
     recordSpawn(this.episode);
+    if(firstIntroduction){
+      this.pendingIntroductions.set(introductionId,created);
+      this.markNarrativeBoundary(introductionId);
+      this.tryStartDialogue();
+    }
   }
 
   dropHealthReward(){
@@ -643,8 +665,7 @@ export class ArenaScene extends Phaser.Scene {
     if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles);if(p&&this.addPickup('health',p))this.pendingHealth--;}
     this.collectPickups();
     if(this.episode.state==='intermission'&&advanceEpisode(this.episode,this.time.now)){
-      if(this.episode.wave===1)this.markNarrativeBoundary('before-first-bocianolak');
-      if(this.episode.wave===2)this.markNarrativeBoundary('before-first-zubrokryptyda');
+      // Enemy introduction boundaries are raised by actual spawned specimens below.
       this.waveText.setText('FALA '+(this.episode.wave+1)+'/'+TOTAL_WAVES).setVisible(true);
       this.spawnDueAt=this.time.now;
       if(this.tryStartDialogue())return;
@@ -656,6 +677,7 @@ export class ArenaScene extends Phaser.Scene {
     }
     if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){
       this.spawnDueAt=null;this.spawnReplacement();
+      if(this.dialogueState?.id)return;
       if(this.episode.state==='active'&&this.enemies.filter(e=>!e.dead).length<waveCapacity(this.episode)&&nextType(this.episode)!==null&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;
     }
     const keys = this.keys;
@@ -739,6 +761,7 @@ export class ArenaScene extends Phaser.Scene {
       const traveled=Math.hypot(enemy.x-previousX,enemy.y-previousY);
       enemy.fleeFacingVector=burning&&traveled>0.4?{x:enemy.x-previousX,y:enemy.y-previousY}:burning?{x:0,y:0}:null;
       this.enemyRenderers[enemy.type].update(enemy,this.player,traveled,seconds);
+      if(this.tryStartDialogue())return;
       if(burning)enemy.burningFx?.update(enemy,this.time.now);
       if(this.time.now>=enemy.hitUntil)enemy.sprite.setAlpha(1);
       if(Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<=ENEMY_TYPES[enemy.type].radius+17){

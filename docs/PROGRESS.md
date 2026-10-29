@@ -259,3 +259,9 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Deterministic bounded red pixel-death bursts drawn in one Graphics object per effect. Enemy death bookkeeping remains immediate. A fatal Aloes burst is rendered in the terminal Menu scene, since Arena is paused.
 - Six waves, 66 enemy composition, the flamethrower panic subsystem and narrative boundaries remain untouched.
 - Unit and Chromium/browser verification must be checked from actual CI; physical Android QA and pixel-art review remain external acceptance gates.
+
+## PR36 — visible enemy introductions / compact dialogue (audit pending)
+- First Bocianołak and first Żubrokryptyda trigger a one-shot dialogue only after a genuine scheduled living specimen is inside the camera with its complete source-image envelope (including feet alignment and sway margin). Wave transitions alone no longer trigger enemy introductions.
+- Spawn tries existing safe, clear in-camera candidates first, with unmodified ordinary safe spawn as fallback. No bonus enemy or teleport; unresolved introductions wait until their specimen becomes visible. The dialogue freezes combat immediately and retains the enemy behind the UI.
+- Dialogue uses a shorter content-measured dark panel, slightly smaller square portraits and larger body text, preserving speaker and DALEJ separation. Scene 3 calls the heavy Żubrokryptyda Waldek. No art, HP, HUD, wave or weapon changes.
+- Chromium browser QA and physical Android screenshot acceptance are separate gates; PR must not merge/deploy before independent audit.

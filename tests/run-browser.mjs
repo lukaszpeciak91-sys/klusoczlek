@@ -526,6 +526,8 @@ try {
   console.log('PASS optional variants: all four synthetic sheets, rapid selection, resume, reset, physics and single shadow');
   // Real Phaser Arena progression: exercise shared death path, drops and bounded replacement.
   // Exercise real Arena update/proximity and a placement failure that survives MENU/WZNÓW.
+  // Accelerated 66-kill regression is not a cutscene test; narrative is tested below via actual spawn.
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');})()");
   const killOne=async()=>evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
     if(!a.enemies.some(e=>!e.dead))a.spawnReplacement();
@@ -746,6 +748,7 @@ try {
   const heavyQueue=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
     const saved={enemies:a.enemies,total:a.totalSpawned,due:a.spawnDueAt,episode:{...a.episode}};
+    a.introducedEnemyTypes.add('before-first-zubrokryptyda'); // Separate test covers live visual introduction.
     const activeHeavy=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
     a.enemies=[activeHeavy];a.episode.wave=2;a.episode.spawned=11;a.episode.defeated=0;
     a.episode.state='active';a.totalSpawned=28;a.spawnDueAt=null;
@@ -900,7 +903,11 @@ try {
     if(!e)throw Error('Need a living enemy to assert narrative freeze');
     const x=e.x,y=e.y;
     const activeBefore=a.deathBursts.some(v=>v.graphics.active&&!v.done);
-    a.markNarrativeBoundary('before-first-bocianolak');
+    // Trigger via the first genuine scheduled Bocianołak, not a fabricated boundary.
+    a.episode.wave=1;a.episode.spawned=7;a.episode.state='active';
+    a.introducedEnemyTypes.delete('before-first-bocianolak');
+    a.pendingIntroductions.delete('before-first-bocianolak');
+    a.spawnReplacement();
     return {accepted,id:a.dialogueState.id,paused:a.physics.world.isPaused,x,y,active:activeBefore&&a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length};
   })()`);
   assert.equal(life.accepted,true);
@@ -1037,27 +1044,106 @@ try {
   await clickControl('WZNÓW');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'episode intermission resume');
   await sleep(950);
-  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,dialogue:a.dialogueState.id,narrative:a.consumeNarrativeBoundary('before-first-zubrokryptyda'),once:a.consumeNarrativeBoundary('before-first-zubrokryptyda')}})()"),{wave:2,state:'active',dialogue:'before-first-zubrokryptyda',narrative:false,once:false});
-  console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal, portrait and frozen/renewed intermission with one-shot narrative boundary');
-  // The cutscene is now the owner of the consumed heavy-enemy boundary.
-  for(const [id,count] of [['before-first-zubrokryptyda',2],['before-first-bocianolak',3]]){
-    if(id==='before-first-bocianolak'){
-      await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.markNarrativeBoundary('before-first-bocianolak')})()");
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.wave"),2);
+  console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal and paused intermission');
+  // Test both introductions through the *actual* scheduled spawn, not a fabricated boundary.
+  for(const [id,type,wave,spawned,lines] of [
+    ['before-first-zubrokryptyda','zubrokryptyda',2,11,2],
+    ['before-first-bocianolak','bocianolak',1,7,3]
+  ]){
+    const intro=await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena');
+      for(const e of a.enemies)if(e.sprite.active)e.sprite.destroy();
+      a.enemies=[];a.episode.wave=${wave};a.episode.spawned=${spawned};a.episode.defeated=0;a.episode.state='active';a.spawnDueAt=null;
+      a.totalSpawned=20; // Stable synthetic spawn ordinal; no extra actual enemy.
+      const before=a.totalSpawned;
+      a.spawnReplacement();
+      const e=a.enemies.find(v=>v.type==='${type}');
+      if(!e)throw Error('Scheduled introduction enemy was not spawned');
+      const v=a.cameras.main.worldView;
+      const width=${type==='zubrokryptyda'?105.6:83.2};
+      return {id:a.dialogueState.id,type:e.type,x:e.x,y:e.y,live:a.enemies.length,
+        spawned:a.totalSpawned-before,paused:a.physics.world.isPaused,
+        within:e.x-width/2>=v.x&&e.x+width/2<=v.x+v.width,
+        attackAt:a.enemyRenderers[e.type].feedbackOf(e).attackAt};
+    })()`);
+    assert.equal(intro.id,id,'Introduction did not begin upon visible spawn '+id);
+    assert.equal(intro.spawned,1,'Introduction duplicated enemy');
+    assert.equal(intro.live,1);
+    assert.equal(intro.within,true);
+    assert.equal(intro.paused,true);
+    assert.ok(!intro.attackAt,'Intro enemy attacked before dialogue');
+    // Real rendered dialogue geometry at Android-sized landscape viewports.
+    for(const [width,height] of [[320,240],[568,320],[800,360]]){
+      await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+      await evaluate("window.__game.scale.refresh();true");
+      await sleep(85);
+      const g=await evaluate(`(()=>{
+        const a=window.__game.scene.getScene('Arena'),p=a.dialoguePanel;
+        const t=p.text.getBounds(),b=p.button.getBounds();
+        return {w:a.scale.width,h:a.scale.height,text:{x:t.x,y:t.y,right:t.right,bottom:t.bottom},
+          button:{x:b.x,y:b.y,right:b.right,bottom:b.bottom},font:parseFloat(p.text.style.fontSize),
+          body:p.text.text};
+      })()`);
+      assert.ok(g.text.x>=0&&g.text.right<=width+1&&g.text.y>=0,'Dialogue text clipped '+JSON.stringify(g));
+      assert.ok(g.text.bottom<=g.button.y+1,'Dialogue text collides with DALEJ '+JSON.stringify(g));
+      assert.ok(g.button.bottom<=height+1&&g.button.x>=0,'DALEJ outside viewport '+JSON.stringify(g));
+      const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+      await writeFile('dist/dialogue-intro-'+type+'-'+width+'x'+height+'.png',Buffer.from(shot.data,'base64'));
     }
-    for(let i=0;i<count;i++){
-      const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,paused:a.physics.world.isPaused}})()");
-      assert.equal(before.id,id);assert.equal(before.index,i);assert.equal(before.paused,true);
-      const isolated=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.knob.visible&&!j.held&&j.pointerId===null)})()");
-      assert.equal(isolated,true,'Both joysticks must remain isolated across dialogue lines');
-      await sleep(210);
-      const rect=(await snapshot()).rect;
-      await click(rect.x+before.x,rect.y+before.y);
-      const after=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index}})()");
-      assert.equal(after.id,i===count-1?null:id,'DALEJ must advance exactly one line');
-      if(i<count-1)assert.equal(after.index,i+1);
+    await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
+    await evaluate("window.__game.scale.refresh();true");
+
+    for(let i=0;i<lines;i++){
+      const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
+      assert.equal(before.id,id);assert.equal(before.index,i);
+      assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.knob.visible&&!j.held&&j.pointerId===null)})()"),true);
+      await sleep(215);const rect=(await snapshot()).rect;await click(rect.x+before.x,rect.y+before.y);
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.index"),i===lines-1?0:i+1);
     }
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
   }
-  console.log('PASS real Chromium DALEJ: Bocianołak and Żubrokryptyda full conversations');
+  console.log('PASS real Chromium: scheduled intro enemies visible, nonattacking, once-only, DALEJ and joystick isolation');
+
+  // R1: a pending original offscreen/dead must not steal or lose the single introduction.
+  for(const [type,id] of [['bocianolak','before-first-bocianolak'],['zubrokryptyda','before-first-zubrokryptyda']]){
+    const state=await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena'),id='${id}',type='${type}',view=a.cameras.main.worldView;
+      if(!a.__r1SavedEnemies)a.__r1SavedEnemies=a.enemies;
+      else for(const e of a.enemies)e.sprite.destroy();
+      a.enemies=[];
+      a.introducedEnemyTypes.delete(id);a.pendingIntroductions.delete(id);a.narrativeEvents.delete(id);
+      const original=a.createEnemy(type,{x:view.x-150,y:view.y+view.height/2},61);
+      a.enemies.push(original);a.pendingIntroductions.set(id,original);
+      a.markNarrativeBoundary(id);
+      const offscreen={id:a.dialogueState.id,pending:a.narrativeEvents.has(id)};
+      original.dead=true;original.hp=0;
+      const afterDeath=a.tryStartDialogue();
+      const successor=a.createEnemy(type,{x:view.x+view.width/2,y:view.y+view.height*.7},62);
+      a.enemies.push(successor);
+      const afterReplacement=a.tryStartDialogue();
+      const state={offscreen,afterDeath,afterReplacement,id:a.dialogueState.id,
+        seen:a.introducedEnemyTypes.has(id),originalDead:original.dead,
+        selected:a.dialogueState.id===id,paused:a.physics.world.isPaused,
+        count:a.enemies.filter(e=>e===original||e===successor).length};
+      return state;
+    })()`);
+    assert.equal(state.offscreen.id,null,'Offscreen original prematurely introduced');
+    assert.equal(state.offscreen.pending,true);
+    assert.equal(state.afterDeath,false);
+    assert.equal(state.afterReplacement,true,'Replacement living visible specimen did not trigger pending introduction');
+    assert.equal(state.selected,true);
+    assert.equal(state.paused,true);
+    assert.equal(state.count,2);
+    for(let line=0;line<(type==='bocianolak'?3:2);line++){
+      await sleep(210);
+      const p=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
+      const rect=(await snapshot()).rect;await click(rect.x+p.x,rect.y+p.y);
+    }
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
+  }
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();a.enemies=a.__r1SavedEnemies;delete a.__r1SavedEnemies;return true})()");
+  console.log('PASS Chromium PR36 R1: original offscreen/dead, later visible living replacement, pending once-only narrative');
 
 
   // Combat Feedback V1: actual Arena frame, actual accepted contact and real render objects.
