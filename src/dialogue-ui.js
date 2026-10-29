@@ -21,25 +21,31 @@ export function createDialoguePanel(scene,Phaser,onFinish){
  let disposed=false,active=false,blockedUntil=0;
  const layout=()=>{
   const w=scene.scale.width,h=scene.scale.height;
-  const margin=Math.max(5,Math.min(14,w*0.018)),height=Math.min(172,Math.max(116,h*0.43));
-  const width=w-margin*2,x=margin,y=h-height-margin;
-  const p=Math.min(110,height-32,Math.max(60,width*0.20));
-  const px=x+13,py=y+12,tx=px+p+12,tw=Math.max(75,width-p-40);
+  const margin=Math.max(5,Math.min(12,w*.015)),width=w-2*margin,x=margin;
+  const compact=w<400;
+  const portrait=Math.round(Math.min(compact?55:78,Math.max(43,h*.23)));
+  const px=x+10,tx=px+portrait+12,tw=Math.max(70,width-portrait-36);
+  const font=compact?13:w<650?16:18;
+  const speakerFont=compact?12:w<650?15:17;
+  const buttonHeight=compact?29:33;
+  // Measure the actual wrapped line before allocating panel height.
+  text.setFontSize(font).setWordWrapWidth(tw);
+  speaker.setFontSize(speakerFont).setWordWrapWidth(tw);
+  const speakerTop=10,bodyTop=speakerTop+speaker.height+7;
+  const needed=bodyTop+text.height+buttonHeight+21;
+  const height=Math.min(h-2*margin,Math.max(portrait+24,needed,compact?104:112));
+  const y=h-height-margin,py=y+11;
   bg.setPosition(x,y).setSize(width,height);
-  portraitBox.setPosition(px,py).setSize(p,p);
-  initial.setPosition(px+p/2,py+p/2).setFontSize(Math.round(p*0.36));
-  speaker.setPosition(tx,y+11).setFontSize(Math.max(11,Math.min(16,w/47)));
-  text.setPosition(tx,y+32).setFontSize(Math.max(11,Math.min(15,w/53))).setWordWrapWidth(tw);
-  const by=y+height-19,bx=x+width-52;
-  // Shrink typography only when necessary to leave a clear button lane.
-  const available=by-21-(y+32);
-  for(let size=Math.max(11,Math.min(15,w/53));size>=9;size-=0.5){
-   text.setFontSize(size);
-   if(text.height<=available)break;
-  }
-  button.setPosition(bx,by).setSize(Math.min(88,Math.max(68,width*0.16)),31);
-  caption.setPosition(bx,by).setFontSize(Math.max(11,Math.min(15,w/55)));
-  for(const image of images.values())image.setPosition(px,py).setDisplaySize(p,p);
+  portraitBox.setPosition(px,py).setSize(portrait,portrait);
+  initial.setPosition(px+portrait/2,py+portrait/2).setFontSize(Math.round(portrait*.36));
+  speaker.setPosition(tx,y+speakerTop);
+  text.setPosition(tx,y+bodyTop);
+  const by=y+height-buttonHeight/2-8,bx=x+width-51;
+  // If content genuinely exceeds the available viewport, fit typography gently.
+  for(let size=font;size>=10&&text.y+text.height>by-buttonHeight/2-5;size-=.5)text.setFontSize(size);
+  button.setPosition(bx,by).setSize(compact?72:88,buttonHeight);
+  caption.setPosition(bx,by).setFontSize(compact?12:15);
+  for(const image of images.values())image.setPosition(px,py).setDisplaySize(portrait,portrait);
  };
  const render=state=>{
   const line=currentDialogue(state);if(!line)return;
