@@ -111,6 +111,18 @@ try {
     assert.ok(target,'Missing '+which+' interactive hit area '+JSON.stringify(state));
     assert.ok(target.y-target.height/2>=0&&target.y+target.height/2<=state.rect.height,'Button clipped: '+which);
     await click(state.rect.x+target.x,state.rect.y+target.y);
+    if(which==='NOWA GRA'){
+      for(let k=0;k<60;k++){
+        const status=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {ready:!!a.dialoguePanel&&!a.dialogueLoading,id:a.dialogueState?.id??null,index:a.dialogueState?.index??0,button:a.dialoguePanel?.button?{x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}:null}})()");
+        if(!status.ready){await sleep(60);continue;}
+        if(status.id!=='before-wave-1')break;
+        assert.equal(await evaluate("window.__game.scene.getScene('Arena').physics.world.isPaused"),true,'Opening must freeze combat');
+        const rect=(await snapshot()).rect;
+        await sleep(205);
+        await click(rect.x+status.button.x,rect.y+status.button.y);
+      }
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null,'Opening failed to complete');
+    }
   }
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
   await waitFor(s=>s.menu&&s.actions.length===1&&s.actions[0].label==='NOWA GRA','initial single new game');
