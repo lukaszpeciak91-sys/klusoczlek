@@ -1105,6 +1105,43 @@ try {
   }
   console.log('PASS real Chromium: scheduled intro enemies visible, nonattacking, once-only, DALEJ and joystick isolation');
 
+  // R1: a pending original offscreen/dead must not steal or lose the single introduction.
+  for(const [type,id] of [['bocianolak','before-first-bocianolak'],['zubrokryptyda','before-first-zubrokryptyda']]){
+    const state=await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena'),id='${id}',type='${type}',view=a.cameras.main.worldView;
+      a.introducedEnemyTypes.delete(id);a.pendingIntroductions.delete(id);a.narrativeEvents.delete(id);
+      const original=a.createEnemy(type,{x:view.x-150,y:view.y+view.height/2},61);
+      a.enemies.push(original);a.pendingIntroductions.set(id,original);
+      a.markNarrativeBoundary(id);
+      const offscreen={id:a.dialogueState.id,pending:a.narrativeEvents.has(id)};
+      original.dead=true;original.hp=0;
+      const afterDeath=a.tryStartDialogue();
+      const successor=a.createEnemy(type,{x:view.x+view.width/2,y:view.y+view.height*.7},62);
+      a.enemies.push(successor);
+      const afterReplacement=a.tryStartDialogue();
+      const state={offscreen,afterDeath,afterReplacement,id:a.dialogueState.id,
+        seen:a.introducedEnemyTypes.has(id),originalDead:original.dead,
+        selected:a.dialogueState.id===id,paused:a.physics.world.isPaused,
+        count:a.enemies.filter(e=>e===original||e===successor).length};
+      return state;
+    })()`);
+    assert.equal(state.offscreen.id,null,'Offscreen original prematurely introduced');
+    assert.equal(state.offscreen.pending,true);
+    assert.equal(state.afterDeath,false);
+    assert.equal(state.afterReplacement,true,'Replacement living visible specimen did not trigger pending introduction');
+    assert.equal(state.selected,true);
+    assert.equal(state.paused,true);
+    assert.equal(state.count,2);
+    for(let line=0;line<(type==='bocianolak'?3:2);line++){
+      await sleep(210);
+      const p=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
+      const rect=(await snapshot()).rect;await click(rect.x+p.x,rect.y+p.y);
+    }
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
+  }
+  console.log('PASS Chromium PR36 R1: original offscreen/dead, later visible living replacement, pending once-only narrative');
+
+
   // Combat Feedback V1: actual Arena frame, actual accepted contact and real render objects.
   if(!(await snapshot()).menu)await clickControl('hud');
   await waitFor(v=>v.menu&&v.arenaPaused,'combat feedback reset menu');
