@@ -9,6 +9,10 @@ export function createPixelBurst(scene,type,x,y,seed=0){
   age+=Math.max(0,Math.min(delta,50));
   const t=Math.min(1,age/profile.duration);
   graphics.clear();
+  if(age<65){
+   const flash=1-age/65;
+   graphics.fillStyle(0xff192b,0.9*flash).fillEllipse(x,y+profile.offsetY,profile.width*0.95,profile.height*0.9);
+  }
   for(const f of fragments){
    const px=x+f.x*(1-t)+f.vx*t*profile.duration/1000;
    const py=y+f.y*(1-t)+f.vy*t*profile.duration/1000+23*t*t;
