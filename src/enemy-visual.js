@@ -1,3 +1,4 @@
+import {createEnemyGait,advanceEnemyGait} from './enemy-motion.js';
 import { FACINGS, facingOf } from './combat-contract.js';
 import { assetUrl, validPngHeader } from './character-visual.js';
 
@@ -22,7 +23,7 @@ function createEnemyRenderer(scene,Phaser,type){
   const asset=heavy?ZUBROKRYPTYDA_ASSET:stork?BOCIANOLAK_ASSET:BOBROZOMBI_ASSET;
   const scale=heavy?ZUBROKRYPTYDA_VISUAL_SCALE:stork?BOCIANOLAK_VISUAL_SCALE:BOBROZOMBI_VISUAL_SCALE;
   const offset=heavy?ZUBROKRYPTYDA_FEET_OFFSET:stork?BOCIANOLAK_FEET_OFFSET:BOBROZOMBI_FEET_OFFSET;
-  const artKey=type+'-art',facingKey=type+'-facing';
+  const artKey=type+'-art',facingKey=type+'-facing',gaitKey=type+'-gait';
   const containers=new Set();
   let alive=true,ready=false,failed=false;
   const texture=scene.textures;
@@ -32,6 +33,8 @@ function createEnemyRenderer(scene,Phaser,type){
       .setOrigin(0.5).setScale(scale);
     container.add(image);
     container.setData(artKey,image);
+    const gait=container.getData(gaitKey);
+    if(gait)image.setRotation(gait.rotation).setPosition(-Math.sin(gait.rotation)*offset,offset*Math.cos(gait.rotation)+gait.bob);
     for(const child of container.list)if(child!==image)child.setVisible(false);
   };
   const create=(x,y)=>{
@@ -69,13 +72,20 @@ function createEnemyRenderer(scene,Phaser,type){
     attach(container);
     return container;
   };
-  const update=(enemy,player)=>{
+  const update=(enemy,player,distance=0,seconds=0)=>{
     const facing=bobrozombiFrame(enemy.x,enemy.y,player.x,player.y,enemy.facing||'s');
     enemy.facing=FACINGS[facing];
     enemy.sprite.setPosition(enemy.x,enemy.y);
     enemy.sprite.setData(facingKey,facing);
     const art=enemy.sprite.getData(artKey);
-    if(art?.active)art.setFrame(facing);
+    if(art?.active){
+      art.setFrame(facing);
+      let gait=enemy.sprite.getData(gaitKey);
+      if(!gait){gait=createEnemyGait(type,enemy.seed);enemy.sprite.setData(gaitKey,gait);}
+      advanceEnemyGait(gait,type,distance,seconds);
+      // Counter-rotate the sprite center so its feet stay at the container anchor.
+      art.setRotation(gait.rotation).setPosition(-Math.sin(gait.rotation)*offset,offset*Math.cos(gait.rotation)+gait.bob);
+    }
   };
   const shutdown=()=>{alive=false;containers.clear();};
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN,shutdown);

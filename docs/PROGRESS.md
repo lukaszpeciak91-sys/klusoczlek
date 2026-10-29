@@ -219,3 +219,9 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Heavy 8HP, 42 px/s, radius 30, damage 1, direct pursuit; prior two enemy balances untouched.
 - 18+10+4 = 32 scheduled enemies, heavy spawn ordinals 13/20/27/32, max three living and one heavy, blocked spawns retry without consumption. Existing weapon milestones 5 and 10 remain.
 - Original approved art and physical Android testing remain pending until manually available; no merge/deploy.
+
+## Enemy procedural locomotion V1 — independent audit pending
+- Visual-only distance-driven procedural gait uses resolved distance after existing obstacle collision, with deterministic seed phase and framerate-independent idle blending. The gameplay position, enemy types, collision radii and encounter 18+10+4 remain unchanged.
+- Bobrozombi: 1.8 Hz, ±3° sway, 1.8 px vertical shuffle; Bocianołak: 2.7 Hz, ±2°, 2.8 px; Żubrokryptyda: 1.1 Hz, ±1.5°, 1.2 px. Sprite scales and feet offsets retained. Counter-offset keeps rotating image feet anchored to enemy container.
+- Motion applies to loaded PNG sprites only; procedural fallbacks remain static. No authored animation frames: directional 8-frame poses retain inherent silhouette constraints. No per-enemy tweens/timers/assets.
+- User-approved PNG appearance on physical Android requires manual visual acceptance. No merge or deploy.
