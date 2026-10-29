@@ -29,3 +29,8 @@ export function introductionSpawnPoint(type,player,obstacles,view,radius){
    &&Math.hypot(p.x-player.x,p.y-player.y)>=ENCOUNTER.minSpawnDistance
    &&clearPoint(p,obstacles,radius+4))??null;
 }
+
+export function eligibleIntroductionEnemy(type,enemies,view){
+ return enemies.find(enemy=>enemy.type===type&&!enemy.dead&&enemy.hp>0
+   &&introductionVisible(type,enemy.x,enemy.y,view))??null;
+}
