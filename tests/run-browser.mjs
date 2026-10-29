@@ -1073,6 +1073,27 @@ try {
     assert.equal(intro.within,true);
     assert.equal(intro.paused,true);
     assert.ok(!intro.attackAt,'Intro enemy attacked before dialogue');
+    // Real rendered dialogue geometry at Android-sized landscape viewports.
+    for(const [width,height] of [[320,240],[568,320],[800,360]]){
+      await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+      await evaluate("window.__game.scale.refresh();true");
+      await sleep(85);
+      const g=await evaluate(`(()=>{
+        const a=window.__game.scene.getScene('Arena'),p=a.dialoguePanel;
+        const t=p.text.getBounds(),b=p.button.getBounds();
+        return {w:a.scale.width,h:a.scale.height,text:{x:t.x,y:t.y,right:t.right,bottom:t.bottom},
+          button:{x:b.x,y:b.y,right:b.right,bottom:b.bottom},font:parseFloat(p.text.style.fontSize),
+          body:p.text.text};
+      })()`);
+      assert.ok(g.text.x>=0&&g.text.right<=width+1&&g.text.y>=0,'Dialogue text clipped '+JSON.stringify(g));
+      assert.ok(g.text.bottom<=g.button.y+1,'Dialogue text collides with DALEJ '+JSON.stringify(g));
+      assert.ok(g.button.bottom<=height+1&&g.button.x>=0,'DALEJ outside viewport '+JSON.stringify(g));
+      const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+      await writeFile('dist/dialogue-intro-'+type+'-'+width+'x'+height+'.png',Buffer.from(shot.data,'base64'));
+    }
+    await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
+    await evaluate("window.__game.scale.refresh();true");
+
     for(let i=0;i<lines;i++){
       const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
       assert.equal(before.id,id);assert.equal(before.index,i);
