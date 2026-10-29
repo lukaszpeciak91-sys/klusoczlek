@@ -299,6 +299,12 @@ export class ArenaScene extends Phaser.Scene {
     this.playerHp=Math.max(0,Math.min(ENCOUNTER.playerMaxHp,Math.floor(next)));
     if(this.playerHp!==before)this.hpFace.setHp(this.playerHp);
     this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
+    if(this.playerHp===0&&!this.episode.ended)this.endEpisode('defeat');
+  }
+
+  consumeNarrativeBoundary(id){
+    if(!this.narrativeEvents.has(id))return false;
+    this.narrativeEvents.delete(id);return true;
   }
 
   addPickup(id,point){
