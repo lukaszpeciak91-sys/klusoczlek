@@ -540,10 +540,11 @@ export class ArenaScene extends Phaser.Scene {
     this.explosionEffects=this.explosionEffects.filter(e=>e.sprite.active);
     for(const enemy of this.enemies){
       if(enemy.hp<=0)continue;
+      const previousX=enemy.x,previousY=enemy.y;
       const next=moveEnemy(enemy,this.player,seconds,this.time.now/1000);
       const blockedPosition=resolveObstaclePosition(enemy,next,ENEMY_TYPES[enemy.type].radius,this.obstacles);
       enemy.x=blockedPosition.x;enemy.y=blockedPosition.y;
-      this.enemyRenderers[enemy.type].update(enemy,this.player);
+      this.enemyRenderers[enemy.type].update(enemy,this.player,Math.hypot(enemy.x-previousX,enemy.y-previousY),seconds);
       if(this.time.now>=enemy.hitUntil)enemy.sprite.setAlpha(1);
       if(Phaser.Math.Distance.Between(enemy.x,enemy.y,this.player.x,this.player.y)<=ENEMY_TYPES[enemy.type].radius+17){
         const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},this.time.now);
