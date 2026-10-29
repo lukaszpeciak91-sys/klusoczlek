@@ -66,7 +66,7 @@ export function createDialoguePanel(scene,Phaser,onFinish){
  }
  const loading=load();
  button.on('pointerdown',()=>{
-  if(!active||disposed||scene.game.loop.time<blockedUntil||!scene.canResume())return;
+  if(!active||disposed||scene.game.loop.time<blockedUntil||document.hidden||window.innerHeight>window.innerWidth)return;
   blockedUntil=scene.game.loop.time+180;
   const ended=advanceDialogue(scene.dialogueState);
   if(ended==='next'){render(scene.dialogueState);return;}
