@@ -10,7 +10,7 @@ export const DIALOGUES=Object.freeze({
   ['bocianolak','BOCIANOŁAK','Co zrobiłeś Damianowi, ty bydlaku?! Wisiał mi sto złotych! Oddawaj!']
  ],
  'before-first-zubrokryptyda':[
-  ['zubrokryptyda','ŻUBROKRYPTYDA (WALDEK)','Nikt nie będzie bezprawnie mordował naszych przyjaciół!'],
+  ['zubrokryptyda','ŻUBROKRYPTYDA','Nikt nie będzie bezprawnie mordował naszych przyjaciół!'],
   ['bobrozombi','BOBROZOMBI','Waldek, pokaż mu, gdzie raki zimują!']
  ],
  'after-final-enemy':[
