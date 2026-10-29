@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue,currentDialogue} from '../src/dialogue-data.js';
+import {validDialoguePng} from '../src/dialogue-ui.js';
 import {WAVES,TOTAL_ENEMIES,INTERMISSION_MS,HEALTH_AFTER_WAVES} from '../src/episode.js';
 test('four exact one-shot boundary dialogues and approved speaker sequence',()=>{
  assert.deepEqual(Object.keys(DIALOGUES),['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy']);
@@ -23,4 +24,18 @@ test('restart starts with no active narrative and fixed six-wave contract',()=>{
  assert.deepEqual(WAVES.map(w=>w.maxAlive),[3,3,4,4,4,5]);
  assert.equal(WAVES.length,6);assert.equal(TOTAL_ENEMIES,66);
  assert.equal(INTERMISSION_MS,3000);assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
+});
+
+test('portrait contract allows 192px 8-bit RGB or RGBA but rejects wrong dimensions',()=>{
+ const header=kind=>{
+  const h=new Uint8Array(26);
+  h.set([137,80,78,71,13,10,26,10]);
+  h.set([0,0,0,192],16);h.set([0,0,0,192],20);
+  h[24]=8;h[25]=kind;return h;
+ };
+ assert.equal(validDialoguePng(header(2)),true);
+ assert.equal(validDialoguePng(header(6)),true);
+ assert.equal(validDialoguePng(header(0)),false);
+ const invalid=header(6);invalid[23]=191;
+ assert.equal(validDialoguePng(invalid),false);
 });
