@@ -233,3 +233,12 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Mutually exclusive episode states: active, intermission, final-pending, victory or defeat. Victory from final-pending after final enemy death, allowing Part B dialogue before terminal outcome. Defeat wins if simultaneous.
 - One-shot narrative boundary names: before-wave-1, before-first-bocianolak, before-first-zubrokryptyda, after-final-enemy; `Arena.consumeNarrativeBoundary(id)` consumes exactly once. The native Scene `episode-boundary` event notifies listeners; Part B may call `holdFinalOutcome()` from the final-enemy event, then `releaseFinalOutcome()` after final dialogue so victory is not shown early. No cutscene content now.
 - Existing HUD V2.1, player visuals, combat, enemy balancing and approved assets retained; no binary changes.
+
+
+## Flamethrower V2 — proposed PR (2026-10-29; pending independent audit)
+- Fire stream uses reusable Phaser graphics in three layers plus existing bounded particles. No PNG or extra dependencies.
+- Living enemies hit by the obstacle-aware damage cone can enter a species-specific panic (Bobrozombi 2500 ms / 75 px/s, Bocianołak 1800 ms / 110 px/s, Żubrokryptyda 1200 ms / 35 px/s), followed by 2000 ms immunity.
+- Damage cadence and cone unchanged; no burning DoT. Retreat uses existing obstacle resolver and resolved-distance procedural gait.
+- Enemy fire VFX is one reusable Graphics instance per ignited enemy; cleared at expiry, death, scene shutdown.
+- Episode definitions, health drops, weapon milestones and narrative boundaries unchanged.
+- Automated pure contract tests and a real Chromium harness extension were added, but execution and visual QA must be verified from actual CI/browser evidence before merge. Physical Android QA remains outstanding.
