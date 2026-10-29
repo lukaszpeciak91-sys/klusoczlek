@@ -131,6 +131,14 @@ try {
           }
         }
         const rect=(await snapshot()).rect;
+        if(status.index===0){
+          const points=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [{x:a.hudLayout.joystickX,y:a.hudLayout.joystickY},{x:a.hudLayout.aimX,y:a.hudLayout.aimY}]})()");
+          for(const point of points){
+            await click(rect.x+point.x,rect.y+point.y);
+            const isolated=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {index:a.dialogueState.index,held:a.joystick.held||a.aimJoystick.held,dx:a.joystick.direction.x,aim:a.aimJoystick.direction.x}})()");
+            assert.deepEqual(isolated,{index:0,held:false,dx:0,aim:0},'Joystick-region tap interfered with dialogue');
+          }
+        }
         await sleep(205);
         await click(rect.x+status.button.x,rect.y+status.button.y);
       }
