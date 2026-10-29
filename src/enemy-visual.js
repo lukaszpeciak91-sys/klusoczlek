@@ -73,7 +73,8 @@ function createEnemyRenderer(scene,Phaser,type){
     return container;
   };
   const update=(enemy,player,distance=0,seconds=0)=>{
-    const facing=bobrozombiFrame(enemy.x,enemy.y,player.x,player.y,enemy.facing||'s');
+    const direction=enemy.fleeFacingVector;
+    const facing=direction?(Math.hypot(direction.x,direction.y)>0.4?FACINGS.indexOf(facingOf(direction.x,direction.y,enemy.facing||'s')):FACINGS.indexOf(enemy.facing||'s')):bobrozombiFrame(enemy.x,enemy.y,player.x,player.y,enemy.facing||'s');
     enemy.facing=FACINGS[facing];
     enemy.sprite.setPosition(enemy.x,enemy.y);
     enemy.sprite.setData(facingKey,facing);
