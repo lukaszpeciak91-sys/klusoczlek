@@ -3,6 +3,8 @@ import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
 import {createHpFaceHud} from './hp-face-hud.js';
+import {createDialogueState,beginDialogue} from './dialogue-data.js';
+import {createDialoguePanel} from './dialogue-ui.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
@@ -162,6 +164,7 @@ export class ArenaScene extends Phaser.Scene {
     this.totalSpawned=this.enemies.length;
     this.narrativeEvents=new Set(['before-wave-1']);
     this.finalOutcomeHeld=false;
+    this.dialogueState=createDialogueState();
     this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
     this.hpText=this.add.text(0,0,'HP 5/5',{fontFamily:'monospace',fontSize:'14px',color:'#f3e8d1'})
       .setOrigin(0.5,0).setScrollFactor(0).setDepth(81);
@@ -282,6 +285,22 @@ export class ArenaScene extends Phaser.Scene {
       window.removeEventListener('resize', this.onResize);
       document.removeEventListener('visibilitychange', this.onVisibility);
     });
+    this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
+      this.time.paused=false;
+      this.physics.world.resume();
+      if(id==='after-final-enemy')this.releaseFinalOutcome();
+      this.resetMovement();
+    });
+    // Opening boundary was already queued in create, before UI existed.
+    // No combat update runs while assets load or an opening line is visible.
+    this.dialogueLoading=true;
+    this.time.paused=true;
+    this.physics.world.pause();
+    this.dialoguePanel.loading.finally(()=>{
+      if(!this.sys.isActive())return;
+      this.dialogueLoading=false;
+      this.tryStartDialogue();
+    });
     enforceOrientationOnSceneStart(this);
     this.onResize();
   }
@@ -307,6 +326,19 @@ export class ArenaScene extends Phaser.Scene {
     if(this.playerHp===0&&!this.episode.ended)this.endEpisode('defeat');
   }
 
+  tryStartDialogue(){
+    if(this.dialogueLoading||this.dialogueState.id||this.episode.ended)return false;
+    for(const id of ['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy']){
+      if(!this.consumeNarrativeBoundary(id))continue;
+      if(!beginDialogue(this.dialogueState,id))return false;
+      if(id==='after-final-enemy')this.holdFinalOutcome();
+      this.resetMovement();this.physics.world.pause();this.time.paused=true;
+      this.dialoguePanel.show(this.dialogueState);
+      return true;
+    }
+    return false;
+  }
+
   consumeNarrativeBoundary(id){
     if(!this.narrativeEvents.has(id))return false;
     this.narrativeEvents.delete(id);return true;
@@ -315,6 +347,7 @@ export class ArenaScene extends Phaser.Scene {
     if(this.narrativeEvents.has(id))return false;
     this.narrativeEvents.add(id);
     this.events.emit('episode-boundary',id,this);
+    if(this.dialoguePanel)this.tryStartDialogue();
     return true;
   }
   holdFinalOutcome(){
@@ -554,10 +587,11 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   update() {
-    if (this.episode.ended || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
+    if (this.episode.ended || this.dialogueLoading || this.dialogueState?.id || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);
       return;
     }
+    if(this.tryStartDialogue())return;
     this.hpFace.update(this.game.loop.delta);
     this.retryPendingRewards();
     if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles);if(p&&this.addPickup('health',p))this.pendingHealth--;}
@@ -567,6 +601,7 @@ export class ArenaScene extends Phaser.Scene {
       if(this.episode.wave===2)this.markNarrativeBoundary('before-first-zubrokryptyda');
       this.waveText.setText('FALA '+(this.episode.wave+1)+'/'+TOTAL_WAVES).setVisible(true);
       this.spawnDueAt=this.time.now;
+      if(this.tryStartDialogue())return;
     }
     if(this.episode.state==='final-pending'){
       if(this.playerHp<=0)this.endEpisode('defeat');
