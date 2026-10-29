@@ -68,6 +68,7 @@ function createEnemyRenderer(scene,Phaser,type){
       container.add(scene.add.circle(-8,-9,4,0xe64b48));
       container.add(scene.add.circle(8,-9,4,0xe64b48));
     }
+    container.setData('fallback-bases',container.list.map(child=>({child,x:child.x,y:child.y,rotation:child.rotation})));
     container.setData(feedbackKey,makeFeedback());
     containers.add(container);
     container.once(Phaser.GameObjects.Events.DESTROY,()=>containers.delete(container));
@@ -94,7 +95,11 @@ function createEnemyRenderer(scene,Phaser,type){
     }else{
       // Fallback parts keep stable local coordinates; offset the whole visual only,
       // never its world collision/container position.
-      for(const child of enemy.sprite.list)child.setAlpha(hitActive(feedback,scene.time.now)?0.7:1);
+      for(const base of enemy.sprite.getData('fallback-bases')||[]){
+        if(!base.child.active)continue;
+        base.child.setPosition(base.x+fx.x,base.y+fx.y).setRotation(base.rotation+fx.angle)
+          .setAlpha(hitActive(feedback,scene.time.now)?0.7:1);
+      }
     }
   };
   const feedbackOf=enemy=>enemy.sprite.getData(feedbackKey);
