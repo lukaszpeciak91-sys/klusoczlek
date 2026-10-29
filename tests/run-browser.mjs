@@ -526,6 +526,8 @@ try {
   console.log('PASS optional variants: all four synthetic sheets, rapid selection, resume, reset, physics and single shadow');
   // Real Phaser Arena progression: exercise shared death path, drops and bounded replacement.
   // Exercise real Arena update/proximity and a placement failure that survives MENU/WZNÓW.
+  // Accelerated 66-kill regression is not a cutscene test; narrative is tested below via actual spawn.
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');})()");
   const killOne=async()=>evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
     if(!a.enemies.some(e=>!e.dead))a.spawnReplacement();
@@ -1037,28 +1039,50 @@ try {
   await clickControl('WZNÓW');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'episode intermission resume');
   await sleep(950);
-  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,dialogue:a.dialogueState.id,narrative:a.consumeNarrativeBoundary('before-first-zubrokryptyda'),once:a.consumeNarrativeBoundary('before-first-zubrokryptyda')}})()"),{wave:2,state:'active',dialogue:'before-first-zubrokryptyda',narrative:false,once:false});
-  console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal, portrait and frozen/renewed intermission with one-shot narrative boundary');
-  // The cutscene is now the owner of the consumed heavy-enemy boundary.
-  for(const [id,count] of [['before-first-zubrokryptyda',2],['before-first-bocianolak',3]]){
-    if(id==='before-first-bocianolak'){
-      await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.markNarrativeBoundary('before-first-bocianolak')})()");
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.wave"),2);
+  console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal and paused intermission');
+  // Test both introductions through the *actual* scheduled spawn, not a fabricated boundary.
+  for(const [id,type,wave,spawned,lines] of [
+    ['before-first-zubrokryptyda','zubrokryptyda',2,11,2],
+    ['before-first-bocianolak','bocianolak',1,7,3]
+  ]){
+    if(type==='bocianolak'){
+      await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'intro test reset menu');
+      await clickControl('NOWA GRA');
+      await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'intro test fresh Arena');
     }
-    for(let i=0;i<count;i++){
-      const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,paused:a.physics.world.isPaused}})()");
-      assert.equal(before.id,id);assert.equal(before.index,i);assert.equal(before.paused,true);
-      const isolated=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.knob.visible&&!j.held&&j.pointerId===null)})()");
-      assert.equal(isolated,true,'Both joysticks must remain isolated across dialogue lines');
-      await sleep(210);
-      const rect=(await snapshot()).rect;
-      await click(rect.x+before.x,rect.y+before.y);
-      const after=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index}})()");
-      assert.equal(after.id,i===count-1?null:id,'DALEJ must advance exactly one line');
-      if(i<count-1)assert.equal(after.index,i+1);
+    const intro=await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena');
+      for(const e of a.enemies)if(e.sprite.active)e.sprite.destroy();
+      a.enemies=[];a.episode.wave=${wave};a.episode.spawned=${spawned};a.episode.defeated=0;a.episode.state='active';a.spawnDueAt=null;
+      a.totalSpawned=20; // Stable synthetic spawn ordinal; no extra actual enemy.
+      const before=a.totalSpawned;
+      a.spawnReplacement();
+      const e=a.enemies.find(v=>v.type==='${type}');
+      if(!e)throw Error('Scheduled introduction enemy was not spawned');
+      const v=a.cameras.main.worldView;
+      const width=${type==='zubrokryptyda'?105.6:83.2};
+      return {id:a.dialogueState.id,type:e.type,x:e.x,y:e.y,live:a.enemies.length,
+        spawned:a.totalSpawned-before,paused:a.physics.world.isPaused,
+        within:e.x-width/2>=v.x&&e.x+width/2<=v.x+v.width,
+        attackAt:a.enemyRenderers[e.type].feedbackOf(e).attackAt};
+    })()`);
+    assert.equal(intro.id,id,'Introduction did not begin upon visible spawn '+id);
+    assert.equal(intro.spawned,1,'Introduction duplicated enemy');
+    assert.equal(intro.live,1);
+    assert.equal(intro.within,true);
+    assert.equal(intro.paused,true);
+    assert.equal(intro.attackAt,0,'Intro enemy attacked before dialogue');
+    for(let i=0;i<lines;i++){
+      const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
+      assert.equal(before.id,id);assert.equal(before.index,i);
+      assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.knob.visible&&!j.held&&j.pointerId===null)})()"),true);
+      await sleep(215);const rect=(await snapshot()).rect;await click(rect.x+before.x,rect.y+before.y);
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.index"),i===lines-1?0:i+1);
     }
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
   }
-  console.log('PASS real Chromium DALEJ: Bocianołak and Żubrokryptyda full conversations');
-
+  console.log('PASS real Chromium: scheduled intro enemies visible, nonattacking, once-only, DALEJ and joystick isolation');
 
   // Combat Feedback V1: actual Arena frame, actual accepted contact and real render objects.
   if(!(await snapshot()).menu)await clickControl('hud');
