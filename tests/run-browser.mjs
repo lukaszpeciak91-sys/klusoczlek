@@ -117,6 +117,15 @@ try {
         if(!status.ready){await sleep(60);continue;}
         if(status.id!=='before-wave-1')break;
         assert.equal(await evaluate("window.__game.scene.getScene('Arena').physics.world.isPaused"),true,'Opening must freeze combat');
+        if(status.index===0){
+          for(const [width,height] of [[320,240],[568,320],[800,360]]){
+            await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+            await evaluate('window.__game.scale.refresh();true');await sleep(80);
+            const geometry=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.dialoguePanel,t=p.text.getBounds(),b=p.button.getBounds();return {width:a.scale.width,height:a.scale.height,text:{x:t.x,y:t.y,right:t.right,bottom:t.bottom},button:{x:b.x,y:b.y,right:b.right,bottom:b.bottom},line:p.text.text}})()");
+            assert.ok(geometry.button.x>=0&&geometry.button.y>=0&&geometry.button.right<=width&&geometry.button.bottom<=height,'DALEJ bounds '+JSON.stringify(geometry));
+            assert.ok(geometry.text.x>=0&&geometry.text.right<=width&&geometry.text.bottom<=geometry.button.y+1,'Dialogue overlaps DALEJ '+JSON.stringify(geometry));
+          }
+        }
         const rect=(await snapshot()).rect;
         await sleep(205);
         await click(rect.x+status.button.x,rect.y+status.button.y);
