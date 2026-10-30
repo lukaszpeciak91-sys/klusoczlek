@@ -802,7 +802,7 @@ try {
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:fireX,y:fireY,button:'left',buttons:0,clickCount:1});
   await sleep(50);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').firingState.burstShots"),0,'Released rifle kept scheduled burst');
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='flamethrower';a.stopWeaponFire();return true})()");
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='flamethrower';a.stopWeaponFire();a.flamePressure.value=100;a.flamePressure.locked=false;a.flamePressure.wasHeld=false;a.flamePressure.active=false;return true})()");
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:fireX,y:fireY,button:'left',buttons:1,clickCount:1});
   await sleep(220);
   const flaming=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {particles:a.flameParticles.length,projectiles:a.projectiles.length,active:a.firingState.active}})()");
