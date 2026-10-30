@@ -588,28 +588,27 @@ try {
       assert.ok(!result.pickups.includes(i===4?'rifle':'flamethrower'));
     }
     if(i===27||i===72){
-      const expected=i===27?'rifle':'flamethrower';
-      const boundary=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,pending:a.mandatoryWeapon,pickups:a.pickups.map(p=>p.id),count:a.pickups.filter(p=>p.id===a.mandatoryWeapon).length}})()");
-      assert.equal(boundary.state,'intermission');
-      assert.equal(boundary.pending,expected);
-      assert.equal(boundary.count,1,'Exactly one mandatory reward pickup');
-      if(i===72)assert.ok(boundary.pickups.includes('health'),'Wave 4 health and flamethrower should coexist');
-      const gating=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const duration=a.episode.intermissionUntil-a.time.now;const wave=a.episode.wave;a.episode.intermissionUntil=a.time.now-1;return {duration,wave}})()");
-      assert.ok(gating.duration>=2850,'Intermission was shortened before mandatory reward');
-      await sleep(90);
-      assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,wave:a.episode.wave}})()"),{state:'intermission',wave:gating.wave},'Wave advanced without collecting mandatory weapon');
-      const p=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups.find(p=>p.id===a.mandatoryWeapon);return {x:p.x,y:p.y}})()");
-      await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.player.body.reset(${p.x},${p.y});return true})()`);
-      await sleep(90);
-      const collected=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {weapon:a.weapon,mandatory:a.mandatoryWeapon,visual:a.playerVisual.requestedVariant}})()");
-      assert.equal(collected.weapon,expected);assert.equal(collected.visual,expected);assert.equal(collected.mandatory,null);
-      await sleep(90);
-      assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.wave"),gating.wave+1,'Wave did not advance after mandatory collection and elapsed intermission');
-      assert.equal(await evaluate("window.__game.scene.getScene('Arena').waveText.text"),'⚑ '+(gating.wave+2)+'/6');
+      const reward=i===27?'rifle':'flamethrower';
+      const snapshot=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,wave:a.episode.wave,pickups:a.pickups.map(p=>p.id),weapon:a.weapon}})()");
+      assert.equal(snapshot.state,'intermission');
+      assert.equal(snapshot.pickups.filter(id=>id===reward).length,1,'One-shot reward');
+      if(i===72)assert.ok(snapshot.pickups.includes('health'),'Wave 4 heart survives');
+      const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const remaining=a.episode.intermissionUntil-a.time.now;a.episode.intermissionUntil=a.time.now-1;return remaining})()");
+      assert.ok(before>=2850,'Minimum three-second intermission');
+      if(i===27){
+        await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups.find(p=>p.id==='rifle');a.player.body.reset(p.x,p.y)})()");
+      }
+      await sleep(160);
+      const later=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,wave:a.episode.wave,weapon:a.weapon,pickups:a.pickups.map(p=>p.id)}})()");
+      assert.equal(later.wave,snapshot.wave+1,'Leaving optional weapon untouched blocked the next wave');
+      assert.equal(later.state,'active');
+      assert.equal(later.weapon,'rifle');
+      if(i===72)assert.equal(later.pickups.filter(id=>id==='flamethrower').length,1,'Skipped flamethrower vanished');
+
     }
   }
-  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
+  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['⊕',0x2499ad]);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones],healthAwards:a.healthAwardCount||0}})()");
   assert.equal(progression.kills,138);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'138/138');
