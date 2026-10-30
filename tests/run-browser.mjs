@@ -802,7 +802,7 @@ try {
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:fireX,y:fireY,button:'left',buttons:0,clickCount:1});
   await sleep(50);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').firingState.burstShots"),0,'Released rifle kept scheduled burst');
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='flamethrower';a.stopWeaponFire();return true})()");
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='flamethrower';a.stopWeaponFire();a.flamePressure.value=100;a.flamePressure.locked=false;a.flamePressure.wasHeld=false;a.flamePressure.active=false;return true})()");
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:fireX,y:fireY,button:'left',buttons:1,clickCount:1});
   await sleep(220);
   const flaming=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {particles:a.flameParticles.length,projectiles:a.projectiles.length,active:a.firingState.active}})()");
@@ -811,6 +811,49 @@ try {
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:fireX,y:fireY,button:'left',buttons:0,clickCount:1});
   await sleep(40);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').firingState.active"),false);
+  // PR38 real Phaser pressure: full, depletion, blocked held trigger, recharge, fresh press.
+  const stateFull=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.flamePressure.value=100;a.flamePressure.locked=false;a.flamePressure.wasHeld=false;a.flamePressure.active=false;a.weapon='flamethrower';a.renderPressureBar();return {value:a.flamePressure.value,meter:a.pressureBar.commandBuffer.length}})()");
+  assert.equal(stateFull.value,100);assert.ok(stateFull.meter>0);
+  await writeFile('dist/pressure-full.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:fireX,y:fireY,button:'left',buttons:1,clickCount:1});
+  await sleep(400);
+  const partial=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {value:a.flamePressure.value,locked:a.flamePressure.locked}})()");
+  assert.ok(partial.value<100&&partial.value>60,'No pressure drain under real fire');
+  await writeFile('dist/pressure-partial.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.flamePressure.value=0.2;return true})()");
+  await sleep(120);
+  const empty=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {locked:a.flamePressure.locked,active:a.flamePressure.active,value:a.flamePressure.value}})()");
+  assert.equal(empty.locked,true);assert.equal(empty.active,false);
+  await writeFile('dist/pressure-empty.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  await sleep(700);
+  const heldAfter=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {value:a.flamePressure.value,active:a.flamePressure.active,locked:a.flamePressure.locked}})()");
+  assert.equal(heldAfter.active,false,'Held trigger restarted fire after depletion');
+  assert.equal(heldAfter.locked,true);
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:fireX,y:fireY,button:'left',buttons:0,clickCount:1});
+  await sleep(500);
+  const recharge=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {value:a.flamePressure.value,locked:a.flamePressure.locked}})()");
+  assert.ok(recharge.value>=20,'Partial recharge did not reach ignition threshold');assert.equal(recharge.locked,false);
+  await writeFile('dist/pressure-recharge.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:fireX,y:fireY,button:'left',buttons:1,clickCount:1});
+  await sleep(90);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').flamePressure.active"),true,'Fresh press failed after recharge');
+  await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:fireX,y:fireY,button:'left',buttons:0,clickCount:1});
+  await sleep(55);
+  // Actual virtual aim-stick touch uses the same pressure gating and fresh release.
+  const touchAt=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.flamePressure.value=75;a.flamePressure.locked=false;a.flamePressure.wasHeld=false;a.flamePressure.active=false;return {x:a.hudLayout.aimX-22,y:a.hudLayout.aimY,value:a.flamePressure.value}})()");
+  const view=(await snapshot()).rect;
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:view.x+touchAt.x,y:view.y+touchAt.y,id:17}]});
+  await sleep(180);
+  const touched=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {held:a.aimJoystick.held,active:a.flamePressure.active,value:a.flamePressure.value}})()");
+  assert.equal(touched.held,true,'Right joystick did not capture genuine touch');
+  assert.equal(touched.active,true,'Right joystick did not ignite flamethrower');
+  assert.ok(touched.value<touchAt.value,'Touch firing did not drain pressure');
+  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await sleep(100);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').aimJoystick.held"),false,'Touch capture persisted after release');
+  assert.ok(await evaluate("window.__game.scene.getScene('Arena').flamePressure.value")>touched.value,'Touch release did not regenerate pressure');
+  console.log('PASS real Chromium PR38 virtual aim joystick touch: drain, release, recharge');
+  console.log('PASS real Chromium PR38 flame pressure meter, depletion lockout, held no-pulse and fresh press');
   console.log('PASS real held mouse: rifle three-shot burst, release cancellation, flame visual stream and stop');
   // One authoritative barrel explosion path when flame applies three cooldown-limited hits.
   const flameBarrel=await evaluate(`(()=>{
