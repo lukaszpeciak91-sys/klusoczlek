@@ -562,7 +562,7 @@ try {
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');})()");
   const killOne=async()=>evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
-    if(a.episode.state==='intermission'&&!a.mandatoryWeapon){
+    if(a.episode.state==='intermission'){
       a.episode.wave++;a.episode.spawned=0;a.episode.defeated=0;a.episode.intermissionUntil=null;a.episode.state='active';
       a.waveText.setText('⚑ '+(a.episode.wave+1)+'/6');
     }
