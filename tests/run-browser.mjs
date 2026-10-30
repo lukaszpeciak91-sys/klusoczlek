@@ -562,11 +562,18 @@ try {
       assert.equal(boundary.pending,expected);
       assert.equal(boundary.count,1,'Exactly one mandatory reward pickup');
       if(i===41)assert.ok(boundary.pickups.includes('health'),'Wave 4 health and flamethrower should coexist');
+      const gating=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const duration=a.episode.intermissionUntil-a.time.now;const wave=a.episode.wave;a.episode.intermissionUntil=a.time.now-1;return {duration,wave}})()");
+      assert.ok(gating.duration>=2850,'Intermission was shortened before mandatory reward');
+      await sleep(90);
+      assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,wave:a.episode.wave}})()"),{state:'intermission',wave:gating.wave},'Wave advanced without collecting mandatory weapon');
       const p=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups.find(p=>p.id===a.mandatoryWeapon);return {x:p.x,y:p.y}})()");
       await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.player.body.reset(${p.x},${p.y});return true})()`);
       await sleep(90);
       const collected=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {weapon:a.weapon,mandatory:a.mandatoryWeapon,visual:a.playerVisual.requestedVariant}})()");
       assert.equal(collected.weapon,expected);assert.equal(collected.visual,expected);assert.equal(collected.mandatory,null);
+      await sleep(90);
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.wave"),gating.wave+1,'Wave did not advance after mandatory collection and elapsed intermission');
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').waveText.text"),'⚑ '+(gating.wave+2)+'/6');
     }
   }
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
