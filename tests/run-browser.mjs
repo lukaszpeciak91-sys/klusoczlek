@@ -530,15 +530,16 @@ try {
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');})()");
   const killOne=async()=>evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
+    if(a.episode.state==='intermission'&&!a.mandatoryWeapon){
+      a.episode.wave++;a.episode.spawned=0;a.episode.defeated=0;a.episode.intermissionUntil=null;a.episode.state='active';
+      a.waveText.setText('⚑ '+(a.episode.wave+1)+'/6');
+    }
     if(!a.enemies.some(e=>!e.dead))a.spawnReplacement();
     const e=a.enemies.find(e=>!e.dead);
     if(!e)throw Error('Encounter stalled');
     e.hp=0;
     if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
     a.enemies=a.enemies.filter(e=>!e.dead);
-    if(a.episode.state==='intermission'){
-      a.episode.wave++;a.episode.spawned=0;a.episode.defeated=0;a.episode.intermissionUntil=null;a.episode.state='active';
-    }
     if(a.episode.state==='active'&&a.enemies.filter(e=>!e.dead).length<[3,3,4,4,4,5][a.episode.wave])a.spawnReplacement();
     return {kills:a.kills,type:e.type,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
