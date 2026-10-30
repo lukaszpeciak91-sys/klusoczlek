@@ -16,3 +16,20 @@ PR40 provides a **foundation only**. The live Arena still uses its legacy obstac
 - The benchmark harness is `tests/bench-pr40.mjs`; run via `node tests/bench-pr40.mjs`. Timing is informational and must not be used as a hardware-dependent CI pass threshold.
 
 Deferred to PR41: procedural placement, seeding/zones, replacement of legacy layouts, shooting-target removal, Phaser rendering, image loading, pickup/spawn integration and browser gameplay regressions.
+
+## R1 verification and performance note
+
+The required `node --test`, `npm run build`, and Chromium regression commands were **not runnable** in the current working container: GitHub clone failed with `Could not resolve host: github.com`. No complete repository checkout is available here. No CI/build/Chromium result is claimed.
+
+For targeted checks, current source and the three PR40 test modules were fetched from GitHub, their ESM import/export syntax was adapted in-memory, and 13 assertions were executed in an isolated V8 runtime. They passed after the tangent fix. This is **not** equivalent to Node test-suite GREEN.
+
+Measured in that isolated runtime (coarse millisecond wall clock, one sample, 1800×1200, 12px grid; 3 grid generations and 100 segment queries respectively):
+| Obstacles | 3 grid builds | 100 segment queries |
+| --- | ---: | ---: |
+| 15 | 348ms | 5ms |
+| 50 | 871ms | 25ms |
+| 150 | 1801ms | 75ms |
+
+These values are environment-specific diagnostics, **not** CI limits or physical Android results. Grid construction scales with obstacles × grid cells; at 150 segments it is too expensive to run on gameplay frames. The cheap segment AABB broad phase reduced the 150-obstacle segment-query measurement from approximately 907ms to 75ms for 100 queries in this runtime. These figures are not a definitive browser benchmark.
+
+Before PR40 acceptance, run `npm test`, `npm run build`, `npm run test:browser`, and `node tests/bench-pr40.mjs` in an actual checkout; review any failures and compare performance on representative devices.
