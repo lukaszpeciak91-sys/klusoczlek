@@ -19,6 +19,7 @@ import { createJoystick } from './joystick.js';
 import { resolvePose } from './combat-contract.js';
 import { resolveAim, muzzlePoint } from './shooting.js';
 import {COMBAT_TUNING,createFiringState,resetFiring,firingStep,flameTargetVisible,cooldownReady} from './weapon-combat.js';
+import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
 import { ENCOUNTER, enemySpawns, advanceEnemy, applyEnemyHit, applyPlayerContact, segmentHitsCircle } from './bobrozombi.js';
 import { menuLayout, arenaHudLayout } from './ui-layout.js';
 import { enforceOrientationOnSceneStart } from './viewport.js';
@@ -154,6 +155,7 @@ export class ArenaScene extends Phaser.Scene {
     this.lastFacing='s';
     this.lastShotAt=null;
     this.firingState=createFiringState();
+    this.flamePressure=createPressure();
     this.flameParticles=[];
     this.flameStream=this.add.graphics().setDepth(12);
     this.flameCooldowns=new Map();
@@ -192,6 +194,7 @@ export class ArenaScene extends Phaser.Scene {
     this.weaponText=this.add.text(0,0,'—',{fontFamily:'monospace',fontSize:'21px',fontStyle:'bold',color:'#ffffff'})
       .setOrigin(0.5);
     this.weaponToken.add([this.weaponTokenBody,this.weaponText]);
+    this.pressureBar=this.add.graphics().setScrollFactor(0).setDepth(67);
     this.skullIcon=this.add.text(0,0,'☠',{fontFamily:'sans-serif',fontSize:'23px',color:'#d7b978'})
       .setOrigin(0.5).setScrollFactor(0).setDepth(66);
     this.killsText=this.add.text(0,0,'0/'+TOTAL_ENEMIES,{fontFamily:'monospace',fontSize:'20px',color:'#f3e8d1'})
@@ -235,6 +238,7 @@ export class ArenaScene extends Phaser.Scene {
       this.mouseHeld=false;
       this.stopWeaponFire();
       this.weaponToken.setPosition(pos.weaponX,pos.weaponY);
+      this.renderPressureBar();
       this.weaponToken.setScale(pos.tokenSize/42);
       this.skullIcon.setPosition(pos.skullX,pos.skullY).setFontSize(pos.skullSize);
       this.killsText.setPosition(pos.killsX,pos.killsY).setFontSize(pos.countFont);
@@ -418,6 +422,7 @@ export class ArenaScene extends Phaser.Scene {
       }
       this.weapon=pickup.id;
       if(this.mandatoryWeapon===pickup.id)this.mandatoryWeapon=null;
+      this.renderPressureBar();
       this.stopWeaponFire();
       void this.playerVisual.setVariant(pickup.id);
       pickup.object.destroy();
@@ -427,6 +432,14 @@ export class ArenaScene extends Phaser.Scene {
     this.pickups=this.pickups.filter(p=>!p.collected);
   }
 
+  renderPressureBar(){
+    const g=this.pressureBar;if(!g)return;
+    g.clear();
+    if(this.weapon!=='flamethrower')return;
+    const p=this.hudLayout,w=p.tokenSize,h=4,x=p.weaponX-w/2,y=p.weaponY+p.tokenSize/2+5;
+    g.fillStyle(0x382721,0.95).fillRect(x,y,w,h);
+    g.fillStyle(this.flamePressure.value<20?0x9b3932:0xee903a,1).fillRect(x,y,w*this.flamePressure.value/100,h);
+  }
   stopWeaponFire(){
     resetFiring(this.firingState,this.weapon);
     this.lastShotAt=null;
@@ -661,6 +674,7 @@ export class ArenaScene extends Phaser.Scene {
   update() {
     if (this.episode.ended || this.dialogueLoading || this.dialogueState?.id || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);
+      cancelPressureTrigger(this.flamePressure);
       return;
     }
     if(this.tryStartDialogue())return;
@@ -712,8 +726,10 @@ export class ArenaScene extends Phaser.Scene {
     if(!firing)this.lastShotAt=null;
     const count=firingStep(this.firingState,this.weapon,firing,now);
     for(let i=0;i<count;i++)this.spawnShot(aiming,this.weapon,now);
-    if(firing&&this.weapon==='flamethrower')this.applyFlame(aiming,now);
+    const flameActive=this.weapon==='flamethrower'&&stepPressure(this.flamePressure,aimingHeld,this.game.loop.delta);
+    if(flameActive)this.applyFlame(aiming,now);
     else this.flameStream.clear();
+    this.renderPressureBar();
     const delta=Math.min(this.game.loop.delta,50);
     this.updateFlameParticles(this.time.now,delta);
     if(this.defeated)return;
