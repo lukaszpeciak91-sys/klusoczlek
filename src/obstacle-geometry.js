@@ -44,6 +44,17 @@ export function inflatedBounds(shape,padding=0){
 export function segmentFootprintHit(from,to,shape,projectileRadius=0){
  const dx=to.x-from.x,dy=to.y-from.y,len=Math.hypot(dx,dy);
  const at=t=>({x:from.x+dx*t,y:from.y+dy*t});
+ const bounds=inflatedBounds(shape,projectileRadius);
+ // Broad phase: reject segment if it never enters the rotated shape's
+ // conservative axis-aligned envelope. This also bounds tangent fallback cost.
+ let tMin=0,tMax=1;
+ for(const [start,delta,min,max] of [[from.x,dx,bounds.minX,bounds.maxX],[from.y,dy,bounds.minY,bounds.maxY]]){
+  if(Math.abs(delta)<EPS){if(start<min||start>max)return null;continue;}
+  const a=(min-start)/delta,b=(max-start)/delta;
+  tMin=Math.max(tMin,Math.min(a,b));tMax=Math.min(tMax,Math.max(a,b));
+  if(tMin>tMax)return null;
+ }
+
  if(footprintOverlap(shape,from,projectileRadius))return {t:0,point:{...from}};
  if(len<EPS)return null;
  // Signed distance is 1-Lipschitz: a positive distance d guarantees the
