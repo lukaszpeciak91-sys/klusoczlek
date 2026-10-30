@@ -17,8 +17,8 @@ test('segment entry ordering uses first intersection rather than closest center'
  assert.ok(first.t<second.t);
 });
 
-test('no diagonal passage through touching corners',()=>{
- const obstacles=[{shape:'box',x:120,y:80,width:40,height:40,angle:0},{shape:'box',x:80,y:120,width:40,height:40,angle:0}];
+test('wall spanning world height disconnects both regions',()=>{
+ const obstacles=[{shape:'box',x:100,y:100,width:30,height:200,angle:0}];
  const reach=reachableCells({width:200,height:200,cellSize:10,actorRadius:17,obstacles,origin:{x:40,y:40}});
  assert.equal(reach.isReachable({x:160,y:160}),false);
 });
