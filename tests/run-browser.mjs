@@ -217,7 +217,7 @@ try {
   assert.ok(firstPickup.obstacles.every(o=>Math.hypot(firstPickup.x-o.x,firstPickup.y-o.y)>o.r+20));
 
   const initialToken=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {symbol:a.weaponText.text,color:a.weaponTokenBody.fillColor,kills:a.killsText.text}})()");
-  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/66'});
+  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/138'});
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'unarmed');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups[0];a.player.setPosition(p.x,p.y);a.player.body.reset(p.x,p.y);return true})()");
@@ -540,28 +540,28 @@ try {
     e.hp=0;
     if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
     a.enemies=a.enemies.filter(e=>!e.dead);
-    if(a.episode.state==='active'&&a.enemies.filter(e=>!e.dead).length<[3,3,4,4,4,5][a.episode.wave])a.spawnReplacement();
+    if(a.episode.state==='active'&&a.enemies.filter(e=>!e.dead).length<[4,5,6,7,8,9][a.episode.wave])a.spawnReplacement();
     return {kills:a.kills,type:e.type,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
   const typesDefeated=[];
-  // Real 66th-death bookkeeping with deliberate wave-boundary collection.
+  // Real 138th-death bookkeeping with deliberate wave-boundary collection.
   // Keep the legacy kill helper's accelerated spawn fixture, but assert rewards
   // against authoritative wave-clear events instead of kill thresholds.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const original=a.dropHealthReward.bind(a);a.healthAwardCount=0;a.dropHealthReward=()=>{a.healthAwardCount++;return original()};a.events.on('episode-boundary',(id,scene)=>{if(id==='after-final-enemy')scene.holdFinalOutcome()})})()");
-  for(let i=0;i<66;i++){
+  for(let i=0;i<138;i++){
     const result=await killOne();
     typesDefeated.push(result.type);
     if(i===4||i===9){
       assert.equal(result.pending,0,'Old kill-threshold reward still active');
       assert.ok(!result.pickups.includes(i===4?'rifle':'flamethrower'));
     }
-    if(i===17||i===41){
-      const expected=i===17?'rifle':'flamethrower';
+    if(i===27||i===72){
+      const expected=i===27?'rifle':'flamethrower';
       const boundary=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,pending:a.mandatoryWeapon,pickups:a.pickups.map(p=>p.id),count:a.pickups.filter(p=>p.id===a.mandatoryWeapon).length}})()");
       assert.equal(boundary.state,'intermission');
       assert.equal(boundary.pending,expected);
       assert.equal(boundary.count,1,'Exactly one mandatory reward pickup');
-      if(i===41)assert.ok(boundary.pickups.includes('health'),'Wave 4 health and flamethrower should coexist');
+      if(i===72)assert.ok(boundary.pickups.includes('health'),'Wave 4 health and flamethrower should coexist');
       const gating=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const duration=a.episode.intermissionUntil-a.time.now;const wave=a.episode.wave;a.episode.intermissionUntil=a.time.now-1;return {duration,wave}})()");
       assert.ok(gating.duration>=2850,'Intermission was shortened before mandatory reward');
       await sleep(90);
@@ -579,20 +579,20 @@ try {
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones],healthAwards:a.healthAwardCount||0}})()");
-  assert.equal(progression.kills,66);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'66/66');
-  assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,35);
-  assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,23);
-  assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,8);
-  assert.equal(progression.total,66);
+  assert.equal(progression.kills,138);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'138/138');
+  assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,69);
+  assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,55);
+  assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,14);
+  assert.equal(progression.total,138);
   assert.equal(progression.healthAwards,3,'Heart awards after waves 2, 4, 5 were not exactly once');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'final-pending');
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[2,4]);
-  console.log('PASS Phaser wave rewards: no kill 5/10 triggers, rifle after 2, flamethrower and health after 4, 66 unique deaths');
-  // The actual 66th gameplay death must leave a live burst throughout the final narrative.
+  console.log('PASS Phaser wave rewards: no kill 5/10 triggers, rifle after 2, flamethrower and health after 4, 138 unique deaths');
+  // The actual 138th gameplay death must leave a live burst throughout the final narrative.
   const finalBurstAtStart=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,kills:a.kills,active:a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length}})()");
-  assert.equal(finalBurstAtStart.kills,66);
+  assert.equal(finalBurstAtStart.kills,138);
   assert.equal(finalBurstAtStart.state,'final-pending');
   assert.equal(finalBurstAtStart.id,'after-final-enemy');
   assert.equal(finalBurstAtStart.active,true,'Final enemy burst must exist at final-pending boundary');
