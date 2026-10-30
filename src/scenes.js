@@ -170,6 +170,7 @@ export class ArenaScene extends Phaser.Scene {
     this.spawnDueAt=null;
     this.pickups=[];
     this.triggeredMilestones=new Set();
+    this.mandatoryWeapon=null;
     this.pendingRewards=new Map();
     this.enemyRenderers={bobrozombi:createBobrozombiRenderer(this,Phaser),bocianolak:createBocianolakRenderer(this,Phaser),zubrokryptyda:createZubrokryptydaRenderer(this,Phaser)};
     this.enemyRenderer=this.enemyRenderers.bobrozombi;
@@ -196,7 +197,7 @@ export class ArenaScene extends Phaser.Scene {
     this.killsText=this.add.text(0,0,'0/'+TOTAL_ENEMIES,{fontFamily:'monospace',fontSize:'20px',color:'#f3e8d1'})
       .setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
     this.hpFace=createHpFaceHud(this,Phaser);
-    this.waveText=this.add.text(this.scale.width/2,100,'FALA 1/'+TOTAL_WAVES,{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76',backgroundColor:'#1b2330'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65);
+    this.waveText=this.add.text(0,0,'⚑ 1/'+TOTAL_WAVES,{fontFamily:'monospace',fontSize:'15px',color:'#f3ca76'}).setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
     this.completeText=this.add.text(this.scale.width/2,55,'ZWYCIĘSTWO!',{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65).setVisible(false);
     this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
       this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
@@ -240,7 +241,7 @@ export class ArenaScene extends Phaser.Scene {
       this.hpText.setPosition(pos.hpX,pos.hpY).setFontSize(pos.hpFont);
       this.hpFace.resize(pos);
       this.completeText.setX(this.scale.width/2);
-      this.waveText.setX(this.scale.width/2);
+      this.waveText.setPosition(pos.waveX,pos.waveY).setFontSize(pos.waveFont);
     };
     // Apply positions during initial Arena creation, even if Phaser emits no RESIZE.
     resizeHud();
@@ -416,6 +417,7 @@ export class ArenaScene extends Phaser.Scene {
         pickup.object.destroy();pickup.collected=true;continue;
       }
       this.weapon=pickup.id;
+      if(this.mandatoryWeapon===pickup.id)this.mandatoryWeapon=null;
       this.stopWeaponFire();
       void this.playerVisual.setVariant(pickup.id);
       pickup.object.destroy();
@@ -547,11 +549,19 @@ export class ArenaScene extends Phaser.Scene {
     }
   }
 
+  rewardForClearedWave(wave){
+    const id=wave===2?'rifle':wave===4?'flamethrower':null;
+    if(!id||this.triggeredMilestones.has(wave)||this.pendingRewards.has(wave)||this.mandatoryWeapon===id)return;
+    this.mandatoryWeapon=id;
+    this.pendingRewards.set(wave,{id,origin:{x:this.player.x,y:this.player.y},attempts:0});
+    this.retryPendingRewards();
+  }
+
   retryPendingRewards(){
     for(const [milestone,reward] of this.pendingRewards){
       // Retain the reward until it exists as an actual world pickup.
       reward.attempts=(reward.attempts||0)+1;
-      const point=dropPoint(reward.origin,this.obstacles)||(reward.attempts>=3?fallbackRewardPoint(this.player,this.obstacles):null);
+      const point=fallbackRewardPoint(this.player,this.obstacles)||dropPoint(reward.origin,this.obstacles);
       if(point&&this.addPickup(reward.id,point)){
         this.pendingRewards.delete(milestone);
         this.triggeredMilestones.add(milestone);
@@ -572,19 +582,13 @@ export class ArenaScene extends Phaser.Scene {
     this.flameCooldowns.delete(enemy);
     enemy.sprite.destroy();
     this.kills++;
-    if(this.kills===5||this.kills===10){
-      const id=this.kills===5?'rifle':'flamethrower';
-      if(!this.triggeredMilestones.has(this.kills)){
-        this.pendingRewards.set(this.kills,{id,origin:{x:enemy.x,y:enemy.y}});
-        this.retryPendingRewards();
-      }
-    }
     this.refreshWeaponHud();
     const living=this.enemies.filter(e=>!e.dead).length;
     const event=recordDeath(this.episode,living,this.time.now);
     if(event==='wave-cleared'){
-      if(HEALTH_AFTER_WAVES.includes(this.episode.wave+1))this.dropHealthReward();
-      this.waveText.setText('FALA '+(this.episode.wave+2)+'/'+TOTAL_WAVES).setVisible(true);
+      const cleared=this.episode.wave+1;
+      if(HEALTH_AFTER_WAVES.includes(cleared))this.dropHealthReward();
+      this.rewardForClearedWave(cleared);
       this.spawnDueAt=null;
     }else if(event==='final-cleared'){
       this.markNarrativeBoundary('after-final-enemy');
@@ -664,9 +668,9 @@ export class ArenaScene extends Phaser.Scene {
     this.retryPendingRewards();
     if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles);if(p&&this.addPickup('health',p))this.pendingHealth--;}
     this.collectPickups();
-    if(this.episode.state==='intermission'&&advanceEpisode(this.episode,this.time.now)){
+    if(this.episode.state==='intermission'&&!this.mandatoryWeapon&&advanceEpisode(this.episode,this.time.now)){
       // Enemy introduction boundaries are raised by actual spawned specimens below.
-      this.waveText.setText('FALA '+(this.episode.wave+1)+'/'+TOTAL_WAVES).setVisible(true);
+      this.waveText.setText('⚑ '+(this.episode.wave+1)+'/'+TOTAL_WAVES);
       this.spawnDueAt=this.time.now;
       if(this.tryStartDialogue())return;
     }

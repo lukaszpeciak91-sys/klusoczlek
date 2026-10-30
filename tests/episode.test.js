@@ -36,3 +36,14 @@ test('defeat wins terminal precedence and healing respects bounds',()=>{
  assert.equal(e.state,'defeat');
  assert.equal(healedHp(1),3);assert.equal(healedHp(4),5);assert.equal(healedHp(5),5);
 });
+
+import {arenaHudLayout} from '../src/ui-layout.js';
+test('compact wave counter remains in the shared HUD ribbon at supported landscape widths',()=>{
+ for(const [w,h] of [[320,240],[568,320],[800,360],[960,540]]){
+  const ui=arenaHudLayout(h,w);
+  const right=ui.waveX+(w<390?39:w<600?53:67);
+  assert.ok(ui.waveX>ui.killsX+28,`wave overlaps kills at ${w}`);
+  assert.ok(right<=ui.portraitX-ui.portraitSize/2,`wave overlaps portrait at ${w}`);
+  assert.ok(ui.waveY>=ui.panelY&&ui.waveY<=ui.panelY+ui.panelHeight,`wave outside ribbon at ${w}`);
+ }
+});

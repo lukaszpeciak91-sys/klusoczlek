@@ -35,6 +35,9 @@ export function arenaHudLayout(height,width=960){
  const hpY=portraitY+portraitSize/2+1;
  const countX=weaponX+tokenSize/2+gap;
  const countRight=portraitX-portraitSize/2-gap;
+ const waveFont=tiny?10:compact?13:16;
+ // Reserve the last portion of the existing counter-to-portrait ribbon.
+ const waveX=Math.max(countX+skullSize+gap/2+37,countRight-(tiny?39:compact?53:67));
  return {
   panelX,panelY,panelWidth,panelHeight:barHeight,
   menuX,menuY:centerY,menuWidth,menuHeight,menuFont:tiny?15:compact?18:20,
@@ -42,6 +45,7 @@ export function arenaHudLayout(height,width=960){
   skullX:countX+skullSize/2,skullY:centerY,skullSize,
   killsX:countX+skullSize+gap/2,killsY:centerY,countFont,
   countRight,
+  waveX,waveY:centerY,waveFont,
   portraitX,portraitY,portraitSize,
   hpX:portraitX,hpY,hpFont,
   joystickX:radius+padding,
