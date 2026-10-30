@@ -31,14 +31,14 @@ test('red fragment profiles deterministic, bounded and distinct',()=>{
  assert.deepEqual(Object.values(DEATH_PROFILES).map(p=>p.count),[30,36,58,36]);
 });
 test('six waves, intermission, healing and flamethrower tuning unchanged',()=>{
- assert.equal(WAVES.length,6);assert.equal(TOTAL_ENEMIES,66);
- assert.deepEqual(WAVES.map(w=>w.maxAlive),[3,3,4,4,4,5]);
+ assert.equal(WAVES.length,6);assert.equal(TOTAL_ENEMIES,138);
+ assert.deepEqual(WAVES.map(w=>w.maxAlive),[4,5,6,7,8,9]);
  assert.equal(INTERMISSION_MS,3000);assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
  assert.equal(COMBAT_TUNING.flamethrower.damage,1);
  assert.equal(COMBAT_TUNING.flamethrower.damageInterval,250);
  const state=createEpisode();
  for(const e of WAVES[0].enemies)recordSpawn(state);
- for(let i=0;i<7;i++)assert.equal(recordDeath(state,7-i,200),null);
+ for(let i=0;i<11;i++)assert.equal(recordDeath(state,11-i,200),null);
  assert.equal(state.state,'active');
  assert.equal(recordDeath(state,0,200),'wave-cleared');
 });
