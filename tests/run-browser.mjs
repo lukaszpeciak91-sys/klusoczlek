@@ -228,6 +228,7 @@ try {
     const hud=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const toRect=o=>{const r=o.getBounds();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom}};return {timer:toRect(a.timerText),kills:toRect(a.killsText),wave:toRect(a.waveText),skull:toRect(a.skullIcon),token:toRect(a.weaponToken),portrait:toRect(a.hpFace.root),width:a.scale.width,panelHeight:a.hudLayout.panelY+a.hudLayout.panelHeight}})()");
     const intersects=(a,b)=>a.x<b.right&&a.right>b.x&&a.y<b.bottom&&a.bottom>b.y;
     for(const name of ['kills','wave','skull','token','portrait'])assert.equal(intersects(hud.timer,hud[name]),false,'Timer overlaps '+name+' at '+w);
+    assert.ok(Math.abs((hud.timer.y+hud.timer.bottom)/2-(hud.wave.y+hud.wave.bottom)/2)<3,'Timer is not on single HUD baseline at '+w);
     assert.ok(hud.timer.x>=0&&hud.timer.right<=w&&hud.timer.bottom<=hud.panelHeight,'Timer outside HUD at '+w);
     await writeFile('dist/pr39-hud-'+w+'x'+h+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
   }
@@ -235,6 +236,10 @@ try {
   await sleep(190);
   const runningClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
   assert.ok(runningClock>initialClock.time,'Gameplay clock failed to advance');
+  const lowFps=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.gameplayClock.lastNow=performance.now()-780;return a.elapsedGameplayMs})()");
+  await sleep(90);
+  assert.ok((await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"))-lowFps>=700,'Low-FPS active frame was incorrectly capped at 50 ms');
+
   await clickControl('hud');
   await waitFor(v=>v.menu&&v.arenaPaused,'PR39 clock pause');
   const frozenClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
