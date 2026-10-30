@@ -217,7 +217,39 @@ try {
   assert.ok(firstPickup.obstacles.every(o=>Math.hypot(firstPickup.x-o.x,firstPickup.y-o.y)>o.r+20));
 
   const initialToken=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {symbol:a.weaponText.text,color:a.weaponTokenBody.fillColor,kills:a.killsText.text}})()");
-  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/66'});
+  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/138'});
+
+  const initialClock=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {time:a.elapsedGameplayMs,label:a.timerText.text,wave:a.waveText.text}})()");
+  assert.equal(initialClock.wave,'⚑ 1/6');assert.ok(initialClock.label.startsWith('◷ 00:'));
+  for(const [w,h] of [[320,240],[568,320],[800,360]]){
+    await cdp('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:false});
+    await evaluate('window.__game.scale.refresh();true');
+    await sleep(85);
+    const hud=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const toRect=o=>{const r=o.getBounds();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom}};return {timer:toRect(a.timerText),kills:toRect(a.killsText),wave:toRect(a.waveText),skull:toRect(a.skullIcon),token:toRect(a.weaponToken),portrait:toRect(a.hpFace.root),width:a.scale.width,panelHeight:a.hudLayout.panelY+a.hudLayout.panelHeight}})()");
+    const intersects=(a,b)=>a.x<b.right&&a.right>b.x&&a.y<b.bottom&&a.bottom>b.y;
+    for(const name of ['kills','wave','skull','token','portrait'])assert.equal(intersects(hud.timer,hud[name]),false,'Timer overlaps '+name+' at '+w);
+    assert.ok(Math.abs((hud.timer.y+hud.timer.bottom)/2-(hud.wave.y+hud.wave.bottom)/2)<3,'Timer is not on single HUD baseline at '+w);
+    assert.ok(hud.timer.x>=0&&hud.timer.right<=w&&hud.timer.bottom<=hud.panelHeight,'Timer outside HUD at '+w);
+    await writeFile('dist/pr39-hud-'+w+'x'+h+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})).data,'base64'));
+  }
+
+  await sleep(190);
+  const runningClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
+  assert.ok(runningClock>initialClock.time,'Gameplay clock failed to advance');
+  const lowFps=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.gameplayClock.lastNow=performance.now()-780;return a.elapsedGameplayMs})()");
+  await sleep(90);
+  assert.ok((await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"))-lowFps>=700,'Low-FPS active frame was incorrectly capped at 50 ms');
+
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'PR39 clock pause');
+  const frozenClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
+  await sleep(250);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),frozenClock,'Timer advanced in MENU');
+  await clickControl('WZNÓW');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'PR39 clock resume');
+  await sleep(200);
+  assert.ok(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs")>frozenClock,'Timer failed to resume');
+
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'unarmed');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups[0];a.player.setPosition(p.x,p.y);a.player.body.reset(p.x,p.y);return true})()");
@@ -530,7 +562,7 @@ try {
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');})()");
   const killOne=async()=>evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
-    if(a.episode.state==='intermission'&&!a.mandatoryWeapon){
+    if(a.episode.state==='intermission'){
       a.episode.wave++;a.episode.spawned=0;a.episode.defeated=0;a.episode.intermissionUntil=null;a.episode.state='active';
       a.waveText.setText('⚑ '+(a.episode.wave+1)+'/6');
     }
@@ -540,59 +572,58 @@ try {
     e.hp=0;
     if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
     a.enemies=a.enemies.filter(e=>!e.dead);
-    if(a.episode.state==='active'&&a.enemies.filter(e=>!e.dead).length<[3,3,4,4,4,5][a.episode.wave])a.spawnReplacement();
+    if(a.episode.state==='active'&&a.enemies.filter(e=>!e.dead).length<[4,5,6,7,8,9][a.episode.wave])a.spawnReplacement();
     return {kills:a.kills,type:e.type,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
   const typesDefeated=[];
-  // Real 66th-death bookkeeping with deliberate wave-boundary collection.
+  // Real 138th-death bookkeeping with deliberate wave-boundary collection.
   // Keep the legacy kill helper's accelerated spawn fixture, but assert rewards
   // against authoritative wave-clear events instead of kill thresholds.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const original=a.dropHealthReward.bind(a);a.healthAwardCount=0;a.dropHealthReward=()=>{a.healthAwardCount++;return original()};a.events.on('episode-boundary',(id,scene)=>{if(id==='after-final-enemy')scene.holdFinalOutcome()})})()");
-  for(let i=0;i<66;i++){
+  for(let i=0;i<138;i++){
     const result=await killOne();
     typesDefeated.push(result.type);
     if(i===4||i===9){
       assert.equal(result.pending,0,'Old kill-threshold reward still active');
       assert.ok(!result.pickups.includes(i===4?'rifle':'flamethrower'));
     }
-    if(i===17||i===41){
-      const expected=i===17?'rifle':'flamethrower';
-      const boundary=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,pending:a.mandatoryWeapon,pickups:a.pickups.map(p=>p.id),count:a.pickups.filter(p=>p.id===a.mandatoryWeapon).length}})()");
-      assert.equal(boundary.state,'intermission');
-      assert.equal(boundary.pending,expected);
-      assert.equal(boundary.count,1,'Exactly one mandatory reward pickup');
-      if(i===41)assert.ok(boundary.pickups.includes('health'),'Wave 4 health and flamethrower should coexist');
-      const gating=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const duration=a.episode.intermissionUntil-a.time.now;const wave=a.episode.wave;a.episode.intermissionUntil=a.time.now-1;return {duration,wave}})()");
-      assert.ok(gating.duration>=2850,'Intermission was shortened before mandatory reward');
-      await sleep(90);
-      assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,wave:a.episode.wave}})()"),{state:'intermission',wave:gating.wave},'Wave advanced without collecting mandatory weapon');
-      const p=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups.find(p=>p.id===a.mandatoryWeapon);return {x:p.x,y:p.y}})()");
-      await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.player.body.reset(${p.x},${p.y});return true})()`);
-      await sleep(90);
-      const collected=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {weapon:a.weapon,mandatory:a.mandatoryWeapon,visual:a.playerVisual.requestedVariant}})()");
-      assert.equal(collected.weapon,expected);assert.equal(collected.visual,expected);assert.equal(collected.mandatory,null);
-      await sleep(90);
-      assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.wave"),gating.wave+1,'Wave did not advance after mandatory collection and elapsed intermission');
-      assert.equal(await evaluate("window.__game.scene.getScene('Arena').waveText.text"),'⚑ '+(gating.wave+2)+'/6');
+    if(i===27||i===72){
+      const reward=i===27?'rifle':'flamethrower';
+      const snapshot=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,wave:a.episode.wave,pickups:a.pickups.map(p=>p.id),weapon:a.weapon}})()");
+      assert.equal(snapshot.state,'intermission');
+      assert.equal(snapshot.pickups.filter(id=>id===reward).length,1,'One-shot reward');
+      if(i===72)assert.ok(snapshot.pickups.includes('health'),'Wave 4 heart survives');
+      const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const remaining=a.episode.intermissionUntil-a.time.now;a.episode.intermissionUntil=a.time.now-1;return remaining})()");
+      assert.ok(before>=2850,'Minimum three-second intermission');
+      if(i===27){
+        await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups.find(p=>p.id==='rifle');a.player.body.reset(p.x,p.y)})()");
+      }
+      await sleep(160);
+      const later=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,wave:a.episode.wave,weapon:a.weapon,pickups:a.pickups.map(p=>p.id)}})()");
+      assert.equal(later.wave,snapshot.wave+1,'Leaving optional weapon untouched blocked the next wave');
+      assert.equal(later.state,'active');
+      assert.equal(later.weapon,'rifle');
+      if(i===72)assert.equal(later.pickups.filter(id=>id==='flamethrower').length,1,'Skipped flamethrower vanished');
+
     }
   }
-  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
+  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['⊕',0x2499ad]);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones],healthAwards:a.healthAwardCount||0}})()");
-  assert.equal(progression.kills,66);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'66/66');
-  assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,35);
-  assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,23);
-  assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,8);
-  assert.equal(progression.total,66);
+  assert.equal(progression.kills,138);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'138/138');
+  assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,69);
+  assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,55);
+  assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,14);
+  assert.equal(progression.total,138);
   assert.equal(progression.healthAwards,3,'Heart awards after waves 2, 4, 5 were not exactly once');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'final-pending');
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[2,4]);
-  console.log('PASS Phaser wave rewards: no kill 5/10 triggers, rifle after 2, flamethrower and health after 4, 66 unique deaths');
-  // The actual 66th gameplay death must leave a live burst throughout the final narrative.
+  console.log('PASS Phaser wave rewards: no kill 5/10 triggers, rifle after 2, flamethrower and health after 4, 138 unique deaths');
+  // The actual 138th gameplay death must leave a live burst throughout the final narrative.
   const finalBurstAtStart=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,kills:a.kills,active:a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length}})()");
-  assert.equal(finalBurstAtStart.kills,66);
+  assert.equal(finalBurstAtStart.kills,138);
   assert.equal(finalBurstAtStart.state,'final-pending');
   assert.equal(finalBurstAtStart.id,'after-final-enemy');
   assert.equal(finalBurstAtStart.active,true,'Final enemy burst must exist at final-pending boundary');
@@ -601,6 +632,10 @@ try {
   await sleep(560);
   const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended}})()");
   assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false},'Death bursts must complete while final narrative freezes combat');
+  const clockInFinal=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
+  await sleep(180);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),clockInFinal,'Timer advanced while final dialogue active');
+
   const finalAfterShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile('dist/combat-feedback-final-enemy-expired.png',Buffer.from(finalAfterShot.data,'base64'));
   await sleep(120);
@@ -621,10 +656,15 @@ try {
   }
   await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+  const terminalClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
+  await sleep(160);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),terminalClock,'Timer advanced after victory');
+
   await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
   const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
   assert.deepEqual(reset,{kills:0,total:3,weapon:null,pending:0,triggered:0,pickups:['blunderbuss']});
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').timerText.text"),'◷ 00:00','NOWA GRA did not reset timer');
   const postponedSpawn=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(e=>!e.dead);
     e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(v=>!v.dead);
@@ -640,7 +680,7 @@ try {
   assert.equal(postponedSpawn.after,postponedSpawn.before,'Blocked spawn consumed schedule entry');
   assert.equal(postponedSpawn.retry,true,'Blocked spawn did not schedule retry');
   assert.equal(postponedSpawn.recovered,postponedSpawn.before+1,'Scheduled enemy lost after obstruction cleared');
-  assert.ok(postponedSpawn.active<=3);
+  assert.ok(postponedSpawn.active<=4);
   console.log('PASS Arena blocked spawn: unchanged schedule counter and safe retry after obstacles clear');
   // In-memory valid 8-frame 1024x160 PNG-shaped artwork through Phaser Canvas textures.
   await evaluate(`(()=>{
@@ -748,8 +788,8 @@ try {
     const saved={enemies:a.enemies,total:a.totalSpawned,due:a.spawnDueAt,episode:{...a.episode}};
     a.introducedEnemyTypes.add('before-first-zubrokryptyda'); // Separate test covers live visual introduction.
     const activeHeavy=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
-    a.enemies=[activeHeavy];a.episode.wave=2;a.episode.spawned=11;a.episode.defeated=0;
-    a.episode.state='active';a.totalSpawned=28;a.spawnDueAt=null;
+    a.enemies=[activeHeavy];a.episode.wave=3;a.episode.spawned=22;a.episode.defeated=0;
+    a.episode.state='active';a.totalSpawned=70;a.spawnDueAt=null;
     a.spawnReplacement();
     const blocked={total:a.totalSpawned,spawned:a.episode.spawned,retry:a.spawnDueAt!==null};
     activeHeavy.dead=true;activeHeavy.sprite.destroy();a.enemies=[];
@@ -760,8 +800,8 @@ try {
     Object.assign(a.episode,saved.episode);
     return {blocked,unblocked};
   })()`);
-  assert.deepEqual(heavyQueue.blocked,{total:28,spawned:11,retry:true});
-  assert.deepEqual(heavyQueue.unblocked,{total:29,spawned:12,type:'zubrokryptyda'});
+  assert.deepEqual(heavyQueue.blocked,{total:70,spawned:22,retry:true});
+  assert.deepEqual(heavyQueue.unblocked,{total:71,spawned:23,type:'zubrokryptyda'});
   console.log('PASS wave-local heavy concurrency gate: blocked second heavy stays queued');
   // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
   const combatProbe=await evaluate(`(()=>{
@@ -945,7 +985,7 @@ try {
     const x=e.x,y=e.y;
     const activeBefore=a.deathBursts.some(v=>v.graphics.active&&!v.done);
     // Trigger via the first genuine scheduled Bocianołak, not a fabricated boundary.
-    a.episode.wave=1;a.episode.spawned=7;a.episode.state='active';
+    a.episode.wave=1;a.episode.spawned=11;a.episode.state='active';
     a.introducedEnemyTypes.delete('before-first-bocianolak');
     a.pendingIntroductions.delete('before-first-bocianolak');
     a.spawnReplacement();
@@ -1071,7 +1111,7 @@ try {
   assert.deepEqual(heart,{full:{hp:5,persist:true},healed:{hp:5,remaining:0,face:'hp_5'},low:{hp:3,face:'hp_3'}});
   const wavePause=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
-    a.episode.wave=1;a.episode.spawned=10;a.episode.defeated=10;
+    a.episode.wave=1;a.episode.spawned=16;a.episode.defeated=16;
     a.episode.state='intermission';a.episode.intermissionUntil=a.time.now+800;
     a.spawnDueAt=null;
     return {before:a.time.now,state:a.episode.state};
@@ -1089,8 +1129,8 @@ try {
   console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal and paused intermission');
   // Test both introductions through the *actual* scheduled spawn, not a fabricated boundary.
   for(const [id,type,wave,spawned,lines] of [
-    ['before-first-zubrokryptyda','zubrokryptyda',2,11,2],
-    ['before-first-bocianolak','bocianolak',1,7,3]
+    ['before-first-zubrokryptyda','zubrokryptyda',2,19,2],
+    ['before-first-bocianolak','bocianolak',1,11,3]
   ]){
     const intro=await evaluate(`(()=>{
       const a=window.__game.scene.getScene('Arena');
@@ -1249,6 +1289,21 @@ try {
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'clean Arena after terminal death');
   const newRun=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,playerVisible:a.playerVisual.sprite?.visible??true}})()");
   assert.deepEqual(newRun,{bursts:0,ended:false,kills:0,playerVisible:true},'NOWA GRA retained stale effects or state');
+  // Deferred reward issuance must never gate combat; the later pickup still works.
+  const deferred=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='blunderbuss';const add=a.addPickup.bind(a);a.__rewardAdd=add;a.addPickup=(id,p)=>id==='rifle'?false:add(id,p);a.episode.wave=1;a.episode.state='intermission';a.episode.intermissionUntil=a.time.now-1;a.spawnDueAt=null;a.rewardForClearedWave(2);return {pending:a.pendingRewards.size,weapon:a.weapon}})()");
+  assert.deepEqual(deferred,{pending:1,weapon:'blunderbuss'},'Unplaceable rifle reward was lost');
+  await sleep(115);
+  const continued=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,pending:a.pendingRewards.size,weapon:a.weapon}})()");
+  assert.deepEqual(continued,{wave:2,state:'active',pending:1,weapon:'blunderbuss'},'Unplaceable pickup blocked next wave');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.addPickup=a.__rewardAdd;delete a.__rewardAdd})()");
+  await sleep(110);
+  const issued=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {count:a.pickups.filter(p=>p.id==='rifle').length,pending:a.pendingRewards.size,wave:a.episode.wave}})()");
+  assert.deepEqual(issued,{count:1,pending:0,wave:2},'Deferred rifle reward duplicated or disappeared');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='rifle');a.player.body.reset(p.x,p.y)})()");
+  await sleep(105);
+  const lateWeapon=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {weapon:a.weapon,visual:a.playerVisual.requestedVariant,wave:a.episode.wave,remaining:a.pickups.filter(p=>p.id==='rifle').length}})()");
+  assert.deepEqual(lateWeapon,{weapon:'rifle',visual:'rifle',wave:2,remaining:0},'Late pickup changed progress or failed to equip once');
+  console.log('PASS real Phaser optional delayed rifle reward: missing placement does not gate wave, retries once, late collection equips');
 
     console.log('PASS real Chromium contact lunge, single HP loss, exactly-once enemy pixel death, terminal Aloes red disintegration');
 

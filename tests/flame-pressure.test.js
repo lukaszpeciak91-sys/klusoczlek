@@ -31,7 +31,7 @@ test('cancelling held trigger cannot cause a restart without release',()=>{
  ticks(s,false,1);assert.equal(stepPressure(s,true,50),true);
 });
 test('combat tuning and encounter remain unaffected',()=>{
- assert.equal(TOTAL_ENEMIES,66);assert.equal(TOTAL_WAVES,6);
+ assert.equal(TOTAL_ENEMIES,138);assert.equal(TOTAL_WAVES,6);
  assert.equal(COMBAT_TUNING.flamethrower.damage,1);
  assert.equal(COMBAT_TUNING.flamethrower.damageInterval,250);
  assert.equal(COMBAT_TUNING.flamethrower.range,145);
