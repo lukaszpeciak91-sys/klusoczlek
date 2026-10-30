@@ -543,43 +543,33 @@ try {
     return {kills:a.kills,type:e.type,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
   const typesDefeated=[];
-  for(let i=0;i<4;i++)typesDefeated.push((await killOne()).type);
-  await evaluate(`(()=>{
-    const a=window.__game.scene.getScene('Arena');
-    // Suppress placement by occupying candidate positions with artificial rocks.
-    const e=a.enemies.find(e=>!e.dead);
-    for(const [dx,dy] of [[0,0],[36,0],[-36,0],[0,36],[0,-36],[50,50],[-50,50],[50,-50],[-50,-50]])
-      a.obstacles.push({type:'rock',alive:true,x:e.x+dx,y:e.y+dy,sprite:{active:true,depth:4,width:62,setAlpha(){}},hitUntil:Infinity,__fixture:true});
-    return true;
-  })()`);
-  const fifth=await killOne();typesDefeated.push(fifth.type);
-  assert.equal(fifth.kills,5);
-  assert.equal(fifth.pending,1);
-  assert.ok(!fifth.pickups.includes('rifle'));
-  await clickControl('hud');
-  await waitFor(v=>v.menu&&v.arenaPaused,'menu pending reward');
-  assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pendingRewards.size===1||a.pickups.some(p=>p.id==='rifle')})()"),true,'Reward vanished during MENU transition');
-  await clickControl('WZNÓW');
-  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'resume pending reward');
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.obstacles=a.obstacles.filter(o=>!o.__fixture);return true})()");
-  await sleep(100);
-  const rifle=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pickups.find(p=>p.id==='rifle')?{x:a.pickups.find(p=>p.id==='rifle').x,y:a.pickups.find(p=>p.id==='rifle').y,pending:a.pendingRewards.size}:null})()");
-  assert.ok(rifle&&rifle.pending===0);
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='rifle');a.player.body.reset(p.x,p.y);return true})()");
-  await sleep(95);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'rifle');
-  assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['⊕',0x2499ad]);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
-  for(let i=0;i<5;i++)typesDefeated.push((await killOne()).type);
-  const flame=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.pickups.find(p=>p.id==='flamethrower')?{x:a.pickups.find(p=>p.id==='flamethrower').x,y:a.pickups.find(p=>p.id==='flamethrower').y}:null})()");
-  assert.ok(flame);
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='flamethrower');a.player.body.reset(p.x,p.y);return true})()");
-  await sleep(95);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'flamethrower');
+  // Real 66th-death bookkeeping with deliberate wave-boundary collection.
+  // Keep the legacy kill helper's accelerated spawn fixture, but assert rewards
+  // against authoritative wave-clear events instead of kill thresholds.
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const original=a.dropHealthReward.bind(a);a.healthAwardCount=0;a.dropHealthReward=()=>{a.healthAwardCount++;return original()};a.events.on('episode-boundary',(id,scene)=>{if(id==='after-final-enemy')scene.holdFinalOutcome()})})()");
+  for(let i=0;i<66;i++){
+    const result=await killOne();
+    typesDefeated.push(result.type);
+    if(i===4||i===9){
+      assert.equal(result.pending,0,'Old kill-threshold reward still active');
+      assert.ok(!result.pickups.includes(i===4?'rifle':'flamethrower'));
+    }
+    if(i===17||i===41){
+      const expected=i===17?'rifle':'flamethrower';
+      const boundary=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,pending:a.mandatoryWeapon,pickups:a.pickups.map(p=>p.id),count:a.pickups.filter(p=>p.id===a.mandatoryWeapon).length}})()");
+      assert.equal(boundary.state,'intermission');
+      assert.equal(boundary.pending,expected);
+      assert.equal(boundary.count,1,'Exactly one mandatory reward pickup');
+      if(i===41)assert.ok(boundary.pickups.includes('health'),'Wave 4 health and flamethrower should coexist');
+      const p=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups.find(p=>p.id===a.mandatoryWeapon);return {x:p.x,y:p.y}})()");
+      await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.player.body.reset(${p.x},${p.y});return true})()`);
+      await sleep(90);
+      const collected=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {weapon:a.weapon,mandatory:a.mandatoryWeapon,visual:a.playerVisual.requestedVariant}})()");
+      assert.equal(collected.weapon,expected);assert.equal(collected.visual,expected);assert.equal(collected.mandatory,null);
+    }
+  }
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['♨',0xd65d32]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'flamethrower');
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const original=a.dropHealthReward.bind(a);a.healthAwardCount=0;a.dropHealthReward=()=>{a.healthAwardCount++;return original();};a.events.on('episode-boundary',(id,scene)=>{if(id==='after-final-enemy')scene.holdFinalOutcome();});return true})()");
-  for(let i=0;i<56;i++)typesDefeated.push((await killOne()).type);
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones],healthAwards:a.healthAwardCount||0}})()");
   assert.equal(progression.kills,66);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'66/66');
@@ -590,8 +580,8 @@ try {
   assert.equal(progression.healthAwards,3,'Heart awards after waves 2, 4, 5 were not exactly once');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'final-pending');
   assert.equal(progression.pending,0);
-  assert.deepEqual(progression.markers,[5,10]);
-  console.log('PASS Phaser milestones: invalid #5 placement retained/resumed/retried, collected rifle and flamethrower via update, 66 unique deaths');
+  assert.deepEqual(progression.markers,[2,4]);
+  console.log('PASS Phaser wave rewards: no kill 5/10 triggers, rifle after 2, flamethrower and health after 4, 66 unique deaths');
   // The actual 66th gameplay death must leave a live burst throughout the final narrative.
   const finalBurstAtStart=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,kills:a.kills,active:a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length}})()");
   assert.equal(finalBurstAtStart.kills,66);
