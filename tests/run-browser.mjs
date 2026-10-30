@@ -1289,6 +1289,21 @@ try {
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'clean Arena after terminal death');
   const newRun=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,playerVisible:a.playerVisual.sprite?.visible??true}})()");
   assert.deepEqual(newRun,{bursts:0,ended:false,kills:0,playerVisible:true},'NOWA GRA retained stale effects or state');
+  // Deferred reward issuance must never gate combat; the later pickup still works.
+  const deferred=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='blunderbuss';const add=a.addPickup.bind(a);a.__rewardAdd=add;a.addPickup=(id,p)=>id==='rifle'?false:add(id,p);a.episode.wave=1;a.episode.state='intermission';a.episode.intermissionUntil=a.time.now-1;a.spawnDueAt=null;a.rewardForClearedWave(2);return {pending:a.pendingRewards.size,weapon:a.weapon}})()");
+  assert.deepEqual(deferred,{pending:1,weapon:'blunderbuss'},'Unplaceable rifle reward was lost');
+  await sleep(115);
+  const continued=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,pending:a.pendingRewards.size,weapon:a.weapon}})()");
+  assert.deepEqual(continued,{wave:2,state:'active',pending:1,weapon:'blunderbuss'},'Unplaceable pickup blocked next wave');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.addPickup=a.__rewardAdd;delete a.__rewardAdd})()");
+  await sleep(110);
+  const issued=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {count:a.pickups.filter(p=>p.id==='rifle').length,pending:a.pendingRewards.size,wave:a.episode.wave}})()");
+  assert.deepEqual(issued,{count:1,pending:0,wave:2},'Deferred rifle reward duplicated or disappeared');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups.find(p=>p.id==='rifle');a.player.body.reset(p.x,p.y)})()");
+  await sleep(105);
+  const lateWeapon=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {weapon:a.weapon,visual:a.playerVisual.requestedVariant,wave:a.episode.wave,remaining:a.pickups.filter(p=>p.id==='rifle').length}})()");
+  assert.deepEqual(lateWeapon,{weapon:'rifle',visual:'rifle',wave:2,remaining:0},'Late pickup changed progress or failed to equip once');
+  console.log('PASS real Phaser optional delayed rifle reward: missing placement does not gate wave, retries once, late collection equips');
 
     console.log('PASS real Chromium contact lunge, single HP loss, exactly-once enemy pixel death, terminal Aloes red disintegration');
 
