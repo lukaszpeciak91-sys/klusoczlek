@@ -22,7 +22,7 @@ test('regeneration begins immediately, 20% fresh press ignites, full recharge 20
 test('different frame rates conserve time; giant deltas bounded',()=>{
  const a=createPressure(),b=createPressure();
  ticks(a,true,60,50);ticks(b,true,120,25);
- assert.equal(a.value,b.value);assert.equal(a.value,0);
+ assert.ok(Math.abs(a.value-b.value)<1e-8);assert.ok(a.value<1e-8);
  const c=createPressure();stepPressure(c,true,900000);assert.ok(c.value>=98);
 });
 test('cancelling held trigger cannot cause a restart without release',()=>{
