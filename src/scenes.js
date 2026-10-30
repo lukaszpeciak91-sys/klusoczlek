@@ -168,6 +168,7 @@ export class ArenaScene extends Phaser.Scene {
     this.completed=false;
     this.weapon=null;
     this.kills=0;
+    this.elapsedGameplayMs=0;
     this.totalSpawned=0;
     this.spawnDueAt=null;
     this.pickups=[];
@@ -201,6 +202,7 @@ export class ArenaScene extends Phaser.Scene {
       .setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
     this.hpFace=createHpFaceHud(this,Phaser);
     this.waveText=this.add.text(0,0,'⚑ 1/'+TOTAL_WAVES,{fontFamily:'monospace',fontSize:'15px',color:'#f3ca76'}).setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
+    this.timerText=this.add.text(0,0,'◷ 00:00',{fontFamily:'monospace',fontSize:'13px',color:'#d7b978'}).setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
     this.completeText=this.add.text(this.scale.width/2,55,'ZWYCIĘSTWO!',{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65).setVisible(false);
     this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
       this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
@@ -246,6 +248,7 @@ export class ArenaScene extends Phaser.Scene {
       this.hpFace.resize(pos);
       this.completeText.setX(this.scale.width/2);
       this.waveText.setPosition(pos.waveX,pos.waveY).setFontSize(pos.waveFont);
+      this.timerText.setPosition(pos.timerX,pos.timerY).setFontSize(pos.timerFont);
     };
     // Apply positions during initial Arena creation, even if Phaser emits no RESIZE.
     resizeHud();
@@ -678,6 +681,10 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
     if(this.tryStartDialogue())return;
+    // Gameplay time advances only while Arena combat input is permitted.
+    this.elapsedGameplayMs+=Math.min(50,Math.max(0,this.game.loop.delta));
+    const sec=Math.floor(this.elapsedGameplayMs/1000);
+    this.timerText.setText('◷ '+String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'));
     this.hpFace.update(this.game.loop.delta);
     this.retryPendingRewards();
     if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles);if(p&&this.addPickup('health',p))this.pendingHealth--;}
