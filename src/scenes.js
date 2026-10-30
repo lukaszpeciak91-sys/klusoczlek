@@ -20,6 +20,7 @@ import { resolvePose } from './combat-contract.js';
 import { resolveAim, muzzlePoint } from './shooting.js';
 import {COMBAT_TUNING,createFiringState,resetFiring,firingStep,flameTargetVisible,cooldownReady} from './weapon-combat.js';
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
+import {createGameplayClock,advanceGameplayClock,formatGameplayClock} from './gameplay-clock.js';
 import { ENCOUNTER, enemySpawns, advanceEnemy, applyEnemyHit, applyPlayerContact, segmentHitsCircle } from './bobrozombi.js';
 import { menuLayout, arenaHudLayout } from './ui-layout.js';
 import { enforceOrientationOnSceneStart } from './viewport.js';
@@ -168,6 +169,7 @@ export class ArenaScene extends Phaser.Scene {
     this.completed=false;
     this.weapon=null;
     this.kills=0;
+    this.gameplayClock=createGameplayClock();
     this.elapsedGameplayMs=0;
     this.totalSpawned=0;
     this.spawnDueAt=null;
@@ -268,9 +270,10 @@ export class ArenaScene extends Phaser.Scene {
       const allowed=!this.dialogueLoading&&!this.dialogueState?.id&&this.canResume()&&!this.scene.isPaused('Arena')&&!this.episode.ended;
       this.joystick.setEnabled(allowed);this.aimJoystick.setEnabled(allowed);
     };
-    this.onBlur = () => { this.resetMovement(); this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);this.physics.world.pause(); };
+    this.onBlur = () => { advanceGameplayClock(this.gameplayClock,0,false);this.resetMovement(); this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);this.physics.world.pause(); };
     this.canResume = () => !document.hidden && document.hasFocus() && window.innerWidth >= window.innerHeight;
     this.onFocus = () => {
+      advanceGameplayClock(this.gameplayClock,0,false);
       this.syncJoysticks();
       if (this.canResume() && !this.dialogueLoading && !this.dialogueState?.id && !this.scene.isPaused('Arena')) {
         this.physics.world.resume();
@@ -278,6 +281,7 @@ export class ArenaScene extends Phaser.Scene {
     };
     // Resume is delivered by Phaser after the Arena scene state switches.
     this.events.on(Phaser.Scenes.Events.RESUME, () => {
+      advanceGameplayClock(this.gameplayClock,0,false);
       document.getElementById('fullscreen-button').hidden = true;
       this.syncJoysticks();
       if (this.canResume() && !this.dialogueLoading && !this.dialogueState?.id) this.physics.world.resume();
@@ -320,6 +324,7 @@ export class ArenaScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange', this.onVisibility);
     });
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
+      advanceGameplayClock(this.gameplayClock,0,false);
       this.time.paused=false;
       if(this.canResume())this.physics.world.resume();
       if(id==='after-final-enemy')this.releaseFinalOutcome();
@@ -373,6 +378,7 @@ export class ArenaScene extends Phaser.Scene {
       if(this.pendingIntroductions.has(id)){this.introducedEnemyTypes.add(id);this.pendingIntroductions.delete(id);}
       if(!beginDialogue(this.dialogueState,id))return false;
       if(id==='after-final-enemy')this.holdFinalOutcome();
+      advanceGameplayClock(this.gameplayClock,0,false);
       this.resetMovement();this.physics.world.pause();this.time.paused=true;
       this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
       this.dialoguePanel.show(this.dialogueState);
@@ -664,6 +670,7 @@ export class ArenaScene extends Phaser.Scene {
 
   openMenu() {
     if (this.scene.isPaused('Arena') || this.scene.isActive('Menu')) return;
+    advanceGameplayClock(this.gameplayClock,0,false);
     this.resetMovement();
     this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
     this.flameStream.clear();
@@ -678,13 +685,13 @@ export class ArenaScene extends Phaser.Scene {
     if (this.episode.ended || this.dialogueLoading || this.dialogueState?.id || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);
       cancelPressureTrigger(this.flamePressure);
+      advanceGameplayClock(this.gameplayClock,0,false);
       return;
     }
     if(this.tryStartDialogue())return;
     // Gameplay time advances only while Arena combat input is permitted.
-    this.elapsedGameplayMs+=Math.min(50,Math.max(0,this.game.loop.delta));
-    const sec=Math.floor(this.elapsedGameplayMs/1000);
-    this.timerText.setText('◷ '+String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'));
+    this.elapsedGameplayMs=advanceGameplayClock(this.gameplayClock,performance.now(),true);
+    this.timerText.setText('◷ '+formatGameplayClock(this.elapsedGameplayMs));
     this.hpFace.update(this.game.loop.delta);
     this.retryPendingRewards();
     if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles);if(p&&this.addPickup('health',p))this.pendingHealth--;}
