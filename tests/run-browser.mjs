@@ -628,6 +628,10 @@ try {
   await sleep(560);
   const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended}})()");
   assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false},'Death bursts must complete while final narrative freezes combat');
+  const clockInFinal=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
+  await sleep(180);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),clockInFinal,'Timer advanced while final dialogue active');
+
   const finalAfterShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile('dist/combat-feedback-final-enemy-expired.png',Buffer.from(finalAfterShot.data,'base64'));
   await sleep(120);
@@ -648,6 +652,10 @@ try {
   }
   await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+  const terminalClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
+  await sleep(160);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),terminalClock,'Timer advanced after victory');
+
   await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
   const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
