@@ -1,3 +1,4 @@
+import {validateFootprint} from './obstacle-validation.js';
 // Authoring catalog: pixel geometry stays independent of future PNG artwork.
 const freeze=o=>Object.freeze(o);
 export const OBSTACLE_CATALOG=freeze({
@@ -15,7 +16,7 @@ export function createObstacle(definition,{id,x,y,angle=0,variant}){
  const variantId=variant||Object.keys(def.variants)[0],geometry=def.variants[variantId];
  if(!geometry)throw new RangeError('Unknown obstacle variant: '+definition+'/'+variantId);
  if(!id||typeof id!=='string')throw new TypeError('Instance ID required');
- const footprint=freeze({...geometry,x,y,angle});
+ const footprint=freeze(validateFootprint({...geometry,x,y,angle}));
  return {id,type:def.id,variant:variantId,gameplayClass:def.gameplayClass,footprint,x,y,angle,hp:def.hp??Infinity,alive:true,render:def.render};
 }
 export function createAuthoredObstacles(placements){
