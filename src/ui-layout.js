@@ -17,14 +17,14 @@ export function arenaHudLayout(height,width=960){
  const radius=46,padding=14;
  // One connected ribbon, with the portrait anchored to its right end.
  const compact=width<600,tiny=width<390;
- const margin=tiny?5:10, gap=tiny?4:compact?7:11;
- const menuWidth=tiny?67:compact?82:104;
- const menuHeight=tiny?40:compact?44:46;
- const tokenSize=tiny?30:compact?36:42;
- const skullSize=tiny?17:compact?20:24;
- const portraitSize=tiny?58:compact?68:82;
- const countFont=tiny?13:compact?17:20;
- const hpFont=tiny?10:compact?12:13;
+ const margin=tiny?4:10, gap=tiny?3:compact?7:11;
+ const menuWidth=tiny?56:compact?82:104;
+ const menuHeight=tiny?34:compact?44:46;
+ const tokenSize=tiny?23:compact?36:42;
+ const skullSize=tiny?13:compact?20:24;
+ const portraitSize=tiny?48:compact?68:82;
+ const countFont=tiny?10:compact?15:20;
+ const hpFont=tiny?9:compact?12:13;
  const barHeight=Math.max(menuHeight+12,portraitSize+24);
  const panelX=margin,panelY=margin,panelWidth=width-2*margin;
  const centerY=panelY+barHeight/2-5;
@@ -35,20 +35,20 @@ export function arenaHudLayout(height,width=960){
  const hpY=portraitY+portraitSize/2+1;
  const countX=weaponX+tokenSize/2+gap;
  const countRight=portraitX-portraitSize/2-gap;
- const waveFont=tiny?10:compact?13:16;
- // Reserve the last portion of the existing counter-to-portrait ribbon.
- const waveX=Math.max(countX+skullSize+gap/2+37,countRight-(tiny?39:compact?53:67));
- // At phone widths the elapsed timer occupies a second baseline inside the SAME ribbon.
- // On wider viewports the timer is aligned with the top counters.
+ const waveFont=tiny?9:compact?12:16;
  const timerFont=tiny?9:compact?11:13;
- const timerX=tiny?countX:compact?countX:waveX-75;
- const timerY=tiny?centerY+24:compact?centerY+25:centerY+25;
+ // One baseline: MENU → weapon → skull/kills → wave → clock → portrait.
+ // Space is reserved for the full 138/138 counter, not its starting "0/138" value.
+ const killsX=countX+skullSize+gap/2;
+ const waveX=killsX+Math.ceil(7*countFont*0.61)+(tiny?3:compact?8:15);
+ const timerX=waveX+Math.ceil(5*waveFont*0.62)+(tiny?3:compact?8:16);
+ const timerY=centerY;
  return {
   panelX,panelY,panelWidth,panelHeight:barHeight,
   menuX,menuY:centerY,menuWidth,menuHeight,menuFont:tiny?15:compact?18:20,
   weaponX,weaponY:centerY,tokenSize,
   skullX:countX+skullSize/2,skullY:centerY,skullSize,
-  killsX:countX+skullSize+gap/2,killsY:centerY,countFont,
+  killsX,killsY:centerY,countFont,
   countRight,
   waveX,waveY:centerY,waveFont,
   timerX,timerY,timerFont,
