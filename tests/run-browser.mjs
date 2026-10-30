@@ -981,7 +981,7 @@ try {
     const x=e.x,y=e.y;
     const activeBefore=a.deathBursts.some(v=>v.graphics.active&&!v.done);
     // Trigger via the first genuine scheduled Bocianołak, not a fabricated boundary.
-    a.episode.wave=1;a.episode.spawned=7;a.episode.state='active';
+    a.episode.wave=1;a.episode.spawned=11;a.episode.state='active';
     a.introducedEnemyTypes.delete('before-first-bocianolak');
     a.pendingIntroductions.delete('before-first-bocianolak');
     a.spawnReplacement();
@@ -1107,7 +1107,7 @@ try {
   assert.deepEqual(heart,{full:{hp:5,persist:true},healed:{hp:5,remaining:0,face:'hp_5'},low:{hp:3,face:'hp_3'}});
   const wavePause=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
-    a.episode.wave=1;a.episode.spawned=10;a.episode.defeated=10;
+    a.episode.wave=1;a.episode.spawned=16;a.episode.defeated=16;
     a.episode.state='intermission';a.episode.intermissionUntil=a.time.now+800;
     a.spawnDueAt=null;
     return {before:a.time.now,state:a.episode.state};
@@ -1125,8 +1125,8 @@ try {
   console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal and paused intermission');
   // Test both introductions through the *actual* scheduled spawn, not a fabricated boundary.
   for(const [id,type,wave,spawned,lines] of [
-    ['before-first-zubrokryptyda','zubrokryptyda',2,11,2],
-    ['before-first-bocianolak','bocianolak',1,7,3]
+    ['before-first-zubrokryptyda','zubrokryptyda',2,19,2],
+    ['before-first-bocianolak','bocianolak',1,11,3]
   ]){
     const intro=await evaluate(`(()=>{
       const a=window.__game.scene.getScene('Arena');
