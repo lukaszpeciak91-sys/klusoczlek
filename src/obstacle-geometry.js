@@ -57,7 +57,24 @@ export function segmentFootprintHit(from,to,shape,projectileRadius=0){
   if(next===t)break;
   t=next;
  }
- return footprintOverlap(shape,to,projectileRadius)?{t:1,point:{...to}}:null;
+ if(footprintOverlap(shape,to,projectileRadius))return {t:1,point:{...to}};
+ // Distance to a convex footprint along a segment is convex. Sphere tracing
+ // approaches an exact tangent asymptotically; examine the minimum if needed.
+ let lo=0,hi=1;
+ for(let j=0;j<65;j++){
+  const l=(2*lo+hi)/3,r=(lo+2*hi)/3;
+  if(footprintDistance(shape,at(l))<footprintDistance(shape,at(r)))hi=r;
+  else lo=l;
+ }
+ const mid=(lo+hi)/2;
+ if(footprintDistance(shape,at(mid))-projectileRadius>1e-8)return null;
+ let left=0,right=mid;
+ for(let j=0;j<55;j++){
+  const m=(left+right)/2;
+  if(footprintDistance(shape,at(m))-projectileRadius<=1e-8)right=m;
+  else left=m;
+ }
+ return {t:right,point:at(right)};
 }
 export function firstFootprintHit(from,to,instances,radius=0){
  let best=null;
