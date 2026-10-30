@@ -1,3 +1,4 @@
+import {validateRadius,validateFootprint} from './obstacle-validation.js';
 // Geometry is independent of art, Arcade bodies and scene state.
 // Shape coordinates are in world pixels; angle is expressed in radians.
 const EPS=1e-9;
@@ -19,7 +20,7 @@ export function footprintDistance(shape,point){
   return Math.hypot(Math.max(0,dx),Math.max(0,dy))+Math.min(Math.max(dx,dy),0);
  }
  if(shape.shape==='capsule'){
-  const half=Math.max(0,(shape.length-2*shape.radius)/2);
+  const half=(shape.length-2*shape.radius)/2;
   return pointSegmentDistance(p,{x:-half,y:0},{x:half,y:0})-shape.radius;
  }
  throw new RangeError('Unsupported obstacle shape: '+shape.shape);
@@ -32,7 +33,7 @@ export function inflatedBounds(shape,padding=0){
  if(shape.shape==='circle')return {minX:shape.x-shape.radius-padding,maxX:shape.x+shape.radius+padding,minY:shape.y-shape.radius-padding,maxY:shape.y+shape.radius+padding};
  let hx,hy;
  if(shape.shape==='box'){hx=shape.width/2;hy=shape.height/2;}
- else if(shape.shape==='capsule'){hx=Math.max(0,(shape.length-2*shape.radius)/2);hy=0;}
+ else if(shape.shape==='capsule'){hx=(shape.length-2*shape.radius)/2;hy=0;}
  else throw new RangeError('Unsupported obstacle shape');
  const r=shape.shape==='capsule'?shape.radius:0;
  const ex=c*hx+s*hy+r+padding,ey=s*hx+c*hy+r+padding;
@@ -71,7 +72,11 @@ export function firstFootprintHit(from,to,instances,radius=0){
 // A conservative grid snapshot is intended for validation and reward selection,
 // not a replacement for enemy AI. Corner cutting is forbidden.
 export function reachableCells({width,height,cellSize=12,actorRadius,obstacles,origin,margin=0}){
- if(!(width>0&&height>0&&cellSize>0&&actorRadius>=0))throw new RangeError('Invalid navigation parameters');
+ if(![width,height,cellSize].every(v=>Number.isFinite(v)&&v>0))throw new RangeError('Invalid navigation dimensions');
+ validateRadius(actorRadius,'actorRadius');
+ validateRadius(margin,'margin');
+ if(!origin||!Number.isFinite(origin.x)||!Number.isFinite(origin.y))throw new RangeError('Invalid navigation origin');
+ for(const o of obstacles)validateFootprint(o.footprint||o);
  const cols=Math.ceil(width/cellSize),rows=Math.ceil(height/cellSize);
  const blocked=new Uint8Array(cols*rows),seen=new Uint8Array(cols*rows);
  const index=(x,y)=>y*cols+x,at=(x,y)=>({x:(x+.5)*cellSize,y:(y+.5)*cellSize});
