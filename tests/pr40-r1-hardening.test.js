@@ -39,6 +39,18 @@ test('tangent, zero-length and origin-inside are handled',()=>{
  assert.ok(segmentFootprintHit({x:80,y:100},{x:81,y:100},c));
 });
 
+test('shallow entry before an interior endpoint preserves first-surface ordering',()=>{
+ const shape=circle(0,0,20),y=20-1e-6;
+ const from={x:-100,y},to={x:0,y};
+ const expected=(100-Math.sqrt(20*20-y*y))/100;
+ const hit=segmentFootprintHit(from,to,shape);
+ assert.ok(Math.abs(hit.t-expected)<1e-6,`Expected first entry ${expected}, got ${hit.t}`);
+ // This smaller circle is reached after the large circle's shallow entry.
+ const later={id:'later',...circle(-0.002,y,0.001)};
+ const earlier={id:'earlier',...shape};
+ assert.equal(firstFootprintHit(from,to,[later,earlier]).obstacle.id,'earlier');
+});
+
 test('capsule endpoints, overlapping obstacles, destroyed exclusions and long travel',()=>{
  const cap=capsule(200,100,120,10);
  assert.ok(segmentFootprintHit({x:250,y:40},{x:250,y:160},cap));

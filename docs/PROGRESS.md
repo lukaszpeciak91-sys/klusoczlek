@@ -1,5 +1,14 @@
 # PROGRESS
 
+## PR40 R2 — Work execution and geometry correction (2026-10-30)
+- Recovered a full Git checkout at `867541b9f9eb967a6e3bbaf29d6ec9ecec2de3eb`; Node 24.22.1 / npm 11.9.0 on Ubuntu 24.04 x86_64.
+- Confirmed a shallow circle-entry defect: exhausted sphere tracing returned an interior endpoint (`t=1`) instead of the first surface, potentially selecting the wrong obstacle. Removed only that shortcut and added an analytic first-entry/ordering regression (RED 6/7, GREEN 7/7).
+- Executed `npm ci` (exit 0), initial `npm test` (137/137), final `npm test` (138/138), `npm run build` (exit 0), and `node tests/bench-pr40.mjs` (exit 0). Existing Vite chunk-size warning remains informational.
+- Actual project `npm run test:browser` passed (exit 0, 31 PASS groups) using Chromium 153.0.8010.0 via external `CHROME_BIN`; rerun with working system font configuration also passed. No browser package added to this repository.
+- Independent external Node checks: 6000 analytic circle/rotated-box/capsule cases, 6000 broad-phase versus unfiltered comparisons, and 12 navigation configurations (radii 17/18/21/30; cells 6/10/16) passed. Additional Chromium portrait/landscape recovery passed three cycles.
+- Final benchmark totals for 4 grid builds / 500 segment queries: 15 obstacles 117.65 / 9.36 ms; 50 obstacles 144.61 / 25.57 ms; 150 obstacles 290.21 / 34.71 ms. Each grid has 15000 cells and 30000 typed-array bytes, excluding queue objects. Process heap snapshots approximately 11.2–16.5 MiB; not incremental memory measurements or CI thresholds.
+- Foundation only: no PR41 integration, artwork, combat or wave changes. Ready for independent final audit; physical Android performance/touch/browser-toolbar validation remains separate. No merge or deploy.
+
 **Ostatnia aktualizacja:** 2026-10-24
 **Faza:** PR01 web foundation — weryfikacja przed merge
 **Stan produkcji:** źródła minimalnej aplikacji web na gałęzi PR01; brak publikacji.

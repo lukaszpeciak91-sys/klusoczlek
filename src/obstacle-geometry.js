@@ -68,7 +68,8 @@ export function segmentFootprintHit(from,to,shape,projectileRadius=0){
   if(next===t)break;
   t=next;
  }
- if(footprintOverlap(shape,to,projectileRadius))return {t:1,point:{...to}};
+ // An interior endpoint proves a hit, but not its entry time. Let the
+ // minimum/entry search below resolve shallow hits after tracing exhausts.
  // Distance to a convex footprint along a segment is convex. Sphere tracing
  // approaches an exact tangent asymptotically; examine the minimum if needed.
  let lo=0,hi=1;
