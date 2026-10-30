@@ -225,7 +225,7 @@ try {
     await cdp('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:false});
     await evaluate('window.__game.scale.refresh();true');
     await sleep(85);
-    const hud=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const toRect=o=>{const r=o.getBounds();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom}};return {timer:toRect(a.timerText),kills:toRect(a.killsText),wave:toRect(a.waveText),skull:toRect(a.skullIcon),token:toRect(a.weaponToken),portrait:toRect(a.hpFace.image),width:a.scale.width,panelHeight:a.hudLayout.panelY+a.hudLayout.panelHeight}})()");
+    const hud=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const toRect=o=>{const r=o.getBounds();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom}};return {timer:toRect(a.timerText),kills:toRect(a.killsText),wave:toRect(a.waveText),skull:toRect(a.skullIcon),token:toRect(a.weaponToken),portrait:toRect(a.hpFace.root),width:a.scale.width,panelHeight:a.hudLayout.panelY+a.hudLayout.panelHeight}})()");
     const intersects=(a,b)=>a.x<b.right&&a.right>b.x&&a.y<b.bottom&&a.bottom>b.y;
     for(const name of ['kills','wave','skull','token','portrait'])assert.equal(intersects(hud.timer,hud[name]),false,'Timer overlaps '+name+' at '+w);
     assert.ok(hud.timer.x>=0&&hud.timer.right<=w&&hud.timer.bottom<=hud.panelHeight,'Timer outside HUD at '+w);
