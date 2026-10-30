@@ -44,8 +44,8 @@ test('exact expiry hit cannot skip immunity even without update frame',()=>{
  assert.equal(state.panicImmuneUntil,3900);
 });
 test('six-wave episode contract and exact spawn/death progression',()=>{
- const expected=[[8,0,0,3],[7,3,0,3],[6,5,1,4],[5,5,2,4],[5,5,2,4],[4,5,3,5]];
- assert.equal(TOTAL_ENEMIES,66);assert.equal(TOTAL_WAVES,6);
+ const expected=[[12,0,0,4],[11,5,0,5],[11,8,1,6],[11,11,3,7],[12,14,4,8],[12,17,6,9]];
+ assert.equal(TOTAL_ENEMIES,138);assert.equal(TOTAL_WAVES,6);
  assert.equal(INTERMISSION_MS,3000);
  assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
  assert.deepEqual(WAVES.map(w=>[
@@ -78,6 +78,6 @@ test('burning living final enemy never counts as a wave death',()=>{
  for(let i=0;i<wave.enemies.length-1;i++)recordDeath(ep,wave.enemies.length-i-1,100);
  const state=createIgnitionState();igniteEnemy(state,'bobrozombi',100);
  assert.equal(isBurning(state,150),true);
- assert.equal(ep.state,'active');assert.equal(ep.defeated,7);
+ assert.equal(ep.state,'active');assert.equal(ep.defeated,11);
  assert.equal(recordDeath(ep,0,160),'wave-cleared');
 });
