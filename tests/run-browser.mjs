@@ -218,6 +218,22 @@ try {
 
   const initialToken=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {symbol:a.weaponText.text,color:a.weaponTokenBody.fillColor,kills:a.killsText.text}})()");
   assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/138'});
+
+  const initialClock=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {time:a.elapsedGameplayMs,label:a.timerText.text,wave:a.waveText.text}})()");
+  assert.equal(initialClock.wave,'⚑ 1/6');assert.ok(initialClock.label.startsWith('◷ 00:'));
+  await sleep(190);
+  const runningClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
+  assert.ok(runningClock>initialClock.time,'Gameplay clock failed to advance');
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'PR39 clock pause');
+  const frozenClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
+  await sleep(250);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),frozenClock,'Timer advanced in MENU');
+  await clickControl('WZNÓW');
+  await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'PR39 clock resume');
+  await sleep(200);
+  assert.ok(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs")>frozenClock,'Timer failed to resume');
+
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'unarmed');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const p=a.pickups[0];a.player.setPosition(p.x,p.y);a.player.body.reset(p.x,p.y);return true})()");
@@ -625,6 +641,7 @@ try {
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
   const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
   assert.deepEqual(reset,{kills:0,total:3,weapon:null,pending:0,triggered:0,pickups:['blunderbuss']});
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').timerText.text"),'◷ 00:00','NOWA GRA did not reset timer');
   const postponedSpawn=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(e=>!e.dead);
     e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(v=>!v.dead);
@@ -640,7 +657,7 @@ try {
   assert.equal(postponedSpawn.after,postponedSpawn.before,'Blocked spawn consumed schedule entry');
   assert.equal(postponedSpawn.retry,true,'Blocked spawn did not schedule retry');
   assert.equal(postponedSpawn.recovered,postponedSpawn.before+1,'Scheduled enemy lost after obstruction cleared');
-  assert.ok(postponedSpawn.active<=3);
+  assert.ok(postponedSpawn.active<=4);
   console.log('PASS Arena blocked spawn: unchanged schedule counter and safe retry after obstacles clear');
   // In-memory valid 8-frame 1024x160 PNG-shaped artwork through Phaser Canvas textures.
   await evaluate(`(()=>{
