@@ -175,7 +175,6 @@ export class ArenaScene extends Phaser.Scene {
     this.spawnDueAt=null;
     this.pickups=[];
     this.triggeredMilestones=new Set();
-    this.mandatoryWeapon=null;
     this.pendingRewards=new Map();
     this.enemyRenderers={bobrozombi:createBobrozombiRenderer(this,Phaser),bocianolak:createBocianolakRenderer(this,Phaser),zubrokryptyda:createZubrokryptydaRenderer(this,Phaser)};
     this.enemyRenderer=this.enemyRenderers.bobrozombi;
@@ -430,7 +429,6 @@ export class ArenaScene extends Phaser.Scene {
         pickup.object.destroy();pickup.collected=true;continue;
       }
       this.weapon=pickup.id;
-      if(this.mandatoryWeapon===pickup.id)this.mandatoryWeapon=null;
       this.renderPressureBar();
       this.stopWeaponFire();
       void this.playerVisual.setVariant(pickup.id);
@@ -573,8 +571,7 @@ export class ArenaScene extends Phaser.Scene {
 
   rewardForClearedWave(wave){
     const id=wave===2?'rifle':wave===4?'flamethrower':null;
-    if(!id||this.triggeredMilestones.has(wave)||this.pendingRewards.has(wave)||this.mandatoryWeapon===id)return;
-    this.mandatoryWeapon=id;
+    if(!id||this.triggeredMilestones.has(wave)||this.pendingRewards.has(wave))return;
     this.pendingRewards.set(wave,{id,origin:{x:this.player.x,y:this.player.y},attempts:0});
     this.retryPendingRewards();
   }
@@ -696,7 +693,7 @@ export class ArenaScene extends Phaser.Scene {
     this.retryPendingRewards();
     if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles);if(p&&this.addPickup('health',p))this.pendingHealth--;}
     this.collectPickups();
-    if(this.episode.state==='intermission'&&!this.mandatoryWeapon&&advanceEpisode(this.episode,this.time.now)){
+    if(this.episode.state==='intermission'&&advanceEpisode(this.episode,this.time.now)){
       // Enemy introduction boundaries are raised by actual spawned specimens below.
       this.waveText.setText('⚑ '+(this.episode.wave+1)+'/'+TOTAL_WAVES);
       this.spawnDueAt=this.time.now;
