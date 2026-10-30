@@ -10,10 +10,12 @@ test('slow foreground frames count actual active elapsed time rather than capped
 });
 test('MENU dialogue blur orientation and terminal boundaries discard inactive wall time',()=>{
  const c=createGameplayClock();advanceGameplayClock(c,100,true);advanceGameplayClock(c,1100,true);
+ let expected=1000;
  for(const [off,on] of [[2000,10000],[11000,35000],[37000,99000],[100000,150000],[155000,250000]]){
   advanceGameplayClock(c,off,false);
-  assert.equal(advanceGameplayClock(c,on,true),1000);
-  assert.equal(advanceGameplayClock(c,on+100,true),1100);
+  assert.equal(advanceGameplayClock(c,on,true),expected);
+  expected+=100;
+  assert.equal(advanceGameplayClock(c,on+100,true),expected);
   advanceGameplayClock(c,on+100,false);
  }
  assert.equal(formatGameplayClock(65000),'01:05');
