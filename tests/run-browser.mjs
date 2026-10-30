@@ -784,8 +784,8 @@ try {
     const saved={enemies:a.enemies,total:a.totalSpawned,due:a.spawnDueAt,episode:{...a.episode}};
     a.introducedEnemyTypes.add('before-first-zubrokryptyda'); // Separate test covers live visual introduction.
     const activeHeavy=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
-    a.enemies=[activeHeavy];a.episode.wave=2;a.episode.spawned=11;a.episode.defeated=0;
-    a.episode.state='active';a.totalSpawned=28;a.spawnDueAt=null;
+    a.enemies=[activeHeavy];a.episode.wave=3;a.episode.spawned=22;a.episode.defeated=0;
+    a.episode.state='active';a.totalSpawned=70;a.spawnDueAt=null;
     a.spawnReplacement();
     const blocked={total:a.totalSpawned,spawned:a.episode.spawned,retry:a.spawnDueAt!==null};
     activeHeavy.dead=true;activeHeavy.sprite.destroy();a.enemies=[];
@@ -796,8 +796,8 @@ try {
     Object.assign(a.episode,saved.episode);
     return {blocked,unblocked};
   })()`);
-  assert.deepEqual(heavyQueue.blocked,{total:28,spawned:11,retry:true});
-  assert.deepEqual(heavyQueue.unblocked,{total:29,spawned:12,type:'zubrokryptyda'});
+  assert.deepEqual(heavyQueue.blocked,{total:70,spawned:22,retry:true});
+  assert.deepEqual(heavyQueue.unblocked,{total:71,spawned:23,type:'zubrokryptyda'});
   console.log('PASS wave-local heavy concurrency gate: blocked second heavy stays queued');
   // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
   const combatProbe=await evaluate(`(()=>{
