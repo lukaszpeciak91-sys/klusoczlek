@@ -839,6 +839,20 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').flamePressure.active"),true,'Fresh press failed after recharge');
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:fireX,y:fireY,button:'left',buttons:0,clickCount:1});
   await sleep(55);
+  // Actual virtual aim-stick touch uses the same pressure gating and fresh release.
+  const touchAt=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.flamePressure.value=75;a.flamePressure.locked=false;a.flamePressure.wasHeld=false;a.flamePressure.active=false;return {x:a.hudLayout.aimX-22,y:a.hudLayout.aimY,value:a.flamePressure.value}})()");
+  const view=(await snapshot()).rect;
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:view.x+touchAt.x,y:view.y+touchAt.y,id:17}]});
+  await sleep(180);
+  const touched=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {held:a.aimJoystick.held,active:a.flamePressure.active,value:a.flamePressure.value}})()");
+  assert.equal(touched.held,true,'Right joystick did not capture genuine touch');
+  assert.equal(touched.active,true,'Right joystick did not ignite flamethrower');
+  assert.ok(touched.value<touchAt.value,'Touch firing did not drain pressure');
+  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await sleep(100);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').aimJoystick.held"),false,'Touch capture persisted after release');
+  assert.ok(await evaluate("window.__game.scene.getScene('Arena').flamePressure.value")>touched.value,'Touch release did not regenerate pressure');
+  console.log('PASS real Chromium PR38 virtual aim joystick touch: drain, release, recharge');
   console.log('PASS real Chromium PR38 flame pressure meter, depletion lockout, held no-pulse and fresh press');
   console.log('PASS real held mouse: rifle three-shot burst, release cancellation, flame visual stream and stop');
   // One authoritative barrel explosion path when flame applies three cooldown-limited hits.
