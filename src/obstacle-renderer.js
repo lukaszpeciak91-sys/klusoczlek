@@ -1,9 +1,55 @@
-// Procedural placeholders only. Local (0,0) is the PR40 footprint center;
-// graphics rotate with it. Final PNG dimensions/anchors await art approval.
-export function createObstacleVisual(scene,obstacle){
+import {assetUrl,validPngHeader} from './character-visual.js';
+import {FOREST_ATLAS,OBSTACLE_ART,obstacleArt} from './forest-obstacle-art.js';
+export {FOREST_ATLAS,OBSTACLE_ART,obstacleArt} from './forest-obstacle-art.js';
+const renderers=new WeakMap();
+export function obstacleAtlasRenderer(scene){
+ if(renderers.has(scene))return renderers.get(scene);
+ const containers=new Set(),controller=new AbortController();let alive=true,loaded=false,failed=false;
+ const attach=c=>{
+  if(!alive||!loaded||!c.active||c.getData('atlasSprite'))return;
+  const a=c.getData('obstacleArt');
+  const image=scene.add.image(0,a.offsetY,FOREST_ATLAS.key,a.frame).setOrigin(a.anchor.x/256,a.anchor.y/256).setScale(a.scale);
+  if(a.upright)image.setPosition(Math.sin(c.rotation)*a.offsetY,Math.cos(c.rotation)*a.offsetY).setRotation(-c.rotation);
+  c.add(image);c.setData('atlasSprite',image);c.getData('fallback').setVisible(false);
+ };
+ const create=o=>{
+  const c=scene.add.container(o.x,o.y).setRotation(o.angle).setDepth(4),fallback=createObstacleFallback(scene,o);
+  fallback.setPosition(0,0).setRotation(0);c.add(fallback);
+  c.setData('fallback',fallback);c.setData('obstacleArt',obstacleArt(o));c.setData('obstacleAsset',o.render.asset);
+  containers.add(c);c.once('destroy',()=>containers.delete(c));attach(c);return c;
+ };
+ const shutdown=()=>{alive=false;controller.abort();containers.clear();renderers.delete(scene);};scene.events.once('shutdown',shutdown);
+ const loading=(async()=>{
+  const asset=FOREST_ATLAS,texture=scene.textures;
+  try{
+   if(!texture.exists(asset.key)){
+    const response=await fetch(assetUrl(import.meta.env.BASE_URL,asset.path),{cache:'no-cache',signal:controller.signal});
+    if(!response.ok)throw Error('PNG HTTP '+response.status);
+    const bytes=new Uint8Array(await response.arrayBuffer());if(!validPngHeader(bytes,asset))throw Error('expected1024x768 RGBA8 atlas');
+    const local=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
+    try{
+     const image=new Image();await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=local;});
+     if(!alive)return;
+     if(image.naturalWidth!==1024||image.naturalHeight!==768)throw Error('decoded atlas size mismatch');
+     if(!texture.exists(asset.key))texture.addSpriteSheet(asset.key,image,{frameWidth:256,frameHeight:256,margin:0,spacing:0});
+    }finally{URL.revokeObjectURL(local);}
+   }
+   if(!alive)return;
+   texture.get(asset.key).setFilter(1); // Phaser.Textures.FilterMode.NEAREST
+   loaded=true;for(const c of containers)attach(c);
+  }catch(error){failed=true;if(alive)console.info('[forest atlas] visible procedural fallback:',String(error));}
+ })();
+ const renderer={create,loading,get loaded(){return loaded;},get failed(){return failed;},get count(){return containers.size;}};
+ renderers.set(scene,renderer);return renderer;
+}
+export function createObstacleVisual(scene,obstacle){return obstacleAtlasRenderer(scene).create(obstacle);}
+
+// Visible procedural fallback. Local (0,0) is the authoritative footprint
+// center; production art metadata never changes this geometry.
+export function createObstacleFallback(scene,obstacle){
  const s=obstacle.footprint,type=obstacle.type;
  const g=scene.add.graphics().setPosition(s.x,s.y).setRotation(s.angle).setDepth(4);
- const colors={rock:0x777b77,stump:0x987142,fallen_log:0x795434,bush:0x3e6038,toxic_barrel:0x94733c,toi_toi:0x447b7b};
+ const colors={rock:0x777b77,stump:0x987142,fallen_log:0x795434,bush:0x3e6038,toxic_barrel:0x94733c,toi_toi:0x447b7b,tire_pile:0x3d4140,broken_wheelbarrow:0x976044};
  g.fillStyle(colors[type],1).lineStyle(2,0x263022,1);
  if(s.shape==='circle'){g.fillCircle(0,0,s.radius);g.strokeCircle(0,0,s.radius);}
  if(s.shape==='capsule'){
@@ -13,7 +59,7 @@ export function createObstacleVisual(scene,obstacle){
   if(type==='fallen_log'){
    g.lineStyle(2,0xb99a65).strokeCircle(-h,0,s.radius*.7).strokeCircle(h,0,s.radius*.7);
    g.lineStyle(2,0x493723).lineBetween(-h,-s.radius*.5,h,-s.radius*.5).lineBetween(-h,s.radius*.5,h,s.radius*.5);
-  }else{
+  }else if(type==='bush'){
    g.fillStyle(0x587944).fillCircle(-h,0,s.radius*.65).fillCircle(h,0,s.radius*.65);
   }
  }
@@ -37,7 +83,7 @@ export function createObstacleVisual(scene,obstacle){
   g.fillStyle(0xcbd254).fillTriangle(0,-8,8,7,-8,7);
   g.lineStyle(2,0x2e3924).lineBetween(0,-4,0,2).lineBetween(0,4,0,5);
  }
- // Metadata is explicit but carries no guessed PNG dimensions or load policy.
+ // Always visible until the optional atlas has been validated and attached.
  g.setData('obstacleAsset',obstacle.render.asset);
  return g;
 }

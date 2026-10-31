@@ -1645,7 +1645,9 @@ try {
     await sleep(220);
     await writeFile('dist/pr44-volley-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
     // Actual swept enemy-projectile HP/invulnerability, finite deletion.
-    await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.clearBossProjectiles();a.invulnerableUntil=0;
+    // Hold the boss after the verified volley: legitimate contact damage must
+    // not contaminate this isolated projectile/rock fixture at short viewports.
+    await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.clearBossProjectiles();a.invulnerableUntil=0;a.boss.attack={phase:'warning',elapsed:-3000};
       for(let i=0;i<2;i++){const p={x:a.player.x-42,y:a.player.y,vx:180,vy:0,age:0};p.object=a.add.circle(p.x,p.y,6,0xff9450);a.bossProjectiles.push(p);}
     })()`);await sleep(230);
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerHp"),4,'Simultaneous projectiles bypassed invulnerability');
@@ -1730,6 +1732,67 @@ try {
     console.log('PASS Marcin asset '+mode+' ('+(mode==='approved'?marcinSource:'fallback')+'): sheet validation, safe gameplay and pose-aware geometry');
     await cdp('Fetch.disable');socket.removeEventListener('message',fetchBoss);
   }
+
+  // PR45 real approved atlas only; no synthetic art substitute. Missing-file
+  // CI explicitly skips positive visuals and always executes negative lifecycle.
+  let forestBytes=null;try{forestBytes=await readFile(process.env.FOREST_QA_PNG||'public/assets/obstacles/forest-obstacles.png');}catch{}
+  const forestSource=forestBytes?forestBytes.toString('base64'):null;
+  for(const mode of [...(forestBytes?['approved']:[]),'missing','invalid','decode','late']){
+    let requests=0,held=null;
+    const onForest=event=>{const m=JSON.parse(event.data);if(m.method!=='Fetch.requestPaused')return;requests++;
+      if(mode==='late'){held=m.params.requestId;return;}
+      void cdp('Fetch.fulfillRequest',{requestId:m.params.requestId,responseCode:mode==='missing'?404:200,responseHeaders:[{name:'Content-Type',value:'image/png'}],body:mode==='approved'?forestSource:mode==='invalid'?syntheticSheetPng():mode==='decode'?(()=>{const b=Buffer.alloc(26);Buffer.from([137,80,78,71,13,10,26,10]).copy(b);b.writeUInt32BE(1024,16);b.writeUInt32BE(768,20);b[24]=8;b[25]=6;return b.toString('base64')})():''});};
+    socket.addEventListener('message',onForest);await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/obstacles/forest-obstacles.png*',requestStage:'Request'}]});
+    await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
+    for(let i=0;i<100;i++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
+    await waitFor(v=>v.menu&&v.actions.length===1,'forest '+mode+' boot');await clickControl('NOWA GRA');
+    if(mode==='late'){
+      assert.ok(held,'Atlas request not held');
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').obstacles.every(o=>o.sprite.active&&o.sprite.getData('fallback').visible&&!o.sprite.getData('atlasSprite'))"),true);
+      await evaluate("window.__forestOld=window.__game.scene.getScene('Arena').obstacles.map(o=>o.sprite);true");
+      await clickControl('hud');
+      // Actual scene shutdown aborts the pending request; a late response cannot
+      // resurrect old obstacles. Disabling interception releases any request.
+      await evaluate("window.__game.scene.stop('Arena');true");
+      try{await cdp('Fetch.fulfillRequest',{requestId:held,responseCode:404,body:''});}catch{}
+      await cdp('Fetch.disable');await sleep(100);
+      assert.equal(await evaluate('window.__forestOld.every(o=>!o.active)'),true);
+      console.log('PASS PR45 delayed atlas: visible placeholders then shutdown abort; no revived containers');
+      socket.removeEventListener('message',onForest);continue;
+    }
+    const state=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena'),m=await import('/klusoczlek/src/obstacle-renderer.js'),r=m.obstacleAtlasRenderer(a);await r.loading;
+      return {loaded:r.loaded,failed:r.failed,visible:a.obstacles.every(o=>o.sprite.active&&o.sprite.visible&&(o.sprite.getData('atlasSprite')?.visible||o.sprite.getData('fallback').visible)),fallback:a.obstacles.every(o=>o.sprite.getData('fallback').visible),frames:a.obstacles.map(o=>o.sprite.getData('atlasSprite')?.frame.name??null)};})()`);
+    assert.equal(state.visible,true);assert.equal(state.loaded,mode==='approved');assert.equal(state.failed,mode!=='approved');assert.equal(state.fallback,mode!=='approved');
+    assert.equal(requests,1,'Atlas requested per obstacle instead of per session');
+    if(mode==='approved'){
+      for(const [seed,width,height] of [[1,320,240],[41,568,320],[104729,800,360]]){
+        if(!(await snapshot()).menu){await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'forest MENU');}arenaRun=[1,41,104729].indexOf(seed);await clickControl('NOWA GRA');
+        await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');await sleep(100);
+        const loaded=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena'),m=await import('/klusoczlek/src/obstacle-renderer.js');await m.obstacleAtlasRenderer(a).loading;
+          const all=a.obstacles.every(o=>{const art=m.obstacleArt(o),im=o.sprite.getData('atlasSprite');return im?.active&&!o.sprite.getData('fallback').visible&&Number(im.frame.name)===art.frame&&im.scaleX===im.scaleY&&im.originX===art.anchor.x/256&&im.originY===art.anchor.y/256&&Math.abs(Math.sin(o.sprite.rotation-o.angle))<1e-10&&Math.cos(o.sprite.rotation-o.angle)>0&&o.sprite.depth===4;});
+          return {seed:a.arenaSeed,all,filter:a.textures.get(m.FOREST_ATLAS.key).source[0].scaleMode,frames:[...Array(12)].every((_,i)=>a.textures.get(m.FOREST_ATLAS.key).has(String(i))),objects:a.obstacles.length};})()`);
+        assert.equal(loaded.seed,seed);assert.ok(loaded.all&&loaded.frames,JSON.stringify(loaded));assert.equal(loaded.filter,1);assert.equal(requests,1,'Shared texture fetched again on NEW GAME');
+        await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.cameras.main.stopFollow();a.cameras.main.setZoom(Math.min(a.scale.width/1800,a.scale.height/1200));a.cameras.main.centerOn(900,600);})()");await sleep(100);
+        await writeFile('dist/pr45-seed-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+        await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.cameras.main.setZoom(1);a.cameras.main.startFollow(a.player,true,.12,.12);})()");await sleep(100);
+      }
+      // Readable atlas gallery, all semantic variants at native gameplay scale.
+      await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');
+      const gallery=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena');const {createObstacle}=await import('/klusoczlek/src/obstacle-catalog.js');const {createObstacleVisual}=await import('/klusoczlek/src/obstacle-renderer.js');
+        for(const o of a.obstacles)o.sprite.destroy();a.obstacles=[];a.cameras.main.stopFollow().setZoom(1).centerOn(900,600);a.physics.world.pause();
+        const defs=[['rock','small'],['rock','medium'],['rock','large'],['stump','default'],['fallen_log','short'],['fallen_log','medium'],['bush','default'],['bush','wide'],['toxic_barrel','default'],['toi_toi','default'],['tire_pile','default'],['broken_wheelbarrow','default']];
+        for(let i=0;i<defs.length;i++){const [type,variant]=defs[i],o=createObstacle(type,{id:'gallery-'+i,x:600+(i%6)*120,y:570+Math.floor(i/6)*125,variant,angle:type==='fallen_log'?Math.PI/5:0});o.sprite=createObstacleVisual(a,o);a.obstacles.push(o);}
+        return a.obstacles.map(o=>({id:o.id,frame:Number(o.sprite.getData('atlasSprite').frame.name)}));})()`);
+      assert.deepEqual(gallery.map(o=>o.frame),Array.from({length:12},(_,i)=>i));
+      await writeFile('dist/pr45-atlas-gallery.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+      // Actual barrel behavior is unchanged with an image child/container.
+      const barrel=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.obstacles.find(o=>o.type==='toxic_barrel');a.invulnerableUntil=Infinity;for(const e of a.enemies)e.sprite.destroy();a.enemies=[];a.hitObstacle(b,a.time.now);a.hitObstacle(b,a.time.now);a.hitObstacle(b,a.time.now);a.hitObstacle(b,a.time.now);return {alive:b.alive,sprite:b.sprite.active,explosions:a.explosionEffects.length}})()");
+      assert.deepEqual(barrel,{alive:false,sprite:false,explosions:1});
+      console.log('PASS PR45 real approved atlas:12 frames, anchors/scales/rotations, three seeded viewports, cache reuse, barrel exactly-once removal');
+    }else console.log('PASS PR45 atlas '+mode+': visible solid placeholders, no startup failure');
+    await cdp('Fetch.disable');socket.removeEventListener('message',onForest);
+  }
+  if(!forestBytes)console.log('NOT RUN PR45 positive PNG visual QA: user-managed atlas absent; no synthetic substitute used');
 
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {

@@ -1,0 +1,351 @@
+{
+  "image": "forest-obstacles.png",
+  "format": "RGBA8",
+  "size": [
+    1024,
+    768
+  ],
+  "frame_size": [
+    256,
+    256
+  ],
+  "frames": [
+    {
+      "id": "rock-small",
+      "frame_index": 0,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 67,
+        "y": 84,
+        "w": 122,
+        "h": 87
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 128
+      },
+      "contact_footprint": "approximately_centered",
+      "source_crop_px": {
+        "x": 101,
+        "y": 187,
+        "w": 221,
+        "h": 132
+      },
+      "source_to_frame_scale": 1.0
+    },
+    {
+      "id": "rock-medium",
+      "frame_index": 1,
+      "rect": {
+        "x": 256,
+        "y": 0,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 38,
+        "y": 63,
+        "w": 180,
+        "h": 129
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 128
+      },
+      "contact_footprint": "approximately_centered",
+      "source_crop_px": {
+        "x": 397,
+        "y": 175,
+        "w": 306,
+        "h": 151
+      },
+      "source_to_frame_scale": 1.0
+    },
+    {
+      "id": "rock-large",
+      "frame_index": 2,
+      "rect": {
+        "x": 512,
+        "y": 0,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 10,
+        "y": 48,
+        "w": 236,
+        "h": 160
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 128
+      },
+      "contact_footprint": "approximately_centered",
+      "source_crop_px": {
+        "x": 756,
+        "y": 103,
+        "w": 365,
+        "h": 224
+      },
+      "source_to_frame_scale": 0.77888
+    },
+    {
+      "id": "stump",
+      "frame_index": 3,
+      "rect": {
+        "x": 768,
+        "y": 0,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 10,
+        "y": 50,
+        "w": 236,
+        "h": 155
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 128
+      },
+      "contact_footprint": "approximately_centered",
+      "source_crop_px": {
+        "x": 1137,
+        "y": 133,
+        "w": 347,
+        "h": 195
+      },
+      "source_to_frame_scale": 0.89057
+    },
+    {
+      "id": "fallen-log-short",
+      "frame_index": 4,
+      "rect": {
+        "x": 0,
+        "y": 256,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 11,
+        "y": 75,
+        "w": 234,
+        "h": 106
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 128
+      },
+      "contact_footprint": "approximately_centered",
+      "source_crop_px": {
+        "x": 23,
+        "y": 403,
+        "w": 314,
+        "h": 149
+      },
+      "source_to_frame_scale": 1.0
+    },
+    {
+      "id": "fallen-log-medium",
+      "frame_index": 5,
+      "rect": {
+        "x": 256,
+        "y": 256,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 10,
+        "y": 86,
+        "w": 236,
+        "h": 84
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 128
+      },
+      "contact_footprint": "approximately_centered",
+      "source_crop_px": {
+        "x": 352,
+        "y": 393,
+        "w": 407,
+        "h": 165
+      },
+      "source_to_frame_scale": 0.61458
+    },
+    {
+      "id": "bush-round",
+      "frame_index": 6,
+      "rect": {
+        "x": 512,
+        "y": 256,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 10,
+        "y": 43,
+        "w": 236,
+        "h": 169
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 128
+      },
+      "contact_footprint": "approximately_centered",
+      "source_crop_px": {
+        "x": 766,
+        "y": 371,
+        "w": 314,
+        "h": 191
+      },
+      "source_to_frame_scale": 0.98745
+    },
+    {
+      "id": "bush-wide",
+      "frame_index": 7,
+      "rect": {
+        "x": 768,
+        "y": 256,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 10,
+        "y": 84,
+        "w": 236,
+        "h": 88
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 128
+      },
+      "contact_footprint": "approximately_centered",
+      "source_crop_px": {
+        "x": 1082,
+        "y": 370,
+        "w": 435,
+        "h": 191
+      },
+      "source_to_frame_scale": 0.56459
+    },
+    {
+      "id": "toxic-barrel",
+      "frame_index": 8,
+      "rect": {
+        "x": 0,
+        "y": 512,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 57,
+        "y": 15,
+        "w": 142,
+        "h": 226
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 222
+      },
+      "contact_footprint": "estimated_lower_center",
+      "source_crop_px": {
+        "x": 103,
+        "y": 649,
+        "w": 180,
+        "h": 263
+      },
+      "source_to_frame_scale": 0.99123
+    },
+    {
+      "id": "toi-toi",
+      "frame_index": 9,
+      "rect": {
+        "x": 256,
+        "y": 512,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 46,
+        "y": 15,
+        "w": 163,
+        "h": 226
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 222
+      },
+      "contact_footprint": "estimated_lower_center",
+      "source_crop_px": {
+        "x": 426,
+        "y": 615,
+        "w": 234,
+        "h": 305
+      },
+      "source_to_frame_scale": 0.83704
+    },
+    {
+      "id": "tire-pile",
+      "frame_index": 10,
+      "rect": {
+        "x": 512,
+        "y": 512,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 10,
+        "y": 31,
+        "w": 236,
+        "h": 193
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 208
+      },
+      "contact_footprint": "estimated_lower_center",
+      "source_crop_px": {
+        "x": 765,
+        "y": 653,
+        "w": 319,
+        "h": 268
+      },
+      "source_to_frame_scale": 0.86765
+    },
+    {
+      "id": "broken-wheelbarrow",
+      "frame_index": 11,
+      "rect": {
+        "x": 768,
+        "y": 512,
+        "w": 256,
+        "h": 256
+      },
+      "paint_bounds_px": {
+        "x": 10,
+        "y": 36,
+        "w": 236,
+        "h": 183
+      },
+      "anchor_px": {
+        "x": 128,
+        "y": 204
+      },
+      "contact_footprint": "estimated_lower_center",
+      "source_crop_px": {
+        "x": 1140,
+        "y": 646,
+        "w": 389,
+        "h": 277
+      },
+      "source_to_frame_scale": 0.73292
+    }
+  ],
+  "notes": "Anchors and scaling are provisional; validate against 1800x1200 Arena. Source RGB panel lacked source alpha; extraction masks are approximations."
+}
