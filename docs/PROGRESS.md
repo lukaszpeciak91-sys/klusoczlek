@@ -1,5 +1,12 @@
 # PROGRESS
 
+## PR45 — forest obstacle production-art code handoff (2026-10-31; independent audit required)
+- Verified PR40–44 merged; base main `ccfe5da4ec14509df6e683f4bc44c44ca2a1dfb5`. Actual attached ZIP audited:1024×768 RGBA8 atlas,12 exact256px frames/individuals/JSON bounds, unchanged SHA256937912656422d9f549f707396228f34d595f88365c53faf896a320d5b0bc49b0.
+- User changed delivery to code/paths only after direct Git binary commit succeeded locally but push lacked terminal credentials(exit128). PNG is excluded from PR; user uploads `public/assets/obstacles/forest-obstacles.png`. Supplied JSON/mapping and a visible async-safe procedural fallback ship in code.
+- Single shared atlas/immutable per-variant anchors/scales, grounded upright tall props, unchanged10 footprints. Rare0–1 tire_pile capsule78/r24 and broken_wheelbarrow capsule90/r20 reuse existing collision/spawn/navigation/steering. Tested old-family seed placements preserved exactly.
+- RED3 → GREEN Node166/166 and build exit0. Full real Chromium55 PASS groups/exit0 with unchanged approved atlas; includes retained six-wave/boss regressions. CI results belong to published head/external evidence. Real local approved-atlas gallery/seeds1/41/104729 and fallback/decode/shutdown coverage; code-only CI explicitly cannot assert absent PNG visuals. Benchmarks preserved; physical Android NOT RUN.
+- See docs/pr45-forest-obstacle-art.md. No image generation, unrelated gameplay changes, merge or deploy.
+
 ## PR44 asset handoff — approved Marcin V1 integration (2026-10-31)
 - Same open PR44; base implementation HEAD `6dbb8aa58039e06e658ba421fd7d82dc0a0e9445`. User-approved2048×256 RGBA8 sheet,256px×8 directions, dedicated optional loader/NEAREST, no binary edits/commits. PNG not yet present on main at start; local approved bytes supplied to real Chromium via CDP only.
 - Visual scale0.68/source feet y240/local offset−76.16, visibly larger than heavy. Bounded pose-specific main-body circles reuse PR42 projectile/flame API, while r40 movement/contact and all gameplay tuning stay unchanged. Expanded landing viewport bounds include approved art; finite samples include short-viewport endpoints and filter cached reachability during selection.

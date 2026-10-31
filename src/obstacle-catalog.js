@@ -7,6 +7,8 @@ export const OBSTACLE_CATALOG=freeze({
  fallen_log:freeze({id:'fallen_log',gameplayClass:'solid',variants:freeze({short:freeze({shape:'capsule',length:84,radius:19}),medium:freeze({shape:'capsule',length:126,radius:21})}),render:freeze({asset:'obstacle-fallen-log',fallback:'capsule'})}),
  bush:freeze({id:'bush',gameplayClass:'solid',variants:freeze({default:freeze({shape:'circle',radius:30}),wide:freeze({shape:'capsule',length:78,radius:24})}),render:freeze({asset:'obstacle-bush',fallback:'capsule'})}),
  toxic_barrel:freeze({id:'toxic_barrel',gameplayClass:'destructible',hp:3,variants:freeze({default:freeze({shape:'circle',radius:23})}),render:freeze({asset:'obstacle-toxic-barrel',fallback:'circle'})}),
+ tire_pile:freeze({id:'tire_pile',gameplayClass:'solid',variants:freeze({default:freeze({shape:'capsule',length:78,radius:24})}),render:freeze({asset:'obstacle-tire-pile',fallback:'capsule'})}),
+ broken_wheelbarrow:freeze({id:'broken_wheelbarrow',gameplayClass:'solid',variants:freeze({default:freeze({shape:'capsule',length:90,radius:20})}),render:freeze({asset:'obstacle-broken-wheelbarrow',fallback:'capsule'})}),
  toi_toi:freeze({id:'toi_toi',gameplayClass:'solid',variants:freeze({default:freeze({shape:'box',width:52,height:46})}),render:freeze({asset:'obstacle-toi-toi',fallback:'box'})})
 });
 export function createObstacle(definition,{id,x,y,angle=0,variant}){

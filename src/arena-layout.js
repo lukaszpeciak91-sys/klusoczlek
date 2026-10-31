@@ -1,7 +1,7 @@
 import {ARENA} from './movement.js';
 import {OBSTACLE_CATALOG,createObstacle} from './obstacle-catalog.js';
 import {inflatedBounds,footprintDistance,reachableCells} from './obstacle-geometry.js';
-export const LAYOUT_LIMITS=Object.freeze({rock:Object.freeze([4,7]),stump:Object.freeze([2,4]),fallen_log:Object.freeze([1,2]),bush:Object.freeze([3,6]),toxic_barrel:Object.freeze([1,3]),toi_toi:Object.freeze([0,1])});
+export const LAYOUT_LIMITS=Object.freeze({rock:Object.freeze([4,7]),stump:Object.freeze([2,4]),fallen_log:Object.freeze([1,2]),bush:Object.freeze([3,6]),toxic_barrel:Object.freeze([1,3]),toi_toi:Object.freeze([0,1]),tire_pile:Object.freeze([0,1]),broken_wheelbarrow:Object.freeze([0,1])});
 export const START_CLEARANCE=250;
 export const OBSTACLE_SPACING=140;
 const center={x:ARENA.width/2,y:ARENA.height/2};
