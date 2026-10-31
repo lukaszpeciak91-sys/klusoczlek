@@ -1,4 +1,4 @@
-import {segmentObstacleHit,obstacleRadius} from './obstacles.js';
+import {firstFootprintHit} from './obstacle-geometry.js';
 export const COMBAT_TUNING=Object.freeze({
  blunderbuss:Object.freeze({interval:180,speed:510,radius:5,damage:1,color:0xffe8a2}),
  rifle:Object.freeze({shots:3,shotInterval:70,burstPause:300,speed:750,radius:3,damage:1,color:0xb6edff,recoilMs:105}),
@@ -36,12 +36,11 @@ export function inFlameCone(origin,aim,target,range=COMBAT_TUNING.flamethrower.r
 }
 export function flameTargetVisible(origin,aim,target,radius,obstacles){
  if(!inFlameCone(origin,aim,target,COMBAT_TUNING.flamethrower.range,COMBAT_TUNING.flamethrower.halfAngle,radius))return false;
- const hit=segmentObstacleHit(origin,target,obstacles,0);
+ const hit=firstFootprintHit(origin,target,obstacles,0);
  if(!hit)return true;
- if(hit===target)return true;
- // Circle proxy blockers must not let damage pass behind their near face.
+ if(hit.obstacle===target)return true;
  const targetDistance=Math.hypot(target.x-origin.x,target.y-origin.y)-radius;
- return Math.hypot(hit.x-origin.x,hit.y-origin.y)-obstacleRadius(hit.type)>targetDistance;
+ return Math.hypot(hit.point.x-origin.x,hit.point.y-origin.y)>targetDistance;
 }
 export function cooldownReady(map,target,now,period){
  const previous=map.get(target);

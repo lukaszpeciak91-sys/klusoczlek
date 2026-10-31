@@ -1,35 +1,32 @@
+import {createObstacle} from '../src/obstacle-catalog.js';
+import {generateArenaLayout,layoutSafe} from '../src/arena-layout.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ARENA,PLAYER_RADIUS} from '../src/movement.js';
-import {OBSTACLE_LAYOUTS,OBSTACLE_RULES,getObstacleLayout,layoutValid,resolveObstaclePosition,segmentObstacleHit,damageObstacle,inExplosion} from '../src/obstacles.js';
-test('four fixed safe traversable layouts and fresh copies',()=>{
- assert.equal(OBSTACLE_LAYOUTS.length,4);
- for(let i=0;i<4;i++){
- const layout=getObstacleLayout(i);
- assert.equal(layoutValid(layout),true);
- assert.deepEqual(layout.map(o=>o.type),['rock','log','barrel']);
- assert.equal(layout.filter(o=>o.type==='barrel').length,1);
- }
- const first=getObstacleLayout(0);damageObstacle(first[2],3);
- assert.equal(getObstacleLayout(0)[2].alive,true);
+import {OBSTACLE_RULES,resolveObstaclePosition,segmentObstacleHit,damageObstacle,inExplosion} from '../src/obstacles.js';
+test('generated layouts replace fixed layouts with independent instance state',()=>{
+ const a=generateArenaLayout(1),b=generateArenaLayout(1);
+ assert.ok(layoutSafe(a.obstacles));
+ const barrel=a.obstacles.find(o=>o.type==='toxic_barrel');damageObstacle(barrel,3);
+ assert.equal(b.obstacles.find(o=>o.id===barrel.id).alive,true);
 });
 test('player and enemy cannot occupy static blocker circle',()=>{
- const layout=[{x:200,y:200,type:'rock',alive:true}];
+ const layout=[createObstacle('rock',{id:'r',x:200,y:200,variant:'medium'})];
  for(const radius of [PLAYER_RADIUS,21]){
   const next=resolveObstaclePosition({x:100,y:200},{x:200,y:200},radius,layout);
-  assert.ok(Math.hypot(next.x-200,next.y-200)>=OBSTACLE_RULES.rockRadius+radius-1e-8);
+  assert.ok(Math.hypot(next.x-200,next.y-200)>=31+radius-1e-8);
  }
 });
 test('projectiles collide with rock, log and alive barrel',()=>{
- for(const type of ['rock','log','barrel']){
-  const o={x:200,y:200,type,alive:true,hp:3};
+ for(const type of ['rock','fallen_log','toxic_barrel']){
+  const o=createObstacle(type,{id:type,x:200,y:200});
   assert.equal(segmentObstacleHit({x:100,y:200},{x:300,y:200},[o]),o);
   o.alive=false;
   assert.equal(segmentObstacleHit({x:100,y:200},{x:300,y:200},[o]),null);
  }
 });
 test('barrel takes three projectile hits and explodes once',()=>{
- const b={type:'barrel',alive:true,hp:3,x:100,y:100};
+ const b=createObstacle('toxic_barrel',{id:'b',x:100,y:100});
  assert.equal(damageObstacle(b).exploded,false);
  assert.equal(damageObstacle(b).exploded,false);
  assert.deepEqual(damageObstacle(b),{exploded:true,hp:0});

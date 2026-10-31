@@ -1,3 +1,4 @@
+import {createObstacle} from '../src/obstacle-catalog.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {COMBAT_TUNING,flameTargetVisible,cooldownReady} from '../src/weapon-combat.js';
@@ -13,7 +14,7 @@ test('flame damage and visual cone contract retain their original values',()=>{
 test('ignition is gated behind visibility AND per-target damage cooldown',()=>{
  const state=createIgnitionState(),hits=new Map(),enemy={x:90,y:0,type:'bobrozombi'};
  const origin={x:0,y:0},aim={x:1,y:0};
- const obstacles=[{type:'rock',x:45,y:0,alive:true}];
+ const obstacles=[createObstacle('rock',{id:'r',x:45,y:0})];
  const hit=(now,blockers)=>{
   if(!flameTargetVisible(origin,aim,enemy,21,blockers))return false;
   if(!cooldownReady(hits,enemy,now,250))return false;

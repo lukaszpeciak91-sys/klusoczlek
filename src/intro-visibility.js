@@ -15,7 +15,7 @@ export function introductionVisible(type,x,y,view){
  const b=introductionBounds(type,x,y);
  return !!b&&b.left>=view.x&&b.right<=view.x+view.width&&b.top>=view.y&&b.bottom<=view.y+view.height;
 }
-export function introductionSpawnPoint(type,player,obstacles,view,radius){
+export function introductionSpawnPoint(type,player,obstacles,view,radius,navigation=null){
  const center={x:view.x+view.width/2,y:view.y+view.height/2};
  const candidates=[
   {x:center.x+view.width*.32,y:center.y},
@@ -27,7 +27,7 @@ export function introductionSpawnPoint(type,player,obstacles,view,radius){
  ];
  return candidates.find(p=>introductionVisible(type,p.x,p.y,view)
    &&Math.hypot(p.x-player.x,p.y-player.y)>=ENCOUNTER.minSpawnDistance
-   &&clearPoint(p,obstacles,radius+4))??null;
+   &&clearPoint(p,obstacles,radius+4,navigation))??null;
 }
 
 export function eligibleIntroductionEnemy(type,enemies,view){

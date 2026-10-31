@@ -1,3 +1,4 @@
+import {createObstacle} from '../src/obstacle-catalog.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {introductionBounds,introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from '../src/intro-visibility.js';
@@ -16,7 +17,7 @@ test('safe on-screen candidate is optional, blocked candidates preserve normal f
  assert.ok(candidate);
  assert.ok(introductionVisible('bocianolak',candidate.x,candidate.y,view));
  assert.ok(Math.hypot(candidate.x-player.x,candidate.y-player.y)>=220);
- const blocked=[{type:'rock',alive:true,x:candidate.x,y:candidate.y}];
+ const blocked=[createObstacle('rock',{id:'r',x:candidate.x,y:candidate.y})];
  assert.notDeepEqual(introductionSpawnPoint('bocianolak',player,blocked,view,18),candidate);
  assert.equal(introductionSpawnPoint('zubrokryptyda',player,[],{x:800,y:500,width:320,height:240},30),null);
 });

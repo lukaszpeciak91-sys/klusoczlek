@@ -1,3 +1,4 @@
+import {createObstacle} from '../src/obstacle-catalog.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {COMBAT_TUNING,createFiringState,resetFiring,firingStep,inFlameCone,flameTargetVisible,cooldownReady} from '../src/weapon-combat.js';
@@ -29,7 +30,7 @@ test('flame cone range/angle and obstacle interception',()=>{
  assert.ok(!inFlameCone(from,aim,{x:146,y:0}));
  assert.ok(!inFlameCone(from,aim,{x:80,y:80}));
  assert.ok(flameTargetVisible(from,aim,{x:100,y:0},0,[]));
- assert.ok(!flameTargetVisible(from,aim,{x:100,y:0},0,[{type:'rock',x:50,y:0,alive:true}]));
+ assert.ok(!flameTargetVisible(from,aim,{x:100,y:0},0,[createObstacle('rock',{id:'r',x:50,y:0})]));
 });
 test('flame damage cadence is time based and independent of frames',()=>{
  const target={},times=new Map();let hits=0;

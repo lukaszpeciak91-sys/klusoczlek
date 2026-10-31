@@ -21,11 +21,13 @@ import { resolveAim, muzzlePoint } from './shooting.js';
 import {COMBAT_TUNING,createFiringState,resetFiring,firingStep,flameTargetVisible,cooldownReady} from './weapon-combat.js';
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
 import {createGameplayClock,advanceGameplayClock,formatGameplayClock} from './gameplay-clock.js';
-import { ENCOUNTER, enemySpawns, advanceEnemy, applyEnemyHit, applyPlayerContact, segmentHitsCircle } from './bobrozombi.js';
+import { ENCOUNTER, applyEnemyHit, applyPlayerContact } from './bobrozombi.js';
 import { menuLayout, arenaHudLayout } from './ui-layout.js';
 import { enforceOrientationOnSceneStart } from './viewport.js';
-import {OBSTACLE_RULES,getObstacleLayout,obstacleRadius,resolveObstaclePosition,segmentObstacleHit,damageObstacle,inExplosion} from './obstacles.js';
-let nextLayoutIndex=0;
+import {OBSTACLE_RULES,resolveObstaclePosition,steerObstacleStep,segmentObstacleHit,damageObstacle,inExplosion} from './obstacles.js';
+import {generateArenaLayout} from './arena-layout.js';
+import {createObstacleVisual} from './obstacle-renderer.js';
+import {firstFootprintHit,segmentFootprintHit} from './obstacle-geometry.js';
 
 const COLORS = {
   background: 0x0e101a,
@@ -116,32 +118,35 @@ export class MenuScene extends Phaser.Scene {
 export class ArenaScene extends Phaser.Scene {
   constructor() { super('Arena'); }
 
-  create() {
+  create(data={}) {
     document.getElementById('fullscreen-button').hidden = true;
     this.cameras.main.setBackgroundColor(COLORS.background);
     this.physics.world.setBounds(0, 0, ARENA.width, ARENA.height);
     createArenaGround(this,ARENA.width,ARENA.height,Phaser,COLORS);
     this.player = createPlayer(this, ARENA.width / 2, ARENA.height / 2);
-    this.layoutIndex=nextLayoutIndex++%4;
-    this.obstacles=getObstacleLayout(this.layoutIndex).map(o=>{
-      const sprite=o.type==='rock'
-        ?this.add.circle(o.x,o.y,obstacleRadius(o.type),0x858b8e).setStrokeStyle(4,0x42464a)
-        :o.type==='log'
-        ?this.add.ellipse(o.x,o.y,60,40,0x926a3d).setStrokeStyle(5,0x48331e)
-        :this.add.rectangle(o.x,o.y,43,48,0xba3c29).setStrokeStyle(4,0x4e1f19);
-      sprite.setDepth(4); // Independent foreground above both ground layers.
-      return {...o,sprite,hitUntil:0};
-    });
-    this.obstacleBodies=this.physics.add.staticGroup();
-    for(const o of this.obstacles){
-      this.physics.add.existing(o.sprite,true);
-      o.sprite.body.setCircle(obstacleRadius(o.type),
-        o.sprite.width/2-obstacleRadius(o.type),
-        o.sprite.height/2-obstacleRadius(o.type));
-      o.sprite.body.updateFromGameObject();
-      this.obstacleBodies.add(o.sprite);
-    }
-    this.playerBlocker=this.physics.add.collider(this.player,this.obstacleBodies);
+    const requested=data.seed??new URLSearchParams(window.location.search).get('arenaSeed');
+    const parsed=Number(requested);
+    const seed=requested!==null&&requested!==undefined&&Number.isInteger(parsed)&&parsed>=0&&parsed<=0xffffffff?parsed:crypto.getRandomValues(new Uint32Array(1))[0];
+    const layoutStarted=performance.now();
+    const layout=generateArenaLayout(seed);
+    this.layoutGenerationMs=performance.now()-layoutStarted;
+    this.arenaSeed=seed;
+    this.layoutDiagnostics=layout.diagnostics;
+    this.navigation=layout.navigation; // conservative immutable snapshot; never rebuilt per frame
+    this.obstacles=layout.obstacles.map(o=>({...o,sprite:createObstacleVisual(this,o),hitUntil:0}));
+    // Arcade integrates the original player circle; this sole adapter resolves
+    // its actual world-space displacement against the same footprints as combat.
+    this.onObstacleWorldStep=()=>{
+      const body=this.player.body;
+      const start={x:body.prev.x+body.halfWidth,y:body.prev.y+body.halfHeight};
+      const end={x:body.position.x+body.halfWidth,y:body.position.y+body.halfHeight};
+      const resolved=resolveObstaclePosition(start,end,body.radius,this.obstacles);
+      body.position.x=resolved.x-body.halfWidth;body.position.y=resolved.y-body.halfHeight;
+      body.updateCenter();
+    };
+    const obstacleWorld=this.physics.world;
+    obstacleWorld.on('worldstep',this.onObstacleWorldStep);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>obstacleWorld.off('worldstep',this.onObstacleWorldStep));
     this.explosionEffects=[];
     this.deathBursts=[];
     // VFX runs on the game clock, independent of frozen/paused combat Scene updates.
@@ -178,7 +183,10 @@ export class ArenaScene extends Phaser.Scene {
     this.pendingRewards=new Map();
     this.enemyRenderers={bobrozombi:createBobrozombiRenderer(this,Phaser),bocianolak:createBocianolakRenderer(this,Phaser),zubrokryptyda:createZubrokryptydaRenderer(this,Phaser)};
     this.enemyRenderer=this.enemyRenderers.bobrozombi;
-    this.enemies=enemySpawns(this.player).map(({x,y},index)=>{
+    this.enemies=[0,1,2].flatMap(index=>{
+      const point=safeEnemySpawn(this.player,this.obstacles,index,21,this.navigation);
+      if(!point)return [];
+      const {x,y}=point;
       const type=nextType(this.episode);recordSpawn(this.episode);
       return this.createEnemy(type,{x,y},index);
     });
@@ -205,12 +213,10 @@ export class ArenaScene extends Phaser.Scene {
     this.waveText=this.add.text(0,0,'⚑ 1/'+TOTAL_WAVES,{fontFamily:'monospace',fontSize:'15px',color:'#f3ca76'}).setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
     this.timerText=this.add.text(0,0,'◷ 00:00',{fontFamily:'monospace',fontSize:'13px',color:'#d7b978'}).setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
     this.completeText=this.add.text(this.scale.width/2,55,'ZWYCIĘSTWO!',{fontFamily:'monospace',fontSize:'19px',color:'#f3ca76'}).setOrigin(0.5,0).setScrollFactor(0).setDepth(65).setVisible(false);
-    this.targets=[[260,0],[-240,-140],[80,-260]].map(([dx,dy])=>
-      this.add.circle(ARENA.width/2+dx,ARENA.height/2+dy,22,0xbe6a64).setStrokeStyle(3,0xf3e8d1));
     this.facingMarker=this.add.graphics().setDepth(12);
     this.playerVisual=createPlayerVisual(this,this.player,this.facingMarker,Phaser);
     void this.playerVisual.setVariant('unarmed');
-    this.addPickup('blunderbuss',initialPickupPoint(this.player,this.cameras.main,this.scale,this.obstacles));
+    this.addPickup('blunderbuss',initialPickupPoint(this.player,this.cameras.main,this.scale,this.obstacles,this.navigation));
     this.refreshWeaponHud();
     this.mouseHeld=false;
     this.mouseAim={x:0,y:0};
@@ -536,8 +542,8 @@ export class ArenaScene extends Phaser.Scene {
       }
     }
     for(const obstacle of this.obstacles){
-      if(!obstacle.alive||obstacle.type!=='barrel')continue;
-      if(!flameTargetVisible(origin,aim,obstacle,obstacleRadius(obstacle.type),this.obstacles))continue;
+      if(!obstacle.alive||obstacle.type!=='toxic_barrel')continue;
+      if(!flameTargetVisible(origin,aim,obstacle,obstacle.footprint.radius,this.obstacles))continue;
       if(!cooldownReady(this.flameCooldowns,obstacle,now,tune.barrelInterval))continue;
       this.hitObstacle(obstacle,now);
     }
@@ -545,7 +551,7 @@ export class ArenaScene extends Phaser.Scene {
 
   hitObstacle(blocked,now){
     const outcome=damageObstacle(blocked);
-    if(blocked.type==='barrel'&&blocked.alive)blocked.sprite.setAlpha(0.5);
+    if(blocked.type==='toxic_barrel'&&blocked.alive)blocked.sprite.setAlpha(0.5);
     blocked.hitUntil=now+120;
     if(!outcome.exploded)return;
     blocked.sprite.destroy();
@@ -580,7 +586,7 @@ export class ArenaScene extends Phaser.Scene {
     for(const [milestone,reward] of this.pendingRewards){
       // Retain the reward until it exists as an actual world pickup.
       reward.attempts=(reward.attempts||0)+1;
-      const point=fallbackRewardPoint(this.player,this.obstacles)||dropPoint(reward.origin,this.obstacles);
+      const point=fallbackRewardPoint(this.player,this.obstacles,this.navigation)||dropPoint(reward.origin,this.obstacles,this.navigation);
       if(point&&this.addPickup(reward.id,point)){
         this.pendingRewards.delete(milestone);
         this.triggeredMilestones.add(milestone);
@@ -629,8 +635,8 @@ export class ArenaScene extends Phaser.Scene {
     const pending=introductionId&&this.pendingIntroductions.get(introductionId);
     const firstIntroduction=introductionId&&!this.introducedEnemyTypes.has(introductionId)&&(!pending||pending.dead||pending.hp<=0);
     const radius=ENEMY_TYPES[nextEnemyType].radius;
-    const at=(firstIntroduction?introductionSpawnPoint(nextEnemyType,this.player,this.obstacles,this.cameras.main.worldView,radius):null)
-      ||safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,radius);
+    const at=(firstIntroduction?introductionSpawnPoint(nextEnemyType,this.player,this.obstacles,this.cameras.main.worldView,radius,this.navigation):null)
+      ||safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,radius,this.navigation);
     if(!at){this.spawnDueAt=this.time.now+380;return;}
     const created=this.createEnemy(nextEnemyType,at,this.totalSpawned);
     this.enemies.push(created);
@@ -644,7 +650,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   dropHealthReward(){
-    const point=fallbackRewardPoint(this.player,this.obstacles);
+    const point=fallbackRewardPoint(this.player,this.obstacles,this.navigation);
     if(point)this.addPickup('health',point);
     else this.pendingHealth=(this.pendingHealth||0)+1;
   }
@@ -691,7 +697,7 @@ export class ArenaScene extends Phaser.Scene {
     this.timerText.setText('◷ '+formatGameplayClock(this.elapsedGameplayMs));
     this.hpFace.update(this.game.loop.delta);
     this.retryPendingRewards();
-    if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles);if(p&&this.addPickup('health',p))this.pendingHealth--;}
+    if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles,this.navigation);if(p&&this.addPickup('health',p))this.pendingHealth--;}
     this.collectPickups();
     if(this.episode.state==='intermission'&&advanceEpisode(this.episode,this.time.now)){
       // Enemy introduction boundaries are raised by actual spawned specimens below.
@@ -748,29 +754,23 @@ export class ArenaScene extends Phaser.Scene {
     for(const item of this.projectiles){
       const old={x:item.object.x,y:item.object.y};
       item.object.x+=item.vx*seconds;item.object.y+=item.vy*seconds;
-      const blocked=segmentObstacleHit(old,item.object,this.obstacles,item.radius);
-      if(blocked){this.hitObstacle(blocked,this.time.now);item.hit=true;if(this.defeated)return;}
-      if(item.hit){item.object.destroy();continue;}
+      const blocked=firstFootprintHit(old,item.object,this.obstacles,item.radius);
+      let enemyHit=null;
       for(const enemy of this.enemies){
         if(enemy.hp<=0)continue;
-        if(segmentHitsCircle(old,item.object,enemy,ENEMY_TYPES[enemy.type].radius+item.radius)){
-          enemy.hp=applyEnemyHit(enemy.hp,item.damage);
-          if(enemy.hp>0)this.enemyHit(enemy,old,this.time.now);
-          enemy.hitUntil=this.time.now+120;
-          enemy.sprite.setAlpha(0.45);
-          item.hit=true;
-          if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
-          break;
-        }
+        const hit=segmentFootprintHit(old,item.object,{shape:'circle',x:enemy.x,y:enemy.y,angle:0,radius:ENEMY_TYPES[enemy.type].radius},item.radius);
+        if(hit&&(!enemyHit||hit.t<enemyHit.t))enemyHit={enemy,t:hit.t};
+      }
+      if(blocked&&(!enemyHit||blocked.t<=enemyHit.t)){
+        this.hitObstacle(blocked.obstacle,this.time.now);item.hit=true;if(this.defeated)return;
+      }else if(enemyHit){
+        const enemy=enemyHit.enemy;
+        enemy.hp=applyEnemyHit(enemy.hp,item.damage);
+        if(enemy.hp>0)this.enemyHit(enemy,old,this.time.now);
+        enemy.hitUntil=this.time.now+120;enemy.sprite.setAlpha(0.45);item.hit=true;
+        if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
       }
       if(item.hit){item.object.destroy();continue;}
-      for(const target of this.targets){
-        if(target.active&&Phaser.Math.Distance.Between(item.object.x,item.object.y,target.x,target.y)<27){
-          target.setFillStyle(0x80c69d);
-          this.time.delayedCall(120,()=>{if(target.active)target.setFillStyle(0xbe6a64);});
-          item.hit=true;break;
-        }
-      }
       if(item.hit||item.object.x<0||item.object.y<0||item.object.x>ARENA.width||item.object.y>ARENA.height){
         item.object.destroy();item.hit=true;
       }
@@ -787,7 +787,9 @@ export class ArenaScene extends Phaser.Scene {
       }
       const burning=isBurning(enemy.ignition,this.time.now);
       const next=burning?fleeStep(enemy,this.player,seconds):moveEnemy(enemy,this.player,seconds,this.time.now/1000);
-      const blockedPosition=resolveObstaclePosition(enemy,next,ENEMY_TYPES[enemy.type].radius,this.obstacles);
+      const blockedPosition=burning
+        ?resolveObstaclePosition(enemy,next,ENEMY_TYPES[enemy.type].radius,this.obstacles)
+        :steerObstacleStep(enemy,next,this.player,ENEMY_TYPES[enemy.type].radius,this.obstacles);
       enemy.x=blockedPosition.x;enemy.y=blockedPosition.y;
       const traveled=Math.hypot(enemy.x-previousX,enemy.y-previousY);
       enemy.fleeFacingVector=burning&&traveled>0.4?{x:enemy.x-previousX,y:enemy.y-previousY}:burning?{x:0,y:0}:null;
