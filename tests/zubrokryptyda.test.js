@@ -1,3 +1,4 @@
+import {createObstacle} from '../src/obstacle-catalog.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ENEMY_TYPES,ENEMY_SCHEDULE,HEAVY_ORDINALS,TOTAL_ENEMIES,moveEnemy,typeAt} from '../src/enemy-types.js';
@@ -44,5 +45,5 @@ test('heavy spawns honor own radius and obstacle clearance',()=>{
  const point=safeEnemySpawn(player,[],12,30);
  assert.ok(point.x>=30&&point.y>=30);
  const blocked=Array.from({length:8},(_,i)=>{const r=55;return [{x:r,y:r},{x:1800-r,y:r},{x:1800-r,y:1200-r},{x:r,y:1200-r},{x:900,y:r},{x:1800-r,y:600},{x:900,y:1200-r},{x:r,y:600}][i]});
- assert.equal(safeEnemySpawn(player,blocked.map(p=>({...p,alive:true,type:'rock'})),12,30),null);
+ assert.equal(safeEnemySpawn(player,blocked.map((p,i)=>createObstacle('rock',{id:'r'+i,...p})),12,30),null);
 });

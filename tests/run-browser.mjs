@@ -86,9 +86,10 @@ try {
       socket.send(JSON.stringify({ id, method, params }));
     });
   }
+  const uncaught=[];
   socket.addEventListener('message', event=>{
     const message=JSON.parse(event.data);
-    if(message.method==='Runtime.exceptionThrown')console.log('PHASER UNCAUGHT EXCEPTION',JSON.stringify(message.params.exceptionDetails));
+    if(message.method==='Runtime.exceptionThrown'){uncaught.push(message.params.exceptionDetails);console.log('PHASER UNCAUGHT EXCEPTION',JSON.stringify(message.params.exceptionDetails));}
   });
   await cdp('Runtime.enable');
   async function evaluate(expression) {
@@ -105,7 +106,9 @@ try {
     await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
     await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   }
+  let arenaRun=0;
   async function clickControl(which){
+    if(which==='NOWA GRA')await evaluate("history.replaceState(null,'','?arenaSeed="+[1,41,104729][arenaRun++%3]+"');true");
     const state=await snapshot();
     const target=which==='hud'?state.menuButton:state.actions.find(a=>a.label===which);
     assert.ok(target,'Missing '+which+' interactive hit area '+JSON.stringify(state));
@@ -209,7 +212,7 @@ try {
   const firstPickup=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'),p=a.pickups[0],cam=a.cameras.main;
     return {id:p.id,x:p.x,y:p.y,left:cam.worldView.x,right:cam.worldView.right,top:cam.worldView.y,bottom:cam.worldView.bottom,
-      obstacles:a.obstacles.filter(o=>o.alive).map(o=>({x:o.x,y:o.y,r:o.sprite.width/2}))};
+      obstacles:a.obstacles.filter(o=>o.alive).map(o=>({x:o.x,y:o.y,r:o.footprint.shape==='circle'?o.footprint.radius:o.footprint.shape==='capsule'?o.footprint.length/2:Math.hypot(o.footprint.width,o.footprint.height)/2}))};
   })()`);
   assert.equal(firstPickup.id,'blunderbuss');
   assert.ok(firstPickup.x>firstPickup.left+25&&firstPickup.x<firstPickup.right-25);
@@ -277,7 +280,7 @@ try {
   assert.equal(artState.playerVisual.followIdentity,true,'Camera stopped following physics player');
   // Two simultaneous *real CDP touch points*, right-first to test independent capture.
   const a=await snapshot();
-  assert.ok(a.controls&&a.controls.targetCount===3,'Twin-stick training arena not initialized');
+  assert.ok(a.controls&&a.controls.targetCount===0,'Arena still has shooting dummies');
   const left={x:a.rect.x+60,y:a.rect.y+a.scale.height-60,id:11};
   const right={x:a.rect.x+a.scale.width-60,y:a.rect.y+a.scale.height-60,id:12};
   const rMove={...right,x:right.x-40,y:right.y-8};
@@ -309,7 +312,7 @@ try {
   console.log('PASS real CDP multi-touch, reversed touch order, firing release, cancel');
   const retainedPosition=(await snapshot()).player;
   const retainedObstacles=(await snapshot()).controls.obstacles;
-  const retainedLayout=(await snapshot()).controls.layoutIndex;
+  const retainedLayout=(await snapshot()).controls.seed;
 
   for(let i=0;i<20;i++){
     await clickControl('hud');
@@ -327,7 +330,7 @@ try {
     state=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'Resume '+i);
     assert.deepEqual(state.player,retainedPosition);
     assert.equal(state.physics,false);
-    assert.equal(state.controls.layoutIndex,retainedLayout);
+    assert.equal(state.controls.seed,retainedLayout);
     assert.deepEqual(state.controls.obstacles,retainedObstacles);
     assert.equal(state.samePlayer,true);
     assert.equal(state.sameCamera,true);
@@ -363,23 +366,24 @@ try {
   assert.notDeepEqual(fresh.player,{x:552,y:440},'NOWA GRA retained old position');
   assert.equal(fresh.physics,false,'New game physics paused');
   assert.equal(fresh.controls.hp,5,'Fresh player HP not reset');
-  assert.equal(fresh.controls.obstacles.length,3,'Fresh obstacles not created');
+  assert.ok(fresh.controls.obstacles.length>=11&&fresh.controls.obstacles.length<=23,'Generated obstacle count outside approved bounds');
+  assert.equal(fresh.controls.blockerBodyCount,0,'Duplicate native Arcade collider');
   assert.ok(fresh.controls.obstacles.every(o=>o.depth>fresh.controls.groundDepth),'Foreground obstacles layered under ground');
   assert.equal(fresh.controls.groundActive,true);
-  assert.notEqual(fresh.controls.layoutIndex,retainedLayout,'NOWA GRA did not select next predefined layout');
+  assert.notEqual(fresh.controls.seed,retainedLayout,'NOWA GRA did not select a different deterministic seed');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),null);
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),p=a.pickups[0];a.player.body.reset(p.x,p.y);return true})()");
   await sleep(80);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'blunderbuss');
   // Exercise actual Phaser projectile collision and barrel removal while not modifying the ground.
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const b=a.obstacles.find(o=>o.type==='barrel');b.x=a.player.x+130;b.y=a.player.y;b.sprite.setPosition(b.x,b.y);b.sprite.body.updateFromGameObject();return true})()");
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const b=a.obstacles.find(o=>o.type==='toxic_barrel');b.x=a.player.x+130;b.y=a.player.y;b.sprite.setPosition(b.x,b.y);b.footprint=Object.freeze({...b.footprint,x:b.x,y:b.y});return true})()");
   const barrelAim=await snapshot();
   await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'none'});
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'left',buttons:1,clickCount:1});
   await sleep(1050);
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'left',buttons:0,clickCount:1});
   const exploded=await snapshot();
-  assert.equal(exploded.controls.obstacles.find(o=>o.type==='barrel').alive,false,'Real input did not destroy barrel');
+  assert.equal(exploded.controls.obstacles.find(o=>o.type==='toxic_barrel').alive,false,'Real input did not destroy barrel');
   assert.equal(exploded.controls.groundActive,true,'Barrel removal destroyed arena underlay');
   console.log('PASS browser: obstacle layering, session layout, actual held mouse fire and barrel removal');
 
@@ -670,7 +674,7 @@ try {
     e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(v=>!v.dead);
     const r=46,W=1800,H=1200;
     for(const [x,y] of [[r,r],[W-r,r],[W-r,H-r],[r,H-r],[W/2,r],[W-r,H/2],[W/2,H-r],[r,H/2]])
-      a.obstacles.push({type:'rock',x,y,alive:true,__spawnFixture:true});
+      a.obstacles.push({...window.__createObstacle('rock',{id:'spawn-'+x+'-'+y,x,y}),__spawnFixture:true});
     const before=a.totalSpawned;a.spawnDueAt=null;
     a.spawnReplacement();const blocked={before,after:a.totalSpawned,retry:a.spawnDueAt!==null};
     a.obstacles=a.obstacles.filter(o=>!o.__spawnFixture);
@@ -897,9 +901,9 @@ try {
   console.log('PASS real held mouse: rifle three-shot burst, release cancellation, flame visual stream and stop');
   // One authoritative barrel explosion path when flame applies three cooldown-limited hits.
   const flameBarrel=await evaluate(`(()=>{
-    const a=window.__game.scene.getScene('Arena'), barrel=a.obstacles.find(o=>o.type==='barrel');
+    const a=window.__game.scene.getScene('Arena'), barrel=a.obstacles.find(o=>o.type==='toxic_barrel');
     barrel.x=a.player.x+132;barrel.y=a.player.y;barrel.sprite.setPosition(barrel.x,barrel.y);
-    barrel.sprite.body.updateFromGameObject();
+    barrel.footprint=Object.freeze({...barrel.footprint,x:barrel.x,y:barrel.y});
     a.weapon='flamethrower';a.stopWeaponFire();
     a.flameCooldowns.clear();
     const aim={x:1,y:0},now=a.time.now;
@@ -1043,7 +1047,7 @@ try {
     a.setPlayerHp(5);a.invulnerableUntil=0;
     const x=a.player.x+65,y=a.player.y;
     const sprite=a.add.rectangle(x,y,43,48,0xba3c29);
-    const barrel={type:'barrel',x,y,hp:1,alive:true,sprite,hitUntil:0};
+    const barrel={...window.__createObstacle('toxic_barrel',{id:'explosion-hud',x,y}),hp:1,sprite,hitUntil:0};
     a.obstacles.push(barrel);
     a.hitObstacle(barrel,a.time.now);
     return {hp:a.playerHp,face:a.hpFace.current,alive:barrel.alive};
@@ -1311,6 +1315,82 @@ try {
 
 
 
+
+  // Discard synthetic texture fixtures so PR41 screenshots use approved art.
+  await cdp('Page.reload',{ignoreCache:true});
+  await waitFor(v=>v.menu&&v.actions.length===1,'PR41 clean real-art boot');
+  // PR41: actual generated worlds, not a substitute for the full regressions above.
+  for(const seed of [1,41,104729]){
+    if(!(await snapshot()).menu)await clickControl('hud');
+    arenaRun=[1,41,104729].indexOf(seed);
+    await clickControl('NOWA GRA');
+    await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'PR41 seed '+seed);
+    const initial=await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena');
+      return {generationMs:a.layoutGenerationMs,heap:performance.memory?.usedJSHeapSize??null,seed:a.arenaSeed,counts:a.layoutDiagnostics.counts,fallback:a.layoutDiagnostics.fallback,targets:a.targets??null,colliders:a.physics.world.colliders.getActive().length,playerRadius:a.player.body.radius};
+    })()`);
+    assert.equal(initial.seed,seed);assert.equal(initial.targets,null);assert.equal(initial.colliders,0);assert.equal(initial.playerRadius,17);
+    // Full-world diagnostic overview with the actual existing ground and art.
+    await cdp('Emulation.setDeviceMetricsOverride',{width:900,height:600,deviceScaleFactor:1,mobile:false});
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.scale.refresh();a.cameras.main.stopFollow();a.cameras.main.setZoom(.5);a.cameras.main.centerOn(900,600);})()");
+    await sleep(160);
+    await writeFile('dist/pr41-seed-'+seed+'-overview.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.scale.refresh();a.cameras.main.setZoom(1);a.cameras.main.startFollow(a.player,true,.12,.12);})()");
+    // Select an actual generated rock with clear approach lanes. Let the live
+    // Arena update move a heavy enemy around it; no manual movement stepping.
+    const movement=await evaluate(`(async()=>{
+      const a=window.__game.scene.getScene('Arena');
+      const {clearPoint}=await import('/klusoczlek/src/weapon-progression.js');
+      const {placementRadius}=await import('/klusoczlek/src/arena-layout.js');
+      const rock=a.obstacles.find(o=>o.type==='rock'&&[-1,1].every(sign=>clearPoint({x:o.x+sign*(placementRadius(o)+90),y:o.y},a.obstacles,32)));
+      if(!rock)throw Error('No generated movement fixture');
+      for(const e of a.enemies){e.sprite.destroy();e.burningFx?.destroy();}
+      const r=placementRadius(rock),goal={x:rock.x+r+90,y:rock.y};
+      a.player.body.reset(goal.x,goal.y);a.invulnerableUntil=Infinity;a.spawnDueAt=null;
+      const e=a.createEnemy('zubrokryptyda',{x:rock.x-r-90,y:rock.y},123);
+      a.enemies=[e];a.__qaFrameTimes=[];a.__qaFrameListener=()=>a.__qaFrameTimes.push(a.game.loop.delta);a.game.events.on('step',a.__qaFrameListener);a.introducedEnemyTypes.add('before-first-zubrokryptyda');
+      a.introducedEnemyTypes.add('before-first-bocianolak');
+      return {x:e.x,y:e.y,goal,rock:rock.id};
+    })()`);
+    let arrived=false,maxLateral=0;
+    for(let frame=0;frame<65;frame++){
+      await sleep(250);
+      const state=await evaluate("(async()=>{const a=window.__game.scene.getScene('Arena'),e=a.enemies[0],g=a.player;const {footprintDistance}=await import('/klusoczlek/src/obstacle-geometry.js');return {x:e.x,y:e.y,distance:Math.hypot(e.x-g.x,e.y-g.y),clear:a.obstacles.every(o=>!o.alive||footprintDistance(o.footprint,e)>=30-.01)}})()");
+      assert.equal(state.clear,true,'Live heavy penetrated an obstacle');
+      maxLateral=Math.max(maxLateral,Math.abs(state.y-movement.y));
+      if(state.distance<48){arrived=true;break;}
+    }
+    assert.ok(arrived,'Live heavy stuck on seed '+seed);assert.ok(maxLateral>20,'Heavy did not route around blocker');
+    const timing=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.game.events.off('step',a.__qaFrameListener);const samples=a.__qaFrameTimes;return {frames:samples.length,meanMs:samples.reduce((sum,v)=>sum+v,0)/samples.length,maxMs:Math.max(...samples)}})()");
+    console.log('INFO PR41 runtime '+JSON.stringify({seed,generationMs:initial.generationMs,heap:initial.heap,...timing}));
+    await writeFile('dist/pr41-seed-'+seed+'-800x360.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    // Original Arcade player circles must stop on the actual rotated capsule.
+    const playerFixture=await evaluate(`(async()=>{
+      const a=window.__game.scene.getScene('Arena');const {clearPoint}=await import('/klusoczlek/src/weapon-progression.js');
+      const log=a.obstacles.find(o=>o.type==='fallen_log'&&clearPoint({x:o.x-120,y:o.y},a.obstacles,17));
+      if(!log)throw Error('No capsule player fixture');
+      a.player.body.reset(log.x-120,log.y);a.keys.D.isDown=true;a.__qaLog=log;
+      return {x:a.player.x,log:log.id};
+    })()`);
+    await sleep(700);
+    const playerAfter=await evaluate("(async()=>{const a=window.__game.scene.getScene('Arena');a.keys.D.isDown=false;const {footprintDistance}=await import('/klusoczlek/src/obstacle-geometry.js');return {x:a.player.x,y:a.player.y,clear:footprintDistance(a.__qaLog.footprint,a.player)>=17-.01}})()");
+    assert.ok(playerAfter.x>playerFixture.x,'Arcade player failed to move');assert.equal(playerAfter.clear,true,'Arcade capsule adapter penetrated log');
+    await clickControl('hud');await clickControl('WZNÓW');
+    // Portrait pauses clock and restores the same session and original camera.
+    const timeBefore=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
+    await cdp('Emulation.setDeviceMetricsOverride',{width:360,height:800,deviceScaleFactor:1,mobile:false});await sleep(120);
+    const paused=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {paused:a.scene.isPaused(),time:a.elapsedGameplayMs,seed:a.arenaSeed}})()");
+    assert.equal(paused.paused,true);assert.equal(paused.seed,seed);
+    await sleep(150);assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),paused.time);
+    await cdp('Emulation.setDeviceMetricsOverride',{width:568,height:320,deviceScaleFactor:1,mobile:false});await sleep(180);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').scene.isActive()"),true);
+    assert.ok(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs")>=timeBefore);
+    await writeFile('dist/pr41-seed-'+seed+'-568x320.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    console.log('PASS PR41 seed '+seed+': generated counts '+JSON.stringify(initial.counts)+', live heavy detour '+maxLateral.toFixed(1)+'px, Arcade capsule, MENU and orientation');
+  }
+
+  assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {
   socket?.close();
   chrome?.kill('SIGKILL');

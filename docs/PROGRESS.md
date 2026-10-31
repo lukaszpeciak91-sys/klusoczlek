@@ -1,5 +1,12 @@
 # PROGRESS
 
+## PR41 — seeded Arena V2 clearing (2026-10-31; independent audit required)
+- Based on merged PR40 main `0ff98846e9f97f64fc6ca1509b3272624e924364`. Catalog-driven deterministic generation, six procedural placeholder families, broad spacing/open center, finite rejection and diagnostics.
+- PR40 footprints now control one swept/sliding player/enemy adapter, projectile first-surface ordering, flame blockers, spawns and reachable pickups. Removed old fixed layouts, circular Arcade proxies and three shooting dummies.
+- A measured direct-pursuit deadlock required small stable-side local boundary steering; no A*, speed changes or maze support. Original combat/waves/dialogues/art remain unchanged.
+- Executed npm ci, Node146/146, build, Chromium34 PASS groups and 20-seed benchmark; all exit0. Browser seeds1/41/104729 passed live heavy detours, player/capsule movement and orientation recovery. Nine screenshots delivered outside Git. See `docs/pr41-arena-v2.md` for commands, results, fallback seeds, measurements and PNG handoff.
+- Physical Android remains NOT RUN. Separate independent audit requested before merge. No merge/deployment, new dependencies or binary commits.
+
 ## PR40 R2 — Work execution and geometry correction (2026-10-30)
 - Recovered a full Git checkout at `867541b9f9eb967a6e3bbaf29d6ec9ecec2de3eb`; Node 24.22.1 / npm 11.9.0 on Ubuntu 24.04 x86_64.
 - Confirmed a shallow circle-entry defect: exhausted sphere tracing returned an interior endpoint (`t=1`) instead of the first surface, potentially selecting the wrong obstacle. Removed only that shortcut and added an analytic first-entry/ordering regression (RED 6/7, GREEN 7/7).

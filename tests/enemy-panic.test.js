@@ -1,3 +1,4 @@
+import {createObstacle} from '../src/obstacle-catalog.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PANIC_PROFILES,createIgnitionState,igniteEnemy,advanceIgnition,isBurning,fleeStep} from '../src/enemy-panic.js';
@@ -36,6 +37,6 @@ test('overlap fallback deterministic and finite',()=>{
 test('blocking obstacle resolver still controls resolved travel',()=>{
  const e={x:160,y:100,type:'bobrozombi',seed:1,hp:3};
  const next=fleeStep(e,{x:220,y:100},0.2);
- const stopped=resolveObstaclePosition(e,next,21,[{x:105,y:100,type:'rock',alive:true}]);
+ const stopped=resolveObstaclePosition(e,next,21,[createObstacle('rock',{id:'r',x:105,y:100,variant:'medium'})]);
  assert.ok(stopped.x>=105+31+21-0.001);
 });

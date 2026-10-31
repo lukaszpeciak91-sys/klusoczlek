@@ -1,54 +1,67 @@
-import { ARENA, PLAYER_RADIUS } from './movement.js';
-export const OBSTACLE_RULES=Object.freeze({barrelHp:3,explosionRadius:110,enemyExplosionDamage:2,playerExplosionDamage:1,rockRadius:31,logRadius:30,barrelRadius:23});
-const base=[
- [{type:'rock',x:440,y:300},{type:'log',x:1290,y:890},{type:'barrel',x:1110,y:470}],
- [{type:'rock',x:1250,y:270},{type:'log',x:420,y:790},{type:'barrel',x:680,y:380}],
- [{type:'rock',x:390,y:620},{type:'log',x:1340,y:480},{type:'barrel',x:1090,y:880}],
- [{type:'rock',x:1260,y:750},{type:'log',x:480,y:340},{type:'barrel',x:710,y:920}],
-];
-export const OBSTACLE_LAYOUTS=Object.freeze(base.map(layout=>Object.freeze(layout.map(o=>Object.freeze(o)))));
-export function obstacleRadius(type){
- return type==='rock'?OBSTACLE_RULES.rockRadius:type==='log'?OBSTACLE_RULES.logRadius:OBSTACLE_RULES.barrelRadius;
+import {ARENA} from './movement.js';
+import {footprintDistance,firstFootprintHit} from './obstacle-geometry.js';
+export const OBSTACLE_RULES=Object.freeze({barrelHp:3,explosionRadius:110,enemyExplosionDamage:2,playerExplosionDamage:1});
+const active=o=>o.alive!==false&&o.gameplayClass!=='decorative';
+const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+// SDF is authoritative; its gradient supplies a normal, not a second collider.
+export function footprintNormal(shape,p,fallback={x:1,y:0}){
+ const h=.001;
+ let x=footprintDistance(shape,{x:p.x+h,y:p.y})-footprintDistance(shape,{x:p.x-h,y:p.y});
+ let y=footprintDistance(shape,{x:p.x,y:p.y+h})-footprintDistance(shape,{x:p.x,y:p.y-h});
+ let d=Math.hypot(x,y);
+ if(d<1e-10){x=fallback.x;y=fallback.y;d=Math.hypot(x,y)||1;}
+ return {x:x/d,y:y/d};
 }
-export function getObstacleLayout(index=0){return OBSTACLE_LAYOUTS[((index%OBSTACLE_LAYOUTS.length)+OBSTACLE_LAYOUTS.length)%OBSTACLE_LAYOUTS.length].map(o=>({...o,hp:o.type==='barrel'?OBSTACLE_RULES.barrelHp:Infinity,alive:true}));}
-export function layoutValid(layout,player={x:ARENA.width/2,y:ARENA.height/2}){
- return layout.length>0&&layout.every((o,i)=>{
-  const r=obstacleRadius(o.type);
-  return ['rock','log','barrel'].includes(o.type)&&o.x>=r&&o.y>=r&&o.x<=ARENA.width-r&&o.y<=ARENA.height-r&&Math.hypot(o.x-player.x,o.y-player.y)>r+PLAYER_RADIUS+90&&layout.every((b,j)=>i===j||Math.hypot(o.x-b.x,o.y-b.y)>r+obstacleRadius(b.type)+10);
- });
-}
+// Single swept sliding adapter for Arcade player and manually moved enemies.
+// No static Arcade proxies or second obstacle collider are installed.
 export function resolveObstaclePosition(start,end,radius,obstacles){
- let p={...end};
- // Slide on circular proxy shapes; two passes resolve corners without tunneling.
- for(let pass=0;pass<2;pass++)for(const o of obstacles){
-  if(!o.alive)continue;
-  const r=radius+obstacleRadius(o.type);
-  const dx=p.x-o.x,dy=p.y-o.y,dist=Math.hypot(dx,dy);
-  if(dist<r){
-   const sx=start.x-o.x,sy=start.y-o.y;
-   // Collision normal uses previous position if the endpoint is at obstacle centre.
-   const nx=dist>0?dx/dist:(sx===0&&sy===0?1:sx/Math.hypot(sx,sy));
-   const ny=dist>0?dy/dist:(sx===0&&sy===0?0:sy/Math.hypot(sx,sy));
-   p={x:o.x+nx*r,y:o.y+ny*r};
+ let p={x:start.x,y:start.y},goal={x:end.x,y:end.y};
+ for(let pass=0;pass<4;pass++)for(const o of obstacles){
+  if(!active(o))continue;
+  const d=footprintDistance(o.footprint,p);
+  if(d<radius+.001){
+   const n=footprintNormal(o.footprint,p,{x:p.x-o.x||1,y:p.y-o.y});
+   const correction=radius+.002-d;p.x+=n.x*correction;p.y+=n.y*correction;
   }
  }
- return {x:Math.max(radius,Math.min(ARENA.width-radius,p.x)),y:Math.max(radius,Math.min(ARENA.height-radius,p.y))};
-}
-export function segmentObstacleHit(from,to,obstacles,projectileRadius=5){
- let best=null;
- for(const o of obstacles){
-  if(!o.alive)continue;
-  const dx=to.x-from.x,dy=to.y-from.y,dd=dx*dx+dy*dy;
-  const t=dd?Math.max(0,Math.min(1,((o.x-from.x)*dx+(o.y-from.y)*dy)/dd)):0;
-  if(Math.hypot(from.x+dx*t-o.x,from.y+dy*t-o.y)<=obstacleRadius(o.type)+projectileRadius&&(!best||t<best.t))best={obstacle:o,t};
+ for(let pass=0;pass<4;pass++){
+  const hit=firstFootprintHit(p,goal,obstacles,radius);
+  if(!hit){p=goal;break;}
+  const n=footprintNormal(hit.obstacle.footprint,hit.point,{x:p.x-goal.x,y:p.y-goal.y});
+  const dx=goal.x-hit.point.x,dy=goal.y-hit.point.y,inward=Math.min(0,dx*n.x+dy*n.y);
+  p={x:hit.point.x+n.x*.002,y:hit.point.y+n.y*.002};
+  goal={x:p.x+dx-n.x*inward,y:p.y+dy-n.y*inward};
  }
- return best?.obstacle??null;
+ return {x:clamp(p.x,radius,ARENA.width-radius),y:clamp(p.y,radius,ARENA.height-radius)};
 }
+// Stable boundary-following around isolated convex blockers; no graph or A*.
+export function steerObstacleStep(enemy,desired,target,radius,obstacles){
+ const travel=Math.hypot(desired.x-enemy.x,desired.y-enemy.y);
+ if(!travel)return {x:enemy.x,y:enemy.y};
+ let state=enemy.obstacleSteering;
+ let obstacle=state&&obstacles.find(o=>o.id===state.id&&active(o));
+ if(obstacle&&!firstFootprintHit(enemy,target,[obstacle],radius+4)){
+  enemy.obstacleSteering=null;obstacle=null;
+ }
+ if(!obstacle){
+  const hit=firstFootprintHit(enemy,desired,obstacles,radius+4);
+  if(!hit)return resolveObstaclePosition(enemy,desired,radius,obstacles);
+  obstacle=hit.obstacle;
+  const n=footprintNormal(obstacle.footprint,enemy);
+  const cross=n.x*(target.y-enemy.y)-n.y*(target.x-enemy.x);
+  state={id:obstacle.id,side:Math.abs(cross)>.01?Math.sign(cross):((enemy.seed||0)%2?1:-1)};
+  enemy.obstacleSteering=state;
+ }
+ const n=footprintNormal(obstacle.footprint,enemy);
+ const outward=clamp((radius+5-footprintDistance(obstacle.footprint,enemy))/8,-.7,.7);
+ const dx=-n.y*state.side+n.x*outward,dy=n.x*state.side+n.y*outward,d=Math.hypot(dx,dy);
+ return resolveObstaclePosition(enemy,{x:enemy.x+dx/d*travel,y:enemy.y+dy/d*travel},radius,obstacles);
+}
+export function segmentObstacleHit(from,to,obstacles,projectileRadius=5){return firstFootprintHit(from,to,obstacles,projectileRadius)?.obstacle??null;}
 export function damageObstacle(o,amount=1){
- if(!o.alive||o.type!=='barrel')return {exploded:false,hp:o.hp};
+ if(!o.alive||o.type!=='toxic_barrel')return {exploded:false,hp:o.hp};
  o.hp=Math.max(0,o.hp-Math.max(0,amount));
  if(o.hp>0)return {exploded:false,hp:o.hp};
- o.alive=false;
- return {exploded:true,hp:0};
+ o.alive=false;return {exploded:true,hp:0};
 }
 export function inExplosion(point,barrel,radius=OBSTACLE_RULES.explosionRadius){return Math.hypot(point.x-barrel.x,point.y-barrel.y)<=radius;}

@@ -1,3 +1,4 @@
+import {createObstacle} from '../src/obstacle-catalog.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { WEAPONS,initialPickupPoint,dropPoint,safeEnemySpawn,pickupCollected,clearPoint,fallbackRewardPoint } from '../src/weapon-progression.js';
@@ -12,7 +13,7 @@ test('initial blunderbuss is visible and clear on 320x240 landscape',()=>{
  assert.ok(pickupCollected({x:p.x+10,y:p.y},p));
 });
 test('milestone drop does not collide with obstacle',()=>{
- const obstacles=[{type:'rock',x:150,y:150,alive:true}];
+ const obstacles=[createObstacle('rock',{id:'r',x:150,y:150})];
  const p=dropPoint({x:150,y:150},obstacles);
  assert.ok(p);assert.ok(clearPoint(p,obstacles));
 });
@@ -30,7 +31,7 @@ test('three pickup variants and labels remain distinct',()=>{
 });
 
 test('blocked death location uses a safe world fallback',()=>{
- const blockers=[{type:'rock',x:player.x,y:player.y,alive:true}];
+ const blockers=[createObstacle('rock',{id:'r',x:player.x,y:player.y})];
  const p=fallbackRewardPoint(player,blockers);
  assert.ok(p);
  assert.ok(clearPoint(p,blockers));

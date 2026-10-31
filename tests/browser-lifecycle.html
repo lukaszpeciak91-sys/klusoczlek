@@ -9,6 +9,7 @@ import { setupViewport } from '/src/viewport.js';
 import { toggleFullscreen } from '/src/fullscreen.js';
 const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},input:{activePointers:3},scene:[MenuScene,ArenaScene]});
 window.__game=game;
+window.__createObstacle=(await import('/src/obstacle-catalog.js')).createObstacle;
 setupViewport(game);
 document.getElementById('fullscreen-button').addEventListener('click', () => toggleFullscreen(document.getElementById('game-shell'), () => game.scale.refresh()));
 window.__identity=null;
@@ -52,11 +53,11 @@ window.__snapshot=() => {
       right:{x:arena.aimJoystick.direction.x,y:arena.aimJoystick.direction.y,id:arena.aimJoystick.pointerId,nativeId:arena.aimJoystick.touchIdentifier},
       mouseHeld:arena.mouseHeld,lastFacing:arena.lastFacing,
       shots:arena.projectiles.length,shotAt:arena.lastShotAt,
-      targetCount:arena.targets.length,
-      layoutIndex:arena.layoutIndex,
+      targetCount:arena.children.list.filter(o=>o.getData?.('shootingTarget')).length,
+      seed:arena.arenaSeed,
       obstacles:arena.obstacles.map(o=>({type:o.type,x:o.x,y:o.y,hp:o.hp,alive:o.alive,visualActive:o.sprite.active,depth:o.sprite.depth})),
       groundActive:arena.ground?.active,groundDepth:arena.ground?.depth,groundType:arena.ground?.type,groundWidth:arena.ground?.width,groundHeight:arena.ground?.height,groundTileX:arena.ground?.tilePositionX??null,groundTileY:arena.ground?.tilePositionY??null,groundGridActive:arena.groundGrid?.active??false,groundTextureWidth:game.textures.get('klusoczlek-arena-ground')?.source?.[0]?.width??null,groundTextureHeight:game.textures.get('klusoczlek-arena-ground')?.source?.[0]?.height??null,worldWidth:arena.physics?.world?.bounds?.width,worldHeight:arena.physics?.world?.bounds?.height,
-      blockerBodyCount:arena.sys.isActive()?arena.obstacleBodies?.getChildren().filter(o=>o.active).length:null,
+      blockerBodyCount:arena.obstacleBodies?.getChildren().length??0,
       hp:arena.playerHp,defeated:arena.defeated,
       enemies:arena.enemies.map(e=>({x:e.x,y:e.y,hp:e.hp})),
     }:null,
