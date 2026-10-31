@@ -1,3 +1,4 @@
+import {createAmbientBarks} from './ambient-bark-view.js';
 import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
@@ -25,7 +26,7 @@ import { ENCOUNTER, applyEnemyHit, applyPlayerContact } from './bobrozombi.js';
 import { menuLayout, arenaHudLayout } from './ui-layout.js';
 import { enforceOrientationOnSceneStart } from './viewport.js';
 import {OBSTACLE_RULES,resolveObstaclePosition,steerObstacleStep,segmentObstacleHit,damageObstacle,inExplosion} from './obstacles.js';
-import {generateArenaLayout} from './arena-layout.js';
+import {generateArenaLayout,seededRandom} from './arena-layout.js';
 import {createObstacleVisual} from './obstacle-renderer.js';
 import {firstFootprintHit,reachableCells} from './obstacle-geometry.js';
 import {MARCIN,createBossAttack,bossAttackStep,radialVolley,bossProjectileStep,landingPoint} from './marcin.js';
@@ -270,6 +271,7 @@ export class ArenaScene extends Phaser.Scene {
     // Apply positions during initial Arena creation, even if Phaser emits no RESIZE.
     resizeHud();
     this.scale.on(Phaser.Scale.Events.RESIZE, resizeHud);
+    this.ambientBarks=createAmbientBarks(this,seededRandom((this.arenaSeed^0x46babc)>>>0));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
       this.scale.off(Phaser.Scale.Events.RESIZE, resizeHud));
 
@@ -285,7 +287,7 @@ export class ArenaScene extends Phaser.Scene {
       const allowed=!this.bossEntrance&&!this.dialogueLoading&&!this.dialogueState?.id&&this.canResume()&&!this.scene.isPaused('Arena')&&!this.episode.ended;
       this.joystick.setEnabled(allowed);this.aimJoystick.setEnabled(allowed);
     };
-    this.onBlur = () => { advanceGameplayClock(this.gameplayClock,0,false);this.resetMovement(); this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);this.physics.world.pause(); };
+    this.onBlur = () => { this.ambientBarks?.suspend();advanceGameplayClock(this.gameplayClock,0,false);this.resetMovement(); this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);this.physics.world.pause(); };
     this.canResume = () => !document.hidden && document.hasFocus() && window.innerWidth >= window.innerHeight;
     this.onFocus = () => {
       advanceGameplayClock(this.gameplayClock,0,false);
@@ -395,6 +397,7 @@ export class ArenaScene extends Phaser.Scene {
       if(this.pendingIntroductions.has(id)){this.introducedEnemyTypes.add(id);this.pendingIntroductions.delete(id);}
       if(id===BOCIANOLAK_HIT_DIALOGUE)this.enemies=this.enemies.filter(enemy=>!enemy.dead);
       if(!beginDialogue(this.dialogueState,id))return false;
+      this.ambientBarks?.suspend();
       if(id===BOCIANOLAK_HIT_DIALOGUE||id==='before-marcin')this.events.emit('episode-boundary',id,this);
       if(id==='after-final-enemy')this.holdFinalOutcome();
       advanceGameplayClock(this.gameplayClock,0,false);
@@ -722,6 +725,7 @@ export class ArenaScene extends Phaser.Scene {
   finalizeEnemyDeath(enemy){
     if(enemy.dead||enemy.hp>0)return false;
     enemy.dead=true;
+    this.ambientBarks?.speakerDied(enemy);
     this.deathBursts.push(createPixelBurst(this,enemy.type,enemy.x,enemy.y,enemy.seed));
     enemy.burningFx?.destroy();enemy.burningFx=null;
     clearIgnition(enemy.ignition);
@@ -732,7 +736,7 @@ export class ArenaScene extends Phaser.Scene {
     const living=this.enemies.filter(e=>!e.dead).length;
     const event=recordDeath(this.episode,living,this.time.now,enemy.encounterId??null);
     if(enemy.type==='marcin'){this.clearBossProjectiles();this.boss=null;this.renderBossHp();}
-    if(claimBossIntroduction(this.episode))this.narrativeEvents.add('before-marcin');
+    if(claimBossIntroduction(this.episode)){this.narrativeEvents.add('before-marcin');this.ambientBarks?.suspend();}
     if(event==='wave-cleared'){
       const cleared=this.episode.wave+1;
       if(HEALTH_AFTER_WAVES.includes(cleared))this.dropHealthReward();
@@ -797,6 +801,7 @@ export class ArenaScene extends Phaser.Scene {
 
   openMenu() {
     if (this.scene.isPaused('Arena') || this.scene.isActive('Menu')) return;
+    this.ambientBarks?.suspend();
     advanceGameplayClock(this.gameplayClock,0,false);
     this.resetMovement();
     this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
@@ -809,6 +814,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   update() {
+    this.ambientBarks?.guard();
     this.renderBossHp();
     if(this.bossEntrance){
       this.resetMovement();advanceGameplayClock(this.gameplayClock,0,false);
@@ -949,6 +955,7 @@ export class ArenaScene extends Phaser.Scene {
     }
     this.enemies=this.enemies.filter(enemy=>!enemy.dead);
     this.collectPickups();
+    this.ambientBarks.tick(this.elapsedGameplayMs);
   }
 }
 

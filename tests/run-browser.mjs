@@ -1794,6 +1794,93 @@ try {
   }
   if(!forestBytes)console.log('NOT RUN PR45 positive PNG visual QA: user-managed atlas absent; no synthetic substitute used');
 
+  // PR46: actual cosmetic update/UI on real Phaser, one session scheduler.
+  for(const [seed,width,height,type] of [[1,568,320,'bobrozombi'],[41,800,360,'bocianolak']]){
+    if(!(await snapshot()).menu){await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'bark MENU');}
+    arenaRun=[1,41,104729].indexOf(seed);await clickControl('NOWA GRA');
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');await sleep(100);
+    const initial=await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');
+      for(const e of a.enemies){e.burningFx?.destroy();e.sprite.destroy();}a.enemies=[];a.spawnDueAt=null;a.invulnerableUntil=Infinity;
+      a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');
+      const y=${height}===320?610:650;a.player.body.reset(900,y);a.cameras.main.stopFollow().setZoom(1).centerOn(900,520);
+      const e=a.createEnemy('${type}',{x:900,y},4600);a.enemies=[e];window.__barkE=e;window.__barkText=a.ambientBarks.text;
+      return {remaining:a.ambientBarks.state.remaining,shown:a.ambientBarks.state.shown,start:a.elapsedGameplayMs};})()`);
+    assert.equal(initial.shown,0);assert.ok(initial.remaining>11000&&initial.remaining<=20000);
+    if(seed===1){
+      await sleep(900);assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.state.shown"),0,'Bark appeared before first interval');
+      for(let i=0;i<450;i++){if(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"))break;await sleep(50);}
+    }else {await sleep(100);await evaluate("window.__game.scene.getScene('Arena').ambientBarks.state.remaining=0;true");await sleep(70);}
+    const shown=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.ambientBarks;return {visible:b.root.visible,phrase:b.text.text,life:b.state.active?.life,speaker:b.state.active?.speaker===window.__barkE,remaining:b.state.remaining,shown:b.state.shown,elapsed:a.elapsedGameplayMs,bounds:b.bounds,textBounds:(()=>{const r=b.text.getBounds();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom}})(),interactive:!!(b.root.input||b.text.input||b.graphics.input),children:b.root.list.length,id:a.dialogueState.id,paused:a.physics.world.isPaused}})()");
+    console.log('INFO PR46 timing '+JSON.stringify({seed,actualFirstInterval:seed===1,initialRemaining:initial.remaining,firstGameplay:shown.elapsed,lifetime:shown.life,nextRemaining:shown.remaining}));
+    assert.ok(shown.visible&&shown.speaker);assert.ok(shown.life>=1800&&shown.life<=2300);assert.equal(shown.shown,1);assert.ok(shown.remaining>=14000&&shown.remaining<=25000);assert.equal(shown.interactive,false);assert.equal(shown.children,2);assert.equal(shown.id,null);assert.equal(shown.paused,false);
+    if(seed===1){assert.ok(shown.elapsed>=12000&&shown.elapsed<=20500,'First bark timing '+shown.elapsed);}
+    assert.ok(shown.bounds.x>=8&&shown.bounds.x+shown.bounds.width<=width-8);assert.ok(shown.textBounds.x>=shown.bounds.x&&shown.textBounds.right<=shown.bounds.x+shown.bounds.width+1);
+    await writeFile('dist/pr46-'+type+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    // The pooled objects never take touch ownership away from either stick.
+    const h=await evaluate("window.__game.scene.getScene('Arena').hudLayout");
+    await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:h.joystickX+12,y:h.joystickY,id:61}]});
+    await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:h.joystickX+12,y:h.joystickY,id:61},{x:h.aimX+12,y:h.aimY,id:62}]});
+    assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.joystick.held&&a.aimJoystick.held&&!a.dialogueState.id&&!a.physics.world.isPaused})()"),true,'Bark intercepted twin sticks');
+    await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'bark active MENU');
+    const paused=await evaluate("(()=>{const b=window.__game.scene.getScene('Arena').ambientBarks;return {remaining:b.state.remaining,last:b.state.lastPhrase,shown:b.state.shown,visible:b.root.visible}})()");assert.equal(paused.visible,false);
+    await sleep(250);assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('Arena').ambientBarks;return {remaining:b.state.remaining,last:b.state.lastPhrase,shown:b.state.shown,visible:b.root.visible}})()"),paused);
+    await clickControl('WZNÓW');await sleep(80);assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.state.shown"),1);assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.state.lastPhrase"),paused.last);
+    // No eligible speaker: consume one opportunity safely, no backlog.
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.spawnDueAt=null;window.__barkE.x=50;window.__barkE.y=50;a.enemyRenderers[window.__barkE.type].update(window.__barkE,a.player);a.ambientBarks.state.remaining=0})()");await sleep(80);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),false);assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.state.shown"),1);
+    // Three different rendered body anchors, no fixed feet offset.
+    const anchorRows=[];
+    for(const speaker of ['bobrozombi','bocianolak','zubrokryptyda']){
+      const before=await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.ambientBarks.suspend();for(const e of a.enemies)e.sprite.destroy();const y=${height}===320?610:650;
+        a.player.body.reset(900,y);const e=a.createEnemy('${speaker}',{x:900,y},4601);a.enemies=[e];window.__barkE=e;a.spawnDueAt=null;return a.ambientBarks.state.lastPhrase;})()`);
+      await sleep(50);await evaluate("window.__game.scene.getScene('Arena').ambientBarks.state.remaining=0;true");await sleep(70);
+      const row=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.ambientBarks,e=window.__barkE;return {active:b.root.visible,speaker:b.state.active?.speaker===e,last:b.state.lastPhrase,y:a.enemyRenderers[e.type].speechAnchorOf(e).y,textSame:b.text===window.__barkText,bounds:b.bounds}})()");
+      assert.ok(row.active&&row.speaker&&row.textSame);assert.notEqual(row.last,before);anchorRows.push(row.y);
+    }
+    assert.ok(Math.abs(anchorRows[0]-anchorRows[1])>25,'Species anchor ignored visual feet offset');
+    const lifeLeft=await evaluate("(()=>{const b=window.__game.scene.getScene('Arena').ambientBarks;return b.state.active.life-b.state.active.age})()");
+    await sleep(600);assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),true,'Bubble expired before its active lifetime');
+    await sleep(Math.max(0,lifeLeft-600)+120);assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),false,'Bubble lifetime did not expire');
+    await evaluate("window.__game.scene.getScene('Arena').ambientBarks.state.remaining=0;true");await sleep(80);
+    // Camera/resize reflow either fits safely or suppresses; no UI overlap.
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.cameras.main.centerOn(920,520)})()");await sleep(70);
+    const moved=await evaluate("window.__game.scene.getScene('Arena').ambientBarks.bounds");if(moved)assert.ok(moved.x>=8&&moved.x+moved.width<=width-8);
+    await cdp('Emulation.setDeviceMetricsOverride',{width:320,height:240,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');await sleep(80);
+    const tiny=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {box:a.ambientBarks.bounds,hud:a.hudLayout}})()");if(tiny.box)assert.ok(tiny.box.x>=8&&tiny.box.x+tiny.box.width<=312&&tiny.box.y>=tiny.hud.panelY+tiny.hud.panelHeight+6);
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');
+    await sleep(70);await evaluate("window.__game.scene.getScene('Arena').ambientBarks.state.remaining=0;true");await sleep(80);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),true,'No active bubble before fatal cleanup fixture');
+    // Fatal speaker damage removes the bubble immediately without preserving it.
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__barkE;a.damageEnemy(e,100,a.player,a.time.now);a.finalizeEnemyDeath(e)})()");
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),false);assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.state.active"),null);
+    // PR43 still owns a standard one-shot portrait panel, not this shared pool.
+    await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.spawnDueAt=null;const e=a.createEnemy('bocianolak',{x:900,y:${height}===320?610:650},4602);a.enemies=[e];a.damageEnemy(e,1,a.player,a.time.now)})()`);await sleep(100);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'after-first-bocianolak-hit');assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialoguePanel.text.text"),'Tylko nie po nogach!');assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),false);await nextLine();
+    // Active bubble belonging to a different specimen must disappear as soon
+    // as the actual six-remaining boss introduction is queued.
+    await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();const y=${height}===320?610:650;a.player.body.reset(900,y);a.cameras.main.centerOn(900,520);
+      const e=a.createEnemy('bobrozombi',{x:900,y},4603);a.enemies=[e];window.__barkE=e;a.ambientBarks.state.remaining=0;a.spawnDueAt=null;})()`);await sleep(90);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),true);
+    const pending=await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.episode.wave=5;a.episode.spawned=30;a.episode.defeated=28;a.kills=131;a.totalSpawned=133;
+      const victim=a.createEnemy('bobrozombi',{x:1100,y:600},4604);a.enemies.push(victim);a.damageEnemy(victim,3,a.player,a.time.now);a.finalizeEnemyDeath(victim);
+      return {pending:a.narrativeEvents.has('before-marcin'),bubble:a.ambientBarks.root.visible};})()`);
+    assert.deepEqual(pending,{pending:true,bubble:false});await sleep(90);assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'before-marcin');
+    await evaluate("window.__game.scene.getScene('Arena').ambientBarks.state.remaining=0;true");await nextLine();await nextLine();
+    assert.equal(await evaluate("!!window.__game.scene.getScene('Arena').bossEntrance"),true);assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),false);
+    for(let i=0;i<80;i++){if(await evaluate("!window.__game.scene.getScene('Arena').bossEntrance"))break;assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),false);await sleep(30);}
+    await sleep(90);assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.eligible"),true,'Ordinary ambient speech stayed disabled in active boss fight');
+    // Focus transition clears the cosmetic without changing the existing pause.
+    await evaluate("window.dispatchEvent(new Event('blur'));true");assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),false);await evaluate("window.dispatchEvent(new Event('focus'));true");
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.episode.state='final-pending';a.markNarrativeBoundary('after-final-enemy')})()");
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'after-final-enemy');assert.equal(await evaluate("window.__game.scene.getScene('Arena').ambientBarks.root.visible"),false);
+    for(let i=0;i<3;i++)await nextLine();await waitFor(v=>v.menu&&v.arenaPaused,'bark fixture finale');
+    await evaluate("window.__oldBarkRoot=window.__game.scene.getScene('Arena').ambientBarks.root;true");await clickControl('NOWA GRA');
+    const reset=await evaluate("(()=>{const b=window.__game.scene.getScene('Arena').ambientBarks;return {oldActive:window.__oldBarkRoot.active,same:b.text===window.__barkText,last:b.state.lastPhrase,shown:b.state.shown,visible:b.root.visible}})()");
+    assert.deepEqual(reset,{oldActive:false,same:false,last:-1,shown:0,visible:false});
+    console.log('PASS PR46 '+width+'x'+height+': '+(seed===1?'real first12–20s interval, ':'')+'single pooled bubble, anchors/phrases, twin sticks, pause/focus/resize, death/shutdown, PR43, pending boss/landing/finale suppression and NEW GAME reset');
+  }
+
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {
   socket?.close();
