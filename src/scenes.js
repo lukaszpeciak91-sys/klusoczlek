@@ -5,7 +5,7 @@ import { createPlayerVisual } from './character-visual.js';
 import {createHpFaceHud} from './hp-face-hud.js';
 import {recordAttack,recordHit} from './combat-feedback.js';
 import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
-import {createDialogueState,beginDialogue} from './dialogue-data.js';
+import {createDialogueState,beginDialogue,queueBocianolakHitDialogue,BOCIANOLAK_HIT_DIALOGUE} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
@@ -29,7 +29,6 @@ import {generateArenaLayout} from './arena-layout.js';
 import {createObstacleVisual} from './obstacle-renderer.js';
 import {firstFootprintHit} from './obstacle-geometry.js';
 import {enemyProjectileHit,enemyFlameVisible} from './enemy-damage.js';
-import {createEnemyHitBarks} from './enemy-hit-barks.js';
 
 const COLORS = {
   background: 0x0e101a,
@@ -151,7 +150,6 @@ export class ArenaScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>obstacleWorld.off('worldstep',this.onObstacleWorldStep));
     this.explosionEffects=[];
     this.deathBursts=[];
-    this.hitBarks=createEnemyHitBarks(this);
     // VFX runs on the game clock, independent of frozen/paused combat Scene updates.
     this.onDeathVfxStep=()=>updateBursts(this.deathBursts,this.game.loop.delta);
     this.game.events.on('step',this.onDeathVfxStep);
@@ -195,6 +193,7 @@ export class ArenaScene extends Phaser.Scene {
     });
     this.totalSpawned=this.enemies.length;
     this.narrativeEvents=new Set(['before-wave-1']);
+    this.firstBocianolakHit=false;
     this.finalOutcomeHeld=false;
     this.dialogueState=createDialogueState();
     this.pendingIntroductions=new Map();
@@ -380,11 +379,13 @@ export class ArenaScene extends Phaser.Scene {
 
   tryStartDialogue(){
     if(this.dialogueLoading||this.dialogueState.id||this.episode.ended)return false;
-    for(const id of ['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy']){
+    for(const id of ['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda',BOCIANOLAK_HIT_DIALOGUE,'after-final-enemy']){
       if((id==='before-first-bocianolak'||id==='before-first-zubrokryptyda')&&!this.introductionReady(id))continue;
       if(!this.consumeNarrativeBoundary(id))continue;
       if(this.pendingIntroductions.has(id)){this.introducedEnemyTypes.add(id);this.pendingIntroductions.delete(id);}
+      if(id===BOCIANOLAK_HIT_DIALOGUE)this.enemies=this.enemies.filter(enemy=>!enemy.dead);
       if(!beginDialogue(this.dialogueState,id))return false;
+      if(id===BOCIANOLAK_HIT_DIALOGUE)this.events.emit('episode-boundary',id,this);
       if(id==='after-final-enemy')this.holdFinalOutcome();
       advanceGameplayClock(this.gameplayClock,0,false);
       this.resetMovement();this.physics.world.pause();this.time.paused=true;
@@ -409,7 +410,9 @@ export class ArenaScene extends Phaser.Scene {
     if(this.narrativeEvents.has(id))return false;
     this.narrativeEvents.add(id);
     this.events.emit('episode-boundary',id,this);
-    if(this.dialoguePanel)this.tryStartDialogue();
+    // A hit may also clear a wave/finale inside a damage batch. Defer any UI
+    // until the queued hit has reached a safe update checkpoint.
+    if(this.dialoguePanel&&!this.narrativeEvents.has(BOCIANOLAK_HIT_DIALOGUE))this.tryStartDialogue();
     return true;
   }
   holdFinalOutcome(){
@@ -604,7 +607,7 @@ export class ArenaScene extends Phaser.Scene {
     const before=enemy.hp;
     enemy.hp=applyEnemyHit(before,amount);
     if(enemy.hp>=before)return false;
-    this.hitBarks.accept(enemy,before,enemy.hp);
+    queueBocianolakHitDialogue(this,enemy,before,enemy.hp);
     if(enemy.hp>0)this.enemyHit(enemy,source,now);
     return true;
   }
@@ -789,6 +792,8 @@ export class ArenaScene extends Phaser.Scene {
     for(const o of this.obstacles){if(o.alive&&this.time.now>=o.hitUntil)o.sprite.setAlpha(1);}
     for(const effect of this.explosionEffects){if(this.time.now>=effect.until)effect.sprite.destroy();}
     this.explosionEffects=this.explosionEffects.filter(e=>e.sprite.active);
+    // All projectile/flame/barrel damage and exactly-once deaths are complete.
+    if(this.narrativeEvents.has(BOCIANOLAK_HIT_DIALOGUE)&&this.tryStartDialogue())return;
     for(const enemy of this.enemies){
       if(enemy.hp<=0)continue;
       const previousX=enemy.x,previousY=enemy.y;

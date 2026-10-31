@@ -17,8 +17,19 @@ export const DIALOGUES=Object.freeze({
   ['bobrozombi','BOBROZOMBI','A więc dokonało się… Cyganka mówiła prawdę… Wszystkich nas wykończy przeklęty Kłusoczłek!'],
   ['zubrokryptyda','ŻUBROKRYPTYDA','Nigdy nie zapomnę naszych wspólnych wakacji, Marcin…'],
   ['aloes','ALOES','Żegnajcie… przyjaciele…']
+ ],
+ 'after-first-bocianolak-hit':[
+  ['bocianolak','BOCIANOŁAK','Tylko nie po nogach!']
  ]
 });
+export const BOCIANOLAK_HIT_DIALOGUE='after-first-bocianolak-hit';
+// Queue only: HP/death/projectile/explosion bookkeeping must finish before UI.
+export function queueBocianolakHitDialogue(session,enemy,before,after){
+ if(session.firstBocianolakHit||enemy.type!=='bocianolak'||enemy.dead||!Number.isFinite(before)||!Number.isFinite(after)||before<=0||after<0||after>=before)return false;
+ session.firstBocianolakHit=true;
+ session.narrativeEvents.add(BOCIANOLAK_HIT_DIALOGUE);
+ return true;
+}
 export function createDialogueState(){return {id:null,index:0};}
 export function beginDialogue(state,id){
  if(state.id||!DIALOGUES[id])return false;

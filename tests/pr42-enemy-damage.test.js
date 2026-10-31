@@ -5,7 +5,6 @@ import {damageFootprints,enemyProjectileHit,enemyFlameVisible} from '../src/enem
 import {segmentFootprintHit,footprintDistance,firstFootprintHit} from '../src/obstacle-geometry.js';
 import {createObstacle} from '../src/obstacle-catalog.js';
 import {ENEMY_TYPES} from '../src/enemy-types.js';
-import {claimFirstHitBark,BARK_TEXT,BARK_LIMIT,createEnemyHitBarks} from '../src/enemy-hit-barks.js';
 const enemy={type:'zubrokryptyda',x:600,y:600,hp:8};
 const pose={art:true,x:600,y:551.6,angle:0,scale:.55};
 test('PR42 approved eight-pose head/shoulder/torso pixels hit without frame-wide boxes',()=>{
@@ -51,27 +50,4 @@ test('PR42 body-compatible flame cone, range, obstacle occlusion and missing-art
  assert.equal(enemyFlameVisible(from,{x:-1,y:0},enemy,[],pose),false);
  assert.ok(enemyProjectileHit({x:500,y:570},{x:700,y:570},enemy,3));
  assert.ok(damageFootprints(enemy).every(s=>Number.isFinite(s.radius)&&s.radius>0));
-});
-test('PR42 bark claims only accepted damage, once per specimen including fatal first hit',()=>{
- assert.equal(BARK_TEXT,'Tylko nie po nogach!');assert.equal(BARK_LIMIT,3);
- const a={type:'bocianolak',hp:2,dead:false},b={...a};
- assert.equal(claimFirstHitBark(a,2,2),false);
- assert.equal(claimFirstHitBark(a,2,1),true);assert.equal(claimFirstHitBark(a,1,0),false);
- assert.equal(claimFirstHitBark(b,2,0),true);
- assert.equal(claimFirstHitBark({type:'bobrozombi'},3,2),false);
- assert.equal(claimFirstHitBark({...b,dead:true},2,1),false);
-});
-test('PR42 text pool is bounded, detached death lifetime and shutdown release',()=>{
- const callbacks=new Map(),texts=[];
- const scene={scale:{width:320,height:360},cameras:{main:{worldView:{x:0,y:0},zoom:1}},events:{once:(k,f)=>callbacks.set(k,f)},game:{events:{on(){},off(){}}},add:{text:(x,y,value)=>{
-  const t={x,y,text:value,width:156,height:16,active:true,setOrigin(){return this;},setScrollFactor(){return this;},setDepth(){return this;},setPosition(x,y){this.x=x;this.y=y;return this;},destroy(){this.active=false;}};texts.push(t);return t;
- }}};
- const pool=createEnemyHitBarks(scene);
- for(let i=0;i<8;i++)pool.accept({type:'bocianolak',x:i*60,y:5,hp:1},2,1);
- assert.equal(pool.size,3);assert.equal(texts.filter(t=>t.active).length,3);
- pool.update(100);
- for(const t of texts.filter(t=>t.active)){assert.ok(t.x>=t.width/2&&t.x<=320-t.width/2);assert.ok(t.y>=104&&t.y<=300);}
- pool.update(1800);assert.equal(pool.size,0);
- const fatal={type:'bocianolak',x:160,y:130,hp:0};pool.accept(fatal,2,0);fatal.dead=true;pool.update(100);
- assert.equal(pool.size,1);callbacks.get('shutdown')();assert.equal(pool.size,0);assert.ok(texts.every(t=>!t.active));
 });
