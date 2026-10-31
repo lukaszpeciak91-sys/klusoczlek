@@ -4,6 +4,7 @@ export const assetManifest=Object.freeze([
   {id:'bobrozombi',path:'enemies/bobrozombi.png',width:768,height:96,frameWidth:96,frameHeight:96,columns:8,rows:1,alpha:true,kind:'sheet',status:'pending'},
   {id:'bocianolak',path:'enemies/bocianolak.png',width:1024,height:160,frameWidth:128,frameHeight:160,columns:8,rows:1,alpha:true,kind:'sheet',status:'pending'},
   {id:'zubrokryptyda',path:'enemies/zubrokryptyda.png',width:1536,height:192,frameWidth:192,frameHeight:192,columns:8,rows:1,alpha:true,kind:'sheet',status:'pending'},
+  {id:'marcin',path:'enemies/marcin.png',width:2048,height:256,frameWidth:256,frameHeight:256,columns:8,rows:1,alpha:true,kind:'sheet',status:'pending',approval:'approved_visual'},
   {id:'enemy_fast',path:'enemies/enemy_fast.png',width:384,height:48,frameWidth:48,frameHeight:48,columns:8,rows:1,alpha:true,kind:'sheet',status:'pending'},
   ...['rapid','heavy','spread'].map(id=>({id:`weapon_${id}`,path:`weapons/${id}.png`,width:96,height:32,frameWidth:32,frameHeight:32,columns:3,rows:1,alpha:true,kind:'sheet',status:'pending'})),
   ...[5,4,3,2,1].map(id=>({id:`hp_${id}`,path:`portraits/hp_${id}.png`,width:128,height:128,frameWidth:128,frameHeight:128,columns:1,rows:1,alpha:true,kind:'image',status:'pending'})),

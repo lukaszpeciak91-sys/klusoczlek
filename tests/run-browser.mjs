@@ -1,17 +1,17 @@
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { access, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
 
 
-function syntheticSheetPng(){
+function syntheticSheetPng(width=512,height=64){
   // Generated solely in browser-test memory. Distinct colors distinguish eight directions.
-  const width=512,height=64,raw=Buffer.alloc(height*(1+width*4));
+  const raw=Buffer.alloc(height*(1+width*4));
   for(let y=0;y<height;y++)for(let x=0;x<width;x++){
-    const offset=y*(1+width*4)+1+x*4,frame=Math.floor(x/64);
+    const offset=y*(1+width*4)+1+x*4,frame=Math.floor(x/(width/8));
     raw[offset]=(frame*31+20)&255;raw[offset+1]=(frame*23+65)&255;
     raw[offset+2]=(frame*19+110)&255;raw[offset+3]=255;
   }
@@ -220,7 +220,7 @@ try {
   assert.ok(firstPickup.obstacles.every(o=>Math.hypot(firstPickup.x-o.x,firstPickup.y-o.y)>o.r+20));
 
   const initialToken=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {symbol:a.weaponText.text,color:a.weaponTokenBody.fillColor,kills:a.killsText.text}})()");
-  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/138'});
+  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/141'});
 
   const initialClock=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {time:a.elapsedGameplayMs,label:a.timerText.text,wave:a.waveText.text}})()");
   assert.equal(initialClock.wave,'⚑ 1/6');assert.ok(initialClock.label.startsWith('◷ 00:'));
@@ -580,8 +580,8 @@ try {
       a.episode.wave++;a.episode.spawned=0;a.episode.defeated=0;a.episode.intermissionUntil=null;a.episode.state='active';
       a.waveText.setText('⚑ '+(a.episode.wave+1)+'/6');
     }
-    if(!a.enemies.some(e=>!e.dead))a.spawnReplacement();
-    const e=a.enemies.find(e=>!e.dead);
+    if(!a.enemies.some(e=>!e.dead&&!e.encounterId))a.spawnReplacement();
+    const e=a.enemies.find(e=>!e.dead&&!e.encounterId);
     if(!e)throw Error('Encounter stalled');
     e.hp=0;
     if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
@@ -597,6 +597,14 @@ try {
   for(let i=0;i<138;i++){
     const result=await killOne();
     typesDefeated.push(result.type);
+    if(i===131){
+      await evaluate("window.__game.scene.getScene('Arena').invulnerableUntil=Infinity;true");
+      for(let wait=0;wait<30;wait++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='before-marcin'"))break;await sleep(30);}
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'before-marcin');
+      await nextLine();await nextLine();
+      for(let wait=0;wait<100;wait++){if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.boss&&!a.bossEntrance&&a.escortDue.length===0})()"))break;await sleep(40);}
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.specialSpawned.size"),3);
+    }
     if(i===4||i===9){
       assert.equal(result.pending,0,'Old kill-threshold reward still active');
       assert.ok(!result.pickups.includes(i===4?'rifle':'flamethrower'));
@@ -621,23 +629,29 @@ try {
 
     }
   }
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'active','Normal138 prematurely finished boss encounter');
+  await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');for(const id of ['marcin','escort-1','escort-2']){
+    const e=a.enemies.find(e=>e.encounterId===id);if(!e)throw Error('missing '+id);
+    e.hp=0;if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('special duplicate death');
+    if(id!=='escort-2'&&a.episode.state!=='active')throw Error('premature finale');
+  }})()`);
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['⊕',0x2499ad]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones],healthAwards:a.healthAwardCount||0}})()");
-  assert.equal(progression.kills,138);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'138/138');
+  assert.equal(progression.kills,141);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'141/141');
   assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,69);
   assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,55);
   assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,14);
-  assert.equal(progression.total,138);
+  assert.equal(progression.total,141);
   assert.equal(progression.healthAwards,3,'Heart awards after waves 2, 4, 5 were not exactly once');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'final-pending');
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[2,4]);
-  console.log('PASS Phaser wave rewards: no kill 5/10 triggers, rifle after 2, flamethrower and health after 4, 138 unique deaths');
+  console.log('PASS Phaser wave rewards: no kill 5/10 triggers, rifle after 2, flamethrower and health after 4, 138 normal +3 special unique deaths');
   // The actual 138th gameplay death must leave a live burst throughout the final narrative.
   const finalBurstAtStart=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,kills:a.kills,active:a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length}})()");
-  assert.equal(finalBurstAtStart.kills,138);
+  assert.equal(finalBurstAtStart.kills,141);
   assert.equal(finalBurstAtStart.state,'final-pending');
   assert.equal(finalBurstAtStart.id,'after-final-enemy');
   assert.equal(finalBurstAtStart.active,true,'Final enemy burst must exist at final-pending boundary');
@@ -1567,19 +1581,155 @@ try {
   await clickControl('hud');await clickControl('NOWA GRA');
   const finalQueued=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();
-    a.episode.wave=5;a.episode.spawned=35;a.episode.defeated=34;a.episode.state='active';a.kills=137;a.totalSpawned=138;a.spawnDueAt=null;
+    a.episode.wave=5;a.episode.spawned=35;a.episode.defeated=34;a.episode.state='active';a.kills=140;a.totalSpawned=141;a.spawnDueAt=null;
+    a.episode.bossIntroduced=true;a.episode.specialSpawned=new Set(['marcin','escort-1','escort-2']);a.episode.specialDefeated=new Set(['marcin','escort-1','escort-2']);
     const e=a.createEnemy('bocianolak',{x:1050,y:600},1100);a.enemies=[e];
     a.damageEnemy(e,2,a.player,a.time.now);a.finalizeEnemyDeath(e);
     return {id:a.dialogueState.id,dead:e.dead,kills:a.kills,state:a.episode.state,hit:a.narrativeEvents.has('after-first-bocianolak-hit'),final:a.narrativeEvents.has('after-final-enemy'),bursts:a.deathBursts.length};
   })()`);
-  assert.deepEqual(finalQueued,{id:null,dead:true,kills:138,state:'final-pending',hit:true,final:true,bursts:1});
+  assert.deepEqual(finalQueued,{id:null,dead:true,kills:141,state:'final-pending',hit:true,final:true,bursts:1});
   await waitFor(v=>v.physics===true,'fatal final-hit panel');assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),hitId);
   await sleep(500);assert.equal(await evaluate("window.__game.scene.getScene('Arena').deathBursts.length"),0,'Pixel burst failed to finish during dialogue');
   for(let line=0;line<4;line++){
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),line===0?hitId:'after-final-enemy');await nextLine();
   }
   await waitFor(v=>v.menu&&v.arenaPaused,'victory after queued hit/finale');assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
-  console.log('PASS PR43 fatal final hit: death138 once, pixel burst, first-hit dialogue before original finale and victory');
+  console.log('PASS PR43 fatal final hit: final death141 once, pixel burst, first-hit dialogue before original finale and victory');
+
+  // PR44 live encounter. Fixtures advance the schedule, not the boss state
+  // machine; dialogue, landing, attacks, damage, steering and resume run in Phaser.
+  for(const [seed,width,height] of [[1,568,320],[41,800,360],[104729,320,240]]){
+    if(!(await snapshot()).menu)await clickControl('hud');
+    arenaRun=[1,41,104729].indexOf(seed);await clickControl('NOWA GRA');
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');await sleep(80);
+    const queued=await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();a.enemies=[];
+      a.episode.wave=5;a.waveText.setText('⚑ 6/6');a.episode.spawned=29;a.episode.defeated=28;a.kills=131;a.totalSpawned=132;a.spawnDueAt=null;
+      a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');a.firstBocianolakHit=true;
+      a.invulnerableUntil=Infinity;
+      if(a.episode.bossIntroduced||a.boss)throw Error('early boss');
+      const e=a.createEnemy('bobrozombi',{x:1000,y:600},130);a.enemies=[e];
+      a.damageEnemy(e,3,a.player,a.time.now);a.finalizeEnemyDeath(e);
+      return {pending:a.narrativeEvents.has('before-marcin'),dialogue:a.dialogueState.id,remaining:35-a.episode.defeated,boss:!!a.boss};
+    })()`);
+    assert.deepEqual(queued,{pending:true,dialogue:null,remaining:6,boss:false});
+    await sleep(100);
+    const intro=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,line:a.dialoguePanel.text.text,portrait:a.dialoguePanel.loaded.has('bobrozombi'),clock:a.elapsedGameplayMs,paused:a.physics.world.isPaused,sticks:[a.joystick,a.aimJoystick].every(j=>!j.enabled)}})()");
+    assert.equal(intro.id,'before-marcin');assert.equal(intro.line,'Taki jesteś?! Czekaj aż zawołam Marcina');assert.ok(intro.portrait&&intro.paused&&intro.sticks);
+    await nextLine();assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialoguePanel.text.text"),'Marcin! Maaaarciiin!');
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),intro.clock);
+    await nextLine();
+    assert.equal(await evaluate("!!window.__game.scene.getScene('Arena').bossEntrance"),true);
+    await clickControl('hud');const age=await evaluate("window.__game.scene.getScene('Arena').bossEntrance.elapsed");await sleep(200);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').bossEntrance.elapsed"),age);
+    await clickControl('WZNÓW');assert.equal(await evaluate("window.__game.scene.getScene('Arena').physics.world.isPaused"),true,'Resume released entrance physics');
+    await cdp('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');await sleep(100);
+    const portraitAge=await evaluate("window.__game.scene.getScene('Arena').bossEntrance.elapsed");await sleep(130);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').bossEntrance.elapsed"),portraitAge,'Portrait advanced entrance');
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();window.dispatchEvent(new Event("focus"));true');
+    await sleep(450);
+    await writeFile('dist/pr44-landing-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    for(let i=0;i<100;i++){if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.boss&&!a.bossEntrance&&a.escortDue.length===0})()"))break;await sleep(40);}
+    const active=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {seed:a.arenaSeed,hp:a.boss?.hp,roster:[...a.episode.specialSpawned],escorts:a.enemies.filter(e=>e.encounterId?.startsWith('escort')).length,bar:a.bossHpLabel.visible,body:a.player.body.radius,nav:a.bossNavigation.free===a.bossNavigation.visited,zoom:a.cameras.main.zoom}})()");
+    assert.equal(active.seed,seed);assert.equal(active.hp,36);assert.deepEqual(active.roster,['marcin','escort-1','escort-2']);assert.equal(active.escorts,2);assert.ok(active.bar&&active.nav);assert.equal(active.body,17);assert.equal(active.zoom,1);
+    // Stop normal scheduling for the attack fixture after proving roster creation.
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.spawnDueAt=null;a.boss.attack.elapsed=5950;window.__bossWarningAt=performance.now()})()");
+    await sleep(100);assert.equal(await evaluate("window.__game.scene.getScene('Arena').boss.attack.phase"),'warning');assert.equal(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length"),0);
+    const bossAt=await evaluate("(()=>{const b=window.__game.scene.getScene('Arena').boss;return {x:b.x,y:b.y}})()");await sleep(300);
+    assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('Arena').boss;return {x:b.x,y:b.y}})()"),bossAt,'Boss moved during warning');
+    await writeFile('dist/pr44-warning-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    for(let i=0;i<60;i++){if(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length>0"))break;await sleep(20);}
+    const volley=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {phase:a.boss.attack.phase,elapsed:performance.now()-window.__bossWarningAt,shots:a.bossProjectiles.map(p=>({vx:p.vx,vy:p.vy})),hp:a.playerHp}})()");
+    assert.equal(volley.phase,'recovery');assert.ok(volley.elapsed>=850);assert.equal(volley.shots.length,8);
+    volley.shots.forEach((p,i)=>{assert.ok(Math.abs(p.vx-Math.cos(i*Math.PI/4)*180)<0.001);assert.ok(Math.abs(p.vy-Math.sin(i*Math.PI/4)*180)<0.001);});
+    await sleep(220);
+    await writeFile('dist/pr44-volley-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    // Actual swept enemy-projectile HP/invulnerability, finite deletion.
+    await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.clearBossProjectiles();a.invulnerableUntil=0;
+      for(let i=0;i<2;i++){const p={x:a.player.x-42,y:a.player.y,vx:180,vy:0,age:0};p.object=a.add.circle(p.x,p.y,6,0xff9450);a.bossProjectiles.push(p);}
+    })()`);await sleep(230);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerHp"),4,'Simultaneous projectiles bypassed invulnerability');
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length"),0,'One projectile damaged repeatedly');
+    await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena');a.invulnerableUntil=0;
+      const rock=window.__createObstacle('rock',{id:'boss-shot-qa',x:a.player.x-65,y:a.player.y});
+      const {createObstacleVisual}=await import('/klusoczlek/src/obstacle-renderer.js');rock.sprite=createObstacleVisual(a,rock);rock.hitUntil=0;a.obstacles.push(rock);
+      window.__bossShotRock=rock;const p={x:a.player.x-130,y:a.player.y,vx:180,vy:0,age:0};p.object=a.add.circle(p.x,p.y,6,0xff9450);a.bossProjectiles.push(p);
+    })()`);await sleep(600);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerHp"),4,'Boss projectile crossed solid rock');
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length"),0);
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');window.__bossShotRock.sprite.destroy();a.obstacles=a.obstacles.filter(o=>o!==window.__bossShotRock)})()");
+    // Real damage geometry: visible shoulder outside movement circle accepts
+    // Pukawka, rifle and flame; movement/contact remain radius40.
+    const beforeWeapons=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.clearBossProjectiles();a.invulnerableUntil=Infinity;b.attack={phase:'warning',elapsed:0};const side=b.x<900?1:-1;a.player.body.reset(b.x+side*110,b.y-75);window.__bossAim={x:-side,y:0};a.spawnShot(window.__bossAim,'blunderbuss',a.time.now);return b.hp})()");
+    await sleep(170);assert.equal(await evaluate("window.__game.scene.getScene('Arena').boss.hp"),beforeWeapons-1,'Actual Pukawka missed visible shoulder');
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.spawnShot(window.__bossAim,'rifle',a.time.now)})()");await sleep(170);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').boss.hp"),beforeWeapons-2,'Actual rifle missed shoulder');
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.applyFlame(window.__bossAim,a.time.now)})()");
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').boss.hp"),beforeWeapons-3,'Actual flame missed body');
+    assert.equal(await evaluate("!!window.__game.scene.getScene('Arena').boss.burningFx"),true,'Flame ignition effect missing');
+    if(seed===1){
+      const path=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena');const {footprintDistance}=await import('/klusoczlek/src/obstacle-geometry.js');
+        const o=a.obstacles.find(o=>o.type==='rock'&&o.x>200&&o.x<1600&&[-140,140].every(dx=>a.obstacles.every(p=>!p.alive||footprintDistance(p.footprint,{x:o.x+dx,y:o.y})>45)));
+        if(!o)throw Error('no steering fixture');
+        const b=a.boss;b.x=o.x-140;b.y=o.y;b.sprite.setPosition(b.x,b.y);b.attack={phase:'chase',elapsed:-20000};
+        b.ignition.ignitedAt=null;b.ignition.burningUntil=0;b.burningFx?.destroy();b.burningFx=null;
+        a.player.body.reset(o.x+140,o.y);a.spawnDueAt=null;
+        window.__bossPath={x:b.x,y:b.y,maxDetour:0,frames:0,sumMs:0,maxMs:0};
+        const step=()=>{const m=window.__bossPath;m.frames++;m.sumMs+=a.game.loop.delta;m.maxMs=Math.max(m.maxMs,a.game.loop.delta);if(a.boss)m.maxDetour=Math.max(m.maxDetour,Math.abs(a.boss.y-m.y));};
+        a.game.events.on('step',step);window.__bossPathCleanup=()=>a.game.events.off('step',step);return {x:b.x,y:b.y};})()`);
+      for(let i=0;i<100;i++){if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return Math.hypot(a.boss.x-a.player.x,a.boss.y-a.player.y)<65})()"))break;await sleep(180);}
+      const movement=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');window.__bossPathCleanup();return {...window.__bossPath,distance:Math.hypot(a.boss.x-a.player.x,a.boss.y-a.player.y),heap:performance.memory?.usedJSHeapSize??null}})()");
+      assert.ok(movement.distance<65&&movement.maxDetour>15,'Live r40 boss trapped '+JSON.stringify(movement));
+      console.log('INFO PR44 live boss movement/runtime '+JSON.stringify(movement));
+    }
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.boss.hp=12;a.boss.attack.phase='chase';a.boss.attack.elapsed=3950})()");await sleep(100);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').boss.attack.phase"),'warning','LowHP cooldown remained6000');
+    for(let i=0;i<60;i++){if(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length>0"))break;await sleep(20);}
+    assert.ok(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length")>0,'No active volley before boss death');
+    // Killing a boss with live projectiles cancels all of them, but does not
+    // finish while escorts or queued normal enemies remain.
+    const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length}})()");
+    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'active');assert.ok(death.bursts>0);
+    console.log('PASS PR44 seed '+seed+' '+width+'x'+height+': queued six-remaining caller, portrait/DALEJ, landing MENU/orientation, safe r40, two escorts, warning/eight-way volley, HP/invulnerability, lowHP, death cleanup');
+  }
+
+  // Approved Marcin integration. Optional external source is used byte-for-byte
+  // only in CDP responses, never copied/committed into the repository.
+  let marcinBytes=null,marcinSource='synthetic in-memory contract';
+  if(process.env.MARCIN_QA_PNG){marcinBytes=await readFile(process.env.MARCIN_QA_PNG);marcinSource='approved external PNG';}
+  else {try{marcinBytes=await readFile('public/assets/enemies/marcin.png');marcinSource='approved repository PNG';}catch{}}
+  if(marcinBytes){assert.equal(marcinBytes.readUInt32BE(16),2048);assert.equal(marcinBytes.readUInt32BE(20),256);assert.equal(marcinBytes[24],8);assert.equal(marcinBytes[25],6);}
+  const bossImage=marcinBytes?marcinBytes.toString('base64'):syntheticSheetPng(2048,256);
+  for(const mode of ['approved','invalid','missing']){
+    const fetchBoss=event=>{const m=JSON.parse(event.data);if(m.method!=='Fetch.requestPaused')return;
+      void cdp('Fetch.fulfillRequest',{requestId:m.params.requestId,responseCode:mode==='missing'?404:200,responseHeaders:[{name:'Content-Type',value:'image/png'}],body:mode==='approved'?bossImage:mode==='invalid'?syntheticSheetPng():''});};
+    socket.addEventListener('message',fetchBoss);await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/enemies/marcin.png*',requestStage:'Request'}]});
+    await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
+    for(let i=0;i<100;i++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
+    await waitFor(v=>v.menu&&v.actions.length===1,'boss asset '+mode);await clickControl('NOWA GRA');
+    const init=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena');await a.enemyRenderers.marcin.loading;
+      for(const e of a.enemies)e.sprite.destroy();const e=a.createEnemy('marcin',{x:900,y:600},44);e.attack={phase:'warning',elapsed:0};a.enemies=[e];a.boss=e;a.spawnDueAt=null;a.invulnerableUntil=Infinity;
+      window.__marcinQA=e;return {loaded:a.enemyRenderers.marcin.loaded,fallback:a.enemyRenderers.marcin.fallback,art:!!e.sprite.getData('marcin-art')};})()`);
+    assert.deepEqual(init,mode==='approved'?{loaded:true,fallback:false,art:true}:{loaded:false,fallback:true,art:false});
+    if(mode==='approved'){
+      for(let frame=0;frame<8;frame++){
+        const pose=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena'),e=window.__marcinQA;const angle=${frame}*Math.PI/4;
+          a.player.body.reset(e.x+150*Math.cos(angle),e.y+150*Math.sin(angle));a.enemyRenderers.marcin.update(e,a.player);
+          const art=e.sprite.getData('marcin-art'),p=a.enemyRenderers.marcin.damagePoseOf(e);
+          const {enemyProjectileHit,damageFootprints}=await import('/klusoczlek/src/enemy-damage.js');const shapes=damageFootprints(e,p),head=shapes[0];
+          const hit=enemyProjectileHit({x:head.x-100,y:head.y},{x:head.x+100,y:head.y},e,3,p);
+          return {frame:Number(art.frame.name),scale:art.scaleX,y:art.y,filter:art.texture.source[0].scaleMode,width:art.displayWidth,hit:!!hit,body:a.player.body.radius,tailFrameCount:Object.keys(art.texture.frames).length};})()`);
+        assert.equal(pose.frame,frame);assert.equal(pose.scale,.68);assert.equal(pose.y,-76.16);assert.equal(pose.filter,1);assert.ok(pose.width>192*.55);assert.ok(pose.hit);assert.equal(pose.body,17);
+        if(marcinBytes)await writeFile('dist/marcin-approved-frame-'+frame+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+      }
+      // Real Phaser projectile and flame use renderer-derived pose, not feet.
+      const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__marcinQA;e.attack={phase:'warning',elapsed:0};a.player.body.reset(e.x-110,e.y-75);a.enemyRenderers.marcin.update(e,{x:e.x+100,y:e.y});a.spawnShot({x:1,y:0},'rifle',a.time.now);return e.hp})()");
+      await sleep(170);assert.equal(await evaluate('window.__marcinQA.hp'),before-1);
+      const flame=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__marcinQA;const hp=e.hp;a.flameCooldowns.clear();a.applyFlame({x:1,y:0},a.time.now);return hp-e.hp})()");assert.equal(flame,1);
+    }
+    console.log('PASS Marcin asset '+mode+' ('+(mode==='approved'?marcinSource:'fallback')+'): sheet validation, safe gameplay and pose-aware geometry');
+    await cdp('Fetch.disable');socket.removeEventListener('message',fetchBoss);
+  }
 
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {

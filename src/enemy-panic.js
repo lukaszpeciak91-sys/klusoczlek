@@ -3,10 +3,12 @@ import {ENEMY_TYPES} from './enemy-types.js';
 
 // Simulation-time state: no timers and no damage-over-time.
 export const PANIC_IMMUNITY_MS=2000;
+const HEAVY_PANIC=Object.freeze({duration:1200,speed:35});
 export const PANIC_PROFILES=Object.freeze({
+ marcin:HEAVY_PANIC,
  bobrozombi:Object.freeze({duration:2500,speed:75}),
  bocianolak:Object.freeze({duration:1800,speed:110}),
- zubrokryptyda:Object.freeze({duration:1200,speed:35})
+ zubrokryptyda:HEAVY_PANIC
 });
 export function createIgnitionState(){return {burningUntil:0,panicImmuneUntil:0,ignitedAt:null};}
 export function isBurning(state,now){return state.ignitedAt!==null&&now<state.burningUntil;}

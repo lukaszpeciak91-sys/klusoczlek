@@ -22,7 +22,7 @@ test('safe on-screen candidate is optional, blocked candidates preserve normal f
  assert.equal(introductionSpawnPoint('zubrokryptyda',player,[],{x:800,y:500,width:320,height:240},30),null);
 });
 test('only scene 3 changes Wald ek lines, all four dialogues remain',()=>{
- assert.equal(Object.keys(DIALOGUES).length,5);
+ assert.equal(Object.keys(DIALOGUES).length,6);
  assert.equal(DIALOGUES['before-first-zubrokryptyda'][0][1],'ŻUBROKRYPTYDA');
  assert.equal(DIALOGUES['before-first-zubrokryptyda'][0][2],'Nikt nie będzie bezprawnie mordował naszych przyjaciół!');
  assert.equal(DIALOGUES['before-first-zubrokryptyda'][1][2],'Waldek, pokaż mu, gdzie raki zimują!');

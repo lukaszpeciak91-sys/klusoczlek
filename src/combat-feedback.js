@@ -1,10 +1,12 @@
 // Pure visual profiles and time curves. No collision, physics or combat changes.
 export const ATTACK_PROFILES=Object.freeze({
+ marcin:Object.freeze({duration:290,distance:6,tilt:0.04}),
  bobrozombi:Object.freeze({duration:210,distance:8,tilt:0.12}),
  bocianolak:Object.freeze({duration:170,distance:11,tilt:0.07}),
  zubrokryptyda:Object.freeze({duration:260,distance:7,tilt:0.09})
 });
 export const DEATH_PROFILES=Object.freeze({
+ marcin:Object.freeze({count:88,width:130,height:120,offsetY:-50,duration:650}),
  bobrozombi:Object.freeze({count:30,width:30,height:32,offsetY:-9,duration:350}),
  bocianolak:Object.freeze({count:36,width:20,height:57,offsetY:-25,duration:375}),
  zubrokryptyda:Object.freeze({count:58,width:65,height:67,offsetY:-38,duration:430}),

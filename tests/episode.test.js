@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceEpisode,terminateEpisode,healedHp} from '../src/episode.js';
+import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceEpisode,terminateEpisode,healedHp,FINAL_ENCOUNTER,recordSpecialSpawn} from '../src/episode.js';
 test('Episode 1 six deterministic waves and species introduction',()=>{
- assert.equal(TOTAL_WAVES,6);assert.equal(TOTAL_ENEMIES,138);
+ assert.equal(TOTAL_WAVES,6);assert.equal(TOTAL_ENEMIES,141);
  assert.deepEqual(WAVES.map(w=>w.enemies.length),[12,16,20,25,30,35]);
  assert.deepEqual(WAVES.map(w=>w.maxAlive),[4,5,6,7,8,9]);
  assert.ok(WAVES[0].enemies.every(x=>x==='bobrozombi'));
@@ -23,10 +23,11 @@ test('all six waves reach final pending exactly once',()=>{
  for(let i=0;i<6;i++){
   for(let n=0;n<WAVES[i].enemies.length;n++){
    assert.ok(nextType(e));recordSpawn(e);
-   assert.equal(recordDeath(e,n===WAVES[i].enemies.length-1?0:1,1000),n===WAVES[i].enemies.length-1?(i===5?'final-cleared':'wave-cleared'):null);
+   assert.equal(recordDeath(e,n===WAVES[i].enemies.length-1?0:1,1000),n===WAVES[i].enemies.length-1?(i===5?null:'wave-cleared'):null);
   }
   if(i<5)assert.equal(advanceEpisode(e,4000),true);
  }
+ for(const spec of FINAL_ENCOUNTER){recordSpecialSpawn(e,spec.id);recordDeath(e,0,1000,spec.id);}
  assert.equal(e.state,'final-pending');assert.equal(terminateEpisode(e,'victory'),true);
  assert.equal(terminateEpisode(e,'victory'),false);
 });
