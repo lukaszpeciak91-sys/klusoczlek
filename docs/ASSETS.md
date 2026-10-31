@@ -66,3 +66,8 @@ The historical three-band `hp_high.png` / `hp_medium.png` / `hp_low.png` proposa
 
 ## Bocianołak V1 (second enemy; 28-enemy arena)
 Approved optional `public/assets/enemies/bocianolak.png`: 1024×160, eight consecutive 128×160 8-bit RGBA frames (E, SE, S, SW, W, NW, N, NE), transparent exterior, no spacing. Source feet near y153. Visual scale is a named independent constant, not physics-derived; creature uses 2 HP, 85 px/s, radius 18 with bounded lateral weaving. Arena schedules 18 Bobrozombi and 10 Bocianołak, max three living, rewards at total kills 5 and 10. User uploads PNG manually; absent/invalid binary has code-drawn fallback.
+
+## Marcin V1 — visually approved production sheet (PR44 asset handoff,2026-10-31)
+Canonical `public/assets/enemies/marcin.png`:2048×256,8-bit RGBA,8 horizontal256×256 frames, E/SE/S/SW/W/NW/N/NE, zero spacing/trimming, NEAREST, no baked ground shadow or extra animation frames. User uploads the unchanged approved PNG manually. No repaint/recolor/regeneration or changes to existing enemy sheets.
+
+Runtime `enemy-marcin-v1`: scale0.68, source feet baseline y240, centered origin, local Y−76.16. The visible alpha bounds across8 poses render roughly126–156px wide and138–150px high, larger than Żubrokryptyda. Main head/chest/belly damage circles are pose-specific in `src/marcin-visual.js`; logical r40 movement/contact remains unchanged. Tail tips, mohawk and alpha margins do not become a frame-sized collider. Missing/wrong-size/non-RGBA/undecodable PNG retains the existing procedural fallback. Landing, warning, projectiles and pixel death remain code effects.

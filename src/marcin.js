@@ -1,3 +1,4 @@
+import {MARCIN_VISUAL_BOUNDS} from './marcin-visual.js';
 import {ARENA} from './movement.js';
 import {footprintDistance,segmentFootprintHit,firstFootprintHit} from './obstacle-geometry.js';
 export const MARCIN=Object.freeze({radius:40,hp:36,speed:38,contactDamage:1,cooldown:6000,lowCooldown:4000,warning:900,recovery:450,projectileSpeed:180,projectileRadius:6,projectileLife:9000,maxProjectiles:24});
@@ -27,13 +28,15 @@ export function bossProjectileStep(p,delta,player,obstacles){
  if(p.age>=MARCIN.projectileLife||p.x<0||p.y<0||p.x>ARENA.width||p.y>ARENA.height)return 'expired';
  return null;
 }
-export function landingPoint(player,view,obstacles){
- // Finite viewport-local scan. Bounds include the entire 136x126 visual body.
+export function landingPoint(player,view,obstacles,navigation=null){
+ // Finite viewport-local scan covers both approved art and fallback bounds.
  // If crowded, retain the pending entrance and let normal combat open space.
- const candidates=[];
- for(let y=Math.max(125,view.y+125);y<=Math.min(ARENA.height-44,view.y+view.height-44);y+=16)
-  for(let x=Math.max(72,view.x+72);x<=Math.min(ARENA.width-72,view.x+view.width-72);x+=16){
+ const candidates=[],b=MARCIN_VISUAL_BOUNDS;
+ const samples=(min,max)=>{if(max<min)return [];const values=[];for(let v=min;v<max;v+=16)values.push(v);values.push(max);return values;};
+ for(const y of samples(Math.max(b.top,view.y+b.top),Math.min(ARENA.height-b.bottom,view.y+view.height-b.bottom)))
+  for(const x of samples(Math.max(b.side,view.x+b.side),Math.min(ARENA.width-b.side,view.x+view.width-b.side))){
    const p={x,y};
+   if(navigation&&!navigation.isReachable(p))continue;
    if(Math.hypot(x-player.x,y-player.y)<105)continue;
    if(obstacles.some(o=>o.alive!==false&&o.gameplayClass!=='decorative'&&footprintDistance(o.footprint,p)<MARCIN.radius+8))continue;
    candidates.push(p);

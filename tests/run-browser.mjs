@@ -1,17 +1,17 @@
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { access, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
 
 
-function syntheticSheetPng(){
+function syntheticSheetPng(width=512,height=64){
   // Generated solely in browser-test memory. Distinct colors distinguish eight directions.
-  const width=512,height=64,raw=Buffer.alloc(height*(1+width*4));
+  const raw=Buffer.alloc(height*(1+width*4));
   for(let y=0;y<height;y++)for(let x=0;x<width;x++){
-    const offset=y*(1+width*4)+1+x*4,frame=Math.floor(x/64);
+    const offset=y*(1+width*4)+1+x*4,frame=Math.floor(x/(width/8));
     raw[offset]=(frame*31+20)&255;raw[offset+1]=(frame*23+65)&255;
     raw[offset+2]=(frame*19+110)&255;raw[offset+3]=255;
   }
@@ -1691,6 +1691,44 @@ try {
     const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length}})()");
     assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'active');assert.ok(death.bursts>0);
     console.log('PASS PR44 seed '+seed+' '+width+'x'+height+': queued six-remaining caller, portrait/DALEJ, landing MENU/orientation, safe r40, two escorts, warning/eight-way volley, HP/invulnerability, lowHP, death cleanup');
+  }
+
+  // Approved Marcin integration. Optional external source is used byte-for-byte
+  // only in CDP responses, never copied/committed into the repository.
+  let marcinBytes=null,marcinSource='synthetic in-memory contract';
+  if(process.env.MARCIN_QA_PNG){marcinBytes=await readFile(process.env.MARCIN_QA_PNG);marcinSource='approved external PNG';}
+  else {try{marcinBytes=await readFile('public/assets/enemies/marcin.png');marcinSource='approved repository PNG';}catch{}}
+  if(marcinBytes){assert.equal(marcinBytes.readUInt32BE(16),2048);assert.equal(marcinBytes.readUInt32BE(20),256);assert.equal(marcinBytes[24],8);assert.equal(marcinBytes[25],6);}
+  const bossImage=marcinBytes?marcinBytes.toString('base64'):syntheticSheetPng(2048,256);
+  for(const mode of ['approved','invalid','missing']){
+    const fetchBoss=event=>{const m=JSON.parse(event.data);if(m.method!=='Fetch.requestPaused')return;
+      void cdp('Fetch.fulfillRequest',{requestId:m.params.requestId,responseCode:mode==='missing'?404:200,responseHeaders:[{name:'Content-Type',value:'image/png'}],body:mode==='approved'?bossImage:mode==='invalid'?syntheticSheetPng():''});};
+    socket.addEventListener('message',fetchBoss);await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/enemies/marcin.png*',requestStage:'Request'}]});
+    await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
+    for(let i=0;i<100;i++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
+    await waitFor(v=>v.menu&&v.actions.length===1,'boss asset '+mode);await clickControl('NOWA GRA');
+    const init=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena');await a.enemyRenderers.marcin.loading;
+      for(const e of a.enemies)e.sprite.destroy();const e=a.createEnemy('marcin',{x:900,y:600},44);e.attack={phase:'warning',elapsed:0};a.enemies=[e];a.boss=e;a.spawnDueAt=null;a.invulnerableUntil=Infinity;
+      window.__marcinQA=e;return {loaded:a.enemyRenderers.marcin.loaded,fallback:a.enemyRenderers.marcin.fallback,art:!!e.sprite.getData('marcin-art')};})()`);
+    assert.deepEqual(init,mode==='approved'?{loaded:true,fallback:false,art:true}:{loaded:false,fallback:true,art:false});
+    if(mode==='approved'){
+      for(let frame=0;frame<8;frame++){
+        const pose=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena'),e=window.__marcinQA;const angle=${frame}*Math.PI/4;
+          a.player.body.reset(e.x+150*Math.cos(angle),e.y+150*Math.sin(angle));a.enemyRenderers.marcin.update(e,a.player);
+          const art=e.sprite.getData('marcin-art'),p=a.enemyRenderers.marcin.damagePoseOf(e);
+          const {enemyProjectileHit,damageFootprints}=await import('/klusoczlek/src/enemy-damage.js');const shapes=damageFootprints(e,p),head=shapes[0];
+          const hit=enemyProjectileHit({x:head.x-100,y:head.y},{x:head.x+100,y:head.y},e,3,p);
+          return {frame:Number(art.frame.name),scale:art.scaleX,y:art.y,filter:art.texture.source[0].scaleMode,width:art.displayWidth,hit:!!hit,body:a.player.body.radius,tailFrameCount:Object.keys(art.texture.frames).length};})()`);
+        assert.equal(pose.frame,frame);assert.equal(pose.scale,.68);assert.equal(pose.y,-76.16);assert.equal(pose.filter,1);assert.ok(pose.width>192*.55);assert.ok(pose.hit);assert.equal(pose.body,17);
+        if(marcinBytes)await writeFile('dist/marcin-approved-frame-'+frame+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+      }
+      // Real Phaser projectile and flame use renderer-derived pose, not feet.
+      const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__marcinQA;e.attack={phase:'warning',elapsed:0};a.player.body.reset(e.x-110,e.y-75);a.enemyRenderers.marcin.update(e,{x:e.x+100,y:e.y});a.spawnShot({x:1,y:0},'rifle',a.time.now);return e.hp})()");
+      await sleep(170);assert.equal(await evaluate('window.__marcinQA.hp'),before-1);
+      const flame=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__marcinQA;const hp=e.hp;a.flameCooldowns.clear();a.applyFlame({x:1,y:0},a.time.now);return hp-e.hp})()");assert.equal(flame,1);
+    }
+    console.log('PASS Marcin asset '+mode+' ('+(mode==='approved'?marcinSource:'fallback')+'): sheet validation, safe gameplay and pose-aware geometry');
+    await cdp('Fetch.disable');socket.removeEventListener('message',fetchBoss);
   }
 
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');

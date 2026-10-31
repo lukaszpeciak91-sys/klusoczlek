@@ -29,6 +29,7 @@ import {generateArenaLayout} from './arena-layout.js';
 import {createObstacleVisual} from './obstacle-renderer.js';
 import {firstFootprintHit,reachableCells} from './obstacle-geometry.js';
 import {MARCIN,createBossAttack,bossAttackStep,radialVolley,bossProjectileStep,landingPoint} from './marcin.js';
+import {MARCIN_VISUAL_BOUNDS} from './marcin-visual.js';
 import {createMarcinRenderer} from './marcin-renderer.js';
 import {enemyProjectileHit,enemyFlameVisible} from './enemy-damage.js';
 
@@ -187,7 +188,7 @@ export class ArenaScene extends Phaser.Scene {
     this.pickups=[];
     this.triggeredMilestones=new Set();
     this.pendingRewards=new Map();
-    this.enemyRenderers={bobrozombi:createBobrozombiRenderer(this,Phaser),bocianolak:createBocianolakRenderer(this,Phaser),zubrokryptyda:createZubrokryptydaRenderer(this,Phaser),marcin:createMarcinRenderer(this)};
+    this.enemyRenderers={bobrozombi:createBobrozombiRenderer(this,Phaser),bocianolak:createBocianolakRenderer(this,Phaser),zubrokryptyda:createZubrokryptydaRenderer(this,Phaser),marcin:createMarcinRenderer(this,Phaser)};
     this.enemyRenderer=this.enemyRenderers.bobrozombi;
     this.enemies=[0,1,2].flatMap(index=>{
       const point=safeEnemySpawn(this.player,this.obstacles,index,21,this.navigation);
@@ -433,7 +434,7 @@ export class ArenaScene extends Phaser.Scene {
 
   tryBeginBossEntrance(){
     if(!this.bossEntrancePending||this.bossEntrance||this.episode.specialSpawned.has('marcin'))return false;
-    const point=landingPoint(this.player,this.cameras.main.worldView,this.obstacles);
+    const point=landingPoint(this.player,this.cameras.main.worldView,this.obstacles,this.bossNavigation);
     if(!point||!this.bossNavigation.isReachable(point))return false;
     this.bossEntrancePending=false;
     const marker=this.add.graphics().setDepth(8);
@@ -446,8 +447,8 @@ export class ArenaScene extends Phaser.Scene {
     const e=this.bossEntrance,view=this.cameras.main.worldView;
     // A smaller landscape viewport may exclude a preselected landing point.
     // Reposition only the unlanded visual, never a live combat entity or camera.
-    if(!e.impact&&(e.point.x-72<view.x||e.point.x+72>view.right||e.point.y-125<view.y||e.point.y+44>view.bottom)){
-      const point=landingPoint(this.player,view,this.obstacles);
+    if(!e.impact&&(e.point.x-MARCIN_VISUAL_BOUNDS.side<view.x||e.point.x+MARCIN_VISUAL_BOUNDS.side>view.right||e.point.y-MARCIN_VISUAL_BOUNDS.top<view.y||e.point.y+MARCIN_VISUAL_BOUNDS.bottom>view.bottom)){
+      const point=landingPoint(this.player,view,this.obstacles,this.bossNavigation);
       if(!point)return;
       e.point=point;if(e.entity){e.entity.x=point.x;e.entity.y=point.y;}
     }
@@ -642,7 +643,7 @@ export class ArenaScene extends Phaser.Scene {
     this.drawFlameStream(origin,aim,now);
     this.emitFlame(origin,aim,now);
     for(const enemy of this.enemies){
-      if(enemy.dead||enemy.hp<=0||!enemyFlameVisible(origin,aim,enemy,this.obstacles,enemy.type==='zubrokryptyda'?this.enemyRenderers[enemy.type].damagePoseOf(enemy):null))continue;
+      if(enemy.dead||enemy.hp<=0||!enemyFlameVisible(origin,aim,enemy,this.obstacles,this.enemyRenderers[enemy.type].damagePoseOf?.(enemy)??null))continue;
       if(!cooldownReady(this.flameCooldowns,enemy,now,tune.damageInterval))continue;
       this.damageEnemy(enemy,tune.damage,origin,now);
       enemy.hitUntil=now+120;
@@ -890,7 +891,7 @@ export class ArenaScene extends Phaser.Scene {
       let enemyHit=null;
       for(const enemy of this.enemies){
         if(enemy.hp<=0)continue;
-        const hit=enemyProjectileHit(old,item.object,enemy,item.radius,enemy.type==='zubrokryptyda'?this.enemyRenderers[enemy.type].damagePoseOf(enemy):null);
+        const hit=enemyProjectileHit(old,item.object,enemy,item.radius,this.enemyRenderers[enemy.type].damagePoseOf?.(enemy)??null);
         if(hit&&(!enemyHit||hit.t<enemyHit.t))enemyHit={enemy,t:hit.t};
       }
       if(blocked&&(!enemyHit||blocked.t<=enemyHit.t)){
