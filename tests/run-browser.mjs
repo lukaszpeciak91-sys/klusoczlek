@@ -434,7 +434,12 @@ try {
   socket.addEventListener('message',onFetch);
   await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/player/player*.png*',requestStage:'Request'}]});
   await cdp('Page.enable');
+  await evaluate('window.__qaReloadPending=true');
   await cdp('Page.reload',{ignoreCache:true});
+  for(let boot=0;boot<100;boot++){
+    try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
+    await sleep(40);
+  }
   await waitFor(s=>s.menu&&s.actions.length===1,'synthetic sprite fresh page');
   await clickControl('NOWA GRA');
   const art=await waitFor(s=>s.arena&&s.playerVisual?.loaded,'actual synthetic RGBA sprite load');
@@ -519,7 +524,12 @@ try {
       .catch(error=>console.error('Delayed fixture fulfillment failed',error));
   };
   socket.addEventListener('message',onDelayedFetch);
+  await evaluate('window.__qaReloadPending=true');
   await cdp('Page.reload',{ignoreCache:true});
+  for(let boot=0;boot<100;boot++){
+    try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
+    await sleep(40);
+  }
   await waitFor(v=>v.menu&&!v.arena&&v.actions.length===1,'fresh game before delayed load');
   await clickControl('NOWA GRA');
   for(let attempt=0;attempt<50&&delayedRequest===null;attempt++)await sleep(80);
@@ -1317,7 +1327,12 @@ try {
 
 
   // Discard synthetic texture fixtures so PR41 screenshots use approved art.
+  await evaluate('window.__qaReloadPending=true');
   await cdp('Page.reload',{ignoreCache:true});
+  for(let boot=0;boot<100;boot++){
+    try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
+    await sleep(40);
+  }
   await waitFor(v=>v.menu&&v.actions.length===1,'PR41 clean real-art boot');
   // PR41: actual generated worlds, not a substitute for the full regressions above.
   for(const seed of [1,41,104729]){
@@ -1389,6 +1404,130 @@ try {
     await writeFile('dist/pr41-seed-'+seed+'-568x320.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
     console.log('PASS PR41 seed '+seed+': generated counts '+JSON.stringify(initial.counts)+', live heavy detour '+maxLateral.toFixed(1)+'px, Arcade capsule, MENU and orientation');
   }
+
+
+  // PR42: approved art, real projectile stepping and accepted-source barks.
+  await evaluate('window.__qaReloadPending=true');
+  await cdp('Page.reload',{ignoreCache:true});
+  for(let boot=0;boot<100;boot++){
+    try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
+    await sleep(40);
+  }
+  await waitFor(v=>v.menu&&v.actions.length===1,'PR42 real-art boot');
+  for(const [seed,width,height] of [[1,320,240],[41,568,320],[104729,800,360]]){
+    arenaRun=[1,41,104729].indexOf(seed);
+    if(!(await snapshot()).menu)await clickControl('hud');
+    await clickControl('NOWA GRA');
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+    await evaluate('window.__game.scale.refresh();true');
+    await evaluate(`(async()=>{
+      const a=window.__game.scene.getScene('Arena');await a.enemyRenderers.zubrokryptyda.loading;
+      for(const e of a.enemies){e.sprite.destroy();e.burningFx?.destroy();}
+      a.player.body.reset(880,545);a.invulnerableUntil=Infinity;a.spawnDueAt=null;
+      a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');
+      const e=a.createEnemy('zubrokryptyda',{x:1000,y:600},900);a.enemies=[e];
+      a.enemyRenderers.zubrokryptyda.update(e,a.player,0,0);
+      a.cameras.main.centerOn(a.player.x,a.player.y);
+      window.__pr42Heavy=e;
+    })()`);
+    await sleep(90);
+    for(const [weapon,expected] of [['blunderbuss',7],['rifle',6]]){
+      await evaluate(`window.__game.scene.getScene('Arena').spawnShot({x:1,y:0},'${weapon}',window.__game.scene.getScene('Arena').time.now)`);
+      await sleep(240);
+      assert.equal(await evaluate('window.__pr42Heavy.hp'),expected,'Visible shoulder projectile '+weapon+' seed '+seed);
+    }
+    const blocked=await evaluate(`(async()=>{
+      const a=window.__game.scene.getScene('Arena');
+      const {createObstacleVisual}=await import('/klusoczlek/src/obstacle-renderer.js');
+      const o=window.__createObstacle('rock',{id:'pr42-block',x:a.player.x+65,y:a.player.y});
+      o.sprite=createObstacleVisual(a,o);a.obstacles.push(o);window.__pr42Block=o;
+      a.spawnShot({x:1,y:0},'rifle',a.time.now);return window.__pr42Heavy.hp;
+    })()`);
+    await sleep(240);assert.equal(await evaluate('window.__pr42Heavy.hp'),blocked,'Shot passed through rock');
+    const flame=await evaluate(`(async()=>{
+      const a=window.__game.scene.getScene('Arena'),e=window.__pr42Heavy;
+      window.__pr42Block.sprite.destroy();a.obstacles=a.obstacles.filter(o=>o!==window.__pr42Block);
+      a.player.body.reset(900,520);e.x=1000;e.y=600;e.hp=8;
+      a.enemyRenderers.zubrokryptyda.update(e,a.player,0,0);a.flameCooldowns.clear();
+      const {flameTargetVisible}=await import('/klusoczlek/src/weapon-combat.js');
+      const old=flameTargetVisible({x:932,y:520},{x:1,y:0},e,30,a.obstacles);
+      a.applyFlame({x:1,y:0},a.time.now);return {old,hp:e.hp};
+    })()`);
+    assert.equal(flame.old,false,'Fixture must expose old feet-circle flame miss');assert.equal(flame.hp,7,'Visible head flame miss');
+    const occluded=await evaluate(`(async()=>{
+      const a=window.__game.scene.getScene('Arena'),e=window.__pr42Heavy;
+      const {createObstacleVisual}=await import('/klusoczlek/src/obstacle-renderer.js');
+      const o=window.__createObstacle('fallen_log',{id:'pr42-flame-wall',x:960,y:535,angle:Math.PI/2});
+      o.sprite=createObstacleVisual(a,o);a.obstacles.push(o);a.flameCooldowns.clear();
+      const before=e.hp;a.applyFlame({x:1,y:0},a.time.now+300);const after=e.hp;
+      o.sprite.destroy();a.obstacles=a.obstacles.filter(v=>v!==o);return {before,after};
+    })()`);
+    assert.equal(occluded.after,occluded.before,'Flame passed through rotated capsule');
+    const radius=await evaluate("(async()=>{const {ENEMY_TYPES}=await import('/klusoczlek/src/enemy-types.js');return ENEMY_TYPES.zubrokryptyda.radius})()");
+    assert.equal(radius,30);
+    await writeFile('dist/pr42-heavy-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    // Miss, blocked projectile, successful projectile, repeated damage and fatal explosion.
+    await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.burningFx?.destroy();e.sprite.destroy();}
+      a.player.body.reset(900,600);a.spawnDueAt=null;
+      const e=a.createEnemy('bocianolak',{x:1010,y:600},901);a.enemies=[e];window.__pr42Stork=e;
+      a.spawnShot({x:0,y:-1},'rifle',a.time.now);
+    })()`);
+    await sleep(100);assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),0,'Miss triggered bark');
+    await evaluate(`(async()=>{
+      const a=window.__game.scene.getScene('Arena');const {createObstacleVisual}=await import('/klusoczlek/src/obstacle-renderer.js');
+      const o=window.__createObstacle('rock',{id:'pr42-stork-wall',x:960,y:600});o.sprite=createObstacleVisual(a,o);a.obstacles.push(o);window.__pr42Block=o;
+      a.spawnShot({x:1,y:0},'rifle',a.time.now);
+    })()`);
+    await sleep(140);assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),0,'Blocked shot triggered bark');
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');window.__pr42Block.sprite.destroy();a.obstacles=a.obstacles.filter(o=>o!==window.__pr42Block);a.spawnShot({x:1,y:0},'rifle',a.time.now)})()");
+    await sleep(180);
+    assert.equal(await evaluate('window.__pr42Stork.hp'),1);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),1);
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.flameCooldowns.clear();a.applyFlame({x:1,y:0},a.time.now);a.applyFlame({x:1,y:0},a.time.now+300);a.spawnDueAt=null;})()");
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),1,'Flame ticks repeated bark');
+    const fatal=await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena');const e=a.createEnemy('bocianolak',{x:1000,y:600},902);a.enemies.push(e);
+      const b=window.__createObstacle('toxic_barrel',{id:'pr42-fatal-barrel',x:1000,y:600});b.hp=1;b.sprite=a.add.circle(b.x,b.y,23,0x9c7040);a.obstacles.push(b);
+      a.hitObstacle(b,a.time.now);a.spawnDueAt=null;return {dead:e.dead,barks:a.hitBarks.size};
+    })()`);
+    assert.deepEqual(fatal,{dead:true,barks:height<=240?1:2});
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(let i=0;i<6;i++){const e=a.createEnemy('bocianolak',{x:900+i*5,y:610},910+i);a.enemies.push(e);a.damageEnemy(e,1,a.player,a.time.now)}})()");
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),height<=240?1:3,'Bark cap exceeded');
+    const barkBounds=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.children.list.filter(o=>o.type==='Text'&&o.text==='Tylko nie po nogach!').map(o=>({text:o.text,input:!!o.input,bounds:{x:o.getBounds().x,y:o.getBounds().y,right:o.getBounds().right,bottom:o.getBounds().bottom}}))})()");
+    assert.equal(barkBounds.length,height<=240?1:3);
+    for(const b of barkBounds){assert.equal(b.text,'Tylko nie po nogach!');assert.equal(b.input,false);assert.ok(b.bounds.x>=0&&b.bounds.right<=width&&b.bounds.y>=104&&b.bounds.bottom<=height);}
+    await writeFile('dist/pr42-barks-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    await sleep(1800);assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),0,'Bark objects survived lifetime');
+    console.log('PASS PR42 seed '+seed+' '+width+'x'+height+': shoulder Pukawka/rifle, head flame, obstacle occlusion, radius30, once-only/fatal/bounded barks');
+  }
+
+
+  // Missing-PNG path: new page/game and an actual failed approved-art request.
+  const noHeavyArt=event=>{
+    const m=JSON.parse(event.data);if(m.method==='Fetch.requestPaused')void cdp('Fetch.fulfillRequest',{requestId:m.params.requestId,responseCode:404,body:''});
+  };
+  socket.addEventListener('message',noHeavyArt);
+  await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/enemies/zubrokryptyda.png*',requestStage:'Request'}]});
+  await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
+  for(let boot=0;boot<100;boot++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
+  await waitFor(v=>v.menu&&v.actions.length===1,'PR42 missing-art boot');
+  await clickControl('NOWA GRA');
+  const fallback=await evaluate(`(async()=>{
+    const a=window.__game.scene.getScene('Arena');await a.enemyRenderers.zubrokryptyda.loading;
+    for(const e of a.enemies)e.sprite.destroy();a.player.body.reset(880,550);a.spawnDueAt=null;
+    a.introducedEnemyTypes.add('before-first-zubrokryptyda');
+    const e=a.createEnemy('zubrokryptyda',{x:1000,y:600},960);a.enemies=[e];window.__pr42Heavy=e;
+    a.enemyRenderers.zubrokryptyda.update(e,a.player,0,0);a.spawnShot({x:1,y:0},'rifle',a.time.now);
+    return {loaded:a.enemyRenderers.zubrokryptyda.loaded,fallback:a.enemyRenderers.zubrokryptyda.fallback};
+  })()`);
+  assert.deepEqual(fallback,{loaded:false,fallback:true});await sleep(240);assert.equal(await evaluate('window.__pr42Heavy.hp'),7);
+  await writeFile('dist/pr42-missing-heavy-art.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const e=a.createEnemy('bocianolak',{x:1000,y:600},970);a.enemies.push(e);a.damageEnemy(e,1,a.player,a.time.now);window.__pr42OldBarks=a.hitBarks;window.__pr42OldText=a.children.list.find(o=>o.type==='Text'&&o.text==='Tylko nie po nogach!')})()");
+  await clickControl('hud');await clickControl('NOWA GRA');
+  assert.deepEqual(await evaluate('({size:window.__pr42OldBarks.size,active:window.__pr42OldText.active})'),{size:0,active:false},'Bark leaked across shutdown');
+  await cdp('Fetch.disable');socket.removeEventListener('message',noHeavyArt);
+  console.log('PASS PR42 missing approved PNG: procedural-body projectile hit, active bark shutdown cleanup');
 
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {

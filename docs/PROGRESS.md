@@ -1,5 +1,11 @@
 # PROGRESS
 
+## PR42 — heavy visible-body hits and Bocianołak first-hit bark (2026-10-31; independent audit required)
+- Base main after PR41: `2619038e8894bc6e9e35ef418b160ac2f9509002`. Audited all8 approved heavy PNG frames; three PR40 damage circles follow actual sprite pose. Movement/spawn/navigation/contact remains r30; explosions and other species' hit circles unchanged.
+- One accepted-damage adapter triggers “Tylko nie po nogach!” once per Bocianołak, including fatal first damage. Cosmetic1700ms scene-owned text, maximum3 (1 at240px height), no pause/input interception; shutdown releases texts/listener.
+- RED shoulder-ray miss reproduced. Executed npm ci, Node151/151, build and full Chromium38 PASS groups (seeds1/41/104729, all requested viewports, actual projectiles/flame/occlusion and failed-PNG fallback). All final local commands exit0. CI status belongs to actual PR head; see PR description/external evidence.
+- Physical Android remains NOT RUN. See `docs/pr42-enemy-damage.md` for geometry, performance implications and remaining approximation limits. No merge/deploy/art/binary/dependency changes; stop for separate independent audit.
+
 ## PR41 — seeded Arena V2 clearing (2026-10-31; independent audit required)
 - Based on merged PR40 main `0ff98846e9f97f64fc6ca1509b3272624e924364`. Catalog-driven deterministic generation, six procedural placeholder families, broad spacing/open center, finite rejection and diagnostics.
 - PR40 footprints now control one swept/sliding player/enemy adapter, projectile first-surface ordering, flame blockers, spawns and reachable pickups. Removed old fixed layouts, circular Arcade proxies and three shooting dummies.

@@ -103,6 +103,12 @@ function createEnemyRenderer(scene,Phaser,type){
     }
   };
   const feedbackOf=enemy=>enemy.sprite.getData(feedbackKey);
+  const damagePoseOf=enemy=>{
+    const art=enemy.sprite.getData(artKey);
+    if(art?.active)return {art:true,x:enemy.sprite.x+art.x,y:enemy.sprite.y+art.y,angle:art.rotation,scale:art.scaleX};
+    const fx=pose(enemy.sprite.getData(feedbackKey),type,scene.time.now);
+    return {art:false,x:enemy.x+fx.x,y:enemy.y+fx.y};
+  };
   const shutdown=()=>{alive=false;containers.clear();};
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN,shutdown);
   // One request per Arena session, independent of individual enemy spawns.
@@ -137,5 +143,5 @@ function createEnemyRenderer(scene,Phaser,type){
       if(alive)console.info('['+type+'] procedural fallback:',error.message);
     }
   })();
-  return {create,update,feedbackOf,shutdown,loading,get loaded(){return ready;},get fallback(){return failed;}};
+  return {create,update,feedbackOf,damagePoseOf,shutdown,loading,get loaded(){return ready;},get fallback(){return failed;}};
 }

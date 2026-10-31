@@ -27,7 +27,9 @@ import { enforceOrientationOnSceneStart } from './viewport.js';
 import {OBSTACLE_RULES,resolveObstaclePosition,steerObstacleStep,segmentObstacleHit,damageObstacle,inExplosion} from './obstacles.js';
 import {generateArenaLayout} from './arena-layout.js';
 import {createObstacleVisual} from './obstacle-renderer.js';
-import {firstFootprintHit,segmentFootprintHit} from './obstacle-geometry.js';
+import {firstFootprintHit} from './obstacle-geometry.js';
+import {enemyProjectileHit,enemyFlameVisible} from './enemy-damage.js';
+import {createEnemyHitBarks} from './enemy-hit-barks.js';
 
 const COLORS = {
   background: 0x0e101a,
@@ -149,6 +151,7 @@ export class ArenaScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>obstacleWorld.off('worldstep',this.onObstacleWorldStep));
     this.explosionEffects=[];
     this.deathBursts=[];
+    this.hitBarks=createEnemyHitBarks(this);
     // VFX runs on the game clock, independent of frozen/paused combat Scene updates.
     this.onDeathVfxStep=()=>updateBursts(this.deathBursts,this.game.loop.delta);
     this.game.events.on('step',this.onDeathVfxStep);
@@ -530,10 +533,9 @@ export class ArenaScene extends Phaser.Scene {
     this.drawFlameStream(origin,aim,now);
     this.emitFlame(origin,aim,now);
     for(const enemy of this.enemies){
-      if(enemy.dead||enemy.hp<=0||!flameTargetVisible(origin,aim,enemy,ENEMY_TYPES[enemy.type].radius,this.obstacles))continue;
+      if(enemy.dead||enemy.hp<=0||!enemyFlameVisible(origin,aim,enemy,this.obstacles,enemy.type==='zubrokryptyda'?this.enemyRenderers[enemy.type].damagePoseOf(enemy):null))continue;
       if(!cooldownReady(this.flameCooldowns,enemy,now,tune.damageInterval))continue;
-      enemy.hp=applyEnemyHit(enemy.hp,tune.damage);
-      if(enemy.hp>0)this.enemyHit(enemy,origin,now);
+      this.damageEnemy(enemy,tune.damage,origin,now);
       enemy.hitUntil=now+120;
       if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
       else {
@@ -559,8 +561,7 @@ export class ArenaScene extends Phaser.Scene {
     this.explosionEffects.push({sprite:blast,until:now+180});
     for(const enemy of this.enemies){
       if(enemy.hp>0&&inExplosion(enemy,blocked)){
-        enemy.hp=applyEnemyHit(enemy.hp,OBSTACLE_RULES.enemyExplosionDamage);
-        if(enemy.hp>0)this.enemyHit(enemy,blocked,now);
+        this.damageEnemy(enemy,OBSTACLE_RULES.enemyExplosionDamage,blocked,now);
         enemy.hitUntil=now+120;
         if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
         else enemy.sprite.setAlpha(0.45);
@@ -596,6 +597,16 @@ export class ArenaScene extends Phaser.Scene {
 
   enemyHit(enemy,source,now){
     if(!enemy.dead&&enemy.hp>0)recordHit(this.enemyRenderers[enemy.type].feedbackOf(enemy),now,source,enemy);
+  }
+
+  damageEnemy(enemy,amount,source,now){
+    if(enemy.dead||enemy.hp<=0)return false;
+    const before=enemy.hp;
+    enemy.hp=applyEnemyHit(before,amount);
+    if(enemy.hp>=before)return false;
+    this.hitBarks.accept(enemy,before,enemy.hp);
+    if(enemy.hp>0)this.enemyHit(enemy,source,now);
+    return true;
   }
 
   finalizeEnemyDeath(enemy){
@@ -758,15 +769,14 @@ export class ArenaScene extends Phaser.Scene {
       let enemyHit=null;
       for(const enemy of this.enemies){
         if(enemy.hp<=0)continue;
-        const hit=segmentFootprintHit(old,item.object,{shape:'circle',x:enemy.x,y:enemy.y,angle:0,radius:ENEMY_TYPES[enemy.type].radius},item.radius);
+        const hit=enemyProjectileHit(old,item.object,enemy,item.radius,enemy.type==='zubrokryptyda'?this.enemyRenderers[enemy.type].damagePoseOf(enemy):null);
         if(hit&&(!enemyHit||hit.t<enemyHit.t))enemyHit={enemy,t:hit.t};
       }
       if(blocked&&(!enemyHit||blocked.t<=enemyHit.t)){
         this.hitObstacle(blocked.obstacle,this.time.now);item.hit=true;if(this.defeated)return;
       }else if(enemyHit){
         const enemy=enemyHit.enemy;
-        enemy.hp=applyEnemyHit(enemy.hp,item.damage);
-        if(enemy.hp>0)this.enemyHit(enemy,old,this.time.now);
+        this.damageEnemy(enemy,item.damage,old,this.time.now);
         enemy.hitUntil=this.time.now+120;enemy.sprite.setAlpha(0.45);item.hit=true;
         if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
       }

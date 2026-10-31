@@ -66,3 +66,9 @@ D022 remains superseded by D024 (Phaser RESIZE instead of fixed logical height).
 
 Nowe decyzje: dopisz kolejny ID, zapisując konsekwencje; nie przepisuj historii.
 
+### D031 — ACCEPTED (PR42, 2026-10-31)
+Żubrokryptyda has an artwork-aligned damage footprint for projectiles/flame separate from its unchanged radius30 movement/spawn/navigation/contact circle. Simple supported-shape composition only; no headshots, damage multipliers, pixel collision or explosion tuning changes. Other enemies' damage circles remain unchanged.
+
+### D032 — ACCEPTED (PR42, 2026-10-31)
+The first accepted damaging hit to each Bocianołak shows “Tylko nie po nogach!” as short bounded noninteractive floating text, including a deterministic detached lifetime after fatal first damage. It is not a narrative boundary or pause and cannot gate wave progression.
+
