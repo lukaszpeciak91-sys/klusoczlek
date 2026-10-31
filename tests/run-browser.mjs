@@ -1881,6 +1881,41 @@ try {
     console.log('PASS PR46 '+width+'x'+height+': '+(seed===1?'real first12–20s interval, ':'')+'single pooled bubble, anchors/phrases, twin sticks, pause/focus/resize, death/shutdown, PR43, pending boss/landing/finale suppression and NEW GAME reset');
   }
 
+  // PR47: actual generated forest orientations, not renderer-only corrections.
+  assert.ok(forestBytes,'PR47 visual QA requires the real approved forest atlas');
+  const orientationShot=async(name,width,height)=>{
+    const png=Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64');
+    assert.deepEqual([png.readUInt32BE(16),png.readUInt32BE(20)],[width,height],'Orientation screenshot viewport '+name);
+    await writeFile('dist/'+name,png);
+  };
+  for(const seed of [1,41,104729])for(const [width,height] of [[568,320],[800,360]]){
+    if(!(await snapshot()).menu){await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'orientation MENU');}
+    arenaRun=[1,41,104729].indexOf(seed);await clickControl('NOWA GRA');
+    // NOWA GRA also checks opening-dialogue resizes; set target metrics after it.
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');await sleep(100);
+    const state=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena'),m=await import('/klusoczlek/src/obstacle-renderer.js');await m.obstacleAtlasRenderer(a).loading;
+      a.spawnDueAt=null;a.physics.world.pause();
+      return {seed:a.arenaSeed,all:a.obstacles.every(o=>o.angle===0&&o.footprint.angle===0&&o.sprite.rotation===0&&o.sprite.getData('atlasSprite')?.rotation===0&&!o.sprite.getData('fallback').visible),
+        loaded:m.obstacleAtlasRenderer(a).loaded,objects:a.obstacles.length,counts:a.layoutDiagnostics.counts,viewport:[a.scale.width,a.scale.height],
+        navigation:a.navigation.free===a.navigation.visited};})()`);
+    assert.equal(state.seed,seed);assert.ok(state.all&&state.loaded&&state.navigation&&state.objects>0,JSON.stringify(state));
+    assert.deepEqual(state.viewport,[width,height]);
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.cameras.main.stopFollow().setZoom(Math.min(a.scale.width/1800,a.scale.height/1200)).centerOn(900,600)})()");await sleep(80);
+    await orientationShot('pr47-seed-'+seed+'-'+width+'x'+height+'-overview.png',width,height);
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),o=a.obstacles.find(o=>o.type==='fallen_log');a.cameras.main.setZoom(1).centerOn(o.x,o.y+35)})()");await sleep(80);
+    await orientationShot('pr47-seed-'+seed+'-'+width+'x'+height+'-detail.png',width,height);
+    console.log('PASS PR47 seed '+seed+' '+width+'x'+height+': all generated/footprint/container/image angles0, approved PNG, connected navigation; counts '+JSON.stringify(state.counts));
+  }
+  // Readable all-variant gallery sourced from canonical generated definitions.
+  const gallery=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena');const {generateArenaLayout}=await import('/klusoczlek/src/arena-layout.js');const {createObstacle}=await import('/klusoczlek/src/obstacle-catalog.js');const m=await import('/klusoczlek/src/obstacle-renderer.js');
+    const variants=new Map();for(let seed=0;seed<16;seed++)for(const o of generateArenaLayout(seed).obstacles)variants.set(m.obstacleArt(o).frame,o);
+    for(const o of a.obstacles)o.sprite.destroy();a.obstacles=[];a.cameras.main.stopFollow().setZoom(1).centerOn(900,600);
+    for(const [frame,source] of [...variants].sort((a,b)=>a[0]-b[0])){const o=createObstacle(source.type,{id:'canonical-gallery-'+frame,x:600+(frame%6)*120,y:570+Math.floor(frame/6)*125,variant:source.variant,angle:source.angle});o.sprite=m.createObstacleVisual(a,o);a.obstacles.push(o);}
+    return a.obstacles.map(o=>({frame:Number(o.sprite.getData('atlasSprite').frame.name),angle:o.angle,footprint:o.footprint.angle,container:o.sprite.rotation,image:o.sprite.getData('atlasSprite').rotation}));})()`);
+  assert.deepEqual(gallery.map(o=>o.frame),[...Array(12).keys()]);assert.ok(gallery.every(o=>o.angle===0&&o.footprint===0&&o.container===0&&o.image===0));
+  await sleep(80);await orientationShot('pr47-canonical-gallery-800x360.png',800,360);
+  console.log('PASS PR47 all12 generated semantic variants: canonical actual atlas gallery, matching render/physics orientation');
+
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {
   socket?.close();
