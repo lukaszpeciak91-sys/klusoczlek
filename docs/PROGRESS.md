@@ -1,5 +1,11 @@
 # PROGRESS
 
+## PR46 — ambient combat barks V1 (2026-10-31; independent audit required)
+- Verified merged PR44/45 and latest main `b9097fc819755bc2844b2f6907e485548f9b13b0`, including the user's actual obstacle atlas. One independent cosmetic session scheduler, exact seven-line pool, first12–20s/subsequent15–25s/lifetime1800–2300ms, maximum1/no immediate repeats or backlog.
+- Living visible ordinary enemies only; actual rendered frame/fallback anchors, pooled noninteractive retro bubble, HUD/full joystick-area exclusions and no-room suppression. Clear through narrative/menu/focus/portrait/terminal states and pending Marcin introduction through landing. MENU preserves delay/history; NOWA GRA resets. PR43 portrait dialogue and all combat/timer contracts unchanged.
+- RED missing module → four focused GREEN tests. Final npm ci, Node170/170, build and full real Chromium57 PASS groups all exited0. Chromium568×320/seed1 and800×360/seed41 passed natural initial interval (full run15.432s), lifetime, touch, camera/short resize, death/shutdown, PR43, boss pending/landing and finale suppression. Retained regressions include seeds1/41/104729, six-wave141-death completion and optional pickups. GitHub CI status/link belongs to the published PR/external QA evidence.
+- See `docs/pr46-ambient-barks.md`. No binary/dependency changes, merge or deploy. Physical Android NOT RUN; separate independent audit requested.
+
 ## PR45 — forest obstacle production-art code handoff (2026-10-31; independent audit required)
 - Verified PR40–44 merged; base main `ccfe5da4ec14509df6e683f4bc44c44ca2a1dfb5`. Actual attached ZIP audited:1024×768 RGBA8 atlas,12 exact256px frames/individuals/JSON bounds, unchanged SHA256937912656422d9f549f707396228f34d595f88365c53faf896a320d5b0bc49b0.
 - User changed delivery to code/paths only after direct Git binary commit succeeded locally but push lacked terminal credentials(exit128). PNG is excluded from PR; user uploads `public/assets/obstacles/forest-obstacles.png`. Supplied JSON/mapping and a visible async-safe procedural fallback ship in code.

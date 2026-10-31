@@ -109,6 +109,15 @@ function createEnemyRenderer(scene,Phaser,type){
     const fx=pose(enemy.sprite.getData(feedbackKey),type,scene.time.now);
     return {art:false,x:enemy.x+fx.x,y:enemy.y+fx.y};
   };
+  // Read-only visual anchor, including actual frame transform/gait/feedback.
+  const speechAnchorOf=enemy=>{
+    const container=enemy.sprite;if(!container?.active||!container.visible||container.alpha<=0)return null;
+    const art=container.getData(artKey),parts=art?.active&&art.visible&&art.alpha>0?[art]:container.list.filter(c=>c.active&&c.visible&&c.alpha>0);
+    if(!parts.length)return null;
+    let left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
+    for(const part of parts){const b=part.getBounds();left=Math.min(left,b.left);top=Math.min(top,b.top);right=Math.max(right,b.right);bottom=Math.max(bottom,b.bottom);}
+    return {x:(left+right)/2,y:top,left,top,right,bottom};
+  };
   const shutdown=()=>{alive=false;containers.clear();};
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN,shutdown);
   // One request per Arena session, independent of individual enemy spawns.
@@ -143,5 +152,5 @@ function createEnemyRenderer(scene,Phaser,type){
       if(alive)console.info('['+type+'] procedural fallback:',error.message);
     }
   })();
-  return {create,update,feedbackOf,damagePoseOf,shutdown,loading,get loaded(){return ready;},get fallback(){return failed;}};
+  return {create,update,feedbackOf,damagePoseOf,speechAnchorOf,shutdown,loading,get loaded(){return ready;},get fallback(){return failed;}};
 }
