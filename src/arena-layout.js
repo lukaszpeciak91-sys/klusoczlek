@@ -40,7 +40,10 @@ export function generateArenaLayout(seed,config={}){
    for(let retry=0;retry<attempts;retry++){
     diagnostics.attempted++;
     const zone=zones[Math.floor(random()*zones.length)];
-    const o=createObstacle(type,{id:type+'-'+i,x:zone.x+random()*zone.width,y:zone.y+random()*zone.height,angle:random()*Math.PI*2,variant:variants[Math.floor(random()*variants.length)]});
+    const x=zone.x+random()*zone.width,y=zone.y+random()*zone.height;
+    random(); // Preserve the seeded stream slot formerly used for rotation.
+    // Episode 1 painterly art and authoritative footprints share authored orientation.
+    const o=createObstacle(type,{id:type+'-'+i,x,y,angle:0,variant:variants[Math.floor(random()*variants.length)]});
     if(placementSafe(o,obstacles)){obstacles.push(o);accepted=true;break;}
     diagnostics.rejected++;
    }

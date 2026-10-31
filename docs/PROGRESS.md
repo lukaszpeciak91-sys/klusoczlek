@@ -1,5 +1,11 @@
 # PROGRESS
 
+## PR47 — forest obstacle authored orientation (2026-10-31; independent audit required)
+- Verified merged PR45 and PR46; latest main `7122f440ee3e66f9041182dcc12fbf74a1c2575e`. Generator now creates every forest variant at angle0, with the same authoritative footprint orientation. Renderer/geometry/catalog/atlas metadata remain unchanged; generic explicitly rotated PR40 shapes still work.
+- Preserve the old RNG stream slot; identical seeds reproduce. Only validation-driven placement differences may result from horizontal footprints. Counts/distribution targets, dimensions, combat, spawn/pickup policies, six waves/boss and UI stay unchanged.
+- RED3/4 failed on old generated angle/surface/renderer → focused GREEN4/4. Full Node174/174, npm ci/build and real Chromium64 PASS groups all exit0. Reviewed13 screenshots: seeds1/41/104729 at568×320 and800×360 (actual Phaser and PNG dimensions asserted), plus an all12-variant gallery. Initial viewport-fixture issue was corrected before counting final evidence. Tested seeds preserve original positions/variants/counts; radii17/18/21/30/40, spawn/reward reachability and generic rotated geometry pass. Screenshots stay outside Git; GitHub CI link/status belongs to the published PR.
+- Physical Android NOT RUN. Independent read-only audit required before merge; no merge/deploy/image generation/binary changes.
+
 ## PR46 — ambient combat barks V1 (2026-10-31; independent audit required)
 - Verified merged PR44/45 and latest main `b9097fc819755bc2844b2f6907e485548f9b13b0`, including the user's actual obstacle atlas. One independent cosmetic session scheduler, exact seven-line pool, first12–20s/subsequent15–25s/lifetime1800–2300ms, maximum1/no immediate repeats or backlog.
 - Living visible ordinary enemies only; actual rendered frame/fallback anchors, pooled noninteractive retro bubble, HUD/full joystick-area exclusions and no-room suppression. Clear through narrative/menu/focus/portrait/terminal states and pending Marcin introduction through landing. MENU preserves delay/history; NOWA GRA resets. PR43 portrait dialogue and all combat/timer contracts unchanged.
