@@ -1,5 +1,12 @@
 # PROGRESS
 
+## PR44 — Marcin, final encounter inside wave6 (2026-10-31; independent audit required)
+- Verified merged PR43 main `02460512b12304a6d7e126019b2cd81f9593d23f`. Original six-wave138 schedule retained, plus unique Marcin/two-escort roster; derived HUD/completion total141.
+- Deferred standard two-line Bobrozombi caller at six remaining normal enemies (living+queued), followed by safe viewport landing with pause/descent/dust/shake and MENU/focus/orientation lifecycle. Exactly two additional ordinary heavies; final dialogue remains verbatim and waits for every normal/special death.
+- Separate r40 movement/contact and four-circle body damage union, massive procedural placeholder, existing PR40/41/42 collision/steering/combat. Provisional HP36/speed38, telegraphed eight-way volley, lower cooldown at one-thirdHP, compact bar, enlarged existing pixel death. No new PNGs/dependencies or original weapon/balance changes.
+- RED3 → focused GREEN; final Node159/159. Three seeded real Chromium focused scenarios passed, including actual weapons, obstacle-blocked boss shots, invulnerability, live detour76px, paused landing and active-volley death. Full final suite/build/browser and GitHub CI status belongs to published PR/evidence.
+- See `docs/pr44-marcin.md`. Physical Android NOT RUN; provisional balance and manual artwork handoff need user acceptance. No merge/deploy/binary commits.
+
 ## PR43 — Bocianołak session first-hit dialogue correction (2026-10-31; independent audit required)
 - Base main after merged PR42: `5415f1db3f6c47ddd2c357c594d1f0ccd5e82d53`. Corrected narrative intent: standard Bocianołak portrait panel, exact one line “Tylko nie po nogach!”, once per new Arena session.
 - First accepted HP reduction claims one session flag and queues the existing narrative boundary. UI drains after complete damage/death batches; fatal first hits and a simultaneous final-enemy boundary retain death effects and normal finale order. MENU/WZNÓW preserves the flag; NOWA GRA resets it.

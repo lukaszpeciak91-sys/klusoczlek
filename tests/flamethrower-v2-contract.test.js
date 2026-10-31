@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {COMBAT_TUNING,flameTargetVisible,cooldownReady} from '../src/weapon-combat.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,isBurning} from '../src/enemy-panic.js';
-import {WAVES,TOTAL_ENEMIES,TOTAL_WAVES,INTERMISSION_MS,HEALTH_AFTER_WAVES,createEpisode,recordSpawn,recordDeath,nextType,waveCapacity,advanceEpisode} from '../src/episode.js';
+import {WAVES,TOTAL_ENEMIES,TOTAL_WAVES,INTERMISSION_MS,HEALTH_AFTER_WAVES,createEpisode,recordSpawn,recordDeath,FINAL_ENCOUNTER,recordSpecialSpawn,nextType,waveCapacity,advanceEpisode} from '../src/episode.js';
 
 test('flame damage and visual cone contract retain their original values',()=>{
  const t=COMBAT_TUNING.flamethrower;
@@ -46,7 +46,7 @@ test('exact expiry hit cannot skip immunity even without update frame',()=>{
 });
 test('six-wave episode contract and exact spawn/death progression',()=>{
  const expected=[[12,0,0,4],[11,5,0,5],[11,8,1,6],[11,11,3,7],[12,14,4,8],[12,17,6,9]];
- assert.equal(TOTAL_ENEMIES,138);assert.equal(TOTAL_WAVES,6);
+ assert.equal(TOTAL_ENEMIES,141);assert.equal(TOTAL_WAVES,6);
  assert.equal(INTERMISSION_MS,3000);
  assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
  assert.deepEqual(WAVES.map(w=>[
@@ -64,13 +64,14 @@ test('six-wave episode contract and exact spawn/death progression',()=>{
    const living=wave.enemies.length-j-1;
    const event=recordDeath(ep,living,i*10000);
    if(j<wave.enemies.length-1)assert.equal(event,null);
-   else assert.equal(event,i===5?'final-cleared':'wave-cleared');
+   else assert.equal(event,i===5?null:'wave-cleared');
   }
   if(i<5){
    assert.equal(advanceEpisode(ep,i*10000+2999),false);
    assert.equal(advanceEpisode(ep,i*10000+3000),true);
   }
  }
+ for(const spec of FINAL_ENCOUNTER){recordSpecialSpawn(ep,spec.id);recordDeath(ep,0,60000,spec.id);}
  assert.equal(ep.state,'final-pending');
 });
 test('burning living final enemy never counts as a wave death',()=>{

@@ -4,8 +4,8 @@ import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue,currentDialo
 import {validDialoguePng} from '../src/dialogue-ui.js';
 import {WAVES,TOTAL_ENEMIES,INTERMISSION_MS,HEALTH_AFTER_WAVES} from '../src/episode.js';
 test('four original and one first-hit boundary dialogues and approved speaker sequence',()=>{
- assert.deepEqual(Object.keys(DIALOGUES),['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy','after-first-bocianolak-hit']);
- assert.deepEqual(Object.values(DIALOGUES).map(lines=>lines.length),[3,3,2,3,1]);
+ assert.deepEqual(Object.keys(DIALOGUES),['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy','before-marcin','after-first-bocianolak-hit']);
+ assert.deepEqual(Object.values(DIALOGUES).map(lines=>lines.length),[3,3,2,3,2,1]);
  const state=createDialogueState();
  for(const [id,lines] of Object.entries(DIALOGUES)){
   assert.equal(beginDialogue(state,id),true);
@@ -22,7 +22,7 @@ test('restart starts with no active narrative and fixed six-wave contract',()=>{
  const state=createDialogueState();beginDialogue(state,'before-wave-1');
  assert.deepEqual(createDialogueState(),{id:null,index:0});
  assert.deepEqual(WAVES.map(w=>w.maxAlive),[4,5,6,7,8,9]);
- assert.equal(WAVES.length,6);assert.equal(TOTAL_ENEMIES,138);
+ assert.equal(WAVES.length,6);assert.equal(TOTAL_ENEMIES,141);
  assert.equal(INTERMISSION_MS,3000);assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
 });
 

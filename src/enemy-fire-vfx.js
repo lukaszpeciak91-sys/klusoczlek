@@ -1,5 +1,6 @@
 // One reusable Phaser Graphics object per burning enemy; no textures, physics or timers.
 const SHAPES=Object.freeze({
+ marcin:{width:67,height:46,y:-60},
  bobrozombi:{width:19,height:23,y:-16},
  bocianolak:{width:14,height:32,y:-27},
  zubrokryptyda:{width:34,height:27,y:-45}

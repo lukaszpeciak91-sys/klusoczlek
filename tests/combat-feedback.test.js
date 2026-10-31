@@ -11,7 +11,7 @@ test('distinct enemy attack poses peak and return without world-coordinate mutat
   assert.equal(pose(state,type,1000+ATTACK_PROFILES[type].duration+1).x,0);
   assert.deepEqual(from,{x:20,y:40});
  }
- assert.deepEqual(Object.values(ATTACK_PROFILES).map(p=>p.duration),[210,170,260]);
+ assert.deepEqual(Object.values(ATTACK_PROFILES).map(p=>p.duration),[290,210,170,260]);
 });
 test('hit feedback throttles repeated events and fades',()=>{
  const state=makeFeedback();
@@ -23,15 +23,15 @@ test('hit feedback throttles repeated events and fades',()=>{
 });
 test('red fragment profiles deterministic, bounded and distinct',()=>{
  for(const [type,p] of Object.entries(DEATH_PROFILES)){
-  assert.ok(p.count<=65&&p.duration>=300&&p.duration<=450);
+  assert.ok(p.count<=(type==='marcin'?88:65)&&p.duration>=300&&p.duration<=(type==='marcin'?650:450));
   const points=Array.from({length:p.count},(_,i)=>fragmentSpec(type,7,i));
   assert.deepEqual(points[0],fragmentSpec(type,7,0));
   assert.ok(points.every(n=>Number.isFinite(n.x)&&Number.isFinite(n.y)&&n.size>0));
  }
- assert.deepEqual(Object.values(DEATH_PROFILES).map(p=>p.count),[30,36,58,36]);
+ assert.deepEqual(Object.values(DEATH_PROFILES).map(p=>p.count),[88,30,36,58,36]);
 });
 test('six waves, intermission, healing and flamethrower tuning unchanged',()=>{
- assert.equal(WAVES.length,6);assert.equal(TOTAL_ENEMIES,138);
+ assert.equal(WAVES.length,6);assert.equal(TOTAL_ENEMIES,141);
  assert.deepEqual(WAVES.map(w=>w.maxAlive),[4,5,6,7,8,9]);
  assert.equal(INTERMISSION_MS,3000);assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
  assert.equal(COMBAT_TUNING.flamethrower.damage,1);

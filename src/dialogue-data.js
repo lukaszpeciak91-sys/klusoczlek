@@ -18,6 +18,10 @@ export const DIALOGUES=Object.freeze({
   ['zubrokryptyda','ŻUBROKRYPTYDA','Nigdy nie zapomnę naszych wspólnych wakacji, Marcin…'],
   ['aloes','ALOES','Żegnajcie… przyjaciele…']
  ],
+ 'before-marcin':[
+  ['bobrozombi','BOBROZOMBI','Taki jesteś?! Czekaj aż zawołam Marcina'],
+  ['bobrozombi','BOBROZOMBI','Marcin! Maaaarciiin!']
+ ],
  'after-first-bocianolak-hit':[
   ['bocianolak','BOCIANOŁAK','Tylko nie po nogach!']
  ]

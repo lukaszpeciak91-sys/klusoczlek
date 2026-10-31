@@ -1,8 +1,10 @@
+import {MARCIN} from './marcin.js';
 import {ARENA} from './movement.js';
 import {advanceEnemy} from './bobrozombi.js';
 export const ENEMY_TYPES=Object.freeze({
  bobrozombi:Object.freeze({hp:3,speed:65,radius:21,contactDamage:1,movement:'direct'}),
  bocianolak:Object.freeze({hp:2,speed:85,radius:18,contactDamage:1,movement:'weave'}),
+ marcin:Object.freeze({hp:MARCIN.hp,speed:MARCIN.speed,radius:MARCIN.radius,contactDamage:MARCIN.contactDamage,movement:'heavy-direct'}),
  zubrokryptyda:Object.freeze({hp:8,speed:42,radius:30,contactDamage:1,movement:'heavy-direct'})
 });
 const BASE_SCHEDULE=[

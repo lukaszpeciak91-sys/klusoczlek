@@ -14,7 +14,9 @@ const FALLBACK_BODY=Object.freeze([
  Object.freeze({x:15,y:-27,radius:34}),
  Object.freeze({x:0,y:-51,radius:24})
 ]);
+const BOSS_BODY=Object.freeze([{x:0,y:-87,radius:31},{x:-25,y:-48,radius:43},{x:25,y:-48,radius:43},{x:0,y:-20,radius:44}].map(Object.freeze));
 export function damageFootprints(enemy,visual=null){
+ if(enemy.type==='marcin')return BOSS_BODY.map(p=>({shape:'circle',x:enemy.x+p.x,y:enemy.y+p.y,angle:0,radius:p.radius}));
  if(enemy.type!=='zubrokryptyda')return [{shape:'circle',x:enemy.x,y:enemy.y,angle:0,radius:ENEMY_TYPES[enemy.type].radius}];
  const art=visual?.art===true,parts=art?ART_BODY:FALLBACK_BODY;
  const x=visual?.x??enemy.x,y=visual?.y??enemy.y,scale=art?visual.scale:1,angle=art?visual.angle:0;
