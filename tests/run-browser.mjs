@@ -1466,42 +1466,8 @@ try {
     const radius=await evaluate("(async()=>{const {ENEMY_TYPES}=await import('/klusoczlek/src/enemy-types.js');return ENEMY_TYPES.zubrokryptyda.radius})()");
     assert.equal(radius,30);
     await writeFile('dist/pr42-heavy-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
-    // Miss, blocked projectile, successful projectile, repeated damage and fatal explosion.
-    await evaluate(`(()=>{
-      const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.burningFx?.destroy();e.sprite.destroy();}
-      a.player.body.reset(900,600);a.spawnDueAt=null;
-      const e=a.createEnemy('bocianolak',{x:1010,y:600},901);a.enemies=[e];window.__pr42Stork=e;
-      a.spawnShot({x:0,y:-1},'rifle',a.time.now);
-    })()`);
-    await sleep(100);assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),0,'Miss triggered bark');
-    await evaluate(`(async()=>{
-      const a=window.__game.scene.getScene('Arena');const {createObstacleVisual}=await import('/klusoczlek/src/obstacle-renderer.js');
-      const o=window.__createObstacle('rock',{id:'pr42-stork-wall',x:960,y:600});o.sprite=createObstacleVisual(a,o);a.obstacles.push(o);window.__pr42Block=o;
-      a.spawnShot({x:1,y:0},'rifle',a.time.now);
-    })()`);
-    await sleep(140);assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),0,'Blocked shot triggered bark');
-    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');window.__pr42Block.sprite.destroy();a.obstacles=a.obstacles.filter(o=>o!==window.__pr42Block);a.spawnShot({x:1,y:0},'rifle',a.time.now)})()");
-    await sleep(180);
-    assert.equal(await evaluate('window.__pr42Stork.hp'),1);
-    assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),1);
-    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.flameCooldowns.clear();a.applyFlame({x:1,y:0},a.time.now);a.applyFlame({x:1,y:0},a.time.now+300);a.spawnDueAt=null;})()");
-    assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),1,'Flame ticks repeated bark');
-    const fatal=await evaluate(`(()=>{
-      const a=window.__game.scene.getScene('Arena');const e=a.createEnemy('bocianolak',{x:1000,y:600},902);a.enemies.push(e);
-      const b=window.__createObstacle('toxic_barrel',{id:'pr42-fatal-barrel',x:1000,y:600});b.hp=1;b.sprite=a.add.circle(b.x,b.y,23,0x9c7040);a.obstacles.push(b);
-      a.hitObstacle(b,a.time.now);a.spawnDueAt=null;return {dead:e.dead,barks:a.hitBarks.size};
-    })()`);
-    assert.deepEqual(fatal,{dead:true,barks:height<=240?1:2});
-    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(let i=0;i<6;i++){const e=a.createEnemy('bocianolak',{x:900+i*5,y:610},910+i);a.enemies.push(e);a.damageEnemy(e,1,a.player,a.time.now)}})()");
-    assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),height<=240?1:3,'Bark cap exceeded');
-    const barkBounds=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.children.list.filter(o=>o.type==='Text'&&o.text==='Tylko nie po nogach!').map(o=>({text:o.text,input:!!o.input,bounds:{x:o.getBounds().x,y:o.getBounds().y,right:o.getBounds().right,bottom:o.getBounds().bottom}}))})()");
-    assert.equal(barkBounds.length,height<=240?1:3);
-    for(const b of barkBounds){assert.equal(b.text,'Tylko nie po nogach!');assert.equal(b.input,false);assert.ok(b.bounds.x>=0&&b.bounds.right<=width&&b.bounds.y>=104&&b.bounds.bottom<=height);}
-    await writeFile('dist/pr42-barks-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
-    await sleep(1800);assert.equal(await evaluate("window.__game.scene.getScene('Arena').hitBarks.size"),0,'Bark objects survived lifetime');
-    console.log('PASS PR42 seed '+seed+' '+width+'x'+height+': shoulder Pukawka/rifle, head flame, obstacle occlusion, radius30, once-only/fatal/bounded barks');
+    console.log('PASS PR42 heavy geometry seed '+seed+' '+width+'x'+height+': shoulder projectiles, head flame, obstacle occlusion, movement radius30');
   }
-
 
   // Missing-PNG path: new page/game and an actual failed approved-art request.
   const noHeavyArt=event=>{
@@ -1523,11 +1489,97 @@ try {
   })()`);
   assert.deepEqual(fallback,{loaded:false,fallback:true});await sleep(240);assert.equal(await evaluate('window.__pr42Heavy.hp'),7);
   await writeFile('dist/pr42-missing-heavy-art.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const e=a.createEnemy('bocianolak',{x:1000,y:600},970);a.enemies.push(e);a.damageEnemy(e,1,a.player,a.time.now);window.__pr42OldBarks=a.hitBarks;window.__pr42OldText=a.children.list.find(o=>o.type==='Text'&&o.text==='Tylko nie po nogach!')})()");
-  await clickControl('hud');await clickControl('NOWA GRA');
-  assert.deepEqual(await evaluate('({size:window.__pr42OldBarks.size,active:window.__pr42OldText.active})'),{size:0,active:false},'Bark leaked across shutdown');
   await cdp('Fetch.disable');socket.removeEventListener('message',noHeavyArt);
-  console.log('PASS PR42 missing approved PNG: procedural-body projectile hit, active bark shutdown cleanup');
+  console.log('PASS PR42 missing approved PNG: procedural-body projectile hit');
+
+  // PR43 standard first-hit dialogue: true sources, settled deaths, session ownership.
+  await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
+  for(let boot=0;boot<100;boot++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
+  await waitFor(v=>v.menu&&v.actions.length===1,'PR43 clean boot');
+  const hitId='after-first-bocianolak-hit';
+  async function nextLine(){
+    await sleep(200);const b=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
+    const r=(await snapshot()).rect;await click(r.x+b.x,r.y+b.y);await sleep(90);
+  }
+  for(const [source,width,height] of [['blunderbuss',568,320],['rifle',800,360],['flame',568,320],['barrel',800,360],['burst',568,320]]){
+    if(!(await snapshot()).menu)await clickControl('hud');await clickControl('NOWA GRA');
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');
+    const initial=await evaluate(`(()=>{
+      const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.burningFx?.destroy();e.sprite.destroy();}
+      a.player.body.reset(900,600);a.invulnerableUntil=Infinity;a.spawnDueAt=null;
+      a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');
+      const e=a.createEnemy('bocianolak',{x:1000,y:600},1000);a.enemies=[e];window.__pr43Enemy=e;
+      window.__pr43Started=0;window.__pr43Trace=[];
+      const hitListener=id=>{if(id==='after-first-bocianolak-hit')window.__pr43Started++};a.events.on('episode-boundary',hitListener);a.events.once('shutdown',()=>a.events.off('episode-boundary',hitListener));
+      const damage=a.damageEnemy.bind(a);a.damageEnemy=(enemy,...args)=>{const changed=damage(enemy,...args);window.__pr43Trace.push({phase:'damage',id:a.dialogueState.id});return changed;};
+      const death=a.finalizeEnemyDeath.bind(a);a.finalizeEnemyDeath=enemy=>{const result=death(enemy);window.__pr43Trace.push({phase:'death',id:a.dialogueState.id,result});return result;};a.events.once('shutdown',()=>{a.damageEnemy=damage;a.finalizeEnemyDeath=death;});
+      return {flag:a.firstBocianolakHit,id:a.dialogueState.id};
+    })()`);
+    assert.deepEqual(initial,{flag:false,id:null},'New game did not reset the one-shot event');
+    await evaluate("window.__game.scene.getScene('Arena').spawnShot({x:0,y:-1},'rifle',window.__game.scene.getScene('Arena').time.now)");
+    await sleep(80);assert.equal(await evaluate("window.__game.scene.getScene('Arena').firstBocianolakHit"),false,'Miss queued dialogue');
+    await evaluate(`(async()=>{
+      const a=window.__game.scene.getScene('Arena');const {createObstacleVisual}=await import('/klusoczlek/src/obstacle-renderer.js');
+      const o=window.__createObstacle('rock',{id:'pr43-wall',x:950,y:600});o.sprite=createObstacleVisual(a,o);a.obstacles.push(o);window.__pr43Wall=o;
+      a.spawnShot({x:1,y:0},'rifle',a.time.now);
+    })()`);
+    await sleep(100);assert.equal(await evaluate("window.__game.scene.getScene('Arena').firstBocianolakHit"),false,'Blocked shot queued dialogue');
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');window.__pr43Wall.sprite.destroy();a.obstacles=a.obstacles.filter(o=>o!==window.__pr43Wall);a.damageEnemy(window.__pr43Enemy,0,a.player,a.time.now)})()");
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').firstBocianolakHit"),false,'Zero HP reduction queued dialogue');
+    if(source==='rifle')await evaluate('window.__pr43Enemy.hp=1');
+    if(source==='blunderbuss'||source==='rifle')await evaluate(`window.__game.scene.getScene('Arena').spawnShot({x:1,y:0},'${source}',window.__game.scene.getScene('Arena').time.now)`);
+    else if(source==='burst')await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.spawnShot({x:1,y:0},'rifle',a.time.now);a.spawnShot({x:1,y:0},'rifle',a.time.now)})()");
+    else if(source==='flame'){
+      const batch=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.flameCooldowns.clear();a.applyFlame({x:1,y:0},a.time.now);return {id:a.dialogueState.id,queued:a.narrativeEvents.has('after-first-bocianolak-hit'),hp:window.__pr43Enemy.hp}})()");
+      assert.deepEqual(batch,{id:null,queued:true,hp:1});
+    }else{
+      const batch=await evaluate(`(()=>{
+        const a=window.__game.scene.getScene('Arena'),e=window.__pr43Enemy;
+        const second=a.createEnemy('bocianolak',{x:e.x,y:e.y+25},1001);a.enemies.push(second);
+        const b=window.__createObstacle('toxic_barrel',{id:'pr43-barrel',x:e.x,y:e.y});b.hp=1;b.sprite=a.add.circle(b.x,b.y,23,0x937740);a.obstacles.push(b);
+        a.hitObstacle(b,a.time.now);a.openMenu();
+        return {id:a.dialogueState.id,queued:a.narrativeEvents.has('after-first-bocianolak-hit'),dead:[e.dead,second.dead],kills:a.kills};
+      })()`);
+      assert.deepEqual(batch,{id:null,queued:true,dead:[true,true],kills:2},'Explosion opened UI before batch completed');
+      await waitFor(v=>v.menu&&v.arenaPaused,'queued-hit MENU');await clickControl('WZNÓW');
+    }
+    await waitFor(v=>v.physics===true,'first-hit dialogue '+source);
+    const state=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,text:a.dialoguePanel.text.text,portrait:a.dialoguePanel.loaded.has('bocianolak'),events:window.__pr43Started,hp:window.__pr43Enemy.hp,dead:window.__pr43Enemy.dead,time:a.elapsedGameplayMs,shots:a.projectiles.map(p=>({x:p.object.x,y:p.object.y})),enemies:a.enemies.map(e=>({x:e.x,y:e.y})),isolated:[a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.held&&j.pointerId===null),floating:a.children.list.filter(o=>o.type==='Text'&&o.text==='Tylko nie po nogach!').length}})()");
+    assert.equal(state.id,hitId);assert.equal(state.text,'Tylko nie po nogach!');assert.equal(state.portrait,true);assert.equal(state.events,1);assert.equal(state.isolated,true);
+    assert.equal(state.floating,0,'Floating text remained outside the standard dialogue panel');assert.equal(state.hp,source==='rifle'||source==='barrel'||source==='burst'?0:1);assert.equal(state.dead,source==='rifle'||source==='barrel'||source==='burst');
+    const batchTrace=await evaluate('window.__pr43Trace');assert.ok(batchTrace.every(t=>t.id===null),'Dialogue opened inside damage/death iteration');
+    assert.equal(batchTrace.filter(t=>t.phase==='death'&&t.result).length,source==='barrel'?2:source==='rifle'||source==='burst'?1:0,'Fatal damage bookkeeping repeated');
+    await sleep(200);
+    assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {time:a.elapsedGameplayMs,shots:a.projectiles.map(p=>({x:p.object.x,y:p.object.y})),enemies:a.enemies.map(e=>({x:e.x,y:e.y}))}})()"),{time:state.time,shots:state.shots,enemies:state.enemies},'Combat or timer moved during dialogue');
+    const r=(await snapshot()).rect;for(const x of [60,width-60])await click(r.x+x,r.y+height-60);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),hitId,'Joystick-region touch advanced dialogue');
+    await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'dialogue MENU');await clickControl('WZNÓW');
+    await evaluate("window.dispatchEvent(new Event('blur'));window.dispatchEvent(new Event('focus'));true");
+    assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,count:window.__pr43Started,paused:a.physics.world.isPaused,flag:a.firstBocianolakHit}})()"),{id:hitId,count:1,paused:true,flag:true});
+    await writeFile('dist/pr43-'+source+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    await nextLine();assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null,'One DALEJ did not close the one-line dialogue');
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').physics.world.isPaused"),false);
+    assert.ok(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs")>state.time);
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const e=a.createEnemy('bocianolak',{x:1050,y:600},1010);a.enemies.push(e);a.damageEnemy(e,1,a.player,a.time.now);a.damageEnemy(e,1,a.player,a.time.now);a.finalizeEnemyDeath(e)})()");
+    await sleep(80);assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null,'Later specimen repeated dialogue');assert.equal(await evaluate('window.__pr43Started'),1);
+    console.log('PASS PR43 '+source+' '+width+'x'+height+': settled damage/death, session one-shot, portrait/DALEJ, combat/timer/input freeze, MENU/focus and later specimens');
+  }
+  await clickControl('hud');await clickControl('NOWA GRA');
+  const finalQueued=await evaluate(`(()=>{
+    const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();
+    a.episode.wave=5;a.episode.spawned=35;a.episode.defeated=34;a.episode.state='active';a.kills=137;a.totalSpawned=138;a.spawnDueAt=null;
+    const e=a.createEnemy('bocianolak',{x:1050,y:600},1100);a.enemies=[e];
+    a.damageEnemy(e,2,a.player,a.time.now);a.finalizeEnemyDeath(e);
+    return {id:a.dialogueState.id,dead:e.dead,kills:a.kills,state:a.episode.state,hit:a.narrativeEvents.has('after-first-bocianolak-hit'),final:a.narrativeEvents.has('after-final-enemy'),bursts:a.deathBursts.length};
+  })()`);
+  assert.deepEqual(finalQueued,{id:null,dead:true,kills:138,state:'final-pending',hit:true,final:true,bursts:1});
+  await waitFor(v=>v.physics===true,'fatal final-hit panel');assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),hitId);
+  await sleep(500);assert.equal(await evaluate("window.__game.scene.getScene('Arena').deathBursts.length"),0,'Pixel burst failed to finish during dialogue');
+  for(let line=0;line<4;line++){
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),line===0?hitId:'after-final-enemy');await nextLine();
+  }
+  await waitFor(v=>v.menu&&v.arenaPaused,'victory after queued hit/finale');assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+  console.log('PASS PR43 fatal final hit: death138 once, pixel burst, first-hit dialogue before original finale and victory');
 
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {

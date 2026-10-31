@@ -72,3 +72,6 @@ Nowe decyzje: dopisz kolejny ID, zapisując konsekwencje; nie przepisuj historii
 ### D032 — ACCEPTED (PR42, 2026-10-31)
 The first accepted damaging hit to each Bocianołak shows “Tylko nie po nogach!” as short bounded noninteractive floating text, including a deterministic detached lifetime after fatal first damage. It is not a narrative boundary or pause and cannot gate wave progression.
 
+### D033 — ACCEPTED (PR43, 2026-10-31; supersedes D032)
+The corrected approved intent is one standard portrait dialogue per entire NEW GAME session, after the first accepted damaging hit to any Bocianołak: speaker “BOCIANOŁAK”, exactly “Tylko nie po nogach!”. Reuse the existing dialogue panel/DALEJ/pause/isolation; queue presentation until damage and fatal-hit bookkeeping complete. MENU/WZNÓW preserves consumption, NOWA GRA resets it. Remove the per-specimen floating-bark implementation. The original introduction and other four-scene texts remain independent and unchanged; PR42 heavy damage geometry remains approved. D032 above is retained as historical context, not the current contract.
+

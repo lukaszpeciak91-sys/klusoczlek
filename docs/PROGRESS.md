@@ -1,5 +1,11 @@
 # PROGRESS
 
+## PR43 — Bocianołak session first-hit dialogue correction (2026-10-31; independent audit required)
+- Base main after merged PR42: `5415f1db3f6c47ddd2c357c594d1f0ccd5e82d53`. Corrected narrative intent: standard Bocianołak portrait panel, exact one line “Tylko nie po nogach!”, once per new Arena session.
+- First accepted HP reduction claims one session flag and queues the existing narrative boundary. UI drains after complete damage/death batches; fatal first hits and a simultaneous final-enemy boundary retain death effects and normal finale order. MENU/WZNÓW preserves the flag; NOWA GRA resets it.
+- Removed exclusive floating-bark module/runtime/tests; heavy damage geometry and four original dialogue scenes retained. Executed npm ci, Node152/152, build and full Chromium44 PASS groups, all final exit0. Includes all damage sources, burst/multi-enemy hits, fatal death138, portrait/DALEJ, freeze/isolation and active-dialogue MENU/focus at568×320/800×360.
+- See `docs/pr43-first-hit-dialogue.md`; actual CI status belongs to the published PR head. Physical Android NOT RUN; separate independent audit requested. No merge/deploy/binary/assets/balance changes.
+
 ## PR42 — heavy visible-body hits and Bocianołak first-hit bark (2026-10-31; independent audit required)
 - Base main after PR41: `2619038e8894bc6e9e35ef418b160ac2f9509002`. Audited all8 approved heavy PNG frames; three PR40 damage circles follow actual sprite pose. Movement/spawn/navigation/contact remains r30; explosions and other species' hit circles unchanged.
 - One accepted-damage adapter triggers “Tylko nie po nogach!” once per Bocianołak, including fatal first damage. Cosmetic1700ms scene-owned text, maximum3 (1 at240px height), no pause/input interception; shutdown releases texts/listener.
