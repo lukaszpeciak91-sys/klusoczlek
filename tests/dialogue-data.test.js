@@ -22,7 +22,7 @@ test('restart starts with no active narrative and fixed six-wave contract',()=>{
  const state=createDialogueState();beginDialogue(state,'before-wave-1');
  assert.deepEqual(createDialogueState(),{id:null,index:0});
  assert.deepEqual(WAVES.map(w=>w.maxAlive),[4,5,6,7,8,9]);
- assert.equal(WAVES.length,6);assert.equal(TOTAL_ENEMIES,141);
+ assert.equal(WAVES.length,6);assert.equal(TOTAL_ENEMIES,153);
  assert.equal(INTERMISSION_MS,3000);assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
 });
 
