@@ -5,7 +5,7 @@ export const DIALOGUES=Object.freeze({
   ['aloes','ALOES','To chyba jakaś pomyłka…']
  ],
  'before-first-bocianolak':[
-  ['bobrozombi','BOBROZOMBI','Auaaaa! Jako zombie miałem nie czuć bólu… Bleee…'],
+  ['bobrozombi','BOBROZOMBI','Auaaaa! Jako zombie miałem nie czuć bólu… Bleee… *zdechł*'],
   ['bocianolak','BOCIANOŁAK','Damianek… Czemu ty się nie ruszasz?'],
   ['bocianolak','BOCIANOŁAK','Co zrobiłeś Damianowi, ty bydlaku?! Wisiał mi sto złotych! Oddawaj!']
  ],
@@ -14,9 +14,9 @@ export const DIALOGUES=Object.freeze({
   ['bobrozombi','BOBROZOMBI','Waldek, pokaż mu, gdzie raki zimują!']
  ],
  'after-final-enemy':[
-  ['bobrozombi','BOBROZOMBI','A więc dokonało się… Cyganka mówiła prawdę… Wszystkich nas wykończy przeklęty Kłusoczłek!'],
+  ['marcin','MARCIN','A więc dokonało się… Przepowiednia się spełniła… Wszystkich nas wykończy przeklęty Kłusoczłek!'],
   ['zubrokryptyda','ŻUBROKRYPTYDA','Nigdy nie zapomnę naszych wspólnych wakacji, Marcin…'],
-  ['aloes','ALOES','Żegnajcie… przyjaciele…']
+  ['aloes','ALOES','*chlip* Żegnajcie… przyjaciele…']
  ],
  'before-marcin':[
   ['bobrozombi','BOBROZOMBI','Taki jesteś?! Czekaj aż zawołam Marcina'],

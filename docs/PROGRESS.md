@@ -325,3 +325,6 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 - Spawn tries existing safe, clear in-camera candidates first, with unmodified ordinary safe spawn as fallback. No bonus enemy or teleport; unresolved introductions wait until their specimen becomes visible. The dialogue freezes combat immediately and retains the enemy behind the UI.
 - Dialogue uses a shorter content-measured dark panel, slightly smaller square portraits and larger body text, preserving speaker and DALEJ separation. Scene 3 calls the heavy Żubrokryptyda Waldek. No art, HP, HUD, wave or weapon changes.
 - Chromium browser QA and physical Android screenshot acceptance are separate gates; PR must not merge/deploy before independent audit.
+
+## PR48 (draft, unmerged)
+Marcin finale: 138 original scheduled enemies + 12 finite reinforcements (8 Bobrozombi / 4 Bocianołak) + two escorts + Marcin = 153 planned. Shared boss-combat 7-nonboss cap, separate reinforcement queue, immediate terminal boss-death resolution, scripted living-only pixel death, final dialogue/Marcin portrait fallback. CI/Chromium and independent audit are required before merge. No binary asset changes in PR48.

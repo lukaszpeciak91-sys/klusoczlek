@@ -6,7 +6,7 @@ export function validDialoguePng(bytes){
  return value(16)===192&&value(20)===192&&bytes[24]===8&&(bytes[25]===2||bytes[25]===6);
 }
 import {currentDialogue,advanceDialogue} from './dialogue-data.js';
-const PORTRAITS=['aloes','bobrozombi','bocianolak','zubrokryptyda'];
+const PORTRAITS=['aloes','bobrozombi','bocianolak','zubrokryptyda','marcin'];
 export function createDialoguePanel(scene,Phaser,onFinish){
  const shell=scene.add.container(0,0).setDepth(110).setScrollFactor(0).setVisible(false);
  const bg=scene.add.rectangle(0,0,100,100,0x171b20,0.92).setStrokeStyle(2,0xb39a64).setOrigin(0);
