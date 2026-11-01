@@ -2018,14 +2018,22 @@ try {
   await clickControl('hud');await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu,'PR48 fallback Arena');
   for(let i=0;i<40;i++){if(!await evaluate("window.__game.scene.getScene('Arena').dialogueLoading"))break;await sleep(40);}
-  const marcinFallback=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueState.index=0;a.narrativeEvents.clear();a.episode.wave=5;a.episode.state='final-pending';a.finalResolution=true;a.markNarrativeBoundary('after-final-enemy');return {loaded:a.dialoguePanel.loaded.has('marcin'),id:a.dialogueState.id,letter:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='M'&&x.visible),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible),text:a.dialoguePanel.text.text}})()");
+  const marcinFallback=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueState.index=0;a.narrativeEvents.clear();a.episode.wave=5;a.episode.state='final-pending';a.finalResolution=true;const e=a.createEnemy('zubrokryptyda',{x:a.player.x+105,y:a.player.y+45},1102);e.narrativeRole='witness';a.act1Witness=e;a.enemies.push(e);a.markNarrativeBoundary('act1-marcin-last');return {loaded:a.dialoguePanel.loaded.has('marcin'),id:a.dialogueState.id,letter:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='M'&&x.visible),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible),text:a.dialoguePanel.text.text}})()");
   assert.equal(marcinFallback.loaded,false,'Missing Marcin asset incorrectly registered as loaded');
-  assert.equal(marcinFallback.id,'after-final-enemy');
+  assert.equal(marcinFallback.id,'act1-marcin-last');
   assert.equal(marcinFallback.letter,true,'Missing portrait did not show letter fallback');
   assert.equal(marcinFallback.label,true,'Missing portrait hid MARCIN speaker label');
   assert.ok(marcinFallback.text.includes('Przepowiednia się spełniła'));
-  for(let i=0;i<3;i++)await nextLine();
-  await waitFor(v=>v.menu&&v.arenaPaused,'PR48 missing-portrait victory');
+  for(const id of ['act1-marcin-last','act1-witness-last','act1-aloes-last']){
+    for(let n=0;n<100;n++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id")===id)break;await sleep(30);}
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),id,'Missing-portrait cinematic step');
+    await nextLine();
+    if(id==='act1-witness-last'){
+      const visual=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {burst:a.deathBursts.length,aloes:a.dialogueState.id==='act1-aloes-last'}})()");
+      assert.ok(visual.burst>0&&!visual.aloes,'Missing-portrait fallback skipped witness pixel burst');
+    }
+  }
+  await waitFor(v=>v.menu&&v.arenaPaused,'PR54 missing-portrait victory');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   await cdp('Fetch.disable');socket.removeEventListener('message',missingPortrait);
   console.log('PASS PR48 missing Marcin portrait: fallback letter, speaker, three lines/DALEJ and victory');
