@@ -284,7 +284,7 @@ export class ArenaScene extends Phaser.Scene {
       this.input.keyboard.resetKeys();
     };
     this.syncJoysticks=()=>{
-      const allowed=!this.bossEntrance&&!this.dialogueLoading&&!this.dialogueState?.id&&this.canResume()&&!this.scene.isPaused('Arena')&&!this.episode.ended;
+      const allowed=!this.finalResolution&&!this.bossEntrance&&!this.dialogueLoading&&!this.dialogueState?.id&&this.canResume()&&!this.scene.isPaused('Arena')&&!this.episode.ended;
       this.joystick.setEnabled(allowed);this.aimJoystick.setEnabled(allowed);
     };
     this.onBlur = () => { this.ambientBarks?.suspend();advanceGameplayClock(this.gameplayClock,0,false);this.resetMovement(); this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);this.physics.world.pause(); };
@@ -292,7 +292,7 @@ export class ArenaScene extends Phaser.Scene {
     this.onFocus = () => {
       advanceGameplayClock(this.gameplayClock,0,false);
       this.syncJoysticks();
-      if (this.canResume() && !this.dialogueLoading && !this.dialogueState?.id && !this.bossEntrance && !this.scene.isPaused('Arena')) {
+      if (this.canResume() && !this.finalResolution && !this.dialogueLoading && !this.dialogueState?.id && !this.bossEntrance && !this.scene.isPaused('Arena')) {
         this.physics.world.resume();
       }
     };
@@ -301,7 +301,7 @@ export class ArenaScene extends Phaser.Scene {
       advanceGameplayClock(this.gameplayClock,0,false);
       document.getElementById('fullscreen-button').hidden = true;
       this.syncJoysticks();
-      if (this.canResume() && !this.dialogueLoading && !this.dialogueState?.id && !this.bossEntrance) this.physics.world.resume();
+      if (this.canResume() && !this.finalResolution && !this.dialogueLoading && !this.dialogueState?.id && !this.bossEntrance) this.physics.world.resume();
       else this.physics.world.pause();
     });
     this.onVisibility = () => {
@@ -344,7 +344,7 @@ export class ArenaScene extends Phaser.Scene {
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
       advanceGameplayClock(this.gameplayClock,0,false);
       this.time.paused=false;
-      if(this.canResume())this.physics.world.resume();
+      if(this.canResume()&&!this.finalResolution)this.physics.world.resume();
       if(id==='after-final-enemy')this.releaseFinalOutcome();
       if(id==='before-marcin'){this.bossEntrancePending=true;this.tryBeginBossEntrance();}
       this.resetMovement();
