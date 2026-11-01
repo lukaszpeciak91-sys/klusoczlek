@@ -399,8 +399,10 @@ export class ArenaScene extends Phaser.Scene {
     }
     if(crossed.length){this.waveText.setText('⚑ '+(this.episode.wave+1)+'/'+TOTAL_WAVES);}
     // Owed introductions survive discarded wave queues; only a visible living specimen may consume them.
-    if(this.episode.wave>=1&&!this.introducedEnemyTypes.has('before-first-bocianolak'))this.narrativeEvents.add('before-first-bocianolak');
-    if(this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda'))this.narrativeEvents.add('before-first-zubrokryptyda');
+    if(!this.episode.bossIntroduced){
+      if(this.episode.wave>=1&&!this.introducedEnemyTypes.has('before-first-bocianolak'))this.narrativeEvents.add('before-first-bocianolak');
+      if(this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda'))this.narrativeEvents.add('before-first-zubrokryptyda');
+    }
     if(claimBossIntroduction(this.episode,this.elapsedGameplayMs)){
       for(const id of ['before-first-bocianolak','before-first-zubrokryptyda']){this.narrativeEvents.delete(id);this.pendingIntroductions.delete(id);}
       this.narrativeEvents.add('before-marcin');this.ambientBarks?.suspend();
