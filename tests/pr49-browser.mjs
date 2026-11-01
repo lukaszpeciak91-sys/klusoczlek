@@ -3,7 +3,7 @@ import {WAVES} from '../src/episode.js';
 import {writeFile} from 'node:fs/promises';
 
 export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,setSeed}){
- const wait=async(expression,label)=>{for(let i=0;i<1600;i++){if(await evaluate(expression))return;await sleep(25);}throw Error('PR49 timeout '+label+' '+JSON.stringify(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,ms:a.elapsedGameplayMs,due:a.spawnDueAt,now:a.time.now,queue:a.episode.spawnQueue,events:[...a.narrativeEvents],seen:[...a.introducedEnemyTypes],id:a.dialogueState.id,paused:a.physics.world.isPaused,enemies:a.enemies.map(e=>({type:e.type,x:e.x,y:e.y,hp:e.hp}))}})()")));};
+ const wait=async(expression,label)=>{for(let i=0;i<1600;i++){if(await evaluate(expression))return;await sleep(25);}throw Error('PR49 timeout '+label+' '+JSON.stringify(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,ms:a.elapsedGameplayMs,due:a.spawnDueAt,now:a.time.now,director:{...a.encounterDirector,history:undefined},events:[...a.narrativeEvents],seen:[...a.introducedEnemyTypes],id:a.dialogueState.id,paused:a.physics.world.isPaused,enemies:a.enemies.map(e=>({type:e.type,x:e.x,y:e.y,hp:e.hp}))}})()")));};
  const shot=async(name,width,height)=>{const png=Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64');assert.deepEqual([png.readUInt32BE(16),png.readUInt32BE(20)],[width,height]);await writeFile('dist/'+name,png);};
  const fresh=async(seed,width,height)=>{
   if(!(await snapshot()).menu){await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'PR49 MENU');}
@@ -68,7 +68,7 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
  const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,boss:a.episode.bossIntroduced,kills:a.kills,pickups:a.pickups.map(p=>p.id)}})()");assert.deepEqual(reset,{wave:0,boss:false,kills:0,pickups:['blunderbuss']});
  // A full current-wave cap must retain an owed intro rather than fabricate an extra specimen.
  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();a.enemies=[];window.__stageTimedWave(1);for(let i=0;i<7;i++)a.enemies.push(a.createEnemy('bobrozombi',{x:700+i*50,y:600},4900+i));a.narrativeEvents.add('before-first-bocianolak');a.spawnDueAt=null;a.spawnReplacement();})()");
- assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.length"),6);assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
+ assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.length"),7);assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=a.enemies[0];e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(e=>!e.dead);a.spawnReplacement()})()");
  assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'before-first-bocianolak');assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.filter(e=>!e.dead).length"),7);
  for(let i=0;i<3;i++)await nextLine();console.log('PASS PR49 full-cap introduction priority, no duplicate/over-cap actor, NEW GAME clears timed state');
