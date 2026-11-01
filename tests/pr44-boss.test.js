@@ -30,19 +30,18 @@ test('PR44 six remaining includes living and queued, once per session',()=>{
  assert.equal(episode.claimBossIntroduction(e),false);
  assert.equal(episode.createEpisode().bossIntroduced,false);
 });
-test('PR44 original 138 plus unique roster; neither death order can finish early',()=>{
- assert.equal(episode.NORMAL_ENEMIES,138);assert.equal(episode.TOTAL_ENEMIES,141);
+test('PR48 extends original 138 while Marcin alone decides terminal outcome',()=>{
+ assert.equal(episode.NORMAL_ENEMIES,138);assert.equal(episode.TOTAL_ENEMIES,153);
  assert.deepEqual(episode.FINAL_ENCOUNTER.map(e=>e.type),['marcin','zubrokryptyda','zubrokryptyda']);
- for(const order of [['marcin','escort-1','escort-2'],['escort-1','escort-2','marcin']]){
-  const e=episode.createEpisode();e.wave=5;e.spawned=35;e.defeated=34;
-  assert.equal(episode.recordDeath(e,0,0),null);assert.equal(e.state,'active');
-  for(const spec of episode.FINAL_ENCOUNTER){assert.ok(episode.recordSpecialSpawn(e,spec.id));assert.equal(episode.recordSpecialSpawn(e,spec.id),false);}
-  order.forEach((id,i)=>{
-   assert.equal(episode.recordDeath(e,0,0,id),i===2?'final-cleared':null);
-   assert.equal(episode.recordDeath(e,0,0,id),null,'duplicate special death');
-  });
-  assert.equal(e.defeated,35);assert.equal(e.state,'final-pending');
- }
+ const e=episode.createEpisode();e.wave=5;e.spawned=35;e.defeated=34;
+ assert.equal(episode.recordDeath(e,0,0),null);assert.equal(e.state,'active');
+ for(const spec of episode.FINAL_ENCOUNTER)assert.ok(episode.recordSpecialSpawn(e,spec.id));
+ for(const id of ['escort-1','escort-2'])assert.equal(episode.recordDeath(e,0,0,id),null);
+ assert.equal(e.state,'active');
+ assert.equal(episode.beginBossResolution(e),true);
+ assert.equal(episode.beginBossResolution(e),false);
+ assert.equal(episode.finishBossResolution(e),true);
+ assert.equal(e.state,'final-pending');
 });
 
 import {MARCIN,createBossAttack,bossAttackStep,radialVolley,bossProjectileStep,landingPoint} from '../src/marcin.js';
