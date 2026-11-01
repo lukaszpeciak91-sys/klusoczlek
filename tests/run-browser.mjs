@@ -440,7 +440,8 @@ try {
   const revived=await waitFor(s=>s.arena&&!s.menu&&!s.controls.defeated,'New game after defeat');
   assert.equal(revived.controls.hp,5);
   assert.equal(revived.faceHud.current,'hp_5','NOWA GRA portrait did not reset');
-  assert.equal(revived.controls.enemies.length,3);
+  assert.ok(revived.controls.enemies.length>=3&&revived.controls.enemies.length<=6,'NEW GAME retains deterministic trio plus bounded PR51 refill');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.slice(0,3).every(e=>e.type==='bobrozombi')"),true,'NEW GAME opening trio changed');
   console.log('PASS real Phaser shots -> enemy death, contact invulnerability, defeat, clean NEW GAME');
   await clickControl('hud');
   await waitFor(s=>s.menu&&s.actions.length===2,'Menu again after fresh session');
