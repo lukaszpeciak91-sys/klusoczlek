@@ -14,7 +14,9 @@ export const REINFORCEMENTS=Object.freeze([
  ...Array.from({length:8},(_,i)=>Object.freeze({id:'reinforcement-b-'+(i+1),type:'bobrozombi'})),
  ...Array.from({length:4},(_,i)=>Object.freeze({id:'reinforcement-s-'+(i+1),type:'bocianolak'}))
 ]);
-export const BOSS_NON_MARCIN_CAP=7;
+// PR54: twelve ordinary allies, a story herald and two staggered escorts;
+// one hard non-Marcin cap bounds both roster and later PR48 reinforcements.
+export const BOSS_NON_MARCIN_CAP=BOSS_SCENE_HARD_CAP;
 // Only the fourteen special non-Marcin actors and Marcin form a finite roster.
 export function beginBossResolution(episode){
  if(episode.state!=='active'||!episode.specialSpawned.has('marcin')||episode.specialDefeated.has('marcin'))return false;
