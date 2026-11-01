@@ -9,24 +9,35 @@ export const HIT_BARKS=Object.freeze({
 export const MAX_BUBBLES=2;
 const unit=rng=>{const n=rng();return Number.isFinite(n)?Math.max(0,Math.min(1-Number.EPSILON,n)):0;};
 const interval=(rng,min,max)=>min+Math.floor(unit(rng)*(max-min+1));
-export function createBarkSchedule(rng){return {remaining:interval(rng,3000,5000),active:[],attempts:0,shown:0,hitAttempts:0,hitShown:0,suppressed:0,lastPhrase:null,lastDamageAt:-Infinity,elapsed:0,enemyCooldown:new WeakMap(),lastSpeaker:null};}
+export function createBarkSchedule(rng){return {remaining:interval(rng,3000,5000),echoRemaining:-1,active:[],attempts:0,shown:0,hitAttempts:0,hitShown:0,suppressed:0,lastPhrase:null,lastDamageAt:-Infinity,elapsed:0,enemyCooldown:new WeakMap(),lastSpeaker:null};}
 export function advanceBarks(state,delta,allowed,candidates,rng){
- if(!allowed){state.active.length=0;return null;}
+ if(!allowed){state.active.length=0;state.echoRemaining=-1;return null;}
  const ms=Number.isFinite(delta)?Math.max(0,delta):0;state.elapsed+=ms;
  state.active=state.active.filter(x=>{x.age+=ms;return x.age<x.life&&x.speaker&&!x.speaker.dead&&x.speaker.hp>0;});
+ const speak=()=>{
+  if(state.active.length>=MAX_BUBBLES)return null;
+  const choices=candidates().filter(x=>!state.active.some(a=>a.speaker===x));
+  if(!choices.length)return null;
+  const alternatives=choices.filter(x=>x!==state.lastSpeaker);
+  const pool=alternatives.length?alternatives:choices;
+  const speaker=pool[Math.floor(unit(rng)*pool.length)];
+  const phrases=[...BARK_PHRASES,...EXTRA_BARKS].filter(x=>x!==state.lastPhrase);
+  const phrase=phrases[Math.floor(unit(rng)*phrases.length)];
+  const event={speaker,phrase,kind:'spontaneous',priority:1,life:interval(rng,1200,2100),age:0};
+  state.lastPhrase=phrase;state.lastSpeaker=speaker;state.active.push(event);state.shown++;return event;
+ };
+ // Independent, occasional short response enables two genuinely overlapping
+ // spontaneous speakers without making the whole system fire every second.
+ if(state.echoRemaining>=0){
+  state.echoRemaining-=ms;
+  if(state.echoRemaining<=0){state.echoRemaining=-1;speak();}
+ }
  state.remaining-=ms;
  if(state.remaining>0)return null;
  state.remaining=interval(rng,3000,6000);state.attempts++;
- if(state.active.length>=MAX_BUBBLES)return null;
- const choices=candidates().filter(x=>!state.active.some(a=>a.speaker===x));
- if(!choices.length)return null;
- const alternatives=choices.filter(x=>x!==state.lastSpeaker);
- const pool=alternatives.length?alternatives:choices;
- const speaker=pool[Math.floor(unit(rng)*pool.length)];
- const phrases=[...BARK_PHRASES,...EXTRA_BARKS].filter(x=>x!==state.lastPhrase);
- const phrase=phrases[Math.floor(unit(rng)*phrases.length)];
- const event={speaker,phrase,kind:'spontaneous',priority:1,life:interval(rng,1200,2100),age:0};
- state.lastPhrase=phrase;state.lastSpeaker=speaker;state.active.push(event);state.shown++;return event;
+ const event=speak();
+ if(event&&state.active.length===1&&unit(rng)<0.24)state.echoRemaining=interval(rng,300,900);
+ return event;
 }
 export function damageBark(state,enemy,at,rng){
  if(!enemy||enemy.dead||enemy.hp<=0||!HIT_BARKS[enemy.type]||!Number.isFinite(at))return null;
