@@ -46,7 +46,7 @@ test('exact expiry hit cannot skip immunity even without update frame',()=>{
 });
 test('six-wave episode contract and exact spawn/death progression',()=>{
  const expected=[[12,0,0,4],[11,5,0,5],[11,8,1,6],[11,11,3,7],[12,14,4,8],[12,17,6,9]];
- assert.equal(TOTAL_ENEMIES,141);assert.equal(TOTAL_WAVES,6);
+ assert.equal(TOTAL_ENEMIES,153);assert.equal(TOTAL_WAVES,6);
  assert.equal(INTERMISSION_MS,3000);
  assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
  assert.deepEqual(WAVES.map(w=>[
