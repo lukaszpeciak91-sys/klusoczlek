@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {COMBAT_TUNING,flameTargetVisible,cooldownReady} from '../src/weapon-combat.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,isBurning} from '../src/enemy-panic.js';
-import {WAVES,TOTAL_ENEMIES,TOTAL_WAVES,INTERMISSION_MS,HEALTH_AFTER_WAVES,createEpisode,recordSpawn,recordDeath,FINAL_ENCOUNTER,recordSpecialSpawn,nextType,waveCapacity,advanceEpisode} from '../src/episode.js';
+import {WAVES,TOTAL_ENEMIES,TOTAL_WAVES,INTERMISSION_MS,HEALTH_AFTER_WAVES,createEpisode,recordSpawn,recordDeath,FINAL_ENCOUNTER,recordSpecialSpawn,nextType,waveCapacity,advanceEpisode,beginBossResolution,finishBossResolution} from '../src/episode.js';
 
 test('flame damage and visual cone contract retain their original values',()=>{
  const t=COMBAT_TUNING.flamethrower;
