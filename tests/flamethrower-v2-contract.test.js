@@ -71,7 +71,10 @@ test('six-wave episode contract and exact spawn/death progression',()=>{
    assert.equal(advanceEpisode(ep,i*10000+3000),true);
   }
  }
- for(const spec of FINAL_ENCOUNTER){recordSpecialSpawn(ep,spec.id);recordDeath(ep,0,60000,spec.id);}
+ for(const spec of FINAL_ENCOUNTER)recordSpecialSpawn(ep,spec.id);
+ assert.equal(ep.state,'active');
+ assert.equal(beginBossResolution(ep),true);
+ assert.equal(finishBossResolution(ep),true);
  assert.equal(ep.state,'final-pending');
 });
 test('burning living final enemy never counts as a wave death',()=>{
