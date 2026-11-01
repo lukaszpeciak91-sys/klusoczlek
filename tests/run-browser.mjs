@@ -413,7 +413,8 @@ try {
   assert.equal(exploded.controls.groundActive,true,'Barrel removal destroyed arena underlay');
   console.log('PASS browser: obstacle layering, session layout, actual held mouse fire and barrel removal');
 
-  assert.equal(fresh.controls.enemies.length,3,'Fresh deterministic enemy set missing');
+  assert.ok(fresh.controls.enemies.length>=3&&fresh.controls.enemies.length<=6,'Opening must retain three actors with bounded PR51 early refill');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.slice(0,3).every(e=>e.type==='bobrozombi')"),true,'Opening deterministic Bobrozombi trio was changed');
   // Force one enemy into predictable aim lane; shoot via actual CDP mouse coordinates.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'); const e=a.enemies[0];e.x=a.player.x+120;e.y=a.player.y;e.sprite.setPosition(e.x,e.y);return true})()");
   const pos=await snapshot();
