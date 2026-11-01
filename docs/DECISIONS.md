@@ -90,3 +90,6 @@ Rare non-pausing ambient speech is separate from narrative and damage reactions:
 
 ### D038 — ACCEPTED (PR47,2026-10-31)
 Episode 1's twelve approved forest artwork variants retain their canonical authored orientation: the layout generator creates every obstacle with angle0, including its authoritative footprint. Rendering, bounds, projectile/flame occlusion and navigation therefore consume the same orientation. Preserve the legacy RNG draw slot to avoid needless sequence changes; bounds/validation may still change accepted placements deterministically. No PNG/metadata, dimensions, count targets or gameplay-policy changes. Generic PR40 geometry/catalog and explicitly authored rotated test fixtures retain full rotation support.
+
+## D039 — Boss victory is Marcin fatal hit (PR48 draft)
+Maintain original six regular waves. During Marcin encounter, enforce seven live nonboss enemies across regular, escort and reinforcement sources. Marcin death cancels pending spawns, neutralizes living entities without player kill credit, settles visible pixel-death effects then runs exactly three final portrait lines and victory after DALEJ. Existing user-supplied Marcin PNG stays optional at runtime. Draft implementation awaits CI/independent audit.
