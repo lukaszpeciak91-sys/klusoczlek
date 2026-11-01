@@ -1171,7 +1171,14 @@ try {
       const a=window.__game.scene.getScene('Arena');
       for(const e of a.enemies)if(e.sprite.active)e.sprite.destroy();
       a.enemies=[];window.__stageTimedWave(${wave});a.spawnDueAt=null;a.introducedEnemyTypes.delete('${id}');a.pendingIntroductions.delete('${id}');a.narrativeEvents.delete('${id}');if(${wave}===2)a.introducedEnemyTypes.add('before-first-bocianolak');
-      a.totalSpawned=20; // Stable synthetic spawn ordinal; no extra actual enemy.
+      a.totalSpawned=20; // Stable synthetic spawn ordinal.
+      const v0=a.cameras.main.worldView;
+      // First species enters an ongoing visible battle, not an empty arena.
+      for(const dx of [-1,1]){
+        const p={x:a.player.x+dx*(v0.width/2-65),y:a.player.y+dx*25};
+        a.enemies.push(a.createEnemy('bobrozombi',p,a.totalSpawned++));
+      }
+      a.invulnerableUntil=Infinity;
       const before=a.totalSpawned;
       a.spawnReplacement();
       const e=a.enemies.find(v=>v.type==='${type}');
@@ -1185,7 +1192,7 @@ try {
     })()`);
     assert.equal(intro.id,id,'Introduction did not begin upon visible spawn '+id);
     assert.equal(intro.spawned,1,'Introduction duplicated enemy');
-    assert.equal(intro.live,1);
+    assert.equal(intro.live,3);
     assert.equal(intro.within,true);
     assert.equal(intro.paused,true);
     assert.ok(!intro.attackAt,'Intro enemy attacked before dialogue');
