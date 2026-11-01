@@ -211,6 +211,21 @@ try {
   await clickControl('NOWA GRA');
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   await assertHudBounds('initial create');
+  // PR52: capture real approved forest Arena + independent floating HUD on Chromium.
+  for(const [width,height] of [[320,240],[568,320],[800,360],[960,540],[915,412]]){
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+    await evaluate('window.__game.scale.refresh();true');await sleep(120);
+    const rect=await assertHudBounds('PR52 '+width+'x'+height);
+    const sticks=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),l=a.hudLayout;return {left:[l.joystickX,l.joystickY],right:[l.aimX,l.aimY],radius:l.joystickRadius,enabled:a.joystick.enabled&&a.aimJoystick.enabled,visible:a.joystick.base.visible&&a.aimJoystick.base.visible}})()");
+    assert.ok(sticks.enabled&&sticks.visible,'PR52 both sticks active');
+    assert.ok(sticks.left[0]-sticks.radius>=0&&sticks.right[0]+sticks.radius<=width);
+    assert.ok(sticks.left[1]+sticks.radius<=height&&sticks.left[1]-sticks.radius>=0);
+    const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile('dist/pr52-arena-'+width+'x'+height+'.png',Buffer.from(shot.data,'base64'));
+    console.log('PASS PR52 screenshot and real Arena bounds '+width+'x'+height+' '+JSON.stringify({sticks,portrait:rect.portrait,menu:rect.menu}));
+  }
+  await cdp('Emulation.setDeviceMetricsOverride',{width:720,height:360,deviceScaleFactor:1,mobile:false});
+  await evaluate('window.__game.scale.refresh();true');await sleep(120);
   assert.equal((await snapshot()).fullscreenVisible,false);
   // Initial equipment is gameplay state, independent of optional PNG availability.
   const firstPickup=await evaluate(`(()=>{
