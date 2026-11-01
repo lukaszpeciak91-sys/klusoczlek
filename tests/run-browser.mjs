@@ -1811,8 +1811,8 @@ try {
     }
     // Killing a boss during a live volley atomically resolves the fight,
     // neutralizes spawned survivors and cancels pending work.
-    const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length,living:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length}})()");
-    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'boss-resolving');assert.equal(death.living,1,'Exactly one living witness must survive scripted cleanup');assert.equal(death.queued,0);assert.ok(death.bursts>0);
+    const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length,living:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length,witness:!!a.act1Witness,stagePoint:a.act1NarrativeStagePoint('zubrokryptyda'),view:{x:a.cameras.main.worldView.x,y:a.cameras.main.worldView.y,w:a.cameras.main.worldView.width,h:a.cameras.main.worldView.height},player:{x:a.player.x,y:a.player.y},sceneCount:a.enemies.length}})()");
+    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'boss-resolving');assert.equal(death.living,1,'Exactly one living witness must survive scripted cleanup '+JSON.stringify(death));assert.equal(death.queued,0);assert.ok(death.bursts>0);
     const postFatalHp=await evaluate("window.__game.scene.getScene('Arena').playerHp");
     await sleep(150);
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerHp"),postFatalHp,'Post-fatal damage reached Aloes during visual resolution');
