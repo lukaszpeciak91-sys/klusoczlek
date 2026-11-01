@@ -798,7 +798,7 @@ export class ArenaScene extends Phaser.Scene {
 
   spawnReplacement(fromBossScheduler=false){
     const nextTypeValue=nextType(this.episode);
-    if(this.episode.state!=='active'||this.defeated||this.completed||!nextTypeValue||this.enemies.filter(e=>!e.dead).length>=(this.boss?BOSS_NON_MARCIN_CAP:waveCapacity(this.episode))||this.finalResolution||(this.boss&&!fromBossScheduler))return;
+    if(this.episode.state!=='active'||this.defeated||this.completed||!nextTypeValue||(this.boss?this.livingNonBoss():this.enemies.filter(e=>!e.dead).length)>=(this.boss?BOSS_NON_MARCIN_CAP:waveCapacity(this.episode))||this.finalResolution||(this.boss&&!fromBossScheduler))return;
     const nextEnemyType=nextTypeValue;
     if(nextEnemyType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda'&&!e.encounterId)){
       this.spawnDueAt=this.time.now+380;return;
