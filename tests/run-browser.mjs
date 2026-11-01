@@ -1767,7 +1767,7 @@ try {
           // Respect the existing max-one-ordinary-heavy gate: the player must
           // actually defeat an earlier wave-6 heavy before another can spawn.
           const blockingHeavy=living.find(e=>e.type==='zubrokryptyda'&&!e.encounterId);
-          if(living.length>=7){
+          if(living.length>=16){
             const victim=living[0];victim.hp=0;a.finalizeEnemyDeath(victim);
             a.enemies=a.enemies.filter(e=>!e.dead);
           }
@@ -1779,16 +1779,16 @@ try {
       })()`);
       assert.equal(allReinforcements.ids.length,12,'All twelve reinforcements must eventually be offered');
       assert.equal(new Set(allReinforcements.ids).size,12,'Reinforcement duplicate ID');
-      assert.equal(allReinforcements.normalSpawned,allReinforcements.normalsAtBoss,'Ordinary spawning must stop at boss handoff '+JSON.stringify(allReinforcements));
+      assert.ok(allReinforcements.normalSpawned>=allReinforcements.normalsAtBoss&&allReinforcements.normalSpawned-allReinforcements.normalsAtBoss<=12,'Only bounded PR54 initial allies may add ordinary spawns during boss combat '+JSON.stringify(allReinforcements));
       assert.equal(allReinforcements.escorts,2,'Escorts starved');
       assert.ok(allReinforcements.maxLive<=16,'Shared cap exceeded while draining every source');
       assert.ok(allReinforcements.living>=1,'Need living minion for boss-death VFX');
-      console.log('PASS PR48 real Phaser finite scheduler: all12 unique reinforcements, no ordinary boss-phase spawns, two escorts, live cap7; '+JSON.stringify(allReinforcements));
+      console.log('PASS PR48 real Phaser finite scheduler: all12 unique reinforcements, initial PR54 ordinary allies, two escorts, hard cap16; '+JSON.stringify(allReinforcements));
     }
     // Killing a boss during a live volley atomically resolves the fight,
     // neutralizes spawned survivors and cancels pending work.
     const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length,living:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length}})()");
-    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'boss-resolving');assert.equal(death.living,0);assert.equal(death.queued,0);assert.ok(death.bursts>0);
+    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'boss-resolving');assert.equal(death.living,1,'Exactly one living witness must survive scripted cleanup');assert.equal(death.queued,0);assert.ok(death.bursts>0);
     const postFatalHp=await evaluate("window.__game.scene.getScene('Arena').playerHp");
     await sleep(150);
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerHp"),postFatalHp,'Post-fatal damage reached Aloes during visual resolution');
