@@ -181,7 +181,7 @@ export class ArenaScene extends Phaser.Scene {
     this.episode=createEpisode(seed);
     this.boss=null;this.bossEntrance=null;this.bossEntrancePending=false;this.bossLandingRetryAt=0;
     this.bossProjectiles=[];this.escortDue=[];this.reinforcementDue=[];this.bossSchedulerTurn=0;this.finalResolution=false;
-    this.act1Herald=null;this.act1Witness=null;this.act1AllyDue=0;this.act1AllyAdded=0;this.act1FadePending=false;this.act1FadeElapsed=0;
+    this.act1Herald=null;this.act1Witness=null;this.act1AllyDue=0;this.act1AllyAdded=0;this.act1FadePending=false;this.act1FadeElapsed=0;this.act1AwaitWitnessBurst=false;this.act1FinalLineDone=false;
     this.defeated=false;
     this.completed=false;
     this.weapon=null;
@@ -357,6 +357,9 @@ export class ArenaScene extends Phaser.Scene {
       this.time.paused=false;
       if(this.canResume()&&!this.finalResolution)this.physics.world.resume();
       if(id==='after-final-enemy')this.releaseFinalOutcome();
+      if(id==='act1-marcin-last')this.markNarrativeBoundary('act1-witness-last');
+      if(id==='act1-witness-last'){this.finishAct1Witness();this.act1AwaitWitnessBurst=true;}
+      if(id==='act1-aloes-last'){this.act1FinalLineDone=true;this.beginAct1Fade();}
       if(id==='before-wave-1')this.encounterDirector.nextMs=this.elapsedGameplayMs+450;
       if(id==='before-marcin'){this.bossEntrancePending=true;this.tryBeginBossEntrance();}
       this.resetMovement();
@@ -430,7 +433,7 @@ export class ArenaScene extends Phaser.Scene {
 
   tryStartDialogue(){
     if(this.dialogueLoading||this.dialogueState.id||this.episode.ended)return false;
-    for(const id of ['before-wave-1',BOCIANOLAK_HIT_DIALOGUE,'before-marcin','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy']){
+    for(const id of ['before-wave-1',BOCIANOLAK_HIT_DIALOGUE,'before-marcin','before-first-bocianolak','before-first-zubrokryptyda','act1-marcin-last','act1-witness-last','act1-aloes-last','after-final-enemy']){
       if((id==='before-first-bocianolak'||id==='before-first-zubrokryptyda')&&!this.introductionReady(id))continue;
       if(id==='before-marcin'&&!this.ensureAct1Herald())continue;
       if(!this.consumeNarrativeBoundary(id))continue;
@@ -442,7 +445,7 @@ export class ArenaScene extends Phaser.Scene {
       if(!beginDialogue(this.dialogueState,id))return false;
       this.ambientBarks?.suspend();
       if(id===BOCIANOLAK_HIT_DIALOGUE||id==='before-marcin')this.events.emit('episode-boundary',id,this);
-      if(id==='after-final-enemy')this.holdFinalOutcome();
+      if(id==='after-final-enemy'||id==='act1-marcin-last')this.holdFinalOutcome();
       advanceGameplayClock(this.gameplayClock,0,false);
       this.resetMovement();this.physics.world.pause();this.time.paused=true;
       this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
@@ -519,8 +522,8 @@ export class ArenaScene extends Phaser.Scene {
 
   tryBeginBossEntrance(){
     if(!this.bossEntrancePending||this.bossEntrance||this.episode.specialSpawned.has('marcin'))return false;
-    // Retain all timed-wave survivors. A crowded arena drains naturally before landing.
-    if(this.livingNonBoss()>BOSS_NON_MARCIN_CAP)return false;
+    // Narrative roles are accounted separately; do not discard existing survivors.
+    if(this.livingNonBoss()>BOSS_SCENE_HARD_CAP)return false;
     const point=landingPoint(this.player,this.cameras.main.worldView,this.obstacles,this.bossNavigation);
     if(!point||!this.bossNavigation.isReachable(point))return false;
     this.bossEntrancePending=false;
@@ -569,6 +572,7 @@ export class ArenaScene extends Phaser.Scene {
       this.escortDue=FINAL_ENCOUNTER.filter(s=>s.id!=='marcin').map((spec,i)=>({spec,at:this.time.now+250+i*700}));
       const first=[...REINFORCEMENTS.filter(x=>x.type==='bobrozombi').slice(0,3),REINFORCEMENTS.find(x=>x.type==='bocianolak')];
       this.reinforcementDue=[...first,...REINFORCEMENTS.filter(x=>!first.includes(x))].map((spec,i)=>({spec,at:this.time.now+(i<4?250+i*350:1800+(i-4)*650)}));
+      this.act1AllyDue=allyShortfall(this.enemies.filter(e=>!e.dead&&e.type!=='marcin'&&!e.narrativeRole).length);
       this.syncJoysticks();if(this.canResume())this.physics.world.resume();
     }
   }
@@ -591,7 +595,13 @@ export class ArenaScene extends Phaser.Scene {
 
   livingNonBoss(){return this.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;}
   spawnBossSlot(now){
-    if(this.episode.state!=='active'||!this.boss||this.boss.dead||this.livingNonBoss()>=BOSS_NON_MARCIN_CAP)return false;
+    if(this.episode.state!=='active'||!this.boss||this.boss.dead||this.livingNonBoss()>=BOSS_SCENE_HARD_CAP)return false;
+    if(this.act1AllyDue>0){
+      const type=this.nextOrdinaryType()||'bobrozombi';
+      const point=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[type].radius,this.navigation);
+      if(point){const e=this.createEnemy(type,point,this.totalSpawned++);e.act1Ally=true;this.enemies.push(e);this.act1AllyDue--;this.act1AllyAdded++;return true;}
+      return false;
+    }
     const sources=['escort','reinforcement'];
     for(let i=0;i<2;i++){
       const source=sources[(this.bossSchedulerTurn+i)%2];
@@ -832,8 +842,9 @@ export class ArenaScene extends Phaser.Scene {
     for(const bullet of this.projectiles)bullet.object.destroy();
     this.projectiles=[];this.resetMovement();this.flameStream.clear();
     this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);this.physics.world.pause();
+    this.ensureAct1Witness();
     for(const enemy of this.enemies){
-      if(enemy.dead||enemy.type==='marcin')continue;
+      if(enemy.dead||enemy.type==='marcin'||enemy===this.act1Witness)continue;
       enemy.dead=true;enemy.hp=0;
       this.deathBursts.push(createPixelBurst(this,enemy.type,enemy.x,enemy.y,enemy.seed));
       enemy.burningFx?.destroy();enemy.burningFx=null;clearIgnition(enemy.ignition);
@@ -931,12 +942,27 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
     if(this.episode.state==='boss-resolving'){
-      if(this.deathBursts.length===0&&finishBossResolution(this.episode))this.markNarrativeBoundary('after-final-enemy');
+      if(this.deathBursts.length===0&&finishBossResolution(this.episode))this.markNarrativeBoundary('act1-marcin-last');
       return;
     }
-    // Terminal combat stays physically frozen; final DALEJ can still commit victory.
-    if(this.episode.state==='final-pending'&&!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
-      this.endEpisode(this.playerHp<=0?'defeat':'victory');return;
+    // Story beats remain input-driven while combat/physics stay frozen.
+    if(this.episode.state==='final-pending'){
+      if(this.act1AwaitWitnessBurst&&this.deathBursts.length===0){
+        this.act1AwaitWitnessBurst=false;
+        this.markNarrativeBoundary('act1-aloes-last');
+      }
+      if(this.act1FadePending){
+        this.act1FadeElapsed+=Math.min(this.game.loop.delta,50);
+        if(this.act1FadeElapsed>=600){
+          this.act1FadePending=false;
+          this.cameras.main.fadeIn(350,0,0,0);
+          this.releaseFinalOutcome();
+          this.endEpisode(this.playerHp<=0?'defeat':'victory');
+        }
+      }else if(!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
+        this.endEpisode(this.playerHp<=0?'defeat':'victory');
+      }
+      return;
     }
     if (this.episode.ended || this.dialogueLoading || this.dialogueState?.id || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);
