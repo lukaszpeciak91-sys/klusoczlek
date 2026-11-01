@@ -514,7 +514,16 @@ export class ArenaScene extends Phaser.Scene {
     const fallback=[];
     for(let yi=2;yi<=9;yi++)for(let xi=1;xi<=9;xi++)
       fallback.push({x:Math.round(view.x+view.width*xi/10),y:Math.round(view.y+view.height*yi/11)});
-    return pick(fallback,Math.max(90,r+(this.player.body?.radius??17)+18),null);
+    const physical=pick(fallback,Math.max(90,r+(this.player.body?.radius??17)+18),null);
+    if(physical)return physical;
+    // Last resort is CINEMATIC ONLY: combat, enemy AI, damage and projectiles
+    // have stopped. Unlike a combat spawn, this actor is never given control
+    // of world physics; use a stable in-camera position if no free footprint
+    // is available (e.g. tightly packed 320x240 forest view).
+    const screenCandidates=[.82,.18,.72,.28].flatMap(fx=>[.44,.57,.31].map(fy=>({
+      x:Math.round(view.x+view.width*fx),y:Math.round(view.y+view.height*fy)})));
+    return screenCandidates.find(p=>p.x>=r+4&&p.x<=ARENA.width-r-4&&p.y>=r+4&&p.y<=ARENA.height-r-4
+      &&Math.hypot(p.x-this.player.x,p.y-this.player.y)>=r+(this.player.body?.radius??17)+24)??null;
   }
   ensureAct1Herald(){
     if(this.act1Herald&&!this.act1Herald.dead&&this.act1Herald.hp>0)return true;
