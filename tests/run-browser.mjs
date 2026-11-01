@@ -626,19 +626,19 @@ try {
   const pendingBoss=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {live:a.livingNonBoss(),pending:a.bossEntrancePending,spawned:a.episode.spawned}})()");
   if(pendingBoss.live>7){
     assert.equal(pendingBoss.pending,true,'Crowded handoff must wait rather than despawn');
-    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');while(a.livingNonBoss()>7){const e=a.enemies.find(x=>!x.dead&&x.type!=='marcin');e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(x=>!x.dead);}})()");
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');while(a.livingNonBoss()>16){const e=a.enemies.find(x=>!x.dead&&x.type!=='marcin');e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(x=>!x.dead);}})()");
   }
   for(let i=0;i<120;i++){
     const stage=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {landed:!!a.boss&&!a.bossEntrance,escorts:a.episode.specialSpawned.size-Number(a.episode.specialSpawned.has('marcin')),due:a.escortDue.length,live:a.livingNonBoss()}})()");
     if(stage.landed&&stage.escorts===2&&stage.due===0)break;
-    if(stage.landed&&stage.live>=7&&stage.due>0){
+    if(stage.landed&&stage.live>=16&&stage.due>0){
       await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(e=>!e.dead&&!e.encounterId);if(e){e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(e=>!e.dead);}})()");
     }
     await sleep(60);
   }
   const bossBefore=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {boss:!!a.boss&&a.boss.hp>0,live:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,escorts:[...a.episode.specialSpawned].filter(x=>x.startsWith('escort')).length,planned:a.killsText.text,regular:a.episode.defeated}})()");
   assert.equal(bossBefore.boss,true,'Marcin must remain alive after all ordinary enemies die');
-  assert.ok(bossBefore.live<=7,'Finale exceeded shared non-boss live cap');
+  assert.ok(bossBefore.live<=16,'PR54 shared nonboss hard cap');
   assert.equal(bossBefore.escorts,2,'Both escorts must have been offered');
   assert.ok(bossBefore.regular>=72);
   assert.equal(bossBefore.planned,String(bossBefore.regular));
@@ -661,16 +661,16 @@ try {
   assert.equal(finaleAtHit.hud,String(finaleAtHit.kills));
   assert.equal(finaleAtHit.state,'boss-resolving');
   assert.equal(finaleAtHit.final,true);
-  assert.equal(finaleAtHit.others,0,'All spawned live minions must be neutralized atomically');
+  assert.equal(finaleAtHit.others,1,'Exactly one witness must remain alive during finale');
   assert.equal(finaleAtHit.queued,0,'Pending escorts and reinforcements must be cancelled');
   assert.equal(finaleAtHit.projectiles,0,'Boss projectiles retained after death');
   assert.equal(finaleAtHit.dialogue,null,'Final dialogue started before visual resolution');
-  assert.ok(finaleAtHit.bursts>=finaleAtHit.live+1,'Missing visible scripted red death bursts');
+  assert.ok(finaleAtHit.bursts>=finaleAtHit.live,'Scripted bursts must spare the witness');
   const finalShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile('dist/pr48-boss-resolution-active.png',Buffer.from(finalShot.data,'base64'));
   await sleep(950);
   const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,spawned:a.totalSpawned}})()");
-  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false,kills:finaleAtHit.kills,spawned:finaleAtHit.spawned},'Final dialogue must follow settled VFX and cancel future spawns');
+  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'act1-marcin-last',held:true,bursts:0,ended:false,kills:finaleAtHit.kills,spawned:finaleAtHit.spawned},'Final dialogue must follow settled VFX and cancel future spawns');
   const marcinPortrait=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {loaded:a.dialoguePanel.loaded.has('marcin'),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible)}})()");
   let validUploadedMarcin=false,marcinPngMetadata={status:'missing'};
   try{const png=await readFile('public/assets/dialogue/dialogue-marcin.png');validUploadedMarcin=validDialoguePng(png);marcinPngMetadata={status:'present',bytes:png.length,width:png.readUInt32BE(16),height:png.readUInt32BE(20),bitDepth:png[24],colorType:png[25],acceptedByLoader:validUploadedMarcin};}catch{}
@@ -684,22 +684,23 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),clockInFinal,'Timer advanced while final dialogue active');
   const finalAfterShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile('dist/pr48-boss-final-dialogue.png',Buffer.from(finalAfterShot.data,'base64'));
-  const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,id:a.dialogueState.id,first:a.consumeNarrativeBoundary('after-final-enemy')}})()");
-  assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'after-final-enemy',first:false});
-  for(let line=0;line<3;line++){
-    const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,state:a.episode.state}})()");
-    assert.equal(before.id,'after-final-enemy');assert.equal(before.index,line);
-    const isolated=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.knob.visible&&!j.held&&j.pointerId===null)})()");
-    assert.equal(isolated,true,'Joysticks must remain isolated through all three final lines');
-    assert.equal(before.state,'final-pending','Victory occurred before final DALEJ');
-    await sleep(205);
-    const bounds=(await snapshot()).rect;
-    await click(bounds.x+before.x,bounds.y+before.y);
-    const after=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index}})()");
-    assert.equal(after.id,line===2?null:'after-final-enemy','Final DALEJ tap skipped or failed');
-    if(line<2)assert.equal(after.index,line+1);
-  }
-  await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
+  const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,id:a.dialogueState.id,first:a.consumeNarrativeBoundary('act1-marcin-last')}})()");
+  assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'act1-marcin-last',first:false});
+  for(const id of ['act1-marcin-last','act1-witness-last','act1-aloes-last']){
+    for(let wait=0;wait<120;wait++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id")==id)break;await sleep(25);}
+    const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,state:a.episode.state,witness:!!a.act1Witness&&!a.act1Witness.dead}})()");
+    assert.equal(before.id,id,'PR54 cinematic order');
+    assert.equal(before.state,'final-pending');
+    if(id==='act1-witness-last')assert.equal(before.witness,true);
+    const isolated=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.held)})()");
+    assert.equal(isolated,true);
+    await sleep(205);const rect=(await snapshot()).rect;await click(rect.x+before.x,rect.y+before.y);
+    if(id==='act1-witness-last'){
+      const aftermath=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {witness:!!a.act1Witness,burst:a.deathBursts.length,next:a.dialogueState.id}})()");
+      assert.equal(aftermath.witness,false);assert.ok(aftermath.burst>0);assert.notEqual(aftermath.next,'act1-aloes-last');
+    }
+   }
+   await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   const terminalClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
   await sleep(160);
@@ -1697,7 +1698,7 @@ try {
     await writeFile('dist/pr44-landing-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
     for(let i=0;i<100;i++){if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.boss&&!a.bossEntrance&&a.escortDue.length===0})()"))break;await sleep(40);}
     const active=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {seed:a.arenaSeed,hp:a.boss?.hp,roster:[...a.episode.specialSpawned],escorts:a.enemies.filter(e=>e.encounterId?.startsWith('escort')).length,bar:a.bossHpLabel.visible,body:a.player.body.radius,nav:a.bossNavigation.free===a.bossNavigation.visited,zoom:a.cameras.main.zoom,live:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,reinforcements:a.episode.reinforcementSpawned.size,remainingReinforcements:a.reinforcementDue.length,remainingRegular:35-a.episode.spawned}})()");
-    assert.equal(active.seed,seed);assert.equal(active.hp,36);assert.deepEqual(active.roster,['marcin','escort-1','escort-2']);assert.equal(active.escorts,2);assert.ok(active.live<=7&&active.reinforcements>=1&&active.remainingReinforcements>0&&active.remainingRegular>0,'Finite reinforcements must respect shared cap while future work remains');assert.ok(active.bar&&active.nav);assert.equal(active.body,17);assert.equal(active.zoom,1);
+    assert.equal(active.seed,seed);assert.equal(active.hp,36);assert.deepEqual(active.roster,['marcin','escort-1','escort-2']);assert.equal(active.escorts,2);assert.ok(active.live<=16&&active.reinforcements>=1&&active.remainingReinforcements>0&&active.remainingRegular>0,'Finite reinforcements must respect shared cap while future work remains');assert.ok(active.bar&&active.nav);assert.equal(active.body,17);assert.equal(active.zoom,1);
     // Stop normal scheduling for the attack fixture after proving roster creation.
     await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.spawnDueAt=null;a.boss.attack.elapsed=5950;window.__bossWarningAt=performance.now()})()");
     await sleep(100);assert.equal(await evaluate("window.__game.scene.getScene('Arena').boss.attack.phase"),'warning');assert.equal(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length"),0);
@@ -1780,7 +1781,7 @@ try {
       assert.equal(new Set(allReinforcements.ids).size,12,'Reinforcement duplicate ID');
       assert.equal(allReinforcements.normalSpawned,allReinforcements.normalsAtBoss,'Ordinary spawning must stop at boss handoff '+JSON.stringify(allReinforcements));
       assert.equal(allReinforcements.escorts,2,'Escorts starved');
-      assert.ok(allReinforcements.maxLive<=7,'Shared cap exceeded while draining every source');
+      assert.ok(allReinforcements.maxLive<=16,'Shared cap exceeded while draining every source');
       assert.ok(allReinforcements.living>=1,'Need living minion for boss-death VFX');
       console.log('PASS PR48 real Phaser finite scheduler: all12 unique reinforcements, no ordinary boss-phase spawns, two escorts, live cap7; '+JSON.stringify(allReinforcements));
     }
