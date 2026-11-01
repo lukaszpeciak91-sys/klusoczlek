@@ -606,17 +606,24 @@ try {
   await evaluate('window.__setActiveTime(260000);true');
   for(let i=0;i<60;i++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='before-marcin'"))break;await sleep(25);}
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'before-marcin');await nextLine();await nextLine();
+  // The director never deletes survivors to clear Marcin's seven nonboss landing slots.
+  // Sustain combat until genuine player kills free safe slots.
+  const pendingBoss=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {live:a.livingNonBoss(),pending:a.bossEntrancePending,spawned:a.episode.spawned}})()");
+  if(pendingBoss.live>7){
+    assert.equal(pendingBoss.pending,true,'Crowded handoff must wait rather than despawn');
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');while(a.livingNonBoss()>7){const e=a.enemies.find(x=>!x.dead&&x.type!=='marcin');e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(x=>!x.dead);}})()");
+  }
   for(let i=0;i<120;i++){if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.boss&&!a.bossEntrance&&a.escortDue.length===0})()"))break;await sleep(40);}
   const bossBefore=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {boss:!!a.boss&&a.boss.hp>0,live:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,escorts:[...a.episode.specialSpawned].filter(x=>x.startsWith('escort')).length,planned:a.killsText.text,regular:a.episode.defeated}})()");
   assert.equal(bossBefore.boss,true,'Marcin must remain alive after all ordinary enemies die');
   assert.ok(bossBefore.live<=7,'Finale exceeded shared non-boss live cap');
   assert.equal(bossBefore.escorts,2,'Both escorts must have been offered');
-  assert.equal(bossBefore.regular,72);
-  assert.equal(bossBefore.planned,'72');
+  assert.ok(bossBefore.regular>=72);
+  assert.equal(bossBefore.planned,String(bossBefore.regular));
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['⊕',0x2499ad]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones],healthAwards:a.healthAwardCount||0}})()");
-  assert.equal(progression.kills,72);
+  assert.ok(progression.kills>=72);
   assert.ok(typesDefeated.includes('bobrozombi'));
   assert.ok(typesDefeated.includes('bocianolak'));
   assert.ok(typesDefeated.includes('zubrokryptyda'));
@@ -628,8 +635,8 @@ try {
 
   const finaleAtHit=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const live=a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;const spawned=a.totalSpawned;const boss=a.boss;if(!boss)throw Error('Marcin missing');boss.hp=0;if(!a.finalizeEnemyDeath(boss)||a.finalizeEnemyDeath(boss))throw Error('Marcin fatal hit was not unique');return {live,spawned,kills:a.kills,hud:a.killsText.text,final:a.finalResolution,state:a.episode.state,others:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,queued:a.reinforcementDue.length+a.escortDue.length,projectiles:a.bossProjectiles.length,bursts:a.deathBursts.length,dialogue:a.dialogueState.id}})()");
   assert.ok(finaleAtHit.live>=1,'Scripted resolution must have living minions to neutralize');
-  assert.equal(finaleAtHit.kills,73,'Only the player-earned Marcin kill may increment the numerator');
-  assert.equal(finaleAtHit.hud,'73');
+  assert.equal(finaleAtHit.kills,progression.kills+1,'Only the player-earned Marcin kill may increment the numerator');
+  assert.equal(finaleAtHit.hud,String(finaleAtHit.kills));
   assert.equal(finaleAtHit.state,'boss-resolving');
   assert.equal(finaleAtHit.final,true);
   assert.equal(finaleAtHit.others,0,'All spawned live minions must be neutralized atomically');
