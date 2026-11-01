@@ -4,8 +4,9 @@ import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue,currentDialo
 import {validDialoguePng} from '../src/dialogue-ui.js';
 import {WAVES,WAVE_TIMING,HEALTH_AFTER_WAVES} from '../src/episode.js';
 test('four original and one first-hit boundary dialogues and approved speaker sequence',()=>{
- assert.deepEqual(Object.keys(DIALOGUES),['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy','before-marcin','after-first-bocianolak-hit']);
- assert.deepEqual(Object.values(DIALOGUES).map(lines=>lines.length),[3,3,2,3,2,1]);
+ assert.deepEqual(Object.keys(DIALOGUES),['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy','act1-marcin-last','act1-witness-last','act1-aloes-last','before-marcin','after-first-bocianolak-hit']);
+ assert.deepEqual(Object.values(DIALOGUES).map(lines=>lines.length),[3,3,2,3,1,1,1,2,1]);
+ assert.deepEqual([...DIALOGUES['act1-marcin-last'],...DIALOGUES['act1-witness-last'],...DIALOGUES['act1-aloes-last']],DIALOGUES['after-final-enemy'],'PR54 finale splits existing verbatim lines only');
  const state=createDialogueState();
  for(const [id,lines] of Object.entries(DIALOGUES)){
   assert.equal(beginDialogue(state,id),true);
