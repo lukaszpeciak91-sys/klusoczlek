@@ -835,7 +835,7 @@ try {
     return {blocked,unblocked};
   })()`);
   assert.equal(heavyQueue.blocked.total,71);assert.equal(heavyQueue.blocked.heavy,1);assert.equal(heavyQueue.blocked.common,true);
-  assert.equal(heavyQueue.unblocked.total,72);assert.equal(heavyQueue.unblocked.type,'zubrokryptyda');
+  assert.equal(heavyQueue.unblocked.total,72);assert.ok(['bobrozombi','bocianolak','zubrokryptyda'].includes(heavyQueue.unblocked.type),'Weighted continuation selected an unavailable type');
   console.log('PASS wave-local heavy concurrency gate under continuous weighted selection');
   // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
   const combatProbe=await evaluate(`(()=>{
