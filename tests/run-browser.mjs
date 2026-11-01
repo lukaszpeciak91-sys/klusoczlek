@@ -631,51 +631,53 @@ try {
     }
   }
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'active','Normal138 prematurely finished boss encounter');
-  await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');for(const id of ['marcin','escort-1','escort-2']){
-    const e=a.enemies.find(e=>e.encounterId===id);if(!e)throw Error('missing '+id);
-    e.hp=0;if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('special duplicate death');
-    if(id!=='escort-2'&&a.episode.state!=='active')throw Error('premature finale');
-  }})()`);
+  const bossBefore=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {boss:!!a.boss&&a.boss.hp>0,live:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,escorts:[...a.episode.specialSpawned].filter(x=>x.startsWith('escort')).length,planned:a.killsText.text,regular:a.episode.defeated}})()");
+  assert.equal(bossBefore.boss,true,'Marcin must remain alive after all ordinary enemies die');
+  assert.ok(bossBefore.live<=7,'Finale exceeded shared non-boss live cap');
+  assert.equal(bossBefore.escorts,2,'Both escorts must have been offered');
+  assert.equal(bossBefore.regular,35);
+  assert.equal(bossBefore.planned,'138/'+TOTAL_ENEMIES);
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['⊕',0x2499ad]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
-  const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones],healthAwards:a.healthAwardCount||0}})()");
-  assert.equal(progression.kills,141);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').killsText.text"),'141/141');
+  const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones],healthAwards:a.healthAwardCount||0}})()");
+  assert.equal(progression.kills,138);
   assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,69);
   assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,55);
   assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,14);
-  assert.equal(progression.total,141);
   assert.equal(progression.healthAwards,3,'Heart awards after waves 2, 4, 5 were not exactly once');
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'final-pending');
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[2,4]);
-  console.log('PASS Phaser wave rewards: no kill 5/10 triggers, rifle after 2, flamethrower and health after 4, 138 normal +3 special unique deaths');
-  // The actual 138th gameplay death must leave a live burst throughout the final narrative.
-  const finalBurstAtStart=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,kills:a.kills,active:a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length}})()");
-  assert.equal(finalBurstAtStart.kills,141);
-  assert.equal(finalBurstAtStart.state,'final-pending');
-  assert.equal(finalBurstAtStart.id,'after-final-enemy');
-  assert.equal(finalBurstAtStart.active,true,'Final enemy burst must exist at final-pending boundary');
+  console.log('PASS Phaser wave rewards and original 138 enemies; two escorts offered; Marcin remains decisive');
+
+  const finaleAtHit=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const live=a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;const spawned=a.totalSpawned;const boss=a.boss;if(!boss)throw Error('Marcin missing');boss.hp=0;if(!a.finalizeEnemyDeath(boss)||a.finalizeEnemyDeath(boss))throw Error('Marcin fatal hit was not unique');return {live,spawned,kills:a.kills,hud:a.killsText.text,final:a.finalResolution,state:a.episode.state,others:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,queued:a.reinforcementDue.length+a.escortDue.length,projectiles:a.bossProjectiles.length,bursts:a.deathBursts.length,dialogue:a.dialogueState.id}})()");
+  assert.ok(finaleAtHit.live>=1,'Scripted resolution must have living minions to neutralize');
+  assert.equal(finaleAtHit.kills,139,'Only the player-earned Marcin kill may increment the numerator');
+  assert.equal(finaleAtHit.hud,'139/'+TOTAL_ENEMIES);
+  assert.equal(finaleAtHit.state,'boss-resolving');
+  assert.equal(finaleAtHit.final,true);
+  assert.equal(finaleAtHit.others,0,'All spawned live minions must be neutralized atomically');
+  assert.equal(finaleAtHit.queued,0,'Pending escorts and reinforcements must be cancelled');
+  assert.equal(finaleAtHit.projectiles,0,'Boss projectiles retained after death');
+  assert.equal(finaleAtHit.dialogue,null,'Final dialogue started before visual resolution');
+  assert.ok(finaleAtHit.bursts>=finaleAtHit.live+1,'Missing visible scripted red death bursts');
   const finalShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
-  await writeFile('dist/combat-feedback-final-enemy-active.png',Buffer.from(finalShot.data,'base64'));
-  await sleep(560);
-  const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended}})()");
-  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false},'Death bursts must complete while final narrative freezes combat');
+  await writeFile('dist/pr48-boss-resolution-active.png',Buffer.from(finalShot.data,'base64'));
+  await sleep(950);
+  const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,spawned:a.totalSpawned}})()");
+  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false,kills:139,spawned:finaleAtHit.spawned},'Final dialogue must follow settled VFX and cancel future spawns');
   const clockInFinal=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
   await sleep(180);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),clockInFinal,'Timer advanced while final dialogue active');
-
   const finalAfterShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
-  await writeFile('dist/combat-feedback-final-enemy-expired.png',Buffer.from(finalAfterShot.data,'base64'));
-  await sleep(120);
+  await writeFile('dist/pr48-boss-final-dialogue.png',Buffer.from(finalAfterShot.data,'base64'));
   const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,id:a.dialogueState.id,first:a.consumeNarrativeBoundary('after-final-enemy')}})()");
-  assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'after-final-enemy',first:false},'Final dialogue must own the consumed one-shot boundary');
+  assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'after-final-enemy',first:false});
   for(let line=0;line<3;line++){
     const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,state:a.episode.state}})()");
     assert.equal(before.id,'after-final-enemy');assert.equal(before.index,line);
     const isolated=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.knob.visible&&!j.held&&j.pointerId===null)})()");
-    assert.equal(isolated,true,'Both joysticks must remain isolated across dialogue lines');
-    assert.equal(before.state,'final-pending','Victory occurred while dialogue active');
+    assert.equal(isolated,true,'Joysticks must remain isolated through all three final lines');
+    assert.equal(before.state,'final-pending','Victory occurred before final DALEJ');
     await sleep(205);
     const bounds=(await snapshot()).rect;
     await click(bounds.x+before.x,bounds.y+before.y);
