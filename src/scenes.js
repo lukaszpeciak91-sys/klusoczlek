@@ -1,4 +1,5 @@
-import {selectOrdinarySpawn,ORDINARY_SPAWN_INTERVAL_MS} from './enemy-spawn.js';
+import {selectOrdinarySpawn} from './enemy-spawn.js';
+import {createDirector,directorPopulation,directorOpportunity,nextDirectorType,recordDirectorSpawn} from './encounter-director.js';
 import {createAmbientBarks} from './ambient-bark-view.js';
 import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
@@ -14,7 +15,7 @@ import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRe
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
 import {createBurningFx} from './enemy-fire-vfx.js';
-import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceTimedWaves,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
+import {WAVES,TOTAL_WAVES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceTimedWaves,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
 import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
@@ -187,6 +188,7 @@ export class ArenaScene extends Phaser.Scene {
     this.elapsedGameplayMs=0;
     this.totalSpawned=0;
     this.spawnDueAt=null;
+    this.encounterDirector=createDirector(this.arenaSeed);
     this.pickups=[];
     this.triggeredMilestones=new Set();
     this.pendingRewards=new Map();
@@ -201,7 +203,7 @@ export class ArenaScene extends Phaser.Scene {
     for(let index=0;index<3;index++){
       const point=this.ordinarySpawnPoint(21,index,openingView);
       if(!point)continue;
-      const type=nextType(this.episode);recordSpawn(this.episode);
+      const type='bobrozombi';recordSpawn(this.episode,type);recordDirectorSpawn(this.encounterDirector,0,type);
       this.enemies.push(this.createEnemy(type,point,index));
     }
     this.totalSpawned=this.enemies.length;
@@ -222,7 +224,7 @@ export class ArenaScene extends Phaser.Scene {
     this.pressureBar=this.add.graphics().setScrollFactor(0).setDepth(67);
     this.skullIcon=this.add.text(0,0,'☠',{fontFamily:'sans-serif',fontSize:'23px',color:'#d7b978'})
       .setOrigin(0.5).setScrollFactor(0).setDepth(66);
-    this.killsText=this.add.text(0,0,'0/'+TOTAL_ENEMIES,{fontFamily:'monospace',fontSize:'20px',color:'#f3e8d1'})
+    this.killsText=this.add.text(0,0,'0',{fontFamily:'monospace',fontSize:'20px',color:'#f3e8d1'})
       .setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
     this.hpFace=createHpFaceHud(this,Phaser);
     this.waveText=this.add.text(0,0,'⚑ 1/'+TOTAL_WAVES,{fontFamily:'monospace',fontSize:'15px',color:'#f3ca76'}).setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
@@ -352,7 +354,7 @@ export class ArenaScene extends Phaser.Scene {
       this.time.paused=false;
       if(this.canResume()&&!this.finalResolution)this.physics.world.resume();
       if(id==='after-final-enemy')this.releaseFinalOutcome();
-      if(id==='before-wave-1')this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;
+      if(id==='before-wave-1')this.encounterDirector.nextMs=this.elapsedGameplayMs+450;
       if(id==='before-marcin'){this.bossEntrancePending=true;this.tryBeginBossEntrance();}
       this.resetMovement();
       this.syncJoysticks();
@@ -384,7 +386,7 @@ export class ArenaScene extends Phaser.Scene {
     const selected=this.weapon?WEAPONS[this.weapon]:null;
     this.weaponText.setText(selected?.symbol||'—');
     this.weaponTokenBody.setFillStyle(selected?.color??0x6b6153);
-    this.killsText.setText(this.kills+'/'+TOTAL_ENEMIES);
+    this.killsText.setText(String(this.kills));
   }
 
   syncTimedWaves(){
@@ -393,7 +395,7 @@ export class ArenaScene extends Phaser.Scene {
       if(HEALTH_AFTER_WAVES.includes(cleared))this.dropHealthReward();
       this.rewardForClearedWave(cleared);
     }
-    if(crossed.length){this.waveText.setText('⚑ '+(this.episode.wave+1)+'/'+TOTAL_WAVES);this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;}
+    if(crossed.length){this.waveText.setText('⚑ '+(this.episode.wave+1)+'/'+TOTAL_WAVES);}
     // Owed introductions survive discarded wave queues; only a visible living specimen may consume them.
     if(this.episode.wave>=1&&!this.introducedEnemyTypes.has('before-first-bocianolak'))this.narrativeEvents.add('before-first-bocianolak');
     if(this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda'))this.narrativeEvents.add('before-first-zubrokryptyda');
@@ -404,7 +406,7 @@ export class ArenaScene extends Phaser.Scene {
   nextOrdinaryType(){
     const ordinaryHeavy=this.enemies.some(e=>!e.dead&&e.hp>0&&e.type==='zubrokryptyda'&&!e.encounterId);
     const priorities=[['bocianolak',1],['zubrokryptyda',2]].filter(([type,wave])=>this.episode.wave>=wave&&!this.introducedEnemyTypes.has('before-first-'+type)&&!this.enemies.some(e=>!e.dead&&e.hp>0&&e.type===type)).map(([type])=>type);
-    return nextType(this.episode,{blockedTypes:ordinaryHeavy?['zubrokryptyda']:[],priorityTypes:priorities});
+    return nextDirectorType(this.encounterDirector,this.episode.wave,ordinaryHeavy?['zubrokryptyda']:[],priorities);
   }
 
   setPlayerHp(next){
@@ -538,28 +540,19 @@ export class ArenaScene extends Phaser.Scene {
   livingNonBoss(){return this.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;}
   spawnBossSlot(now){
     if(this.episode.state!=='active'||!this.boss||this.boss.dead||this.livingNonBoss()>=BOSS_NON_MARCIN_CAP)return false;
-    const sources=['regular','escort','reinforcement'];
-    for(let i=0;i<3;i++){
-      const source=sources[(this.bossSchedulerTurn+i)%3];
-      if(source==='regular'&&nextType(this.episode)){
-        const prior=this.totalSpawned;
-        this.spawnReplacement(true);
-        if(this.totalSpawned>prior){this.bossSchedulerTurn=(this.bossSchedulerTurn+i+1)%3;return true;}
-      }else if(source!=='regular'){
-        const queue=source==='escort'?this.escortDue:this.reinforcementDue;
-        const pending=queue.find(x=>now>=x.at);
-        if(!pending)continue;
-        const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[pending.spec.type].radius,this.navigation);
-        if(!at)continue;
-        const ok=source==='escort'?recordSpecialSpawn(this.episode,pending.spec.id):recordReinforcementSpawn(this.episode,pending.spec.id);
-        if(ok){
-          const enemy=this.createEnemy(pending.spec.type,at,this.totalSpawned++);
-          enemy.encounterId=pending.spec.id;this.enemies.push(enemy);
-        }
-        queue.splice(queue.indexOf(pending),1);
-        this.bossSchedulerTurn=(this.bossSchedulerTurn+i+1)%3;
-        return ok;
-      }
+    const sources=['escort','reinforcement'];
+    for(let i=0;i<2;i++){
+      const source=sources[(this.bossSchedulerTurn+i)%2];
+      const queue=source==='escort'?this.escortDue:this.reinforcementDue;
+      const pending=queue.find(x=>now>=x.at);
+      if(!pending)continue;
+      const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[pending.spec.type].radius,this.navigation);
+      if(!at)continue;
+      const ok=source==='escort'?recordSpecialSpawn(this.episode,pending.spec.id):recordReinforcementSpawn(this.episode,pending.spec.id);
+      if(ok){const enemy=this.createEnemy(pending.spec.type,at,this.totalSpawned++);enemy.encounterId=pending.spec.id;this.enemies.push(enemy);}
+      queue.splice(queue.indexOf(pending),1);
+      this.bossSchedulerTurn=(this.bossSchedulerTurn+i+1)%2;
+      return ok;
     }
     return false;
   }
@@ -811,9 +804,6 @@ export class ArenaScene extends Phaser.Scene {
     const living=this.enemies.filter(e=>!e.dead).length;
     recordDeath(this.episode,living,this.time.now,enemy.encounterId??null,enemy.waveIndex??this.episode.wave);
     if(enemy.type==='marcin'){this.clearBossProjectiles();this.boss=null;this.renderBossHp();}
-    if(nextType(this.episode)!==null&&this.spawnDueAt===null){
-      this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;
-    }
     return true;
   }
 
@@ -824,29 +814,31 @@ export class ArenaScene extends Phaser.Scene {
     return result.point;
   }
 
-  spawnReplacement(fromBossScheduler=false){
-    const nextTypeValue=this.nextOrdinaryType(),bossPhase=!!this.boss||this.episode.bossIntroduced;
-    if(this.episode.state!=='active'||this.defeated||this.completed||!nextTypeValue||this.livingNonBoss()>=(bossPhase?BOSS_NON_MARCIN_CAP:waveCapacity(this.episode))||this.finalResolution||(this.boss&&!fromBossScheduler))return;
+  spawnReplacement(){
+    const nextTypeValue=this.nextOrdinaryType();
+    if(this.episode.state!=='active'||this.defeated||this.completed||this.episode.bossIntroduced||!nextTypeValue||this.livingNonBoss()>=waveCapacity(this.episode)||this.finalResolution||this.boss)return false;
     const nextEnemyType=nextTypeValue;
     if(nextEnemyType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda'&&!e.encounterId)){
-      this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;return;
+      return false;
     }
     const introductionId=nextEnemyType==='bocianolak'?'before-first-bocianolak':nextEnemyType==='zubrokryptyda'?'before-first-zubrokryptyda':null;
     const pending=introductionId&&this.pendingIntroductions.get(introductionId);
     const firstIntroduction=introductionId&&!this.introducedEnemyTypes.has(introductionId)&&(!pending||pending.dead||pending.hp<=0);
     const radius=ENEMY_TYPES[nextEnemyType].radius;
     const at=(firstIntroduction?introductionSpawnPoint(nextEnemyType,this.player,this.obstacles,this.cameras.main.worldView,radius,this.navigation):null)
-      ||(fromBossScheduler?safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,radius,this.navigation):this.ordinarySpawnPoint(radius,this.totalSpawned));
-    if(!at){this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;return;}
+      ||this.ordinarySpawnPoint(radius,this.totalSpawned);
+    if(!at){return false;}
     const created=this.createEnemy(nextEnemyType,at,this.totalSpawned);
     this.enemies.push(created);
     this.totalSpawned++;
     recordSpawn(this.episode,nextEnemyType);
+    recordDirectorSpawn(this.encounterDirector,this.episode.wave,nextEnemyType);
     if(firstIntroduction){
       this.pendingIntroductions.set(introductionId,created);
       this.markNarrativeBoundary(introductionId);
       this.tryStartDialogue();
     }
+    return true;
   }
 
   dropHealthReward(){
@@ -924,10 +916,11 @@ export class ArenaScene extends Phaser.Scene {
       else if(!this.finalOutcomeHeld)this.endEpisode('victory');
       return;
     }
-    if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){
-      this.spawnDueAt=null;this.spawnReplacement();
-      if(this.dialogueState?.id)return;
-      if(this.episode.state==='active'&&!this.boss&&nextType(this.episode)!==null&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;
+    if(this.episode.state==='active'&&!this.episode.bossIntroduced&&!this.bossEntrancePending){
+      const v=this.cameras.main.worldView;
+      const population=directorPopulation(this.enemies,{x:v.x,y:v.y,width:v.width,height:v.height},this.player);
+      const opportunity=directorOpportunity(this.encounterDirector,{elapsedMs:this.elapsedGameplayMs,wave:this.episode.wave,population});
+      if(opportunity.spawn){this.spawnReplacement();if(this.dialogueState?.id)return;}
     }
     const keys = this.keys;
     const x = Number(keys.D.isDown || keys.RIGHT.isDown) -
