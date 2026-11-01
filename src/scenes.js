@@ -776,7 +776,7 @@ export class ArenaScene extends Phaser.Scene {
     clearIgnition(enemy.ignition);
     this.flameCooldowns.delete(enemy);
     enemy.sprite.destroy();
-    if(enemy.type==='marcin'){this.beginMarcinVictory();return true;}
+    if(enemy.type==='marcin'){this.kills++;this.refreshWeaponHud();this.beginMarcinVictory();return true;}
     if(!this.finalResolution){this.kills++;this.refreshWeaponHud();}
     const living=this.enemies.filter(e=>!e.dead).length;
     const event=recordDeath(this.episode,living,this.time.now,enemy.encounterId??null);
