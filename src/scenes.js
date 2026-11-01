@@ -516,6 +516,9 @@ export class ArenaScene extends Phaser.Scene {
     const point=this.act1NarrativeStagePoint('bobrozombi');
     if(!point)return false;
     const enemy=this.createEnemy('bobrozombi',point,this.totalSpawned++);
+    // A killable herald contributes to truthful ordinary spawn/death totals,
+    // but its narrative role excludes it from the twelve-ally roster.
+    recordSpawn(this.episode,'bobrozombi');
     enemy.narrativeRole='herald';this.act1Herald=enemy;this.enemies.push(enemy);return true;
   }
   ensureAct1Witness(){
