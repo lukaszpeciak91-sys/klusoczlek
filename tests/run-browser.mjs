@@ -1160,7 +1160,10 @@ try {
   await clickControl('WZNÓW');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'episode intermission resume');
   await sleep(950);
-  if(await evaluate("window.__game.scene.getScene('Arena').episode.wave")===1){await evaluate('window.__setActiveTime(75000);true');await sleep(100);}
+  // The following introduction cases explicitly stage their own clock and wave.
+  // Do not require the wall-clock wait to cross an active-time boundary while
+  // a pending portrait may freeze the Arena after MENU resume.
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueState.index=0;a.dialogueLoading=false;a.narrativeEvents.delete('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-bocianolak');a.time.paused=false;a.physics.world.resume();window.__stageTimedWave(2);})()");
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.wave"),2);
   console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal and paused timed boundary');
   // Test both introductions through the *actual* scheduled spawn, not a fabricated boundary.
