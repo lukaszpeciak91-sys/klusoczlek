@@ -219,14 +219,14 @@ export class ArenaScene extends Phaser.Scene {
     this.hpText=this.add.text(0,0,'HP 5/5',{fontFamily:'monospace',fontSize:'14px',color:'#f3e8d1'})
       .setOrigin(0.5,0).setScrollFactor(0).setDepth(81);
     this.weaponToken=this.add.container(0,0).setScrollFactor(0).setDepth(66);
-    this.weaponTokenBody=this.add.circle(0,0,17,0x6b6153).setStrokeStyle(2,COLORS.border);
+    this.weaponTokenBody=this.add.circle(0,0,17,0x303b2b,0.92).setStrokeStyle(2,0xb9a16b);
     this.weaponText=this.add.text(0,0,'—',{fontFamily:'monospace',fontSize:'21px',fontStyle:'bold',color:'#ffffff'})
       .setOrigin(0.5);
     this.weaponToken.add([this.weaponTokenBody,this.weaponText]);
     this.pressureBar=this.add.graphics().setScrollFactor(0).setDepth(67);
     this.skullIcon=this.add.text(0,0,'☠',{fontFamily:'sans-serif',fontSize:'23px',color:'#d7b978'})
       .setOrigin(0.5).setScrollFactor(0).setDepth(66);
-    this.killsText=this.add.text(0,0,'0',{fontFamily:'monospace',fontSize:'20px',color:'#f3e8d1'})
+    this.killsText=this.add.text(0,0,'0',{fontFamily:'monospace',fontSize:'20px',color:'#f0e4ca'})
       .setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
     this.hpFace=createHpFaceHud(this,Phaser);
     this.waveText=this.add.text(0,0,'⚑ 1/'+TOTAL_WAVES,{fontFamily:'monospace',fontSize:'15px',color:'#f3ca76'}).setOrigin(0,0.5).setScrollFactor(0).setDepth(66);
@@ -250,11 +250,11 @@ export class ArenaScene extends Phaser.Scene {
       for(const event of ['pointerup','pointerupoutside','pointercancel'])this.input.off(event,mouseUp);
     });
     const hud = this.hudLayout;
-    const menuButton = this.add.rectangle(hud.menuX, hud.menuY, hud.menuWidth, hud.menuHeight, COLORS.panel)
-      .setStrokeStyle(3, COLORS.border).setScrollFactor(0).setDepth(60)
+    const menuButton = this.add.rectangle(hud.menuX, hud.menuY, hud.menuWidth, hud.menuHeight, 0x2b3324, 0.88)
+      .setStrokeStyle(2, 0xb9a16b).setScrollFactor(0).setDepth(60)
       .setInteractive({ useHandCursor: true });
     const menuLabel = this.add.text(hud.menuX, hud.menuY, 'MENU', {
-      fontFamily: 'monospace', fontSize: hud.menuFont+'px', color: COLORS.white,
+      fontFamily: 'monospace', fontSize: hud.menuFont+'px', color: '#e8d6a5',
     }).setOrigin(0.5).setScrollFactor(0).setDepth(61);
     menuButton.on('pointerdown', () => this.openMenu());
     const resizeHud = () => {
@@ -263,8 +263,8 @@ export class ArenaScene extends Phaser.Scene {
       menuButton.setPosition(pos.menuX, pos.menuY).setSize(pos.menuWidth,pos.menuHeight);
       menuLabel.setFontSize(pos.menuFont);
       menuLabel.setPosition(pos.menuX, pos.menuY);
-      this.joystick.reposition(pos.joystickX, pos.joystickY);
-      this.aimJoystick.reposition(pos.aimX,pos.aimY);
+      this.joystick.reposition(pos.joystickX, pos.joystickY, pos.joystickRadius);
+      this.aimJoystick.reposition(pos.aimX,pos.aimY,pos.joystickRadius);
       this.mouseHeld=false;
       this.stopWeaponFire();
       this.weaponToken.setPosition(pos.weaponX,pos.weaponY);
