@@ -1335,6 +1335,11 @@ try {
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'clean Arena after terminal death');
   const newRun=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,playerVisible:a.playerVisual.sprite?.visible??true}})()");
   assert.deepEqual(newRun,{bursts:0,ended:false,kills:0,playerVisible:true},'NOWA GRA retained stale effects or state');
+  // The preceding NEW GAME starts its own opening portrait. Complete that
+  // dialogue through the real DALEJ button before testing gameplay retries.
+  for(let i=0;i<100;i++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState?.id==='before-wave-1'"))break;await sleep(25);}
+  if(await evaluate("window.__game.scene.getScene('Arena').dialogueState?.id==='before-wave-1'"))for(let i=0;i<3;i++)await nextLine();
+  await waitFor(v=>v.arena&&!v.arenaPaused&&!v.physics,'reward recovery Arena active');
   // Deferred reward issuance must never gate combat; the later pickup still works.
   const deferred=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='blunderbuss';const add=a.addPickup.bind(a);a.__rewardAdd=add;a.addPickup=(id,p)=>id==='rifle'?false:add(id,p);window.__stageTimedWave(1);window.__setActiveTime(75000);a.elapsedGameplayMs=75000;a.spawnDueAt=null;a.syncTimedWaves();return {pending:a.pendingRewards.size,weapon:a.weapon}})()");
   assert.deepEqual(deferred,{pending:1,weapon:'blunderbuss'},'Unplaceable rifle reward was lost');
