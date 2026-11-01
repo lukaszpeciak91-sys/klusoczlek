@@ -4,7 +4,7 @@ import { access, mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
-import {TOTAL_ENEMIES,WAVES,WAVE_TIMING} from '../src/episode.js';
+import {WAVES,WAVE_TIMING} from '../src/episode.js';
 import {validDialoguePng} from '../src/dialogue-ui.js';
 import { deflateSync } from 'node:zlib';
 import {verifyTimedWaves} from './pr49-browser.mjs';
@@ -224,7 +224,7 @@ try {
   assert.ok(firstPickup.obstacles.every(o=>Math.hypot(firstPickup.x-o.x,firstPickup.y-o.y)>o.r+20));
 
   const initialToken=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {symbol:a.weaponText.text,color:a.weaponTokenBody.fillColor,kills:a.killsText.text}})()");
-  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0/'+TOTAL_ENEMIES});
+  assert.deepEqual(initialToken,{symbol:'—',color:0x6b6153,kills:'0'});
 
   const initialClock=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {time:a.elapsedGameplayMs,label:a.timerText.text,wave:a.waveText.text}})()");
   assert.equal(initialClock.wave,'⚑ 1/6');assert.ok(initialClock.label.startsWith('◷ 00:'));
@@ -575,7 +575,7 @@ try {
   assert.equal(defaultVariant.playerVisual.requestedVariant,'unarmed');
   console.log('PASS optional variants: all four synthetic sheets, rapid selection, resume, reset, physics and single shadow');
   // Timed-wave replacement for the obsolete kill-gated progression regression.
-  // Accelerated kills exercise all138 budgeted normals; only the active clock advances a wave.
+  // Accelerated kills exercise a sustained set of72 ordinary enemies; only the active clock advances a wave.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.invulnerableUntil=Infinity;a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');const original=a.dropHealthReward.bind(a);a.healthAwardCount=0;a.dropHealthReward=()=>{a.healthAwardCount++;return original()};})()");
   const killOne=async()=>evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');
@@ -586,7 +586,7 @@ try {
   })()`);
   const typesDefeated=[];
   for(let wave=0;wave<WAVES.length;wave++){
-    for(let n=0;n<WAVES[wave].enemies.length;n++){
+    for(let n=0;n<12;n++){
       const result=await killOne();typesDefeated.push(result.type);assert.equal(result.wave,wave);assert.equal(result.state,'active');
     }
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.wave"),wave,'Kills advanced a timed wave');
@@ -611,24 +611,25 @@ try {
   assert.equal(bossBefore.boss,true,'Marcin must remain alive after all ordinary enemies die');
   assert.ok(bossBefore.live<=7,'Finale exceeded shared non-boss live cap');
   assert.equal(bossBefore.escorts,2,'Both escorts must have been offered');
-  assert.equal(bossBefore.regular,35);
-  assert.equal(bossBefore.planned,'138/'+TOTAL_ENEMIES);
+  assert.equal(bossBefore.regular,72);
+  assert.equal(bossBefore.planned,'72');
   assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.weaponText.text,a.weaponTokenBody.fillColor]})()"),['⊕',0x2499ad]);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerVisual.requestedVariant"),'rifle');
   const progression=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,completed:a.completed,pending:a.pendingRewards.size,markers:[...a.triggeredMilestones],healthAwards:a.healthAwardCount||0}})()");
-  assert.equal(progression.kills,138);
-  assert.equal(typesDefeated.filter(x=>x==='bobrozombi').length,69);
-  assert.equal(typesDefeated.filter(x=>x==='bocianolak').length,55);
-  assert.equal(typesDefeated.filter(x=>x==='zubrokryptyda').length,14);
+  assert.equal(progression.kills,72);
+  assert.ok(typesDefeated.includes('bobrozombi'));
+  assert.ok(typesDefeated.includes('bocianolak'));
+  assert.ok(typesDefeated.includes('zubrokryptyda'));
+  assert.equal(typesDefeated.length,72);
   assert.equal(progression.healthAwards,3,'Heart awards after waves 2, 4, 5 were not exactly once');
   assert.equal(progression.pending,0);
   assert.deepEqual(progression.markers,[2,4]);
-  console.log('PASS Phaser timed rewards and138 mixed-budget normals; ignored flamethrower, timed Marcin and two escorts; boss remains decisive');
+  console.log('PASS Phaser timed rewards and72 continuous mixed ordinary kills; ignored flamethrower, timed Marcin and two escorts; boss remains decisive');
 
   const finaleAtHit=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const live=a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;const spawned=a.totalSpawned;const boss=a.boss;if(!boss)throw Error('Marcin missing');boss.hp=0;if(!a.finalizeEnemyDeath(boss)||a.finalizeEnemyDeath(boss))throw Error('Marcin fatal hit was not unique');return {live,spawned,kills:a.kills,hud:a.killsText.text,final:a.finalResolution,state:a.episode.state,others:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,queued:a.reinforcementDue.length+a.escortDue.length,projectiles:a.bossProjectiles.length,bursts:a.deathBursts.length,dialogue:a.dialogueState.id}})()");
   assert.ok(finaleAtHit.live>=1,'Scripted resolution must have living minions to neutralize');
-  assert.equal(finaleAtHit.kills,139,'Only the player-earned Marcin kill may increment the numerator');
-  assert.equal(finaleAtHit.hud,'139/'+TOTAL_ENEMIES);
+  assert.equal(finaleAtHit.kills,73,'Only the player-earned Marcin kill may increment the numerator');
+  assert.equal(finaleAtHit.hud,'73');
   assert.equal(finaleAtHit.state,'boss-resolving');
   assert.equal(finaleAtHit.final,true);
   assert.equal(finaleAtHit.others,0,'All spawned live minions must be neutralized atomically');
@@ -805,10 +806,10 @@ try {
     const saved={enemies:a.enemies,total:a.totalSpawned,due:a.spawnDueAt,episode:{...a.episode},clock:{...a.gameplayClock},elapsed:a.elapsedGameplayMs};
     a.introducedEnemyTypes.add('before-first-zubrokryptyda'); // Separate test covers live visual introduction.
     const activeHeavy=a.createEnemy('zubrokryptyda',{x:650,y:500},12);
-    a.enemies=[activeHeavy];window.__stageTimedWave(3);a.episode.spawnQueue=['zubrokryptyda','bobrozombi'];
+    a.enemies=[activeHeavy];window.__stageTimedWave(3);a.encounterDirector.counts[3]=[0,0,0];
     a.episode.state='active';a.totalSpawned=70;a.spawnDueAt=null;
     a.spawnReplacement();
-    const blocked={total:a.totalSpawned,heavy:a.enemies.filter(e=>!e.dead&&e.type==='zubrokryptyda').length,common:a.enemies.some(e=>e.type==='bobrozombi'),queued:a.episode.spawnQueue.includes('zubrokryptyda')};
+    const blocked={total:a.totalSpawned,heavy:a.enemies.filter(e=>!e.dead&&e.type==='zubrokryptyda').length,common:a.enemies.some(e=>e.type==='bobrozombi'),weighted:a.encounterDirector.counts[3].length===3};
     activeHeavy.dead=true;activeHeavy.sprite.destroy();a.enemies=[];
     a.spawnReplacement();
     const unblocked={total:a.totalSpawned,spawned:a.episode.spawned,type:a.enemies[0]?.type};
@@ -818,9 +819,9 @@ try {
     Object.assign(a.gameplayClock,saved.clock);a.elapsedGameplayMs=saved.elapsed;a.waveText.setText('⚑ '+(a.episode.wave+1)+'/6');
     return {blocked,unblocked};
   })()`);
-  assert.deepEqual(heavyQueue.blocked,{total:71,heavy:1,common:true,queued:true});
-  assert.deepEqual(heavyQueue.unblocked,{total:72,spawned:2,type:'zubrokryptyda'});
-  console.log('PASS wave-local heavy concurrency gate: blocked second heavy stays queued');
+  assert.equal(heavyQueue.blocked.total,71);assert.equal(heavyQueue.blocked.heavy,1);assert.equal(heavyQueue.blocked.common,true);
+  assert.equal(heavyQueue.unblocked.total,72);assert.equal(heavyQueue.unblocked.type,'zubrokryptyda');
+  console.log('PASS wave-local heavy concurrency gate under continuous weighted selection');
   // Real Phaser combat: use the running Arena and in-memory 8-frame player art.
   const combatProbe=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'), aim={x:1,y:0};
