@@ -1282,7 +1282,7 @@ try {
       else for(const e of a.enemies)e.sprite.destroy();
       a.enemies=[];
       window.__stageTimedWave(type==='zubrokryptyda'?2:1);
-      a.introducedEnemyTypes.delete(id);a.pendingIntroductions.delete(id);a.narrativeEvents.delete(id);
+      a.introducedEnemyTypes.delete(id);a.pendingIntroductions.delete(id);a.narrativeEvents.clear(); // Isolate this PR36/PR51 causal intro from unrelated queued narrative
       a.introEvidence.deaths=[];a.introEvidence.claims.delete(id);a.introEvidence.contexts.delete(id);
       if(type==='zubrokryptyda')a.introducedEnemyTypes.add('before-first-bocianolak');
       for(let i=0;i<(type==='zubrokryptyda'?2:1);i++){
