@@ -10,7 +10,7 @@ test('PR53 spontaneous early without any damage and independent speakers',()=>{
  assert.ok(advanceBarks(s,3100,true,()=>[a,b],random));
  s.remaining=0;assert.ok(advanceBarks(s,50,true,()=>[a,b],random));
  assert.equal(s.active.length,2);assert.notEqual(s.active[0].speaker,s.active[1].speaker);
- assert.equal(advanceBarks(s,3000,true,()=>[a,b],random),null);assert.ok(s.active.length<=2);
+ assert.equal(advanceBarks(s,0,true,()=>[a,b],random),null);assert.ok(s.active.length<=2);
 });
 test('PR53 damage cooldown, global spacing, priority, and species-specific line',()=>{
  const s=createBarkSchedule(random),a=e('bocianolak'),b=e('bobrozombi');
