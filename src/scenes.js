@@ -888,6 +888,10 @@ export class ArenaScene extends Phaser.Scene {
       this.flameCooldowns.delete(enemy);enemy.sprite.destroy();
     }
     this.enemies=this.enemies.filter(e=>!e.dead);
+    // A full sixteen-actor combat scene can have no spare validated slot.
+    // After neutralizing other enemies, the freed arena allows a single
+    // visible witness to be safely staged before any final portrait begins.
+    if(!this.act1Witness||this.act1Witness.dead)this.ensureAct1Witness();
     return true;
   }
   finalizeEnemyDeath(enemy){
