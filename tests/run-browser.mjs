@@ -397,7 +397,7 @@ try {
   await sleep(80);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'blunderbuss');
   // Exercise actual Phaser projectile collision and barrel removal while not modifying the ground.
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const b=a.obstacles.find(o=>o.type==='toxic_barrel');b.x=a.player.x+130;b.y=a.player.y;b.sprite.setPosition(b.x,b.y);b.footprint=Object.freeze({...b.footprint,x:b.x,y:b.y});return true})()");
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const b=a.obstacles.find(o=>o.type==='toxic_barrel');b.x=a.player.x+130;b.y=a.player.y;b.sprite.setPosition(b.x,b.y);b.footprint=Object.freeze({...b.footprint,x:b.x,y:b.y});a.invulnerableUntil=Infinity;return true})()");
   const barrelAim=await snapshot();
   await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'none'});
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'left',buttons:1,clickCount:1});
@@ -427,7 +427,7 @@ try {
   const killed=await snapshot();
   assert.ok(await evaluate("window.__game.scene.getScene('Arena').kills>=1"),'Actual mouse projectiles did not kill enemy');
   // Contact HP and defeat, while Phaser owns the running scene.
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.x=a.player.x;e.y=a.player.y;e.sprite.setPosition(e.x,e.y)}return true})()");
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.invulnerableUntil=0;a.setPlayerHp(5);for(const e of a.enemies){e.x=a.player.x;e.y=a.player.y;e.sprite.setPosition(e.x,e.y)}return true})()");
   const damaged=await waitFor(s=>s.controls.hp<5,'Contact damage');
   assert.equal(damaged.controls.hp,4);
   assert.equal(damaged.faceHud.current,'hp_4','Enemy contact did not change Aloes portrait');
