@@ -780,7 +780,7 @@ export class ArenaScene extends Phaser.Scene {
     enemy.hp=applyEnemyHit(before,amount);
     if(enemy.hp>=before)return false;
     queueBocianolakHitDialogue(this,enemy,before,enemy.hp);
-    if(enemy.hp>0)this.enemyHit(enemy,source,now);
+    if(enemy.hp>0){this.enemyHit(enemy,source,now);this.ambientBarks?.hit(enemy,this.elapsedGameplayMs);}
     return true;
   }
 
