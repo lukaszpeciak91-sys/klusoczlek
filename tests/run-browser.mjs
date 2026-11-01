@@ -1938,12 +1938,12 @@ try {
   await clickControl('hud');await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu,'PR48 fallback Arena');
   for(let i=0;i<40;i++){if(!await evaluate("window.__game.scene.getScene('Arena').dialogueLoading"))break;await sleep(40);}
-  const fallback=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueState.index=0;a.narrativeEvents.clear();a.episode.wave=5;a.episode.state='final-pending';a.finalResolution=true;a.markNarrativeBoundary('after-final-enemy');return {loaded:a.dialoguePanel.loaded.has('marcin'),id:a.dialogueState.id,letter:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='M'&&x.visible),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible),text:a.dialoguePanel.text.text}})()");
-  assert.equal(fallback.loaded,false,'Missing Marcin asset incorrectly registered as loaded');
-  assert.equal(fallback.id,'after-final-enemy');
-  assert.equal(fallback.letter,true,'Missing portrait did not show letter fallback');
-  assert.equal(fallback.label,true,'Missing portrait hid MARCIN speaker label');
-  assert.ok(fallback.text.includes('Przepowiednia się spełniła'));
+  const marcinFallback=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueState.index=0;a.narrativeEvents.clear();a.episode.wave=5;a.episode.state='final-pending';a.finalResolution=true;a.markNarrativeBoundary('after-final-enemy');return {loaded:a.dialoguePanel.loaded.has('marcin'),id:a.dialogueState.id,letter:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='M'&&x.visible),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible),text:a.dialoguePanel.text.text}})()");
+  assert.equal(marcinFallback.loaded,false,'Missing Marcin asset incorrectly registered as loaded');
+  assert.equal(marcinFallback.id,'after-final-enemy');
+  assert.equal(marcinFallback.letter,true,'Missing portrait did not show letter fallback');
+  assert.equal(marcinFallback.label,true,'Missing portrait hid MARCIN speaker label');
+  assert.ok(marcinFallback.text.includes('Przepowiednia się spełniła'));
   for(let i=0;i<3;i++)await nextLine();
   await waitFor(v=>v.menu&&v.arenaPaused,'PR48 missing-portrait victory');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
