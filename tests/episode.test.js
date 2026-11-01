@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceEpisode,terminateEpisode,healedHp,FINAL_ENCOUNTER,recordSpecialSpawn} from '../src/episode.js';
+import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceEpisode,terminateEpisode,healedHp,FINAL_ENCOUNTER,recordSpecialSpawn,REINFORCEMENTS,beginBossResolution,finishBossResolution,recordReinforcementSpawn,BOSS_NON_MARCIN_CAP} from '../src/episode.js';
 test('Episode 1 six deterministic waves and species introduction',()=>{
- assert.equal(TOTAL_WAVES,6);assert.equal(TOTAL_ENEMIES,141);
+ assert.equal(TOTAL_WAVES,6);assert.equal(TOTAL_ENEMIES,153);
  assert.deepEqual(WAVES.map(w=>w.enemies.length),[12,16,20,25,30,35]);
  assert.deepEqual(WAVES.map(w=>w.maxAlive),[4,5,6,7,8,9]);
  assert.ok(WAVES[0].enemies.every(x=>x==='bobrozombi'));
@@ -27,7 +27,9 @@ test('all six waves reach final pending exactly once',()=>{
   }
   if(i<5)assert.equal(advanceEpisode(e,4000),true);
  }
- for(const spec of FINAL_ENCOUNTER){recordSpecialSpawn(e,spec.id);recordDeath(e,0,1000,spec.id);}
+ recordSpecialSpawn(e,'marcin');
+ assert.equal(beginBossResolution(e),true);
+ assert.equal(finishBossResolution(e),true);
  assert.equal(e.state,'final-pending');assert.equal(terminateEpisode(e,'victory'),true);
  assert.equal(terminateEpisode(e,'victory'),false);
 });
@@ -61,4 +63,24 @@ test('timer layout stays inside original ribbon at landscape widths',()=>{
   assert.ok(u.timerX+70<u.portraitX-u.portraitSize/2);
   assert.ok(u.timerY>=u.panelY&&u.timerY+u.timerFont/2<u.panelY+u.panelHeight);
  }
+});
+
+test('PR48 finite encounter roster and irreversible boss death',()=>{
+ assert.equal(REINFORCEMENTS.length,12);
+ assert.equal(REINFORCEMENTS.filter(x=>x.type==='bobrozombi').length,8);
+ assert.equal(REINFORCEMENTS.filter(x=>x.type==='bocianolak').length,4);
+ assert.equal(new Set(REINFORCEMENTS.map(x=>x.id)).size,12);
+ assert.equal(BOSS_NON_MARCIN_CAP,7);
+ const e=createEpisode();e.wave=5;
+ assert.equal(beginBossResolution(e),false);
+ assert.equal(recordSpecialSpawn(e,'marcin'),true);
+ assert.equal(recordReinforcementSpawn(e,REINFORCEMENTS[0].id),true);
+ assert.equal(recordReinforcementSpawn(e,REINFORCEMENTS[0].id),false);
+ assert.equal(beginBossResolution(e),true);
+ assert.equal(beginBossResolution(e),false);
+ assert.equal(recordReinforcementSpawn(e,REINFORCEMENTS[1].id),false);
+ assert.equal(nextType(e),null);
+ assert.equal(finishBossResolution(e),true);
+ assert.equal(finishBossResolution(e),false);
+ assert.equal(terminateEpisode(e,'victory'),true);
 });
