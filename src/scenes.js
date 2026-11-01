@@ -540,7 +540,10 @@ export class ArenaScene extends Phaser.Scene {
     enemy.narrativeRole='herald';this.act1Herald=enemy;this.enemies.push(enemy);return true;
   }
   ensureAct1Witness(){
-    if(this.act1Witness&&!this.act1Witness.dead&&this.act1Witness.hp>0)return this.act1Witness;
+    if(this.act1Witness&&!this.act1Witness.dead&&this.act1Witness.hp>0&&this.enemies.includes(this.act1Witness)&&this.act1Witness.sprite?.active!==false)return this.act1Witness;
+    // A test fixture, scene reset or external cleanup may remove an actor
+    // without invalidating its role pointer. Never accept such a ghost witness.
+    this.act1Witness=null;
     const view=this.cameras.main.worldView;
     const candidate=this.enemies.find(e=>!e.dead&&e.hp>0&&e.type==='zubrokryptyda'&&e.x>=view.x&&e.x<=view.right&&e.y>=view.y&&e.y<=view.bottom);
     if(candidate){candidate.narrativeRole='witness';this.act1Witness=candidate;return candidate;}
@@ -909,7 +912,7 @@ export class ArenaScene extends Phaser.Scene {
     // A full sixteen-actor combat scene can have no spare validated slot.
     // After neutralizing other enemies, the freed arena allows a single
     // visible witness to be safely staged before any final portrait begins.
-    if(!this.act1Witness||this.act1Witness.dead)this.ensureAct1Witness();
+    if(!this.act1Witness||this.act1Witness.dead||!this.enemies.includes(this.act1Witness))this.ensureAct1Witness();
     return true;
   }
   finalizeEnemyDeath(enemy){
