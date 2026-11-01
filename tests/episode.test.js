@@ -45,7 +45,7 @@ test('PR48 finite encounter roster and irreversible boss death',()=>{
  assert.equal(REINFORCEMENTS.filter(x=>x.type==='bobrozombi').length,8);
  assert.equal(REINFORCEMENTS.filter(x=>x.type==='bocianolak').length,4);
  assert.equal(new Set(REINFORCEMENTS.map(x=>x.id)).size,12);
- assert.equal(BOSS_NON_MARCIN_CAP,7);
+ assert.equal(BOSS_NON_MARCIN_CAP,16);
  const e=createEpisode();e.wave=5;
  assert.equal(beginBossResolution(e),false);
  assert.equal(recordSpecialSpawn(e,'marcin'),true);
