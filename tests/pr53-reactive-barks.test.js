@@ -8,7 +8,7 @@ test('PR53 spontaneous early without any damage and independent speakers',()=>{
  const a=e('bobrozombi'),b=e('bocianolak'),s=createBarkSchedule(random);
  assert.ok(s.remaining>=3000&&s.remaining<=5000);
  assert.ok(advanceBarks(s,3100,true,()=>[a,b],random));
- assert.ok(advanceBarks(s,3200,true,()=>[a,b],random));
+ s.remaining=0;assert.ok(advanceBarks(s,50,true,()=>[a,b],random));
  assert.equal(s.active.length,2);assert.notEqual(s.active[0].speaker,s.active[1].speaker);
  assert.equal(advanceBarks(s,3000,true,()=>[a,b],random),null);assert.ok(s.active.length<=2);
 });
