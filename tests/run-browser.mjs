@@ -613,7 +613,14 @@ try {
     assert.equal(pendingBoss.pending,true,'Crowded handoff must wait rather than despawn');
     await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');while(a.livingNonBoss()>7){const e=a.enemies.find(x=>!x.dead&&x.type!=='marcin');e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(x=>!x.dead);}})()");
   }
-  for(let i=0;i<120;i++){if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.boss&&!a.bossEntrance&&a.escortDue.length===0})()"))break;await sleep(40);}
+  for(let i=0;i<120;i++){
+    const stage=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {landed:!!a.boss&&!a.bossEntrance,escorts:a.episode.specialSpawned.size-Number(a.episode.specialSpawned.has('marcin')),due:a.escortDue.length,live:a.livingNonBoss()}})()");
+    if(stage.landed&&stage.escorts===2&&stage.due===0)break;
+    if(stage.landed&&stage.live>=7&&stage.due>0){
+      await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(e=>!e.dead&&!e.encounterId);if(e){e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(e=>!e.dead);}})()");
+    }
+    await sleep(60);
+  }
   const bossBefore=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {boss:!!a.boss&&a.boss.hp>0,live:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,escorts:[...a.episode.specialSpawned].filter(x=>x.startsWith('escort')).length,planned:a.killsText.text,regular:a.episode.defeated}})()");
   assert.equal(bossBefore.boss,true,'Marcin must remain alive after all ordinary enemies die');
   assert.ok(bossBefore.live<=7,'Finale exceeded shared non-boss live cap');
