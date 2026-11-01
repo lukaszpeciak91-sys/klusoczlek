@@ -12,7 +12,7 @@ test('recent bobrozombi kill before/after visible Bocianołak and exactly once',
   kill(s,'bobrozombi',1,36500);
   assert.ok(ready(s,B,1,arrivalFirst?36500:38000));
   assert.equal(claimIntroduction(s,ready(s,B,1,38000)),true);
-  assert.equal(claimIntroduction(s,ready(s,B,38000)),false);
+  assert.equal(claimIntroduction(s,ready(s,B,1,38000)),false);
   assert.equal(ready(s,B,1,38000),null);
  }
 });
