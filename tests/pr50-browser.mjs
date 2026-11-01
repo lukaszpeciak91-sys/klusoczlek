@@ -82,9 +82,9 @@ export async function verifySpawnPacing(context){
  // One ordinary attempt per deadline, even after a paused interval. Observe real
  // Phaser times and actual actors, not merely the exported constant.
  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();a.enemies=[];window.__stageTimedWave(0);a.spawnDueAt=null;for(let i=0;i<3;i++)a.spawnReplacement();a.encounterDirector.nextMs=a.elapsedGameplayMs+450;window.__cadence={start:a.time.now,count:3,arrivals:[],maxDelta:0,maxBatch:0};const f=()=>{const m=window.__cadence;m.maxDelta=Math.max(m.maxDelta,a.game.loop.delta);const n=a.episode.spawned;if(n!==m.count){m.maxBatch=Math.max(m.maxBatch,n-m.count);m.arrivals.push(a.time.now-m.start);m.count=n;}};a.game.events.on('step',f);window.__cadenceStop=()=>a.game.events.off('step',f);})()");
- for(let i=0;i<100;i++){if(await evaluate('window.__cadence.arrivals.length===2'))break;await sleep(20);}
- const cadence=await evaluate('(()=>{window.__cadenceStop();return window.__cadence})()');assert.equal(cadence.arrivals.length,2);assert.equal(cadence.maxBatch,1);
- assert.ok(cadence.arrivals[0]>=350);assert.ok(cadence.arrivals[1]-cadence.arrivals[0]>=300);
+ for(let i=0;i<100;i++){if(await evaluate('window.__cadence.arrivals.length>=1'))break;await sleep(20);}
+ const cadence=await evaluate('(()=>{window.__cadenceStop();return window.__cadence})()');assert.equal(cadence.arrivals.length,1,'Soft target four must pause ordinary refill');assert.equal(cadence.maxBatch,1);
+ assert.ok(cadence.arrivals[0]>=350);
  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const e=a.enemies.find(e=>e.type==='bobrozombi');e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(e=>!e.dead);})()");
  await clickControl('hud');const paused=await evaluate("window.__game.scene.getScene('Arena').episode.spawned");await sleep(450);assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.spawned"),paused);
  await clickControl('WZNÓW');await sleep(350);assert.ok(await evaluate("window.__game.scene.getScene('Arena').episode.spawned")<=paused+1);
