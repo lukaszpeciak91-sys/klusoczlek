@@ -665,6 +665,8 @@ try {
   await sleep(950);
   const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,spawned:a.totalSpawned}})()");
   assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false,kills:139,spawned:finaleAtHit.spawned},'Final dialogue must follow settled VFX and cancel future spawns');
+  const marcinPortrait=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {loaded:a.dialoguePanel.loaded.has('marcin'),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible)}})()");
+  assert.deepEqual(marcinPortrait,{loaded:true,label:true},'Uploaded valid Marcin portrait and speaker label must render');
   const clockInFinal=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
   await sleep(180);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),clockInFinal,'Timer advanced while final dialogue active');
