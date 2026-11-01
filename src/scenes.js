@@ -601,7 +601,7 @@ export class ArenaScene extends Phaser.Scene {
     if(this.act1AllyDue>0){
       const type=this.nextOrdinaryType()||'bobrozombi';
       const point=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[type].radius,this.navigation);
-      if(point){const e=this.createEnemy(type,point,this.totalSpawned++);e.act1Ally=true;this.enemies.push(e);this.act1AllyDue--;this.act1AllyAdded++;return true;}
+      if(point){const e=this.createEnemy(type,point,this.totalSpawned++);e.act1Ally=true;recordSpawn(this.episode,type);this.enemies.push(e);this.act1AllyDue--;this.act1AllyAdded++;return true;}
       return false;
     }
     const sources=['escort','reinforcement'];
@@ -957,7 +957,9 @@ export class ArenaScene extends Phaser.Scene {
         this.act1FadeElapsed+=Math.min(this.game.loop.delta,50);
         if(this.act1FadeElapsed>=600){
           this.act1FadePending=false;
-          this.cameras.main.fadeIn(350,0,0,0);
+          // The terminal MENU pauses Arena: clear the fade before pausing so
+          // the player cannot be stranded behind an opaque frozen camera.
+          this.cameras.main.resetFX();
           this.releaseFinalOutcome();
           this.endEpisode(this.playerHp<=0?'defeat':'victory');
         }
