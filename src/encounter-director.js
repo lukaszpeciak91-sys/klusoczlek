@@ -10,8 +10,9 @@ export const PROFILES=Object.freeze([
 ].map(p=>Object.freeze({...p,weights:Object.freeze(p.weights)})));
 export const TYPES=Object.freeze(['bobrozombi','bocianolak','zubrokryptyda']);
 export const PREBOSS_STOP_MS=242000;
+export const MIX_WINDOW=40;
 export function createDirector(seed=0){
- return {seed:seed>>>0,nextMs:0,ordinal:0,attempts:0,success:0,counts:PROFILES.map(()=>[0,0,0])};
+ return {seed:seed>>>0,nextMs:0,ordinal:0,attempts:0,success:0,counts:PROFILES.map(()=>[0,0,0]),history:PROFILES.map(()=>[])};
 }
 export function directorPopulation(enemies,view,player){
  let living=0,visible=0,nearby=0,heavy=false;
@@ -41,7 +42,9 @@ export function nextDirectorType(d,wave,blocked=[],priority=[]){
 }
 export function recordDirectorSpawn(d,wave,type){
  const i=TYPES.indexOf(type);if(i<0)return false;
- d.counts[wave][i]++;d.success++;return true;
+ const history=d.history[wave];history.push(i);d.counts[wave][i]++;
+ if(history.length>MIX_WINDOW)d.counts[wave][history.shift()]--;
+ d.success++;return true;
 }
 export function directorOpportunity(d,{elapsedMs,wave,population,active=true,introPending=false}){
  if(!active||!Number.isFinite(elapsedMs))return {due:false};
