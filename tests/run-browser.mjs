@@ -1024,7 +1024,13 @@ try {
     window.__stageTimedWave(1);
     a.introducedEnemyTypes.delete('before-first-bocianolak');
     a.pendingIntroductions.delete('before-first-bocianolak');
-    a.spawnReplacement();
+    const earned=a.createEnemy('bobrozombi',{x:a.player.x+130,y:a.player.y},a.totalSpawned++);
+    a.enemies.push(earned);earned.hp=0;a.finalizeEnemyDeath(earned);
+    a.enemies=a.enemies.filter(v=>!v.dead);
+    const boc=a.createEnemy('bocianolak',{x:a.player.x+85,y:a.player.y},a.totalSpawned++);
+    a.enemies.push(boc);
+    a.narrativeEvents.add('before-first-bocianolak');
+    a.tryStartDialogue();
     return {accepted,id:a.dialogueState.id,paused:a.physics.world.isPaused,x,y,active:activeBefore&&a.deathBursts.some(v=>v.graphics.active&&!v.done),count:a.deathBursts.length};
   })()`);
   assert.equal(life.accepted,true);
