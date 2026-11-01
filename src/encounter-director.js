@@ -43,7 +43,7 @@ export function recordDirectorSpawn(d,wave,type){
  const i=TYPES.indexOf(type);if(i<0)return false;
  d.counts[wave][i]++;d.success++;return true;
 }
-export function directorOpportunity(d,{elapsedMs,wave,population,active=true}){
+export function directorOpportunity(d,{elapsedMs,wave,population,active=true,introPending=false}){
  if(!active||!Number.isFinite(elapsedMs))return {due:false};
  if(elapsedMs<d.nextMs)return {due:false};
  const p=PROFILES[wave],preboss=elapsedMs>=PREBOSS_STOP_MS;
@@ -54,7 +54,7 @@ export function directorOpportunity(d,{elapsedMs,wave,population,active=true}){
  // Preboss: do not replace survivors; after handoff, boss owns all spawning.
  if(preboss)return {due:true,spawn:false,reason:'boss-handoff'};
  if(population.living>=p.cap)return {due:true,spawn:false,reason:'hard-cap'};
- if(population.living>=p.target&&!(low&&population.living<p.cap))return {due:true,spawn:false,reason:'soft-target'};
+ if(population.living>=p.target&&!introPending&&!(low&&population.living<p.cap))return {due:true,spawn:false,reason:'soft-target'};
  d.attempts++;
  return {due:true,spawn:true,low};
 }
