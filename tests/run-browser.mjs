@@ -1341,7 +1341,7 @@ try {
   if(await evaluate("window.__game.scene.getScene('Arena').dialogueState?.id==='before-wave-1'"))for(let i=0;i<3;i++)await nextLine();
   await waitFor(v=>v.arena&&!v.arenaPaused&&!v.physics,'reward recovery Arena active');
   // Deferred reward issuance must never gate combat; the later pickup still works.
-  const deferred=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.weapon='blunderbuss';const add=a.addPickup.bind(a);a.__rewardAdd=add;a.addPickup=(id,p)=>id==='rifle'?false:add(id,p);window.__stageTimedWave(1);window.__setActiveTime(75000);a.elapsedGameplayMs=75000;a.spawnDueAt=null;a.syncTimedWaves();return {pending:a.pendingRewards.size,weapon:a.weapon}})()");
+  const deferred=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');a.narrativeEvents.clear();a.weapon='blunderbuss';const add=a.addPickup.bind(a);a.__rewardAdd=add;a.addPickup=(id,p)=>id==='rifle'?false:add(id,p);window.__stageTimedWave(1);window.__setActiveTime(75000);a.elapsedGameplayMs=75000;a.spawnDueAt=null;a.syncTimedWaves();return {pending:a.pendingRewards.size,weapon:a.weapon}})()");
   assert.deepEqual(deferred,{pending:1,weapon:'blunderbuss'},'Unplaceable rifle reward was lost');
   await sleep(115);
   const continued=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,state:a.episode.state,pending:a.pendingRewards.size,weapon:a.weapon}})()");
