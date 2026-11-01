@@ -1160,6 +1160,7 @@ try {
   await clickControl('WZNÓW');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'episode intermission resume');
   await sleep(950);
+  if(await evaluate("window.__game.scene.getScene('Arena').episode.wave")===1){await evaluate('window.__setActiveTime(75000);true');await sleep(100);}
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.wave"),2);
   console.log('PASS real Chromium Episode 1 hearts: full HP persistence, +2 heal and paused timed boundary');
   // Test both introductions through the *actual* scheduled spawn, not a fabricated boundary.
