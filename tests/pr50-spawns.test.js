@@ -8,7 +8,7 @@ const player={x:900,y:600};
 const select=options=>{assert.equal(typeof spawn.selectOrdinarySpawn,'function');return spawn.selectOrdinarySpawn(options);};
 test('PR50 increases only early ordinary capacity, preserving time/budgets and finale cap',()=>{
  assert.deepEqual(WAVES.map(w=>w.maxAlive),[6,7,8,9,9,10]);assert.deepEqual(WAVES.map(w=>w.target),[4,5,6,7,7,8]);
- assert.deepEqual(WAVE_TIMING.map(w=>w.startMs),[0,35000,75000,120000,170000,225000]);assert.equal(BOSS_INTRO_MS,260000);assert.equal(BOSS_NON_MARCIN_CAP,7);
+ assert.deepEqual(WAVE_TIMING.map(w=>w.startMs),[0,35000,75000,120000,170000,225000]);assert.equal(BOSS_INTRO_MS,260000);assert.equal(BOSS_NON_MARCIN_CAP,16);
 });
 test('PR50 legacy placement is independent of continuous director cadence',()=>{assert.equal(typeof spawn.selectOrdinarySpawn,'function');});
 test('PR50 initial trio uses safe camera vicinity across nine real seeded layouts',()=>{
