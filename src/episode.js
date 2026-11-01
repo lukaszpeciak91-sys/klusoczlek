@@ -3,10 +3,10 @@ import {seededRandom} from './arena-layout.js';
 const b='bobrozombi',s='bocianolak',h='zubrokryptyda';
 const repeated=(type,n)=>Array(n).fill(type);
 export const WAVES=Object.freeze([
- {enemies:repeated(b,12),maxAlive:4},
- {enemies:[...repeated(b,11),...repeated(s,5)],maxAlive:5},
- {enemies:[...repeated(b,11),...repeated(s,8),h],maxAlive:6},
- {enemies:[...repeated(b,11),...repeated(s,11),...repeated(h,3)],maxAlive:7},
+ {enemies:repeated(b,12),maxAlive:5},
+ {enemies:[...repeated(b,11),...repeated(s,5)],maxAlive:6},
+ {enemies:[...repeated(b,11),...repeated(s,8),h],maxAlive:7},
+ {enemies:[...repeated(b,11),...repeated(s,11),...repeated(h,3)],maxAlive:8},
  {enemies:[...repeated(b,12),...repeated(s,14),...repeated(h,4)],maxAlive:8},
  {enemies:[...repeated(b,12),...repeated(s,17),...repeated(h,6)],maxAlive:9},
 ].map((wave,index)=>Object.freeze({index:index+1,enemies:Object.freeze(wave.enemies),maxAlive:wave.maxAlive})));

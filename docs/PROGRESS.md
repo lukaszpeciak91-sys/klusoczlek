@@ -1,5 +1,10 @@
 # PROGRESS
 
+## PR50 — combat pacing and visible ordinary entries (2026-11-01; independent audit required)
+- Verified PR49 merged; main `cc7c3b3f9cd091447b43e170f4133bc0d8363589`. Preserve initial three actors; camera-edge placement with unchanged220px safety/nav/footprints and finite world fallback, then275ms paced refill. Early caps5/6/7/8, late8/9 and boss7. Boss scheduler/placements remain unchanged.
+- Baseline real Chromium nine seed/viewport combinations: world-corner trio1018px away, often no visible enemy within10s; no160px threatening entry observed. RED6 spawn/cap tests + RED side-entry visual correction → GREEN7; full Node190/190. Focused Chromium passed three sizes, measured arrivals283/567ms, caps/survivors/heavy gate and pause/focus/orientation. Full Chromium72 PASS groups exit0; all9 before/after pairs: first enemy in first active frame, two by233ms,4–5 visible at1s versus0 before;160px threatening range1.15–1.52s. Final CI evidence belongs to the PR.
+- See `docs/pr50-combat-pacing.md`. No binary/dependency/weapon/AI/geometry/dialogue/HUD changes, merge/deploy or delegation. Very short screens require partial entry/fallback; physical Android NOT RUN.
+
 ## PR49 — timed overlapping mixed waves (2026-11-01; independent audit required)
 - Verified merged PR48 and latest main `a2da35c1c939ea52eb13629e463cc3e495cfac8b`; isolated feature worktree. Existing active clock drives immutable35/75/120/170/225s boundaries and260s Marcin call. All138 ordinary/153 overall budgets remain unchanged.
 - Seeded controlled mix, early first species, heavy buckets/bypass without violating one ordinary heavy, origin-wave deaths, current-only spawn queues and separately cancelled budgets. Retain all living survivors/cap progression; boundary rewards remain optional/one-shot. Crowded boss landing waits for cap7 while combat continues; PR48 terminal victory/PR43/PR46 preserved.

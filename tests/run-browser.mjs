@@ -8,6 +8,7 @@ import {TOTAL_ENEMIES,WAVES,WAVE_TIMING} from '../src/episode.js';
 import {validDialoguePng} from '../src/dialogue-ui.js';
 import { deflateSync } from 'node:zlib';
 import {verifyTimedWaves} from './pr49-browser.mjs';
+import {verifySpawnPacing} from './pr50-browser.mjs';
 
 
 function syntheticSheetPng(width=512,height=64){
@@ -685,6 +686,8 @@ try {
     const r=46,W=1800,H=1200;
     for(const [x,y] of [[r,r],[W-r,r],[W-r,H-r],[r,H-r],[W/2,r],[W-r,H/2],[W/2,H-r],[r,H/2]])
       a.obstacles.push({...window.__createObstacle('rock',{id:'spawn-'+x+'-'+y,x,y}),__spawnFixture:true});
+    // Block both new camera entries and the preserved world fallback.
+    a.obstacles.push({alive:true,footprint:{shape:'circle',x:900,y:600,radius:3000},__spawnFixture:true});
     const before=a.totalSpawned;a.spawnDueAt=null;
     a.spawnReplacement();const blocked={before,after:a.totalSpawned,retry:a.spawnDueAt!==null};
     a.obstacles=a.obstacles.filter(o=>!o.__spawnFixture);
@@ -980,7 +983,9 @@ try {
       const key='aloes-hud-hp_'+hp;
       if(!t.exists(key))t.addImage(key,c);
     }
-    arena.hpFace.setHp(4);
+    // Isolate the portrait API probe from real nearby combat. Keep logical
+    // and visual HP synchronized; contact/defeat are tested separately above.
+    arena.invulnerableUntil=Infinity;arena.setPlayerHp(5);arena.setPlayerHp(4);
     return true;
   })()`);
   await sleep(65);
@@ -1967,6 +1972,7 @@ try {
   console.log('PASS PR48 missing Marcin portrait: fallback letter, speaker, three lines/DALEJ and victory');
 
   await verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,setSeed:seed=>{arenaRun=[1,41,104729].indexOf(seed);}});
+  await verifySpawnPacing({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,click});
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {
   socket?.close();

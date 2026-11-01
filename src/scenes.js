@@ -1,3 +1,4 @@
+import {selectOrdinarySpawn,ORDINARY_SPAWN_INTERVAL_MS} from './enemy-spawn.js';
 import {createAmbientBarks} from './ambient-bark-view.js';
 import Phaser from 'phaser';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
@@ -191,13 +192,18 @@ export class ArenaScene extends Phaser.Scene {
     this.pendingRewards=new Map();
     this.enemyRenderers={bobrozombi:createBobrozombiRenderer(this,Phaser),bocianolak:createBocianolakRenderer(this,Phaser),zubrokryptyda:createZubrokryptydaRenderer(this,Phaser),marcin:createMarcinRenderer(this,Phaser)};
     this.enemyRenderer=this.enemyRenderers.bobrozombi;
-    this.enemies=[0,1,2].flatMap(index=>{
-      const point=safeEnemySpawn(this.player,this.obstacles,index,21,this.navigation);
-      if(!point)return [];
-      const {x,y}=point;
+    this.spawnDiagnostics={camera:0,fallback:0,deferred:0};
+    this.enemies=[];
+    // Follow's first render has not run yet. Use its public bounds-clamped
+    // target scroll, rather than the stale pre-render worldView at(0,0).
+    const camera=this.cameras.main,scroll=camera.getScroll(this.player.x,this.player.y);
+    const openingView={x:scroll.x,y:scroll.y,width:camera.width,height:camera.height};
+    for(let index=0;index<3;index++){
+      const point=this.ordinarySpawnPoint(21,index,openingView);
+      if(!point)continue;
       const type=nextType(this.episode);recordSpawn(this.episode);
-      return this.createEnemy(type,{x,y},index);
-    });
+      this.enemies.push(this.createEnemy(type,point,index));
+    }
     this.totalSpawned=this.enemies.length;
     this.narrativeEvents=new Set(['before-wave-1']);
     this.firstBocianolakHit=false;
@@ -346,6 +352,7 @@ export class ArenaScene extends Phaser.Scene {
       this.time.paused=false;
       if(this.canResume()&&!this.finalResolution)this.physics.world.resume();
       if(id==='after-final-enemy')this.releaseFinalOutcome();
+      if(id==='before-wave-1')this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;
       if(id==='before-marcin'){this.bossEntrancePending=true;this.tryBeginBossEntrance();}
       this.resetMovement();
       this.syncJoysticks();
@@ -386,7 +393,7 @@ export class ArenaScene extends Phaser.Scene {
       if(HEALTH_AFTER_WAVES.includes(cleared))this.dropHealthReward();
       this.rewardForClearedWave(cleared);
     }
-    if(crossed.length){this.waveText.setText('⚑ '+(this.episode.wave+1)+'/'+TOTAL_WAVES);this.spawnDueAt=this.time.now+380;}
+    if(crossed.length){this.waveText.setText('⚑ '+(this.episode.wave+1)+'/'+TOTAL_WAVES);this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;}
     // Owed introductions survive discarded wave queues; only a visible living specimen may consume them.
     if(this.episode.wave>=1&&!this.introducedEnemyTypes.has('before-first-bocianolak'))this.narrativeEvents.add('before-first-bocianolak');
     if(this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda'))this.narrativeEvents.add('before-first-zubrokryptyda');
@@ -805,9 +812,16 @@ export class ArenaScene extends Phaser.Scene {
     recordDeath(this.episode,living,this.time.now,enemy.encounterId??null,enemy.waveIndex??this.episode.wave);
     if(enemy.type==='marcin'){this.clearBossProjectiles();this.boss=null;this.renderBossHp();}
     if(nextType(this.episode)!==null&&this.spawnDueAt===null){
-      this.spawnDueAt=this.time.now+380;
+      this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;
     }
     return true;
+  }
+
+  ordinarySpawnPoint(radius,index,view=this.cameras.main.worldView){
+    const occupied=this.enemies.filter(e=>!e.dead&&e.hp>0).map(e=>({x:e.x,y:e.y,radius:ENEMY_TYPES[e.type].radius}));
+    const result=selectOrdinarySpawn({player:this.player,obstacles:this.obstacles,index,radius,view,seed:this.arenaSeed,navigation:this.navigation,occupied});
+    this.spawnDiagnostics[result.mode]++;
+    return result.point;
   }
 
   spawnReplacement(fromBossScheduler=false){
@@ -815,15 +829,15 @@ export class ArenaScene extends Phaser.Scene {
     if(this.episode.state!=='active'||this.defeated||this.completed||!nextTypeValue||this.livingNonBoss()>=(bossPhase?BOSS_NON_MARCIN_CAP:waveCapacity(this.episode))||this.finalResolution||(this.boss&&!fromBossScheduler))return;
     const nextEnemyType=nextTypeValue;
     if(nextEnemyType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda'&&!e.encounterId)){
-      this.spawnDueAt=this.time.now+380;return;
+      this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;return;
     }
     const introductionId=nextEnemyType==='bocianolak'?'before-first-bocianolak':nextEnemyType==='zubrokryptyda'?'before-first-zubrokryptyda':null;
     const pending=introductionId&&this.pendingIntroductions.get(introductionId);
     const firstIntroduction=introductionId&&!this.introducedEnemyTypes.has(introductionId)&&(!pending||pending.dead||pending.hp<=0);
     const radius=ENEMY_TYPES[nextEnemyType].radius;
     const at=(firstIntroduction?introductionSpawnPoint(nextEnemyType,this.player,this.obstacles,this.cameras.main.worldView,radius,this.navigation):null)
-      ||safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,radius,this.navigation);
-    if(!at){this.spawnDueAt=this.time.now+380;return;}
+      ||(fromBossScheduler?safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,radius,this.navigation):this.ordinarySpawnPoint(radius,this.totalSpawned));
+    if(!at){this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;return;}
     const created=this.createEnemy(nextEnemyType,at,this.totalSpawned);
     this.enemies.push(created);
     this.totalSpawned++;
@@ -913,7 +927,7 @@ export class ArenaScene extends Phaser.Scene {
     if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){
       this.spawnDueAt=null;this.spawnReplacement();
       if(this.dialogueState?.id)return;
-      if(this.episode.state==='active'&&!this.boss&&nextType(this.episode)!==null&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;
+      if(this.episode.state==='active'&&!this.boss&&nextType(this.episode)!==null&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+ORDINARY_SPAWN_INTERVAL_MS;
     }
     const keys = this.keys;
     const x = Number(keys.D.isDown || keys.RIGHT.isDown) -

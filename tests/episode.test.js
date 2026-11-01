@@ -4,7 +4,7 @@ import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextTyp
 test('Episode 1 six deterministic waves and species introduction',()=>{
  assert.equal(TOTAL_WAVES,6);assert.equal(TOTAL_ENEMIES,153);
  assert.deepEqual(WAVES.map(w=>w.enemies.length),[12,16,20,25,30,35]);
- assert.deepEqual(WAVES.map(w=>w.maxAlive),[4,5,6,7,8,9]);
+ assert.deepEqual(WAVES.map(w=>w.maxAlive),[5,6,7,8,8,9]);
  assert.ok(WAVES[0].enemies.every(x=>x==='bobrozombi'));
  assert.ok(WAVES[1].enemies.includes('bocianolak'));
  assert.ok(WAVES[2].enemies.includes('zubrokryptyda'));
