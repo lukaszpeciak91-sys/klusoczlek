@@ -17,7 +17,7 @@ import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
 import {createBurningFx} from './enemy-fire-vfx.js';
 import {WAVES,TOTAL_WAVES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceTimedWaves,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,allyShortfall,BOSS_SCENE_HARD_CAP,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
-import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
+import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, clearPoint, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
 import { resolvePose } from './combat-contract.js';
@@ -488,14 +488,32 @@ export class ArenaScene extends Phaser.Scene {
   }
   releaseFinalOutcome(){this.finalOutcomeHeld=false;}
 
+  act1NarrativeStagePoint(type){
+    const view=this.cameras.main.worldView,r=ENEMY_TYPES[type].radius;
+    // Finite, deterministic candidate grid. Unlike ordinary pursuit spawns,
+    // a dialogue actor must be visible, not outside the moving camera.
+    const candidates=[];
+    for(const fy of [.72,.57,.42,.82,.32])for(const fx of [.82,.18,.70,.30,.5]){
+      candidates.push({x:Math.round(view.x+view.width*fx),y:Math.round(view.y+view.height*fy)});
+    }
+    const others=this.enemies.filter(e=>!e.dead&&e.hp>0);
+    const maxDistance=Math.hypot(view.width*.32,view.height*.32);
+    const separation=Math.min(ENCOUNTER.minSpawnDistance,Math.max(110,maxDistance-12));
+    return candidates
+      .filter(p=>p.x>=r+5&&p.x<=ARENA.width-r-5&&p.y>=r+5&&p.y<=ARENA.height-r-5)
+      .filter(p=>Math.hypot(p.x-this.player.x,p.y-this.player.y)>=separation)
+      .filter(p=>clearPoint(p,this.obstacles,r+6,this.navigation))
+      .filter(p=>others.every(e=>Math.hypot(p.x-e.x,p.y-e.y)>=r+ENEMY_TYPES[e.type].radius+8))
+      .sort((a,b)=>Number(introductionVisible(type,b.x,b.y,view))-Number(introductionVisible(type,a.x,a.y,view)))[0]??null;
+  }
   ensureAct1Herald(){
     if(this.act1Herald&&!this.act1Herald.dead&&this.act1Herald.hp>0)return true;
     const view=this.cameras.main.worldView;
     const existing=this.enemies.find(e=>!e.dead&&e.hp>0&&e.type==='bobrozombi'&&
       e.x>=view.x+24&&e.x<=view.right-24&&e.y>=view.y+30&&e.y<=view.bottom-24);
     if(existing){this.act1Herald=existing;existing.narrativeRole='herald';return true;}
-    const point=this.ordinarySpawnPoint(ENEMY_TYPES.bobrozombi.radius,this.totalSpawned,view);
-    if(!point||point.x<view.x+15||point.x>view.right-15||point.y<view.y+20||point.y>view.bottom-15)return false;
+    const point=this.act1NarrativeStagePoint('bobrozombi');
+    if(!point)return false;
     const enemy=this.createEnemy('bobrozombi',point,this.totalSpawned++);
     enemy.narrativeRole='herald';this.act1Herald=enemy;this.enemies.push(enemy);return true;
   }
@@ -504,7 +522,7 @@ export class ArenaScene extends Phaser.Scene {
     const view=this.cameras.main.worldView;
     const candidate=this.enemies.find(e=>!e.dead&&e.hp>0&&e.type==='zubrokryptyda'&&e.x>=view.x&&e.x<=view.right&&e.y>=view.y&&e.y<=view.bottom);
     if(candidate){candidate.narrativeRole='witness';this.act1Witness=candidate;return candidate;}
-    const point=this.ordinarySpawnPoint(ENEMY_TYPES.zubrokryptyda.radius,this.totalSpawned,view);
+    const point=this.act1NarrativeStagePoint('zubrokryptyda');
     if(!point)return null;
     const enemy=this.createEnemy('zubrokryptyda',point,this.totalSpawned++);
     enemy.narrativeRole='witness';this.act1Witness=enemy;this.enemies.push(enemy);return enemy;
