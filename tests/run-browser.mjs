@@ -1585,19 +1585,25 @@ try {
   const finalQueued=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();
     a.episode.wave=5;a.episode.spawned=35;a.episode.defeated=34;a.episode.state='active';a.kills=140;a.totalSpawned=141;a.spawnDueAt=null;
-    a.episode.bossIntroduced=true;a.episode.specialSpawned=new Set(['marcin','escort-1','escort-2']);a.episode.specialDefeated=new Set(['marcin','escort-1','escort-2']);
-    const e=a.createEnemy('bocianolak',{x:1050,y:600},1100);a.enemies=[e];
-    a.damageEnemy(e,2,a.player,a.time.now);a.finalizeEnemyDeath(e);
+    a.episode.bossIntroduced=true;a.episode.specialSpawned=new Set(['marcin']);a.episode.specialDefeated=new Set();
+    const e=a.createEnemy('bocianolak',{x:1050,y:600},1100);
+    const boss=a.createEnemy('marcin',{x:1150,y:600},1101);boss.encounterId='marcin';boss.attack={phase:'chase',elapsed:0};a.boss=boss;
+    a.enemies=[e,boss];a.damageEnemy(e,2,a.player,a.time.now);a.finalizeEnemyDeath(e);
     return {id:a.dialogueState.id,dead:e.dead,kills:a.kills,state:a.episode.state,hit:a.narrativeEvents.has('after-first-bocianolak-hit'),final:a.narrativeEvents.has('after-final-enemy'),bursts:a.deathBursts.length};
   })()`);
-  assert.deepEqual(finalQueued,{id:null,dead:true,kills:141,state:'final-pending',hit:true,final:true,bursts:1});
-  await waitFor(v=>v.physics===true,'fatal final-hit panel');assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),hitId);
-  await sleep(500);assert.equal(await evaluate("window.__game.scene.getScene('Arena').deathBursts.length"),0,'Pixel burst failed to finish during dialogue');
-  for(let line=0;line<4;line++){
-    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),line===0?hitId:'after-final-enemy');await nextLine();
-  }
-  await waitFor(v=>v.menu&&v.arenaPaused,'victory after queued hit/finale');assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
-  console.log('PASS PR43 fatal final hit: final death141 once, pixel burst, first-hit dialogue before original finale and victory');
+  assert.deepEqual(finalQueued,{id:null,dead:true,kills:141,state:'active',hit:true,final:false,bursts:1});
+  await waitFor(v=>v.physics===true,'PR43 first-hit portrait panel');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),hitId);
+  await sleep(500);assert.equal(await evaluate("window.__game.scene.getScene('Arena').deathBursts.length"),0,'Pixel burst failed to finish during portrait dialogue');
+  await nextLine();assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
+  const fatal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.boss.hp=0;a.finalizeEnemyDeath(a.boss);return {state:a.episode.state,kills:a.kills}})()");
+  assert.deepEqual(fatal,{state:'boss-resolving',kills:142});
+  await sleep(950);
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'after-final-enemy');
+  for(let line=0;line<3;line++)await nextLine();
+  await waitFor(v=>v.menu&&v.arenaPaused,'victory after PR43 and Marcin finale');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+  console.log('PASS PR43 first-hit portrait remains pausing; Marcin death then final dialogue and victory');
 
   // PR44 live encounter. Fixtures advance the schedule, not the boss state
   // machine; dialogue, landing, attacks, damage, steering and resume run in Phaser.
