@@ -621,10 +621,10 @@ try {
   await evaluate('window.__setActiveTime(260000);true');
   for(let i=0;i<60;i++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='before-marcin'"))break;await sleep(25);}
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'before-marcin');await nextLine();await nextLine();
-  // The director never deletes survivors to clear Marcin's seven nonboss landing slots.
+  // PR54 never deletes survivors to fit the sixteen nonboss hard cap.
   // Sustain combat until genuine player kills free safe slots.
   const pendingBoss=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {live:a.livingNonBoss(),pending:a.bossEntrancePending,spawned:a.episode.spawned}})()");
-  if(pendingBoss.live>7){
+  if(pendingBoss.live>16){
     assert.equal(pendingBoss.pending,true,'Crowded handoff must wait rather than despawn');
     await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');while(a.livingNonBoss()>16){const e=a.enemies.find(x=>!x.dead&&x.type!=='marcin');e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(x=>!x.dead);}})()");
   }
