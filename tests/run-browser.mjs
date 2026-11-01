@@ -1708,7 +1708,7 @@ try {
     assert.ok(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length")>0,'No active volley before boss death');
     if(seed===1){
       const allReinforcements=await evaluate(`(()=>{
-        const a=window.__game.scene.getScene('Arena');let maxLive=0,iterations=0;
+        const a=window.__game.scene.getScene('Arena');a.player.body.reset(900,600);let maxLive=0,iterations=0;
         for(let i=0;i<100;i++){
           if(a.episode.reinforcementSpawned.size===12&&a.episode.spawned===35&&a.episode.specialSpawned.has('escort-1')&&a.episode.specialSpawned.has('escort-2'))break;
           const living=a.enemies.filter(e=>!e.dead&&e.type!=='marcin');
@@ -1728,7 +1728,7 @@ try {
       })()`);
       assert.equal(allReinforcements.ids.length,12,'All twelve reinforcements must eventually be offered');
       assert.equal(new Set(allReinforcements.ids).size,12,'Reinforcement duplicate ID');
-      assert.equal(allReinforcements.normalSpawned,35,'Remaining wave-six schedule starved');
+      assert.equal(allReinforcements.normalSpawned,35,'Remaining wave-six schedule starved '+JSON.stringify(allReinforcements));
       assert.equal(allReinforcements.escorts,2,'Escorts starved');
       assert.ok(allReinforcements.maxLive<=7,'Shared cap exceeded while draining every source');
       assert.ok(allReinforcements.living>=1,'Need living minion for boss-death VFX');
