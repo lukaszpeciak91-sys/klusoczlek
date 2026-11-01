@@ -722,7 +722,7 @@ try {
   await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
   const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
-  assert.deepEqual(reset,{kills:0,total:3,weapon:null,pending:0,triggered:0,pickups:['blunderbuss']});
+  assert.equal(reset.kills,0);assert.ok(reset.total>=3&&reset.total<=6,'New-game opening retains initial trio plus bounded PR51 refill');assert.equal(reset.weapon,null);assert.equal(reset.pending,0);assert.equal(reset.triggered,0);assert.deepEqual(reset.pickups,['blunderbuss']);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').timerText.text"),'◷ 00:00','NOWA GRA did not reset timer');
   const postponedSpawn=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(e=>!e.dead);
