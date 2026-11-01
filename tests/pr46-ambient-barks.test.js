@@ -36,8 +36,7 @@ test('PR46/53 all original lines remain in the spontaneous choice pool',()=>{
  const seen=new Set();
  for(let i=0;i<11;i++){
   const s=barks.createBarkSchedule(()=>0);
-  let calls=0;
-  const rng=()=>{calls++;return calls===2?(i+.01)/11:0;};
+  const rng=()=>(i+.01)/11;
   const event=barks.advanceBarks(s,s.remaining,true,()=>[{id:1,hp:3,dead:false}],rng);
   seen.add(event.phrase);
  }
