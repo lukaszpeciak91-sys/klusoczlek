@@ -13,7 +13,7 @@ import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRe
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
 import {createBurningFx} from './enemy-fire-vfx.js';
-import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceEpisode,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,recordSpecialSpawn} from './episode.js';
+import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceEpisode,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
 import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
@@ -177,7 +177,7 @@ export class ArenaScene extends Phaser.Scene {
     this.invulnerableUntil=0;
     this.episode=createEpisode();
     this.boss=null;this.bossEntrance=null;this.bossEntrancePending=false;this.bossLandingRetryAt=0;
-    this.bossProjectiles=[];this.escortDue=[];
+    this.bossProjectiles=[];this.escortDue=[];this.reinforcementDue=[];this.bossSchedulerTurn=0;this.finalResolution=false;
     this.defeated=false;
     this.completed=false;
     this.weapon=null;
@@ -386,7 +386,7 @@ export class ArenaScene extends Phaser.Scene {
     if(this.playerHp!==before)this.hpFace.setHp(this.playerHp);
     if(this.playerHp<before)this.playerVisual?.hit(this.lastDamageSource||{x:this.player.x,y:this.player.y-1});
     this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
-    if(this.playerHp===0&&!this.episode.ended)this.endEpisode('defeat');
+    if(this.playerHp===0&&!this.episode.ended&&!this.finalResolution)this.endEpisode('defeat');
   }
 
   tryStartDialogue(){
@@ -483,6 +483,8 @@ export class ArenaScene extends Phaser.Scene {
     if(e.elapsed>=1450){
       e.marker.destroy();this.bossEntrance=null;
       this.escortDue=FINAL_ENCOUNTER.filter(s=>s.id!=='marcin').map((spec,i)=>({spec,at:this.time.now+250+i*700}));
+      const first=[...REINFORCEMENTS.filter(x=>x.type==='bobrozombi').slice(0,3),REINFORCEMENTS.find(x=>x.type==='bocianolak')];
+      this.reinforcementDue=[...first,...REINFORCEMENTS.filter(x=>!first.includes(x))].map((spec,i)=>({spec,at:this.time.now+(i<4?250+i*350:1800+(i-4)*650)}));
       this.syncJoysticks();if(this.canResume())this.physics.world.resume();
     }
   }
@@ -503,18 +505,39 @@ export class ArenaScene extends Phaser.Scene {
     this.bossProjectiles.length=0;
   }
 
-  updateBossCombat(delta,now){
-    // Ordinary heavies keep their own gate; escorts are a finite separate roster.
-    for(const pending of this.escortDue){
-      if(now<pending.at)continue;
-      const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,30,this.navigation);
-      if(!at){pending.at=now+500;continue;}
-      if(recordSpecialSpawn(this.episode,pending.spec.id)){
-        const enemy=this.createEnemy(pending.spec.type,at,this.totalSpawned++);enemy.encounterId=pending.spec.id;this.enemies.push(enemy);
+  livingNonBoss(){return this.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;}
+  spawnBossSlot(now){
+    if(this.episode.state!=='active'||!this.boss||this.boss.dead||this.livingNonBoss()>=BOSS_NON_MARCIN_CAP)return false;
+    const sources=['regular','escort','reinforcement'];
+    for(let i=0;i<3;i++){
+      const source=sources[(this.bossSchedulerTurn+i)%3];
+      if(source==='regular'&&nextType(this.episode)){
+        const prior=this.totalSpawned;
+        this.spawnReplacement(true);
+        if(this.totalSpawned>prior){this.bossSchedulerTurn=(this.bossSchedulerTurn+i+1)%3;return true;}
+      }else if(source!=='regular'){
+        const queue=source==='escort'?this.escortDue:this.reinforcementDue;
+        const pending=queue.find(x=>now>=x.at);
+        if(!pending)continue;
+        const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[pending.spec.type].radius,this.navigation);
+        if(!at)continue;
+        const ok=source==='escort'?recordSpecialSpawn(this.episode,pending.spec.id):recordReinforcementSpawn(this.episode,pending.spec.id);
+        if(ok){
+          const enemy=this.createEnemy(pending.spec.type,at,this.totalSpawned++);
+          enemy.encounterId=pending.spec.id;this.enemies.push(enemy);
+        }
+        queue.splice(queue.indexOf(pending),1);
+        this.bossSchedulerTurn=(this.bossSchedulerTurn+i+1)%3;
+        return ok;
       }
-      pending.done=true;
     }
-    this.escortDue=this.escortDue.filter(p=>!p.done);
+    return false;
+  }
+  updateBossCombat(delta,now){
+    if(this.finalResolution||this.episode.state!=='active')return;
+    if(this.boss&&!this.boss.dead&&!this.bossEntrance&&now>=(this.bossSpawnDueAt??0)){
+      this.spawnBossSlot(now);this.bossSpawnDueAt=now+380;
+    }
     if(this.boss&&!this.boss.dead&&bossAttackStep(this.boss.attack,this.boss.hp,delta)&&this.bossProjectiles.length+8<=MARCIN.maxProjectiles){
       for(const p of radialVolley(this.boss))this.bossProjectiles.push({...p,object:this.add.circle(p.x,p.y,MARCIN.projectileRadius,0xff9450).setStrokeStyle(2,0xffe5a0).setDepth(13)});
     }
@@ -651,6 +674,7 @@ export class ArenaScene extends Phaser.Scene {
       this.damageEnemy(enemy,tune.damage,origin,now);
       enemy.hitUntil=now+120;
       if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
+      if(this.finalResolution)return;
       else {
         enemy.sprite.setAlpha(0.45);
         if(igniteEnemy(enemy.ignition,enemy.type,now))enemy.burningFx=createBurningFx(this,enemy.type);
@@ -677,9 +701,11 @@ export class ArenaScene extends Phaser.Scene {
         this.damageEnemy(enemy,OBSTACLE_RULES.enemyExplosionDamage,blocked,now);
         enemy.hitUntil=now+120;
         if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
+        if(this.finalResolution)return;
         else enemy.sprite.setAlpha(0.45);
       }
     }
+    if(this.finalResolution)return;
     if(inExplosion(this.player,blocked)){
       const hp=applyPlayerContact({hp:this.playerHp,invulnerableUntil:this.invulnerableUntil},now);
       this.lastDamageSource=blocked;
@@ -713,7 +739,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   damageEnemy(enemy,amount,source,now){
-    if(this.bossEntrance||enemy.dead||enemy.hp<=0)return false;
+    if(this.finalResolution||this.bossEntrance||enemy.dead||enemy.hp<=0)return false;
     const before=enemy.hp;
     enemy.hp=applyEnemyHit(before,amount);
     if(enemy.hp>=before)return false;
@@ -722,8 +748,27 @@ export class ArenaScene extends Phaser.Scene {
     return true;
   }
 
+  beginMarcinVictory(){
+    if(!beginBossResolution(this.episode))return false;
+    this.finalResolution=true;this.spawnDueAt=null;this.escortDue=[];this.reinforcementDue=[];
+    this.bossSpawnDueAt=null;this.bossEntrancePending=false;
+    this.ambientBarks?.suspend();this.narrativeEvents.clear();
+    this.clearBossProjectiles();this.boss=null;this.renderBossHp();
+    for(const bullet of this.projectiles)bullet.object.destroy();
+    this.projectiles=[];this.resetMovement();this.flameStream.clear();
+    this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);this.physics.world.pause();
+    for(const enemy of this.enemies){
+      if(enemy.dead||enemy.type==='marcin')continue;
+      enemy.dead=true;enemy.hp=0;
+      this.deathBursts.push(createPixelBurst(this,enemy.type,enemy.x,enemy.y,enemy.seed));
+      enemy.burningFx?.destroy();enemy.burningFx=null;clearIgnition(enemy.ignition);
+      this.flameCooldowns.delete(enemy);enemy.sprite.destroy();
+    }
+    this.enemies=this.enemies.filter(e=>!e.dead);
+    return true;
+  }
   finalizeEnemyDeath(enemy){
-    if(enemy.dead||enemy.hp>0)return false;
+    if(enemy.dead||enemy.hp>0||this.finalResolution)return false;
     enemy.dead=true;
     this.ambientBarks?.speakerDied(enemy);
     this.deathBursts.push(createPixelBurst(this,enemy.type,enemy.x,enemy.y,enemy.seed));
@@ -731,8 +776,8 @@ export class ArenaScene extends Phaser.Scene {
     clearIgnition(enemy.ignition);
     this.flameCooldowns.delete(enemy);
     enemy.sprite.destroy();
-    this.kills++;
-    this.refreshWeaponHud();
+    if(enemy.type==='marcin'){this.beginMarcinVictory();return true;}
+    if(!this.finalResolution){this.kills++;this.refreshWeaponHud();}
     const living=this.enemies.filter(e=>!e.dead).length;
     const event=recordDeath(this.episode,living,this.time.now,enemy.encounterId??null);
     if(enemy.type==='marcin'){this.clearBossProjectiles();this.boss=null;this.renderBossHp();}
@@ -751,9 +796,9 @@ export class ArenaScene extends Phaser.Scene {
     return true;
   }
 
-  spawnReplacement(){
+  spawnReplacement(fromBossScheduler=false){
     const nextTypeValue=nextType(this.episode);
-    if(this.episode.state!=='active'||this.defeated||this.completed||!nextTypeValue||this.enemies.filter(e=>!e.dead).length>=waveCapacity(this.episode))return;
+    if(this.episode.state!=='active'||this.defeated||this.completed||!nextTypeValue||this.enemies.filter(e=>!e.dead).length>=(this.boss?BOSS_NON_MARCIN_CAP:waveCapacity(this.episode))||this.finalResolution||(this.boss&&!fromBossScheduler))return;
     const nextEnemyType=nextTypeValue;
     if(nextEnemyType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda'&&!e.encounterId)){
       this.spawnDueAt=this.time.now+380;return;
@@ -821,6 +866,10 @@ export class ArenaScene extends Phaser.Scene {
       if(!this.scene.isPaused('Arena')&&this.canResume()&&!this.dialogueState.id)this.updateBossEntrance(Math.min(this.game.loop.delta,50));
       return;
     }
+    if(this.episode.state==='boss-resolving'){
+      if(this.deathBursts.length===0&&finishBossResolution(this.episode))this.markNarrativeBoundary('after-final-enemy');
+      return;
+    }
     if (this.episode.ended || this.dialogueLoading || this.dialogueState?.id || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);
       cancelPressureTrigger(this.flamePressure);
@@ -850,7 +899,7 @@ export class ArenaScene extends Phaser.Scene {
     if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){
       this.spawnDueAt=null;this.spawnReplacement();
       if(this.dialogueState?.id)return;
-      if(this.episode.state==='active'&&this.enemies.filter(e=>!e.dead).length<waveCapacity(this.episode)&&nextType(this.episode)!==null&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;
+      if(this.episode.state==='active'&&!this.boss&&this.enemies.filter(e=>!e.dead).length<waveCapacity(this.episode)&&nextType(this.episode)!==null&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;
     }
     const keys = this.keys;
     const x = Number(keys.D.isDown || keys.RIGHT.isDown) -
@@ -878,7 +927,7 @@ export class ArenaScene extends Phaser.Scene {
     this.facingMarker.clear().lineStyle(5,0x162a31).lineBetween(this.player.x,this.player.y,this.player.x+Math.cos(angle)*27,this.player.y+Math.sin(angle)*27).fillStyle(0x92d7e8).fillCircle(this.player.x+Math.cos(angle)*27,this.player.y+Math.sin(angle)*27,5);
     const now=this.time.now;
     this.updateBossCombat(Math.min(this.game.loop.delta,50),now);
-    if(this.defeated)return;
+    if(this.defeated||this.finalResolution)return;
     if(!firing)this.lastShotAt=null;
     const count=firingStep(this.firingState,this.weapon,firing,now);
     for(let i=0;i<count;i++)this.spawnShot(aiming,this.weapon,now);
@@ -886,6 +935,7 @@ export class ArenaScene extends Phaser.Scene {
     if(flameActive)this.applyFlame(aiming,now);
     else this.flameStream.clear();
     this.renderPressureBar();
+    if(this.finalResolution)return;
     const delta=Math.min(this.game.loop.delta,50);
     this.updateFlameParticles(this.time.now,delta);
     if(this.defeated)return;
@@ -907,6 +957,7 @@ export class ArenaScene extends Phaser.Scene {
         this.damageEnemy(enemy,item.damage,old,this.time.now);
         enemy.hitUntil=this.time.now+120;enemy.sprite.setAlpha(0.45);item.hit=true;
         if(enemy.hp===0)this.finalizeEnemyDeath(enemy);
+        if(this.finalResolution)return;
       }
       if(item.hit){item.object.destroy();continue;}
       if(item.hit||item.object.x<0||item.object.y<0||item.object.x>ARENA.width||item.object.y>ARENA.height){
