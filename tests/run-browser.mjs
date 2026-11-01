@@ -1713,8 +1713,11 @@ try {
           if(a.episode.reinforcementSpawned.size===12&&a.episode.spawned===35&&a.episode.specialSpawned.has('escort-1')&&a.episode.specialSpawned.has('escort-2'))break;
           const living=a.enemies.filter(e=>!e.dead&&e.type!=='marcin');
           maxLive=Math.max(maxLive,living.length);
-          if(living.length>=7){
-            const victim=living[0];victim.hp=0;a.finalizeEnemyDeath(victim);
+          // Respect the existing max-one-ordinary-heavy gate: the player must
+          // actually defeat an earlier wave-6 heavy before another can spawn.
+          const blockingHeavy=living.find(e=>e.type==='zubrokryptyda'&&!e.encounterId);
+          if(living.length>=7||(blockingHeavy&&a.episode.spawned<35)){
+            const victim=blockingHeavy||living[0];victim.hp=0;a.finalizeEnemyDeath(victim);
             a.enemies=a.enemies.filter(e=>!e.dead);
           }
           a.spawnBossSlot(a.time.now+100000+i*380);
