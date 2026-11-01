@@ -1925,6 +1925,29 @@ try {
   await sleep(80);await orientationShot('pr47-canonical-gallery-800x360.png',800,360);
   console.log('PASS PR47 all12 generated semantic variants: canonical actual atlas gallery, matching render/physics orientation');
 
+  // PR48: missing dedicated Marcin PNG must fall back to letter while final DALEJ remains usable.
+  const missingPortrait=event=>{
+    const message=JSON.parse(event.data);
+    if(message.method!=='Fetch.requestPaused'||!message.params.request.url.includes('dialogue-marcin.png'))return;
+    void cdp('Fetch.fulfillRequest',{requestId:message.params.requestId,responseCode:404,responseHeaders:[{name:'Content-Type',value:'text/plain'}],body:''});
+  };
+  socket.addEventListener('message',missingPortrait);
+  await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/dialogue/dialogue-marcin.png*',requestStage:'Request'}]});
+  await clickControl('hud');await clickControl('NOWA GRA');
+  await waitFor(v=>v.arena&&!v.menu,'PR48 fallback Arena');
+  for(let i=0;i<40;i++){if(!await evaluate("window.__game.scene.getScene('Arena').dialogueLoading"))break;await sleep(40);}
+  const fallback=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueState.index=0;a.narrativeEvents.clear();a.episode.wave=5;a.episode.state='final-pending';a.finalResolution=true;a.markNarrativeBoundary('after-final-enemy');return {loaded:a.dialoguePanel.loaded.has('marcin'),id:a.dialogueState.id,letter:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='M'&&x.visible),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible),text:a.dialoguePanel.text.text}})()");
+  assert.equal(fallback.loaded,false,'Missing Marcin asset incorrectly registered as loaded');
+  assert.equal(fallback.id,'after-final-enemy');
+  assert.equal(fallback.letter,true,'Missing portrait did not show letter fallback');
+  assert.equal(fallback.label,true,'Missing portrait hid MARCIN speaker label');
+  assert.ok(fallback.text.includes('Przepowiednia się spełniła'));
+  for(let i=0;i<3;i++)await nextLine();
+  await waitFor(v=>v.menu&&v.arenaPaused,'PR48 missing-portrait victory');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+  await cdp('Fetch.disable');socket.removeEventListener('message',missingPortrait);
+  console.log('PASS PR48 missing Marcin portrait: fallback letter, speaker, three lines/DALEJ and victory');
+
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {
   socket?.close();
