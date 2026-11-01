@@ -291,7 +291,7 @@ try {
   await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[rMove,lMove]});
   await sleep(240);
   let dual=await snapshot();
-  assert.notEqual(dual.controls.left.id,null,'left pointer not captured');
+  assert.notEqual(dual.controls.left.id,null,'left pointer not captured '+JSON.stringify({controls:dual.controls,episode:await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,dialogue:a.dialogueState.id,paused:a.physics.world.isPaused,final:a.finalResolution,loading:a.dialogueLoading}})()")}));
   assert.notEqual(dual.controls.right.id,null,'right pointer not captured');
   assert.notEqual(dual.controls.left.id,dual.controls.right.id,'pointers not independent');
   assert.ok(dual.controls.left.x>0,'left movement missing');
