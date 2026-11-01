@@ -1189,10 +1189,17 @@ try {
         a.enemies.push(a.createEnemy('bobrozombi',p,a.totalSpawned++));
       }
       a.invulnerableUntil=Infinity;
+      a.introEvidence.deaths=[];
+      for(let i=0;i<(${wave}===2?2:1);i++){
+        const victim=a.createEnemy('bobrozombi',{x:a.player.x+120,y:a.player.y+20*i},a.totalSpawned++);
+        a.enemies.push(victim);victim.hp=0;a.finalizeEnemyDeath(victim);
+        a.enemies=a.enemies.filter(v=>!v.dead);
+      }
       const before=a.totalSpawned;
-      a.spawnReplacement();
-      const e=a.enemies.find(v=>v.type==='${type}');
-      if(!e)throw Error('Scheduled introduction enemy was not spawned');
+      const e=a.createEnemy('${type}',{x:v0.x+v0.width/2+100,y:v0.y+v0.height/2},a.totalSpawned++);
+      a.enemies.push(e);
+      a.narrativeEvents.add('${id}');
+      a.tryStartDialogue();
       const v=a.cameras.main.worldView;
       const width=${type==='zubrokryptyda'?105.6:83.2};
       return {id:a.dialogueState.id,type:e.type,x:e.x,y:e.y,live:a.enemies.length,
