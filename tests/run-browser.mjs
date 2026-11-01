@@ -95,6 +95,8 @@ try {
     const message=JSON.parse(event.data);
     if(message.method==='Runtime.exceptionThrown'){uncaught.push(message.params.exceptionDetails);console.log('PHASER UNCAUGHT EXCEPTION',JSON.stringify(message.params.exceptionDetails));}
   });
+  const pr54Chromium=await cdp('Browser.getVersion');
+  console.log('INFO PR54 actual Chromium '+pr54Chromium.product+' engine '+pr54Chromium.userAgent);
   await cdp('Runtime.enable');
   async function evaluate(expression) {
     const response = await cdp('Runtime.evaluate', {expression, returnByValue:true, awaitPromise:true});
