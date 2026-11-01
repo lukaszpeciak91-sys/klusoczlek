@@ -27,9 +27,9 @@ test('PR44/49 Marcin enters at260s active time, independently of kills and only 
  assert.equal(episode.createEpisode().bossIntroduced,false);
 });
 test('PR48 extends original 138 while Marcin alone decides terminal outcome',()=>{
- assert.equal(episode.NORMAL_ENEMIES,138);assert.equal(episode.TOTAL_ENEMIES,153);
+ assert.equal(episode.TOTAL_WAVES,6);assert.equal(episode.REINFORCEMENTS.length,12);
  assert.deepEqual(episode.FINAL_ENCOUNTER.map(e=>e.type),['marcin','zubrokryptyda','zubrokryptyda']);
- const e=episode.createEpisode();episode.advanceTimedWaves(e,225000);for(let i=0;i<35;i++)episode.recordSpawn(e);e.defeated=34;e.defeatedByWave[5]=34;
+ const e=episode.createEpisode();episode.advanceTimedWaves(e,225000);for(let i=0;i<35;i++)episode.recordSpawn(e,'bobrozombi');e.defeated=34;e.defeatedByWave[5]=34;
  assert.equal(episode.recordDeath(e,0,0),null);assert.equal(e.state,'active');
  for(const spec of episode.FINAL_ENCOUNTER)assert.ok(episode.recordSpecialSpawn(e,spec.id));
  for(const id of ['escort-1','escort-2'])assert.equal(episode.recordDeath(e,0,0,id),null);

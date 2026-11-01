@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {COMBAT_TUNING,flameTargetVisible,cooldownReady} from '../src/weapon-combat.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,isBurning} from '../src/enemy-panic.js';
-import {WAVES,TOTAL_ENEMIES,TOTAL_WAVES,WAVE_TIMING,HEALTH_AFTER_WAVES,createEpisode,recordSpawn,recordDeath,FINAL_ENCOUNTER,recordSpecialSpawn,nextType,waveCapacity,advanceTimedWaves,beginBossResolution,finishBossResolution} from '../src/episode.js';
+import {WAVES,TOTAL_WAVES,WAVE_TIMING,HEALTH_AFTER_WAVES,createEpisode,recordSpawn,recordDeath,FINAL_ENCOUNTER,recordSpecialSpawn,nextType,waveCapacity,advanceTimedWaves,beginBossResolution,finishBossResolution} from '../src/episode.js';
 
 test('flame damage and visual cone contract retain their original values',()=>{
  const t=COMBAT_TUNING.flamethrower;
@@ -44,43 +44,24 @@ test('exact expiry hit cannot skip immunity even without update frame',()=>{
  assert.equal(igniteEnemy(state,'bocianolak',1900),false);
  assert.equal(state.panicImmuneUntil,3900);
 });
-test('six-wave episode contract and exact spawn/death progression',()=>{
- const expected=[[12,0,0,5],[11,5,0,6],[11,8,1,7],[11,11,3,8],[12,14,4,8],[12,17,6,9]];
- assert.equal(TOTAL_ENEMIES,153);assert.equal(TOTAL_WAVES,6);
- assert.equal(WAVE_TIMING[1].startMs,35000);
+test('six-wave episode contract, continued ordinary spawning, and preserved boss resolution',()=>{
+ assert.equal(TOTAL_WAVES,6);assert.equal(WAVE_TIMING[1].startMs,35000);
  assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
- assert.deepEqual(WAVES.map(w=>[
-  w.enemies.filter(t=>t==='bobrozombi').length,
-  w.enemies.filter(t=>t==='bocianolak').length,
-  w.enemies.filter(t=>t==='zubrokryptyda').length,w.maxAlive]),expected);
+ assert.deepEqual(WAVES.map(w=>[w.target,w.maxAlive]),[[4,6],[5,7],[6,8],[7,9],[7,9],[8,10]]);
  const ep=createEpisode();
- for(let i=0;i<WAVES.length;i++){
-  const wave=WAVES[i];assert.equal(waveCapacity(ep),expected[i][3]);
-  for(let j=0;j<wave.enemies.length;j++){
-   assert.equal(nextType(ep),ep.waveOrders[i][j]);
-   assert.equal(recordSpawn(ep),true);
-  }
-  for(let j=0;j<wave.enemies.length;j++){
-   const living=wave.enemies.length-j-1;
-   const event=recordDeath(ep,living,i*10000);
-   if(j<wave.enemies.length-1)assert.equal(event,null);
-   else assert.equal(event,null);
-  }
-  if(i<5){
-   assert.deepEqual(advanceTimedWaves(ep,WAVE_TIMING[i+1].startMs-1),[]);
-   assert.deepEqual(advanceTimedWaves(ep,WAVE_TIMING[i+1].startMs),[i+1]);
-  }
+ for(let i=0;i<6;i++){
+  assert.equal(waveCapacity(ep),WAVES[i].maxAlive);
+  for(let j=0;j<30;j++){assert.equal(recordSpawn(ep,'bobrozombi'),true);recordDeath(ep,0,j);}
+  if(i<5)assert.deepEqual(advanceTimedWaves(ep,WAVE_TIMING[i+1].startMs),[i+1]);
  }
  for(const spec of FINAL_ENCOUNTER)recordSpecialSpawn(ep,spec.id);
- assert.equal(ep.state,'active');
- assert.equal(beginBossResolution(ep),true);
- assert.equal(finishBossResolution(ep),true);
+ assert.equal(beginBossResolution(ep),true);assert.equal(finishBossResolution(ep),true);
  assert.equal(ep.state,'final-pending');
 });
 test('burning living final enemy never counts as a wave death',()=>{
- const ep=createEpisode(),wave=WAVES[0];
- for(const unused of wave.enemies)recordSpawn(ep);
- for(let i=0;i<wave.enemies.length-1;i++)recordDeath(ep,wave.enemies.length-i-1,100);
+ const ep=createEpisode();
+ for(let i=0;i<12;i++)recordSpawn(ep,'bobrozombi');
+ for(let i=0;i<11;i++)recordDeath(ep,11-i,100);
  const state=createIgnitionState();igniteEnemy(state,'bobrozombi',100);
  assert.equal(isBurning(state,150),true);
  assert.equal(ep.state,'active');assert.equal(ep.defeated,11);

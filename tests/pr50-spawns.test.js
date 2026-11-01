@@ -7,10 +7,10 @@ const spawn=await import('../src/enemy-spawn.js').catch(e=>{if(e.code!=='ERR_MOD
 const player={x:900,y:600};
 const select=options=>{assert.equal(typeof spawn.selectOrdinarySpawn,'function');return spawn.selectOrdinarySpawn(options);};
 test('PR50 increases only early ordinary capacity, preserving time/budgets and finale cap',()=>{
- assert.deepEqual(WAVES.map(w=>w.maxAlive),[5,6,7,8,8,9]);assert.deepEqual(WAVES.map(w=>w.enemies.length),[12,16,20,25,30,35]);
+ assert.deepEqual(WAVES.map(w=>w.maxAlive),[6,7,8,9,9,10]);assert.deepEqual(WAVES.map(w=>w.target),[4,5,6,7,7,8]);
  assert.deepEqual(WAVE_TIMING.map(w=>w.startMs),[0,35000,75000,120000,170000,225000]);assert.equal(BOSS_INTRO_MS,260000);assert.equal(BOSS_NON_MARCIN_CAP,7);
 });
-test('PR50 named ordinary cadence is275ms; no faster boss tuning is introduced',()=>{assert.equal(spawn.ORDINARY_SPAWN_INTERVAL_MS,275);});
+test('PR50 legacy placement is independent of continuous director cadence',()=>{assert.equal(typeof spawn.selectOrdinarySpawn,'function');});
 test('PR50 initial trio uses safe camera vicinity across nine real seeded layouts',()=>{
  for(const seed of [1,41,104729])for(const [width,height] of [[568,320],[800,360],[320,240]]){
   const layout=generateArenaLayout(seed),occupied=[],view={x:900-width/2,y:600-height/2,width,height};

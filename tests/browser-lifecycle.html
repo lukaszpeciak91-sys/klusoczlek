@@ -15,7 +15,7 @@ window.__createObstacle=(await import('/src/obstacle-catalog.js')).createObstacl
 window.__setActiveTime=ms=>{const a=game.scene.getScene('Arena');a.gameplayClock.elapsedMs=ms;a.gameplayClock.lastNow=null;};
 window.__stageTimedWave=(wave,spawned=0)=>{
  const a=game.scene.getScene('Arena'),e=createEpisode(a.arenaSeed);advanceTimedWaves(e,WAVE_TIMING[wave].startMs);
- for(let i=0;i<spawned;i++)recordSpawn(e);a.episode=e;a.elapsedGameplayMs=WAVE_TIMING[wave].startMs;window.__setActiveTime(a.elapsedGameplayMs);a.waveText.setText('⚑ '+(wave+1)+'/6');return e;
+ for(let i=0;i<spawned;i++)recordSpawn(e,'bobrozombi');a.episode=e;a.elapsedGameplayMs=WAVE_TIMING[wave].startMs;window.__setActiveTime(a.elapsedGameplayMs);a.waveText.setText('⚑ '+(wave+1)+'/6');return e;
 };
 setupViewport(game);
 document.getElementById('fullscreen-button').addEventListener('click', () => toggleFullscreen(document.getElementById('game-shell'), () => game.scale.refresh()));

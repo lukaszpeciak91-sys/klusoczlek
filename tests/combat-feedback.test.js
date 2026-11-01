@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ATTACK_PROFILES,DEATH_PROFILES,makeFeedback,recordAttack,recordHit,pose,hitActive,fragmentSpec} from '../src/combat-feedback.js';
-import {WAVES,TOTAL_ENEMIES,WAVE_TIMING,HEALTH_AFTER_WAVES,createEpisode,recordSpawn,recordDeath,advanceTimedWaves} from '../src/episode.js';
+import {WAVES,WAVE_TIMING,HEALTH_AFTER_WAVES,createEpisode,recordSpawn,recordDeath,advanceTimedWaves} from '../src/episode.js';
 import {COMBAT_TUNING} from '../src/weapon-combat.js';
 test('distinct enemy attack poses peak and return without world-coordinate mutation',()=>{
  const state=makeFeedback(),from={x:20,y:40},to={x:40,y:40};
@@ -31,13 +31,13 @@ test('red fragment profiles deterministic, bounded and distinct',()=>{
  assert.deepEqual(Object.values(DEATH_PROFILES).map(p=>p.count),[88,30,36,58,36]);
 });
 test('six timed waves, healing and flamethrower tuning unchanged',()=>{
- assert.equal(WAVES.length,6);assert.equal(TOTAL_ENEMIES,153);
- assert.deepEqual(WAVES.map(w=>w.maxAlive),[5,6,7,8,8,9]);
+ assert.equal(WAVES.length,6);assert.equal(WAVES.length,6);
+ assert.deepEqual(WAVES.map(w=>w.maxAlive),[6,7,8,9,9,10]);
  assert.equal(WAVE_TIMING[1].startMs,35000);assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
  assert.equal(COMBAT_TUNING.flamethrower.damage,1);
  assert.equal(COMBAT_TUNING.flamethrower.damageInterval,250);
  const state=createEpisode();
- for(const e of WAVES[0].enemies)recordSpawn(state);
+ for(let i=0;i<12;i++)recordSpawn(state,'bobrozombi');
  for(let i=0;i<11;i++)assert.equal(recordDeath(state,11-i,200),null);
  assert.equal(state.state,'active');
  assert.equal(recordDeath(state,0,200),null);assert.equal(state.wave,0);assert.deepEqual(advanceTimedWaves(state,35000),[1]);

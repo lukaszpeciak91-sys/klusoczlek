@@ -339,3 +339,9 @@ Po każdym scalonym PR: data, numer PR, dokładnie co działa, co nie działa, n
 
 ## PR48 (draft, unmerged)
 Marcin finale: 138 original scheduled enemies + 12 finite reinforcements (8 Bobrozombi / 4 Bocianołak) + two escorts + Marcin = 153 planned. Shared boss-combat 7-nonboss cap, separate reinforcement queue, immediate terminal boss-death resolution, scripted living-only pixel death, final dialogue/Marcin portrait fallback. CI/Chromium and independent audit are required before merge. No binary asset changes in PR48.
+
+## PR51 — continuous ordinary combat director (2026-11-01, DRAFT)
+- Branch `feat/pr51-continuous-combat-director`, base merged PR50 `cb74d94f12390dc27b35bec8fb052fb9c1572402`; draft PR #51; no merge/deploy/binary changes.
+- Added pure bounded deterministic `src/encounter-director.js`, episode intensity profiles, camera/nearby pressure sampling, 40-success rolling weighted mix, cap/target control and preboss stop, retaining safe PR50 spawn placement/defer.
+- Removed finite ordinary queues and denominator `153` from production HUD. Boss scheduler offers only finite escorts/reinforcements; terminal kill/VFX contract unchanged.
+- Unit tests and browser fixture migration underway; actual final CI GREEN, 3-seed x3-viewport extended density measurements and Android hardware acceptance remain mandatory. No unperformed checks claimed.
