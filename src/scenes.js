@@ -408,8 +408,10 @@ export class ArenaScene extends Phaser.Scene {
       if(this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda'))this.narrativeEvents.add('before-first-zubrokryptyda');
     }
     const livingOrdinary=this.enemies.filter(e=>!e.dead&&e.hp>0&&e.type!=='marcin'&&!e.narrativeRole).length;
+    // PR51's unearned species introductions must not block the early ending.
+    // An active portrait is essential; pending optional intro evidence is not.
     const narrativePending=this.dialogueLoading||!!this.dialogueState.id||
-      [...this.narrativeEvents].some(id=>id!=='before-marcin'&&id!=='after-final-enemy');
+      this.narrativeEvents.has('before-wave-1')||this.narrativeEvents.has(BOCIANOLAK_HIT_DIALOGUE);
     if(claimBossIntroduction(this.episode,this.elapsedGameplayMs,{ordinaryAlive:livingOrdinary,narrativePending})){
       for(const id of ['before-first-bocianolak','before-first-zubrokryptyda']){this.narrativeEvents.delete(id);this.pendingIntroductions.delete(id);}
       this.narrativeEvents.add('before-marcin');this.ambientBarks?.suspend();
