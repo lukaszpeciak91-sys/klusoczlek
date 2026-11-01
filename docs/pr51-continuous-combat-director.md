@@ -7,7 +7,7 @@ Supersedes PR49/PR50 finite ordinary-wave budgets. The six *active gameplay time
 - Profiles (target/cap) are 4/6, 5/7, 6/8, 7/9, 7/9, 8/10. Weight profiles are respectively 100/0/0, 70/30/0, 55/35/10, 45/40/15, 40/45/15, 35/45/20 percent (Bobrozombi/Bocianołak/Żubrokryptyda).
 - Deterministic weighted deficits consider counts of **successful** spawns during the active wave. Unique ordinary heavy exclusion remains in the scene. Priority introduction candidates preserve the existing visible living actor requirements.
 - Normal scheduling ~975–1325 ms; zero visible/nearby pressure ~390–569 ms. Soft target can temporarily exceed by one under no-visible-pressure; hard cap never bypassed. Camera-aware placement and defer continue through PR50 selector.
-- 242-second handoff stops replenishment to permit natural decline before Marcin; regular spawns are disabled entirely once the 260-second introduction is claimed. Special scheduler dispatches only two escorts and 12 reinforcements; existing seven-nonboss cap and landing conditions persist.
+- 235-second taper reduces soft replenishment above seven; 242-second handoff stops replenishment to permit natural decline before Marcin; regular spawns are disabled entirely once the 260-second introduction is claimed. Special scheduler dispatches only two escorts and 12 reinforcements; existing seven-nonboss cap and landing conditions persist.
 - Kill HUD is a raw earned-kill count, no fictitious finite denominator. PR48 scripted victory effects must not award neutralization kills.
 
 ## Review gates / remaining work
