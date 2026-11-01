@@ -1,24 +1,51 @@
-// Cosmetic session state only. Injected RNG never touches layout/combat RNG.
+// Cosmetic state has its own deterministic RNG, never coupled to encounter logic.
 export const BARK_PHRASES=Object.freeze(['Na niego!','Bić! Zabić!','Aaaaaaaa','Umrzyj!','Cośmy Ci zrobili?!','Atak!','Kruca dosyć tego!']);
+export const EXTRA_BARKS=Object.freeze(['BRAĆ GO!','NIE UCIEKNIESZ!','TY BYDLAKU!!','ZARAZ CIĘ DOPADNĘ!']);
+export const HIT_BARKS=Object.freeze({
+ bobrozombi:['AUA!!!!!','AAAAAAA!','COŚ TY MI ZROBIŁ?!','TY BYDLAKU!!'],
+ bocianolak:['NIE PO NOGACH!','AAAAA CO ZA BÓL!!','AŁĆ!','TY BYDLAKU!!'],
+ zubrokryptyda:['TO BOLAŁO!','JAK ŚMIESZ?!','AAAAAAA!','ZARAZ CIĘ DOPADNĘ!']
+});
+export const MAX_BUBBLES=2;
 const unit=rng=>{const n=rng();return Number.isFinite(n)?Math.max(0,Math.min(1-Number.EPSILON,n)):0;};
 const interval=(rng,min,max)=>min+Math.floor(unit(rng)*(max-min+1));
-export function createBarkSchedule(rng){return {remaining:interval(rng,12000,20000),lastPhrase:-1,active:null,attempts:0,shown:0};}
+export function createBarkSchedule(rng){return {remaining:interval(rng,3000,5000),active:[],attempts:0,shown:0,hitAttempts:0,hitShown:0,suppressed:0,lastPhrase:null,lastDamageAt:-Infinity,elapsed:0,enemyCooldown:new WeakMap(),lastSpeaker:null};}
 export function advanceBarks(state,delta,allowed,candidates,rng){
- if(!allowed){state.active=null;return null;}
- const ms=Number.isFinite(delta)?Math.max(0,delta):0;
- if(state.active){state.active.age+=ms;if(state.active.age>=state.active.life)state.active=null;}
+ if(!allowed){state.active.length=0;return null;}
+ const ms=Number.isFinite(delta)?Math.max(0,delta):0;state.elapsed+=ms;
+ state.active=state.active.filter(x=>{x.age+=ms;return x.age<x.life&&x.speaker&&!x.speaker.dead&&x.speaker.hp>0;});
  state.remaining-=ms;
  if(state.remaining>0)return null;
- // Exactly one opportunity, scheduled from now. Never replay missed intervals.
- state.remaining=interval(rng,15000,25000);state.attempts++;
- if(state.active)return null;
- const choices=candidates();if(!choices.length)return null;
- const speaker=choices[Math.floor(unit(rng)*choices.length)];
- let index=Math.floor(unit(rng)*(state.lastPhrase<0?BARK_PHRASES.length:BARK_PHRASES.length-1));
- if(state.lastPhrase>=0&&index>=state.lastPhrase)index++;
- state.lastPhrase=index;state.shown++;
- state.active={speaker,phrase:BARK_PHRASES[index],life:interval(rng,1800,2300),age:0};
- return state.active;
+ state.remaining=interval(rng,3000,6000);state.attempts++;
+ if(state.active.length>=MAX_BUBBLES)return null;
+ const choices=candidates().filter(x=>!state.active.some(a=>a.speaker===x));
+ if(!choices.length)return null;
+ const alternatives=choices.filter(x=>x!==state.lastSpeaker);
+ const pool=alternatives.length?alternatives:choices;
+ const speaker=pool[Math.floor(unit(rng)*pool.length)];
+ const phrases=[...BARK_PHRASES,...EXTRA_BARKS].filter(x=>x!==state.lastPhrase);
+ const phrase=phrases[Math.floor(unit(rng)*phrases.length)];
+ const event={speaker,phrase,kind:'spontaneous',priority:1,life:interval(rng,1200,2100),age:0};
+ state.lastPhrase=phrase;state.lastSpeaker=speaker;state.active.push(event);state.shown++;return event;
+}
+export function damageBark(state,enemy,at,rng){
+ if(!enemy||enemy.dead||enemy.hp<=0||!HIT_BARKS[enemy.type]||!Number.isFinite(at))return null;
+ state.hitAttempts++;
+ if(unit(rng)>=0.35)return null;
+ if(at-(state.enemyCooldown.get(enemy)??-Infinity)<4500||at-state.lastDamageAt<400)return null;
+ const old=state.active.find(e=>e.speaker===enemy);
+ if(old?.kind==='damage')return null;
+ if(state.active.length>=MAX_BUBBLES&&!old){
+  const lower=state.active.find(e=>e.kind==='spontaneous'&&e.age>=250);
+  if(!lower){state.suppressed++;return null;}
+  state.active.splice(state.active.indexOf(lower),1);
+ }
+ if(old)state.active.splice(state.active.indexOf(old),1);
+ const phrases=HIT_BARKS[enemy.type].filter(x=>x!==state.lastPhrase);
+ const phrase=phrases[Math.floor(unit(rng)*phrases.length)];
+ const event={speaker:enemy,phrase,kind:'damage',priority:2,life:interval(rng,1200,1900),age:0};
+ state.active.push(event);state.lastPhrase=phrase;state.lastSpeaker=enemy;
+ state.enemyCooldown.set(enemy,at);state.lastDamageAt=at;state.hitShown++;return event;
 }
 export function eligibleBarkSpeaker(enemy,anchor,view){
  if(!enemy||!['bobrozombi','bocianolak','zubrokryptyda'].includes(enemy.type)||!Number.isFinite(enemy.hp)||enemy.hp<=0||enemy.dead||enemy.dying||enemy.spawning||enemy.landing||!anchor)return false;
@@ -39,3 +66,5 @@ export function bubblePlacement(anchor,width,height,viewWidth,viewHeight,hud){
  }
  return {x,y,width,height};
 }
+
+export function boxesOverlap(a,b,space=5){return !!a&&!!b&&a.x<a.width+b.x+space&&a.x+a.width+space>b.x&&a.y<b.y+b.height+space&&a.y+a.height+space>b.y;}
