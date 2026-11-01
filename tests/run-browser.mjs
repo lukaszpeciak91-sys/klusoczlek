@@ -1669,8 +1669,19 @@ try {
   const fatal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.boss.hp=0;a.finalizeEnemyDeath(a.boss);return {state:a.episode.state,kills:a.kills}})()");
   assert.deepEqual(fatal,{state:'boss-resolving',kills:142});
   await sleep(950);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'after-final-enemy');
-  for(let line=0;line<3;line++)await nextLine();
+  for(const id of ['act1-marcin-last','act1-witness-last','act1-aloes-last']){
+    for(let i=0;i<120;i++){
+      if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id")===id)break;
+      await sleep(30);
+    }
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),id,'PR43/PR54 staged cinematic order');
+    if(id==='act1-witness-last')assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.act1Witness&&!a.act1Witness.dead&&a.act1Witness.hp>0})()"),true,'Witness must be living during farewell');
+    await nextLine();
+    if(id==='act1-witness-last'){
+      const phase=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,waiting:a.act1AwaitWitnessBurst,aloes:a.dialogueState.id==='act1-aloes-last'}})()");
+      assert.ok(phase.bursts>0&&phase.waiting&&!phase.aloes,'Witness must explode before Aloes speaks');
+    }
+  }
   await waitFor(v=>v.menu&&v.arenaPaused,'victory after PR43 and Marcin finale');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   console.log('PASS PR43 first-hit portrait remains pausing; Marcin death then final dialogue and victory');
