@@ -38,8 +38,31 @@ export async function measureOpening({cdp,evaluate,sleep,snapshot,waitFor,clickC
  return metrics;
 }
 
+export async function measureContinuousPressure({cdp,evaluate,sleep,snapshot,waitFor,clickControl}){
+ const all=[];
+ for(const seed of [1,41,104729])for(const [width,height] of [[568,320],[800,360],[320,240]]){
+  if(!(await snapshot()).menu){await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'PR51 density MENU');}
+  await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+  await evaluate(`window.__game.scale.refresh();history.replaceState(null,'','?arenaSeed=${seed}');true`);await sleep(50);
+  await clickControl('NOWA GRA');await waitFor(v=>v.arena&&!v.menu,'PR51 density Arena');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueLoading=false;a.time.paused=false;a.physics.world.resume();a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');a.firstBocianolakHit=true;a.narrativeEvents.clear();a.invulnerableUntil=Infinity;})()");
+  for(let wave=0;wave<6;wave++){
+   await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.burningFx?.destroy();e.sprite.destroy();}a.enemies=[];window.__stageTimedWave(${wave});a.encounterDirector.nextMs=a.elapsedGameplayMs;window.__pressureStart={attempts:a.encounterDirector.attempts,success:a.encounterDirector.success,ms:a.elapsedGameplayMs};})()`);
+   await sleep(1900);
+   const sample=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),v=a.cameras.main.worldView,live=a.enemies.filter(e=>!e.dead&&e.hp>0),visible=live.filter(e=>e.x>=v.x-40&&e.x<=v.right+40&&e.y>=v.y-40&&e.y<=v.bottom+40);return {wave:a.episode.wave,elapsedMs:a.elapsedGameplayMs,live:live.length,visible:visible.length,attempts:a.encounterDirector.attempts-window.__pressureStart.attempts,success:a.encounterDirector.success-window.__pressureStart.success,cap:a.episode.wave===0?6:a.episode.wave===1?7:a.episode.wave===2?8:a.episode.wave<5?9:10,diagnostics:{...a.spawnDiagnostics}}})()");
+   assert.equal(sample.wave,wave);assert.ok(sample.live<=sample.cap,'PR51 hard cap '+JSON.stringify(sample));
+   assert.ok(sample.success>=1,'PR51 empty arena failed refill '+JSON.stringify(sample));
+   all.push({seed,width,height,...sample});
+  }
+ }
+ await writeFile('dist/pr51-six-wave-pressure.json',JSON.stringify(all,null,2)+'\n');
+ console.log('PASS PR51 54 real Phaser/Chromium wave windows (3 seeds x3 viewports x6 waves): bounded continuous refill and hard caps');
+ return all;
+}
+
 export async function verifySpawnPacing(context){
  await measureOpening(context);
+ await measureContinuousPressure(context);
  const {cdp,evaluate,sleep,snapshot,waitFor,clickControl}=context;
  const caps=[];
  for(let wave=0;wave<6;wave++){
