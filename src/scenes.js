@@ -16,7 +16,7 @@ import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRe
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
 import {createBurningFx} from './enemy-fire-vfx.js';
-import {WAVES,TOTAL_WAVES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceTimedWaves,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
+import {WAVES,TOTAL_WAVES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceTimedWaves,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,allyShortfall,BOSS_SCENE_HARD_CAP,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
 import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
@@ -181,6 +181,7 @@ export class ArenaScene extends Phaser.Scene {
     this.episode=createEpisode(seed);
     this.boss=null;this.bossEntrance=null;this.bossEntrancePending=false;this.bossLandingRetryAt=0;
     this.bossProjectiles=[];this.escortDue=[];this.reinforcementDue=[];this.bossSchedulerTurn=0;this.finalResolution=false;
+    this.act1Herald=null;this.act1Witness=null;this.act1AllyDue=0;this.act1AllyAdded=0;this.act1FadePending=false;this.act1FadeElapsed=0;
     this.defeated=false;
     this.completed=false;
     this.weapon=null;
@@ -403,7 +404,10 @@ export class ArenaScene extends Phaser.Scene {
       if(this.episode.wave>=1&&!this.introducedEnemyTypes.has('before-first-bocianolak'))this.narrativeEvents.add('before-first-bocianolak');
       if(this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda'))this.narrativeEvents.add('before-first-zubrokryptyda');
     }
-    if(claimBossIntroduction(this.episode,this.elapsedGameplayMs)){
+    const livingOrdinary=this.enemies.filter(e=>!e.dead&&e.hp>0&&e.type!=='marcin'&&!e.narrativeRole).length;
+    const narrativePending=this.dialogueLoading||!!this.dialogueState.id||
+      [...this.narrativeEvents].some(id=>id!=='before-marcin'&&id!=='after-final-enemy');
+    if(claimBossIntroduction(this.episode,this.elapsedGameplayMs,{ordinaryAlive:livingOrdinary,narrativePending})){
       for(const id of ['before-first-bocianolak','before-first-zubrokryptyda']){this.narrativeEvents.delete(id);this.pendingIntroductions.delete(id);}
       this.narrativeEvents.add('before-marcin');this.ambientBarks?.suspend();
     }
@@ -428,6 +432,7 @@ export class ArenaScene extends Phaser.Scene {
     if(this.dialogueLoading||this.dialogueState.id||this.episode.ended)return false;
     for(const id of ['before-wave-1',BOCIANOLAK_HIT_DIALOGUE,'before-marcin','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy']){
       if((id==='before-first-bocianolak'||id==='before-first-zubrokryptyda')&&!this.introductionReady(id))continue;
+      if(id==='before-marcin'&&!this.ensureAct1Herald())continue;
       if(!this.consumeNarrativeBoundary(id))continue;
       if(this.pendingIntroductions.has(id)){
         if(!claimIntroduction(this.introEvidence,this.introductionContext))continue;
@@ -477,6 +482,40 @@ export class ArenaScene extends Phaser.Scene {
     this.finalOutcomeHeld=true;return true;
   }
   releaseFinalOutcome(){this.finalOutcomeHeld=false;}
+
+  ensureAct1Herald(){
+    if(this.act1Herald&&!this.act1Herald.dead&&this.act1Herald.hp>0)return true;
+    const view=this.cameras.main.worldView;
+    const existing=this.enemies.find(e=>!e.dead&&e.hp>0&&e.type==='bobrozombi'&&
+      e.x>=view.x+24&&e.x<=view.right-24&&e.y>=view.y+30&&e.y<=view.bottom-24);
+    if(existing){this.act1Herald=existing;existing.narrativeRole='herald';return true;}
+    const point=this.ordinarySpawnPoint(ENEMY_TYPES.bobrozombi.radius,this.totalSpawned,view);
+    if(!point||point.x<view.x+15||point.x>view.right-15||point.y<view.y+20||point.y>view.bottom-15)return false;
+    const enemy=this.createEnemy('bobrozombi',point,this.totalSpawned++);
+    enemy.narrativeRole='herald';this.act1Herald=enemy;this.enemies.push(enemy);return true;
+  }
+  ensureAct1Witness(){
+    if(this.act1Witness&&!this.act1Witness.dead&&this.act1Witness.hp>0)return this.act1Witness;
+    const view=this.cameras.main.worldView;
+    const candidate=this.enemies.find(e=>!e.dead&&e.hp>0&&e.type==='zubrokryptyda'&&e.x>=view.x&&e.x<=view.right&&e.y>=view.y&&e.y<=view.bottom);
+    if(candidate){candidate.narrativeRole='witness';this.act1Witness=candidate;return candidate;}
+    const point=this.ordinarySpawnPoint(ENEMY_TYPES.zubrokryptyda.radius,this.totalSpawned,view);
+    if(!point)return null;
+    const enemy=this.createEnemy('zubrokryptyda',point,this.totalSpawned++);
+    enemy.narrativeRole='witness';this.act1Witness=enemy;this.enemies.push(enemy);return enemy;
+  }
+  finishAct1Witness(){
+    const e=this.act1Witness;
+    if(e&&!e.dead){
+      e.dead=true;e.hp=0;this.deathBursts.push(createPixelBurst(this,e.type,e.x,e.y,e.seed));
+      e.burningFx?.destroy();e.burningFx=null;clearIgnition(e.ignition);e.sprite.destroy();
+    }
+    this.act1Witness=null;
+  }
+  beginAct1Fade(){
+    if(this.act1FadePending)return;
+    this.act1FadePending=true;this.act1FadeElapsed=0;this.cameras.main.fadeOut(450,0,0,0);
+  }
 
   tryBeginBossEntrance(){
     if(!this.bossEntrancePending||this.bossEntrance||this.episode.specialSpawned.has('marcin'))return false;
