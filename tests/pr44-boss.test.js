@@ -19,21 +19,17 @@ test('PR44 exact two-line caller and separate massive boss contract',()=>{
  assert.equal(enemyProjectileHit({x:780,y:420},{x:1020,y:420},e),null);
  assert.ok(enemyFlameVisible({x:800,y:520},{x:1,y:0},e,[]));
 });
-test('PR44 six remaining includes living and queued, once per session',()=>{
- const e=episode.createEpisode();
- assert.equal(episode.claimBossIntroduction(e),false);
- e.wave=5;e.spawned=29;e.defeated=28;
- assert.equal(episode.claimBossIntroduction(e),false);
- e.defeated=29;
- assert.equal(episode.remainingNormalEnemies(e),6);
- assert.equal(episode.claimBossIntroduction(e),true);
- assert.equal(episode.claimBossIntroduction(e),false);
+test('PR44/49 Marcin enters at260s active time, independently of kills and only once',()=>{
+ const e=episode.createEpisode();assert.equal(episode.claimBossIntroduction(e),false);
+ episode.advanceTimedWaves(e,225000);e.defeated=35;
+ assert.equal(episode.claimBossIntroduction(e,259999),false);
+ assert.equal(episode.claimBossIntroduction(e,260000),true);assert.equal(episode.claimBossIntroduction(e,999999),false);
  assert.equal(episode.createEpisode().bossIntroduced,false);
 });
 test('PR48 extends original 138 while Marcin alone decides terminal outcome',()=>{
  assert.equal(episode.NORMAL_ENEMIES,138);assert.equal(episode.TOTAL_ENEMIES,153);
  assert.deepEqual(episode.FINAL_ENCOUNTER.map(e=>e.type),['marcin','zubrokryptyda','zubrokryptyda']);
- const e=episode.createEpisode();e.wave=5;e.spawned=35;e.defeated=34;
+ const e=episode.createEpisode();episode.advanceTimedWaves(e,225000);for(let i=0;i<35;i++)episode.recordSpawn(e);e.defeated=34;e.defeatedByWave[5]=34;
  assert.equal(episode.recordDeath(e,0,0),null);assert.equal(e.state,'active');
  for(const spec of episode.FINAL_ENCOUNTER)assert.ok(episode.recordSpecialSpawn(e,spec.id));
  for(const id of ['escort-1','escort-2'])assert.equal(episode.recordDeath(e,0,0,id),null);

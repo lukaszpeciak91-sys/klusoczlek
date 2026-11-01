@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceEpisode,terminateEpisode,healedHp,FINAL_ENCOUNTER,recordSpecialSpawn,REINFORCEMENTS,beginBossResolution,finishBossResolution,recordReinforcementSpawn,BOSS_NON_MARCIN_CAP} from '../src/episode.js';
+import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceTimedWaves,WAVE_TIMING,terminateEpisode,healedHp,FINAL_ENCOUNTER,recordSpecialSpawn,REINFORCEMENTS,beginBossResolution,finishBossResolution,recordReinforcementSpawn,BOSS_NON_MARCIN_CAP} from '../src/episode.js';
 test('Episode 1 six deterministic waves and species introduction',()=>{
  assert.equal(TOTAL_WAVES,6);assert.equal(TOTAL_ENEMIES,153);
  assert.deepEqual(WAVES.map(w=>w.enemies.length),[12,16,20,25,30,35]);
@@ -10,28 +10,21 @@ test('Episode 1 six deterministic waves and species introduction',()=>{
  assert.ok(WAVES[2].enemies.includes('zubrokryptyda'));
  assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
 });
-test('scheduler cannot advance a wave before all spawns and kills',()=>{
+test('timed scheduler advances without cleanup and never on death',()=>{
  const e=createEpisode();assert.equal(nextType(e),'bobrozombi');
- for(let n=0;n<11;n++){assert.equal(recordSpawn(e),true);assert.equal(recordDeath(e,1,100),null);}
- assert.equal(advanceEpisode(e,4000),false);
- assert.equal(recordSpawn(e),true);assert.equal(recordDeath(e,0,100),'wave-cleared');
- assert.equal(nextType(e),null);assert.equal(advanceEpisode(e,3099),false);
- assert.equal(advanceEpisode(e,3100),true);assert.equal(e.wave,1);
+ for(let n=0;n<12;n++){assert.equal(recordSpawn(e),true);assert.equal(recordDeath(e,0,999999),null);}
+ assert.equal(e.wave,0);assert.equal(e.state,'active');assert.deepEqual(advanceTimedWaves(e,34999),[]);
+ assert.deepEqual(advanceTimedWaves(e,35000),[1]);assert.equal(e.wave,1);assert.equal(nextType(e),'bocianolak');
 });
-test('all six waves reach final pending exactly once',()=>{
- const e=createEpisode();
+test('six timed budgets preserve all138 possible spawns; only boss reaches finale',()=>{
+ const e=createEpisode(41);
  for(let i=0;i<6;i++){
-  for(let n=0;n<WAVES[i].enemies.length;n++){
-   assert.ok(nextType(e));recordSpawn(e);
-   assert.equal(recordDeath(e,n===WAVES[i].enemies.length-1?0:1,1000),n===WAVES[i].enemies.length-1?(i===5?null:'wave-cleared'):null);
-  }
-  if(i<5)assert.equal(advanceEpisode(e,4000),true);
+  for(let n=0;n<WAVES[i].enemies.length;n++){assert.ok(nextType(e));recordSpawn(e);assert.equal(recordDeath(e,0,1000),null);}
+  assert.equal(e.state,'active');if(i<5)assert.deepEqual(advanceTimedWaves(e,WAVE_TIMING[i+1].startMs),[i+1]);
  }
- recordSpecialSpawn(e,'marcin');
- assert.equal(beginBossResolution(e),true);
- assert.equal(finishBossResolution(e),true);
- assert.equal(e.state,'final-pending');assert.equal(terminateEpisode(e,'victory'),true);
- assert.equal(terminateEpisode(e,'victory'),false);
+ assert.equal(e.spawnedByWave.reduce((a,b)=>a+b,0),138);
+ recordSpecialSpawn(e,'marcin');assert.equal(beginBossResolution(e),true);assert.equal(finishBossResolution(e),true);
+ assert.equal(e.state,'final-pending');assert.equal(terminateEpisode(e,'victory'),true);assert.equal(terminateEpisode(e,'victory'),false);
 });
 test('defeat wins terminal precedence and healing respects bounds',()=>{
  const e=createEpisode();assert.equal(terminateEpisode(e,'victory'),false);

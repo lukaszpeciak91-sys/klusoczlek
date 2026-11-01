@@ -1,5 +1,7 @@
 # PR48 — Marcin final battle contract (work in progress)
 
+PR49 updates only ordinary-wave timing/mixing and the timed boss trigger/crowded handoff; the approved PR48 terminal victory remains. See [current timed episode contract](pr49-timed-waves.md). The historical kill-gated schedule below is superseded for progression, not boss mechanics.
+
 Base main: `1667f44d5d244bac27cf4d5c8dc8163701066fd7`; PR44–PR47 merged. Existing user-supplied `public/assets/dialogue/dialogue-marcin.png` is not touched.
 
 Six waves remain unchanged: 138 ordinary enemies. Specials: Marcin plus two Żubrokryptyda escorts. Finale pool: eight Bobrozombi and four Bocianołaki, uniquely identified and queued separately. Planned episode population: 153, not a mandatory kill count. Once Marcin lands, a rotating three-source scheduler shares seven non-boss live slots between wave-six survivors/spawns, escorts and finite reinforcements; unsafe spawn results remain queued for retry.
