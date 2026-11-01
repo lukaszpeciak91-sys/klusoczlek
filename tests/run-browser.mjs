@@ -1252,7 +1252,15 @@ try {
       if(!a.__r1SavedEnemies)a.__r1SavedEnemies=a.enemies;
       else for(const e of a.enemies)e.sprite.destroy();
       a.enemies=[];
+      window.__stageTimedWave(type==='zubrokryptyda'?2:1);
       a.introducedEnemyTypes.delete(id);a.pendingIntroductions.delete(id);a.narrativeEvents.delete(id);
+      a.introEvidence.deaths=[];a.introEvidence.claims.delete(id);a.introEvidence.contexts.delete(id);
+      if(type==='zubrokryptyda')a.introducedEnemyTypes.add('before-first-bocianolak');
+      for(let i=0;i<(type==='zubrokryptyda'?2:1);i++){
+        const victim=a.createEnemy('bobrozombi',{x:a.player.x+120,y:a.player.y+i*10},64+i);
+        a.enemies.push(victim);victim.hp=0;a.finalizeEnemyDeath(victim);
+        a.enemies=a.enemies.filter(e=>!e.dead);
+      }
       const original=a.createEnemy(type,{x:view.x-150,y:view.y+view.height/2},61);
       a.enemies.push(original);a.pendingIntroductions.set(id,original);
       a.markNarrativeBoundary(id);
