@@ -2008,6 +2008,32 @@ try {
 
   await verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,setSeed:seed=>{arenaRun=[1,41,104729].indexOf(seed);}});
   await verifySpawnPacing({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,click});
+  // PR54: real-phaser early cleared-arena summons and on-screen herald.
+  for(const [seed,width,height] of [[1,568,320],[41,800,360],[104729,320,240]]){
+    if(!(await snapshot()).menu){await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'PR54 MENU');}
+    arenaRun=[1,41,104729].indexOf(seed);await clickControl('NOWA GRA');
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+    await evaluate('window.__game.scale.refresh();true');await sleep(100);
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();a.enemies=[];a.narrativeEvents.clear();a.episode.wave=5;a.episode.elapsedMs=225000;a.waveText.setText('⚑ 6/6');a.invulnerableUntil=Infinity;a.firstBocianolakHit=true;a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');a.encounterDirector.nextMs=Number.MAX_SAFE_INTEGER;window.__setActiveTime(239000);})()");
+    await sleep(100);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"),false,'PR54 no boss at 3:59');
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=a.createEnemy('bobrozombi',{x:110,y:100},9999);a.enemies.push(e);a.episode.spawned++;window.__pr54Offcamera=e;window.__setActiveTime(252000)})()");
+    await sleep(100);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"),false,'Off-camera living enemy must block early boss');
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__pr54Offcamera;e.dead=true;e.sprite.destroy();a.enemies=a.enemies.filter(x=>x!==e);a.episode.defeated++;})()");
+    for(let i=0;i<100;i++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='before-marcin'"))break;await sleep(30);}
+    const summoned=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),h=a.act1Herald,v=a.cameras.main.worldView;return {id:a.dialogueState.id,elapsed:a.elapsedGameplayMs,herald:!!h&&!h.dead&&h.hp>0,visible:!!h&&h.x>=v.x&&h.x<=v.right&&h.y>=v.y&&h.y<=v.bottom,paused:a.physics.world.isPaused,spawned:a.totalSpawned}})()");
+    assert.equal(summoned.id,'before-marcin','PR54 no immediate early summon '+JSON.stringify(summoned));
+    assert.ok(summoned.herald&&summoned.visible&&summoned.paused,'PR54 herald must be real visible Bobrozombi');
+    await writeFile('dist/pr54-herald-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    await nextLine();await nextLine();
+    assert.ok(await evaluate("!!window.__game.scene.getScene('Arena').bossEntrance||window.__game.scene.getScene('Arena').bossEntrancePending"));
+    for(let i=0;i<100;i++){if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.boss&&!a.bossEntrance})()"))break;await sleep(30);}
+    const landed=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {boss:!!a.boss,herald:!!a.act1Herald&&!a.act1Herald.dead,live:a.livingNonBoss(),due:a.act1AllyDue,added:a.act1AllyAdded,cap:16}})()");
+    assert.ok(landed.boss&&landed.herald&&landed.live<=16&&landed.due<=12,'PR54 bounded boss ally stage '+JSON.stringify(landed));
+    await writeFile('dist/pr54-boss-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    console.log('PASS PR54 '+seed+' '+width+'x'+height+': 3:59 blocked, offcamera actor blocks at4:12, cleared4:12 herald, real DALEJ, boss lands '+JSON.stringify({summoned,landed}));
+  }
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {
   socket?.close();
