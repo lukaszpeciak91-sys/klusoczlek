@@ -581,13 +581,13 @@ try {
       a.episode.wave++;a.episode.spawned=0;a.episode.defeated=0;a.episode.intermissionUntil=null;a.episode.state='active';
       a.waveText.setText('⚑ '+(a.episode.wave+1)+'/6');
     }
-    if(!a.enemies.some(e=>!e.dead&&!e.encounterId))a.spawnReplacement();
+    if(!a.enemies.some(e=>!e.dead&&!e.encounterId))a.spawnReplacement(!!a.boss);
     const e=a.enemies.find(e=>!e.dead&&!e.encounterId);
     if(!e)throw Error('Encounter stalled');
     e.hp=0;
     if(!a.finalizeEnemyDeath(e)||a.finalizeEnemyDeath(e))throw Error('Death must be unique');
     a.enemies=a.enemies.filter(e=>!e.dead);
-    if(a.episode.state==='active'&&a.enemies.filter(e=>!e.dead).length<[4,5,6,7,8,9][a.episode.wave])a.spawnReplacement();
+    if(a.episode.state==='active'&&a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length<(a.boss?7:[4,5,6,7,8,9][a.episode.wave]))a.spawnReplacement(!!a.boss);
     return {kills:a.kills,type:e.type,pending:a.pendingRewards.size,pickups:a.pickups.map(p=>p.id)};
   })()`);
   const typesDefeated=[];
