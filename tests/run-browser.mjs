@@ -1697,10 +1697,10 @@ try {
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').boss.attack.phase"),'warning','LowHP cooldown remained6000');
     for(let i=0;i<60;i++){if(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length>0"))break;await sleep(20);}
     assert.ok(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length")>0,'No active volley before boss death');
-    // Killing a boss with live projectiles cancels all of them, but does not
-    // finish while escorts or queued normal enemies remain.
-    const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length}})()");
-    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'active');assert.ok(death.bursts>0);
+    // Killing a boss during a live volley atomically resolves the fight,
+    // neutralizes spawned survivors and cancels pending work.
+    const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length,living:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length}})()");
+    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'boss-resolving');assert.equal(death.living,0);assert.equal(death.queued,0);assert.ok(death.bursts>0);
     console.log('PASS PR44 seed '+seed+' '+width+'x'+height+': queued six-remaining caller, portrait/DALEJ, landing MENU/orientation, safe r40, two escorts, warning/eight-way volley, HP/invulnerability, lowHP, death cleanup');
   }
 
