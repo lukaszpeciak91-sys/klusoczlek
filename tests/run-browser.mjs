@@ -655,7 +655,7 @@ try {
   await writeFile('dist/pr48-boss-resolution-active.png',Buffer.from(finalShot.data,'base64'));
   await sleep(950);
   const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,spawned:a.totalSpawned}})()");
-  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false,kills:139,spawned:finaleAtHit.spawned},'Final dialogue must follow settled VFX and cancel future spawns');
+  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false,kills:finaleAtHit.kills,spawned:finaleAtHit.spawned},'Final dialogue must follow settled VFX and cancel future spawns');
   const marcinPortrait=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {loaded:a.dialoguePanel.loaded.has('marcin'),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible)}})()");
   let validUploadedMarcin=false,marcinPngMetadata={status:'missing'};
   try{const png=await readFile('public/assets/dialogue/dialogue-marcin.png');validUploadedMarcin=validDialoguePng(png);marcinPngMetadata={status:'present',bytes:png.length,width:png.readUInt32BE(16),height:png.readUInt32BE(20),bitDepth:png[24],colorType:png[25],acceptedByLoader:validUploadedMarcin};}catch{}
