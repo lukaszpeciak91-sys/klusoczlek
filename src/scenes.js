@@ -620,6 +620,19 @@ export class ArenaScene extends Phaser.Scene {
   livingNonBoss(){return this.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;}
   spawnBossSlot(now){
     if(this.episode.state!=='active'||!this.boss||this.boss.dead||this.livingNonBoss()>=BOSS_SCENE_HARD_CAP)return false;
+    // Narrative escort priority: the initial twelve-ally shortfall must never
+    // starve the two existing PR48 Żubrokryptyda escorts at Marcin's landing.
+    // On a failed safe placement, retry on a later tick instead of filling
+    // the last available slot with an ordinary ally.
+    const escort=this.escortDue.find(x=>now>=x.at);
+    if(escort){
+      const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[escort.spec.type].radius,this.navigation);
+      if(!at)return false;
+      const ok=recordSpecialSpawn(this.episode,escort.spec.id);
+      if(ok){const enemy=this.createEnemy(escort.spec.type,at,this.totalSpawned++);enemy.encounterId=escort.spec.id;this.enemies.push(enemy);}
+      this.escortDue.splice(this.escortDue.indexOf(escort),1);
+      return ok;
+    }
     if(this.act1AllyDue>0){
       const type=this.nextOrdinaryType()||'bobrozombi';
       const point=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[type].radius,this.navigation);
