@@ -399,7 +399,12 @@ try {
   const barrelAim=await snapshot();
   await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'none'});
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'left',buttons:1,clickCount:1});
-  await sleep(1050);
+  // Keep firing through real frames until the actual barrel collision occurs.
+  // A fixed 1050ms delay can fail if an enemy intercepts the first shots.
+  for(let i=0;i<70;i++){
+    if(!(await evaluate("window.__game.scene.getScene('Arena').obstacles.find(o=>o.type==='toxic_barrel').alive")))break;
+    await sleep(50);
+  }
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'left',buttons:0,clickCount:1});
   const exploded=await snapshot();
   assert.equal(exploded.controls.obstacles.find(o=>o.type==='toxic_barrel').alive,false,'Real input did not destroy barrel');
