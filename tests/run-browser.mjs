@@ -1706,6 +1706,31 @@ try {
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').boss.attack.phase"),'warning','LowHP cooldown remained6000');
     for(let i=0;i<60;i++){if(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length>0"))break;await sleep(20);}
     assert.ok(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length")>0,'No active volley before boss death');
+    if(seed===1){
+      const allReinforcements=await evaluate(`(()=>{
+        const a=window.__game.scene.getScene('Arena');let maxLive=0,iterations=0;
+        for(let i=0;i<100;i++){
+          if(a.episode.reinforcementSpawned.size===12&&a.episode.spawned===35&&a.episode.specialSpawned.has('escort-1')&&a.episode.specialSpawned.has('escort-2'))break;
+          const living=a.enemies.filter(e=>!e.dead&&e.type!=='marcin');
+          maxLive=Math.max(maxLive,living.length);
+          if(living.length>=7){
+            const victim=living[0];victim.hp=0;a.finalizeEnemyDeath(victim);
+            a.enemies=a.enemies.filter(e=>!e.dead);
+          }
+          a.spawnBossSlot(a.time.now+100000+i*380);
+          maxLive=Math.max(maxLive,a.livingNonBoss());
+          iterations++;
+        }
+        return {ids:[...a.episode.reinforcementSpawned],normalSpawned:a.episode.spawned,escorts:[...a.episode.specialSpawned].filter(id=>id.startsWith('escort')).length,maxLive,iterations,living:a.livingNonBoss()};
+      })()`);
+      assert.equal(allReinforcements.ids.length,12,'All twelve reinforcements must eventually be offered');
+      assert.equal(new Set(allReinforcements.ids).size,12,'Reinforcement duplicate ID');
+      assert.equal(allReinforcements.normalSpawned,35,'Remaining wave-six schedule starved');
+      assert.equal(allReinforcements.escorts,2,'Escorts starved');
+      assert.ok(allReinforcements.maxLive<=7,'Shared cap exceeded while draining every source');
+      assert.ok(allReinforcements.living>=1,'Need living minion for boss-death VFX');
+      console.log('PASS PR48 real Phaser finite scheduler: all12 unique reinforcements, all remaining wave6 spawns, two escorts, live cap7; '+JSON.stringify(allReinforcements));
+    }
     // Killing a boss during a live volley atomically resolves the fight,
     // neutralizes spawned survivors and cancels pending work.
     const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length,living:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length}})()");
