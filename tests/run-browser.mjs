@@ -655,7 +655,7 @@ try {
   assert.deepEqual(progression.markers,[2,4]);
   console.log('PASS Phaser timed rewards and72 continuous mixed ordinary kills; ignored flamethrower, timed Marcin and two escorts; boss remains decisive');
 
-  const finaleAtHit=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const live=a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;const spawned=a.totalSpawned;const boss=a.boss;if(!boss)throw Error('Marcin missing');boss.hp=0;if(!a.finalizeEnemyDeath(boss)||a.finalizeEnemyDeath(boss))throw Error('Marcin fatal hit was not unique');return {live,spawned,kills:a.kills,hud:a.killsText.text,final:a.finalResolution,state:a.episode.state,others:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,queued:a.reinforcementDue.length+a.escortDue.length,projectiles:a.bossProjectiles.length,bursts:a.deathBursts.length,dialogue:a.dialogueState.id}})()");
+  const finaleAtHit=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const live=a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;const spawned=a.totalSpawned;const boss=a.boss;if(!boss)throw Error('Marcin missing');boss.hp=0;if(!a.finalizeEnemyDeath(boss)||a.finalizeEnemyDeath(boss))throw Error('Marcin fatal hit was not unique');return {live,spawned,afterSpawns:a.totalSpawned,kills:a.kills,hud:a.killsText.text,final:a.finalResolution,state:a.episode.state,others:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,queued:a.reinforcementDue.length+a.escortDue.length,projectiles:a.bossProjectiles.length,bursts:a.deathBursts.length,dialogue:a.dialogueState.id}})()");
   assert.ok(finaleAtHit.live>=1,'Scripted resolution must have living minions to neutralize');
   assert.equal(finaleAtHit.kills,progression.kills+1,'Only the player-earned Marcin kill may increment the numerator');
   assert.equal(finaleAtHit.hud,String(finaleAtHit.kills));
@@ -670,7 +670,7 @@ try {
   await writeFile('dist/pr48-boss-resolution-active.png',Buffer.from(finalShot.data,'base64'));
   await sleep(950);
   const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,spawned:a.totalSpawned}})()");
-  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'act1-marcin-last',held:true,bursts:0,ended:false,kills:finaleAtHit.kills,spawned:finaleAtHit.spawned},'Final dialogue must follow settled VFX and cancel future spawns');
+  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'act1-marcin-last',held:true,bursts:0,ended:false,kills:finaleAtHit.kills,spawned:finaleAtHit.afterSpawns},'Final dialogue must follow settled VFX and cancel future spawns');
   const marcinPortrait=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {loaded:a.dialoguePanel.loaded.has('marcin'),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible)}})()");
   let validUploadedMarcin=false,marcinPngMetadata={status:'missing'};
   try{const png=await readFile('public/assets/dialogue/dialogue-marcin.png');validUploadedMarcin=validDialoguePng(png);marcinPngMetadata={status:'present',bytes:png.length,width:png.readUInt32BE(16),height:png.readUInt32BE(20),bitDepth:png[24],colorType:png[25],acceptedByLoader:validUploadedMarcin};}catch{}
