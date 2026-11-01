@@ -39,3 +39,16 @@ test('portrait contract allows 192px 8-bit RGB or RGBA but rejects wrong dimensi
  const invalid=header(6);invalid[23]=191;
  assert.equal(validDialoguePng(invalid),false);
 });
+
+test('PR48 approved epilogue and literal stage directions remain exact',()=>{
+ assert.deepEqual(DIALOGUES['after-final-enemy'],[
+  ['marcin','MARCIN','A więc dokonało się… Przepowiednia się spełniła… Wszystkich nas wykończy przeklęty Kłusoczłek!'],
+  ['zubrokryptyda','ŻUBROKRYPTYDA','Nigdy nie zapomnę naszych wspólnych wakacji, Marcin…'],
+  ['aloes','ALOES','*chlip* Żegnajcie… przyjaciele…']
+ ]);
+ assert.deepEqual(DIALOGUES['before-first-bocianolak'][0],['bobrozombi','BOBROZOMBI','Auaaaa! Jako zombie miałem nie czuć bólu… Bleee… *zdechł*']);
+ assert.deepEqual(DIALOGUES['before-marcin'],[
+  ['bobrozombi','BOBROZOMBI','Taki jesteś?! Czekaj aż zawołam Marcina'],
+  ['bobrozombi','BOBROZOMBI','Marcin! Maaaarciiin!']
+ ]);
+});
