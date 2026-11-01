@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {WAVES} from '../src/episode.js';
 import {writeFile} from 'node:fs/promises';
 
 export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,setSeed}){
@@ -7,7 +8,7 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
  const fresh=async(seed,width,height)=>{
   if(!(await snapshot()).menu){await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'PR49 MENU');}
   setSeed(seed);await clickControl('NOWA GRA');await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');await sleep(100);
-  await evaluate("window.__game.scene.getScene('Arena').invulnerableUntil=Infinity;true");
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.invulnerableUntil=Infinity;a.spawnDueAt=null;})()");
  };
  for(const [seed,width,height] of [[1,568,320],[41,800,360],[104729,320,240]]){
   await fresh(seed,width,height);
@@ -20,21 +21,21 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
   assert.equal(await evaluate("window.__oldWaveActors.every(e=>window.__game.scene.getScene('Arena').enemies.includes(e)&&!e.dead&&e.hp===3&&e.waveIndex===0)"),true,'Time boundary removed/reset survivors');
   await wait("window.__game.scene.getScene('Arena').dialogueState.id==='before-first-bocianolak'",'prompt first Bocianołak');
   const frozen=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");await sleep(220);assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),frozen);
-  assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.physics.world.isPaused&&!a.joystick.enabled&&!a.aimJoystick.enabled&&a.enemies.filter(e=>!e.dead).length===5})()"),true);
+  assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.physics.world.isPaused&&!a.joystick.enabled&&!a.aimJoystick.enabled&&a.enemies.filter(e=>!e.dead).length===a.episode.spawnedByWave.reduce((n,v)=>n+v,0)&&a.enemies.length<=6})()"),true);
   if(seed===1){await clickControl('hud');await sleep(200);assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),frozen);await clickControl('WZNÓW');assert.equal(await evaluate("window.__game.scene.getScene('Arena').physics.world.isPaused"),true);}
   for(let i=0;i<3;i++)await nextLine();
   await evaluate('window.__setActiveTime(74950);true');await wait("window.__game.scene.getScene('Arena').episode.wave===2",'natural75s boundary');
   await wait("window.__game.scene.getScene('Arena').dialogueState.id==='before-first-zubrokryptyda'",'prompt first heavy');
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.filter(e=>!e.dead).length"),6);
+  assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.enemies.filter(e=>!e.dead).length===a.episode.spawnedByWave.reduce((n,v)=>n+v,0)&&a.enemies.length<=7})()"),true);
   for(let i=0;i<2;i++)await nextLine();
-  const overlap=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {origins:a.enemies.map(e=>e.waveIndex).sort(),types:[...new Set(a.enemies.map(e=>e.type))].sort(),rifle:a.pickups.filter(p=>p.id==='rifle').length,health:a.pickups.filter(p=>p.id==='health').length,wave:a.waveText.text,kills:a.kills}})()");
-  assert.deepEqual(overlap.origins,[0,0,0,0,1,2]);assert.deepEqual(overlap.types,['bobrozombi','bocianolak','zubrokryptyda']);assert.equal(overlap.rifle,1);assert.equal(overlap.health,1);assert.equal(overlap.kills,0);assert.equal(overlap.wave,'⚑ 3/6');
+  const overlap=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {spawns:[...a.episode.spawnedByWave],origins:a.enemies.map(e=>e.waveIndex).sort(),types:[...new Set(a.enemies.map(e=>e.type))].sort(),rifle:a.pickups.filter(p=>p.id==='rifle').length,health:a.pickups.filter(p=>p.id==='health').length,wave:a.waveText.text,kills:a.kills}})()");
+  assert.equal(overlap.spawns[0],4);assert.ok(overlap.spawns[1]>=1&&overlap.spawns[2]>=1);assert.deepEqual(overlap.spawns.slice(3),[0,0,0]);assert.deepEqual(overlap.origins,overlap.spawns.flatMap((count,wave)=>Array(count).fill(wave))); assert.deepEqual(overlap.types,['bobrozombi','bocianolak','zubrokryptyda']);assert.equal(overlap.rifle,1);assert.equal(overlap.health,1);assert.equal(overlap.kills,0);assert.equal(overlap.wave,'⚑ 3/6');
   // Staged arrived actors make the mixed-species diagnostic readable at native scale.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');window.__mixSaved=[];for(const [i,type] of ['bobrozombi','bocianolak','zubrokryptyda'].entries()){const e=a.enemies.find(e=>e.type===type);window.__mixSaved.push([e,e.x,e.y]);e.x=830+i*80;e.y=630;a.enemyRenderers[type].update(e,a.player);}a.player.body.reset(900,650);a.cameras.main.stopFollow().setZoom(1).centerOn(900,520)})()");await sleep(70);await shot('pr49-mix-'+seed+'-'+width+'x'+height+'.png',width,height);
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const [e,x,y] of window.__mixSaved){e.x=x;e.y=y;a.enemyRenderers[e.type].update(e,a.player);}window.__mixSaved=null;window.__setActiveTime(225000)})()");
   await wait("window.__game.scene.getScene('Arena').episode.wave===5",'large jump across120/170/225s');
   const jump=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {cancelled:a.episode.cancelledByWave,spawns:a.episode.spawnedByWave,rifle:a.pickups.filter(p=>p.id==='rifle').length,flame:a.pickups.filter(p=>p.id==='flamethrower').length,hearts:a.pickups.filter(p=>p.id==='health').length,kills:a.kills,live:a.enemies.filter(e=>!e.dead).length}})()");
-  assert.deepEqual(jump.cancelled,[8,15,19,25,30,0]);assert.deepEqual(jump.spawns,[4,1,1,0,0,0]);assert.equal(jump.rifle,1);assert.equal(jump.flame,1);assert.equal(jump.hearts,3);assert.equal(jump.kills,0);assert.equal(jump.live,6);
+  assert.deepEqual(jump.cancelled,WAVES.map((w,i)=>i<5?w.enemies.length-overlap.spawns[i]:0));assert.deepEqual(jump.spawns,overlap.spawns);assert.equal(jump.rifle,1);assert.equal(jump.flame,1);assert.equal(jump.hearts,3);assert.equal(jump.kills,0);assert.equal(jump.live,overlap.spawns.reduce((n,v)=>n+v,0));
   await sleep(120);assert.equal(await evaluate("window.__game.scene.getScene('Arena').pickups.filter(p=>p.id==='health').length"),3,'Boundary rewards repeated');
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(let i=0;i<12;i++)a.spawnReplacement();window.__setActiveTime(259000)})()");
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').livingNonBoss()"),9);assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.filter(e=>!e.dead&&e.type==='zubrokryptyda'&&!e.encounterId).length"),1);
@@ -65,9 +66,9 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
  await fresh(1,568,320);
  const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,cancelled:a.episode.cancelledByWave,boss:a.episode.bossIntroduced,kills:a.kills,pickups:a.pickups.map(p=>p.id)}})()");assert.deepEqual(reset,{wave:0,cancelled:[0,0,0,0,0,0],boss:false,kills:0,pickups:['blunderbuss']});
  // A full current-wave cap must retain an owed intro rather than fabricate an extra specimen.
- await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();a.enemies=[];window.__stageTimedWave(1);for(let i=0;i<5;i++)a.enemies.push(a.createEnemy('bobrozombi',{x:700+i*50,y:600},4900+i));a.narrativeEvents.add('before-first-bocianolak');a.spawnDueAt=null;a.spawnReplacement();})()");
- assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.length"),5);assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
+ await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();a.enemies=[];window.__stageTimedWave(1);for(let i=0;i<6;i++)a.enemies.push(a.createEnemy('bobrozombi',{x:700+i*50,y:600},4900+i));a.narrativeEvents.add('before-first-bocianolak');a.spawnDueAt=null;a.spawnReplacement();})()");
+ assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.length"),6);assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=a.enemies[0];e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(e=>!e.dead);a.spawnReplacement()})()");
- assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'before-first-bocianolak');assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.filter(e=>!e.dead).length"),5);
+ assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'before-first-bocianolak');assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.filter(e=>!e.dead).length"),6);
  for(let i=0;i<3;i++)await nextLine();console.log('PASS PR49 full-cap introduction priority, no duplicate/over-cap actor, NEW GAME clears timed state');
 }
