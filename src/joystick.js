@@ -4,12 +4,12 @@ import { arenaHudLayout } from './ui-layout.js';
 
 export function createJoystick(scene, side='left') {
   const initial = arenaHudLayout(scene.scale.height, scene.scale.width);
-  const radius = initial.joystickRadius;
+  let radius = initial.joystickRadius;
   let x = side==='left'?initial.joystickX:initial.aimX;
   let y = side==='left'?initial.joystickY:initial.aimY;
-  const base = scene.add.circle(x, y, radius, 0x1b2330, 0.65)
-    .setStrokeStyle(3, 0xd4aa5a, 0.9).setScrollFactor(0).setDepth(50);
-  const knob = scene.add.circle(x, y, 20, side==='left'?0xf3ca76:0x92d7e8, 0.85)
+  const base = scene.add.circle(x, y, radius, 0x20271e, 0.58)
+    .setStrokeStyle(3, 0xb9a16b, 0.85).setScrollFactor(0).setDepth(50);
+  const knob = scene.add.circle(x, y, radius * 0.42, side==='left'?0xc9ab68:0x88b6c5, 0.82)
     .setScrollFactor(0).setDepth(51);
   const direction = { x: 0, y: 0 };
   let pointerId = null;
@@ -28,7 +28,7 @@ export function createJoystick(scene, side='left') {
   };
   const down = pointer => {
     if (!enabled || !scene.sys.isActive() || pointerId !== null) return;
-    if (Math.hypot(pointer.x - x, pointer.y - y) > radius * 1.4) return;
+    if (Math.hypot(pointer.x - x, pointer.y - y) > radius * 1.45) return;
     if(pointer.wasTouch===false)return;
     pointerId = pointer.id;
     held=true;
@@ -61,10 +61,13 @@ export function createJoystick(scene, side='left') {
     scene.input.off('pointerupoutside', release);
     scene.input.off('pointercancel', release);
   });
-  function reposition(nextX, nextY) {
+  function reposition(nextX, nextY, nextRadius=radius) {
     reset();
     x = nextX;
     y = nextY;
+    radius = nextRadius;
+    base.setRadius(radius);
+    knob.setRadius(radius * 0.42);
     base.setPosition(x, y);
     knob.setPosition(x, y);
   }
