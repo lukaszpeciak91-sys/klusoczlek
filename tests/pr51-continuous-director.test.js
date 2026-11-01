@@ -26,6 +26,7 @@ test('hard caps, soft targets and low-pressure recovery',()=>{
  assert.equal(directorOpportunity(d,{elapsedMs:0,wave:0,population:p(6)}).spawn,false);
  const o=directorOpportunity(d,{elapsedMs:d.nextMs,wave:0,population:p(4,1,1)});assert.equal(o.spawn,false);
  const low=directorOpportunity(d,{elapsedMs:d.nextMs,wave:0,population:p(4,0,0)});assert.equal(low.spawn,true);
+ const taper=directorOpportunity(d,{elapsedMs:235000,wave:5,population:p(8,1,1)});assert.equal(taper.spawn,false);
  const stop=directorOpportunity(d,{elapsedMs:PREBOSS_STOP_MS,wave:5,population:p()});assert.equal(stop.spawn,false);
 });
 test('weighted-deficit selection and replay: no ordinary heavy streaks',()=>{
