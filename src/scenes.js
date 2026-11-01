@@ -406,6 +406,11 @@ export class ArenaScene extends Phaser.Scene {
   nextOrdinaryType(){
     const ordinaryHeavy=this.enemies.some(e=>!e.dead&&e.hp>0&&e.type==='zubrokryptyda'&&!e.encounterId);
     const priorities=[['bocianolak',1],['zubrokryptyda',2]].filter(([type,wave])=>this.episode.wave>=wave&&!this.introducedEnemyTypes.has('before-first-'+type)&&!this.enemies.some(e=>!e.dead&&e.hp>0&&e.type===type)).map(([type])=>type);
+    if(priorities.length){
+      const v=this.cameras.main.worldView;
+      const supporting=this.enemies.filter(e=>!e.dead&&e.hp>0&&!e.encounterId&&e.type==='bobrozombi'&&e.x>=v.x-40&&e.x<=v.right+40&&e.y>=v.y-40&&e.y<=v.bottom+40).length;
+      if(supporting<2)return 'bobrozombi';
+    }
     return nextDirectorType(this.encounterDirector,this.episode.wave,ordinaryHeavy?['zubrokryptyda']:[],priorities);
   }
 
@@ -919,7 +924,10 @@ export class ArenaScene extends Phaser.Scene {
     if(this.episode.state==='active'&&!this.episode.bossIntroduced&&!this.bossEntrancePending){
       const v=this.cameras.main.worldView;
       const population=directorPopulation(this.enemies,{x:v.x,y:v.y,width:v.width,height:v.height},this.player);
-      const opportunity=directorOpportunity(this.encounterDirector,{elapsedMs:this.elapsedGameplayMs,wave:this.episode.wave,population});
+      const introPending=this.episode.wave>=1&&(
+        (!this.introducedEnemyTypes.has('before-first-bocianolak')&&!this.pendingIntroductions.has('before-first-bocianolak'))||
+        (this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda')&&!this.pendingIntroductions.has('before-first-zubrokryptyda')));
+      const opportunity=directorOpportunity(this.encounterDirector,{elapsedMs:this.elapsedGameplayMs,wave:this.episode.wave,population,introPending});
       if(opportunity.spawn){this.spawnReplacement();if(this.dialogueState?.id)return;}
     }
     const keys = this.keys;
