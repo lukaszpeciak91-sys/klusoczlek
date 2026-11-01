@@ -1864,7 +1864,7 @@ try {
     arenaRun=[1,41,104729].indexOf(seed);await clickControl('NOWA GRA');
     await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await evaluate('window.__game.scale.refresh();true');await sleep(100);
     const initial=await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');
-      for(const e of a.enemies){e.burningFx?.destroy();e.sprite.destroy();}a.enemies=[];a.spawnDueAt=null;a.invulnerableUntil=Infinity;
+      for(const e of a.enemies){e.burningFx?.destroy();e.sprite.destroy();}a.enemies=[];a.spawnDueAt=null;a.encounterDirector.nextMs=Number.MAX_SAFE_INTEGER;a.invulnerableUntil=Infinity;
       a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');
       const y=${height}===320?610:650;a.player.body.reset(900,y);a.cameras.main.stopFollow().setZoom(1).centerOn(900,520);
       const e=a.createEnemy('${type}',{x:900,y},4600);a.enemies=[e];window.__barkE=e;window.__barkText=a.ambientBarks.text;
