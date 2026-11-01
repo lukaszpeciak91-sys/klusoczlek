@@ -9,7 +9,7 @@ export function createAmbientBarks(scene,rng){
  });
  let lastElapsed=null,disposed=false;
  const allowed=()=>!disposed&&scene.sys.isActive()&&!scene.scene.isPaused()&&!scene.scene.isActive('Menu')&&!scene.physics.world.isPaused&&scene.canResume()&&!scene.dialogueLoading&&!scene.dialogueState?.id&&!scene.episode.ended&&scene.episode.state==='active'&&!scene.bossEntrance&&!scene.bossEntrancePending&&!scene.narrativeEvents.has('before-marcin');
- const suspend=()=>{state.active.length=0;lastElapsed=null;pool.forEach(p=>{p.event=null;p.bounds=null;p.root.setVisible(false);});};
+ const suspend=()=>{state.active.length=0;state.echoRemaining=-1;lastElapsed=null;pool.forEach(p=>{p.event=null;p.bounds=null;p.root.setVisible(false);});};
  const anchorOf=e=>scene.enemyRenderers[e.type]?.speechAnchorOf?.(e)??null;
  const measure=(p,phrase)=>{
   p.text.setFontSize(scene.scale.width<600?12:13).setText(phrase);
@@ -34,8 +34,8 @@ export function createAmbientBarks(scene,rng){
    if(!event)continue;
    const size=measure(p,event.phrase);
    const box=place(event.speaker,size);
-   if(!box||placed.some(b=>boxesOverlap(b,box))){state.suppressed++;continue;}
-   placed.push(box);p.bounds=box;
+   if(!box||placed.some(b=>boxesOverlap(b,box))){if(!event.layoutSuppressed){state.suppressed++;event.layoutSuppressed=true;}continue;}
+   event.layoutSuppressed=false;placed.push(box);p.bounds=box;
    const camera=scene.cameras.main,z=camera.zoom,cx=camera.width/2,cy=camera.height/2;
    p.root.setPosition(cx+(box.x-cx)/z,cy+(box.y-cy)/z).setScale(1/z).setVisible(true);
    const pointer=Math.max(9,Math.min(box.width-9,box.anchorX-box.x));
