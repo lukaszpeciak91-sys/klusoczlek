@@ -491,21 +491,30 @@ export class ArenaScene extends Phaser.Scene {
 
   act1NarrativeStagePoint(type){
     const view=this.cameras.main.worldView,r=ENEMY_TYPES[type].radius;
-    // Finite, deterministic candidate grid. Unlike ordinary pursuit spawns,
-    // a dialogue actor must be visible, not outside the moving camera.
+    // Visible story-role candidates, respecting the approved arena world and
+    // all physical obstacle footprints. The ordinary herald remains strict.
     const candidates=[];
-    for(const fy of [.72,.57,.42,.82,.32])for(const fx of [.82,.18,.70,.30,.5]){
+    for(const fy of [.72,.57,.42,.82,.32])for(const fx of [.82,.18,.70,.30,.5])
       candidates.push({x:Math.round(view.x+view.width*fx),y:Math.round(view.y+view.height*fy)});
-    }
     const others=this.enemies.filter(e=>!e.dead&&e.hp>0);
     const maxDistance=Math.hypot(view.width*.32,view.height*.32);
     const separation=Math.min(ENCOUNTER.minSpawnDistance,Math.max(110,maxDistance-12));
-    return candidates
+    const pick=(points,requiredDistance,navigation)=>points
       .filter(p=>p.x>=r+5&&p.x<=ARENA.width-r-5&&p.y>=r+5&&p.y<=ARENA.height-r-5)
-      .filter(p=>Math.hypot(p.x-this.player.x,p.y-this.player.y)>=separation)
-      .filter(p=>clearPoint(p,this.obstacles,r+6,this.navigation))
+      .filter(p=>Math.hypot(p.x-this.player.x,p.y-this.player.y)>=requiredDistance)
+      .filter(p=>clearPoint(p,this.obstacles,r+6,navigation))
       .filter(p=>others.every(e=>Math.hypot(p.x-e.x,p.y-e.y)>=r+ENEMY_TYPES[e.type].radius+8))
       .sort((a,b)=>Number(introductionVisible(type,b.x,b.y,view))-Number(introductionVisible(type,a.x,a.y,view)))[0]??null;
+    const strict=pick(candidates,separation,this.navigation);
+    if(strict||type!=='zubrokryptyda'||!this.finalResolution)return strict;
+    // Once combat has irrevocably stopped, the witness is noninteractive:
+    // navigation reachability is no longer required, but real collision and
+    // player clearance still are. A finite denser search handles a crowded
+    // landing/camera without placing an invisible farewell speaker.
+    const fallback=[];
+    for(let yi=2;yi<=9;yi++)for(let xi=1;xi<=9;xi++)
+      fallback.push({x:Math.round(view.x+view.width*xi/10),y:Math.round(view.y+view.height*yi/11)});
+    return pick(fallback,Math.max(90,r+(this.player.body?.radius??17)+18),null);
   }
   ensureAct1Herald(){
     if(this.act1Herald&&!this.act1Herald.dead&&this.act1Herald.hp>0)return true;
