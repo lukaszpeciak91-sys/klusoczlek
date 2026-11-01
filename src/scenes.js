@@ -13,7 +13,7 @@ import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRe
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
 import {createBurningFx} from './enemy-fire-vfx.js';
-import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceEpisode,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
+import {WAVES,TOTAL_WAVES,TOTAL_ENEMIES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceTimedWaves,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
 import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
@@ -175,7 +175,7 @@ export class ArenaScene extends Phaser.Scene {
     this.projectiles=[];
     this.playerHp=ENCOUNTER.playerMaxHp;
     this.invulnerableUntil=0;
-    this.episode=createEpisode();
+    this.episode=createEpisode(seed);
     this.boss=null;this.bossEntrance=null;this.bossEntrancePending=false;this.bossLandingRetryAt=0;
     this.bossProjectiles=[];this.escortDue=[];this.reinforcementDue=[];this.bossSchedulerTurn=0;this.finalResolution=false;
     this.defeated=false;
@@ -369,7 +369,7 @@ export class ArenaScene extends Phaser.Scene {
 
   createEnemy(type,point,index){
     const def=ENEMY_TYPES[type];
-    return {...point,type,seed:index,hp:def.hp,
+    return {...point,type,seed:index,waveIndex:this.episode.wave,hp:def.hp,
       sprite:this.enemyRenderers[type].create(point.x,point.y),hitUntil:0,dead:false,facing:'s',ignition:createIgnitionState(),burningFx:null,fleeFacingVector:null};
   }
 
@@ -378,6 +378,26 @@ export class ArenaScene extends Phaser.Scene {
     this.weaponText.setText(selected?.symbol||'—');
     this.weaponTokenBody.setFillStyle(selected?.color??0x6b6153);
     this.killsText.setText(this.kills+'/'+TOTAL_ENEMIES);
+  }
+
+  syncTimedWaves(){
+    const crossed=advanceTimedWaves(this.episode,this.elapsedGameplayMs);
+    for(const cleared of crossed){
+      if(HEALTH_AFTER_WAVES.includes(cleared))this.dropHealthReward();
+      this.rewardForClearedWave(cleared);
+    }
+    if(crossed.length){this.waveText.setText('⚑ '+(this.episode.wave+1)+'/'+TOTAL_WAVES);this.spawnDueAt=this.time.now+380;}
+    // Owed introductions survive discarded wave queues; only a visible living specimen may consume them.
+    if(this.episode.wave>=1&&!this.introducedEnemyTypes.has('before-first-bocianolak'))this.narrativeEvents.add('before-first-bocianolak');
+    if(this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda'))this.narrativeEvents.add('before-first-zubrokryptyda');
+    if(claimBossIntroduction(this.episode,this.elapsedGameplayMs)){this.narrativeEvents.add('before-marcin');this.ambientBarks?.suspend();}
+    return crossed;
+  }
+
+  nextOrdinaryType(){
+    const ordinaryHeavy=this.enemies.some(e=>!e.dead&&e.hp>0&&e.type==='zubrokryptyda'&&!e.encounterId);
+    const priorities=[['bocianolak',1],['zubrokryptyda',2]].filter(([type,wave])=>this.episode.wave>=wave&&!this.introducedEnemyTypes.has('before-first-'+type)&&!this.enemies.some(e=>!e.dead&&e.hp>0&&e.type===type)).map(([type])=>type);
+    return nextType(this.episode,{blockedTypes:ordinaryHeavy?['zubrokryptyda']:[],priorityTypes:priorities});
   }
 
   setPlayerHp(next){
@@ -411,6 +431,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   introductionReady(id){
+    if(id==='before-first-zubrokryptyda'&&!this.introducedEnemyTypes.has('before-first-bocianolak'))return false;
     const type=id==='before-first-bocianolak'?'bocianolak':'zubrokryptyda';
     const enemy=eligibleIntroductionEnemy(type,this.enemies,this.cameras.main.worldView);
     if(enemy)this.pendingIntroductions.set(id,enemy);
@@ -437,6 +458,8 @@ export class ArenaScene extends Phaser.Scene {
 
   tryBeginBossEntrance(){
     if(!this.bossEntrancePending||this.bossEntrance||this.episode.specialSpawned.has('marcin'))return false;
+    // Retain all timed-wave survivors. A crowded arena drains naturally before landing.
+    if(this.livingNonBoss()>BOSS_NON_MARCIN_CAP)return false;
     const point=landingPoint(this.player,this.cameras.main.worldView,this.obstacles,this.bossNavigation);
     if(!point||!this.bossNavigation.isReachable(point))return false;
     this.bossEntrancePending=false;
@@ -779,26 +802,17 @@ export class ArenaScene extends Phaser.Scene {
     if(enemy.type==='marcin'){this.kills++;this.refreshWeaponHud();this.beginMarcinVictory();return true;}
     if(!this.finalResolution){this.kills++;this.refreshWeaponHud();}
     const living=this.enemies.filter(e=>!e.dead).length;
-    const event=recordDeath(this.episode,living,this.time.now,enemy.encounterId??null);
+    recordDeath(this.episode,living,this.time.now,enemy.encounterId??null,enemy.waveIndex??this.episode.wave);
     if(enemy.type==='marcin'){this.clearBossProjectiles();this.boss=null;this.renderBossHp();}
-    if(claimBossIntroduction(this.episode)){this.narrativeEvents.add('before-marcin');this.ambientBarks?.suspend();}
-    if(event==='wave-cleared'){
-      const cleared=this.episode.wave+1;
-      if(HEALTH_AFTER_WAVES.includes(cleared))this.dropHealthReward();
-      this.rewardForClearedWave(cleared);
-      this.spawnDueAt=null;
-    }else if(event==='final-cleared'){
-      this.markNarrativeBoundary('after-final-enemy');
-      this.spawnDueAt=null;
-    }else if(nextType(this.episode)!==null&&this.spawnDueAt===null){
+    if(nextType(this.episode)!==null&&this.spawnDueAt===null){
       this.spawnDueAt=this.time.now+380;
     }
     return true;
   }
 
   spawnReplacement(fromBossScheduler=false){
-    const nextTypeValue=nextType(this.episode);
-    if(this.episode.state!=='active'||this.defeated||this.completed||!nextTypeValue||(this.boss?this.livingNonBoss():this.enemies.filter(e=>!e.dead).length)>=(this.boss?BOSS_NON_MARCIN_CAP:waveCapacity(this.episode))||this.finalResolution||(this.boss&&!fromBossScheduler))return;
+    const nextTypeValue=this.nextOrdinaryType(),bossPhase=!!this.boss||this.episode.bossIntroduced;
+    if(this.episode.state!=='active'||this.defeated||this.completed||!nextTypeValue||this.livingNonBoss()>=(bossPhase?BOSS_NON_MARCIN_CAP:waveCapacity(this.episode))||this.finalResolution||(this.boss&&!fromBossScheduler))return;
     const nextEnemyType=nextTypeValue;
     if(nextEnemyType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda'&&!e.encounterId)){
       this.spawnDueAt=this.time.now+380;return;
@@ -813,7 +827,7 @@ export class ArenaScene extends Phaser.Scene {
     const created=this.createEnemy(nextEnemyType,at,this.totalSpawned);
     this.enemies.push(created);
     this.totalSpawned++;
-    recordSpawn(this.episode);
+    recordSpawn(this.episode,nextEnemyType);
     if(firstIntroduction){
       this.pendingIntroductions.set(introductionId,created);
       this.markNarrativeBoundary(introductionId);
@@ -885,16 +899,12 @@ export class ArenaScene extends Phaser.Scene {
     // Gameplay time advances only while Arena combat input is permitted.
     this.elapsedGameplayMs=advanceGameplayClock(this.gameplayClock,performance.now(),true);
     this.timerText.setText('◷ '+formatGameplayClock(this.elapsedGameplayMs));
+    this.syncTimedWaves();
+    if(this.tryStartDialogue())return;
     this.hpFace.update(this.game.loop.delta);
     this.retryPendingRewards();
     if(this.pendingHealth){const p=fallbackRewardPoint(this.player,this.obstacles,this.navigation);if(p&&this.addPickup('health',p))this.pendingHealth--;}
     this.collectPickups();
-    if(this.episode.state==='intermission'&&advanceEpisode(this.episode,this.time.now)){
-      // Enemy introduction boundaries are raised by actual spawned specimens below.
-      this.waveText.setText('⚑ '+(this.episode.wave+1)+'/'+TOTAL_WAVES);
-      this.spawnDueAt=this.time.now;
-      if(this.tryStartDialogue())return;
-    }
     if(this.episode.state==='final-pending'){
       if(this.playerHp<=0)this.endEpisode('defeat');
       else if(!this.finalOutcomeHeld)this.endEpisode('victory');
@@ -903,7 +913,7 @@ export class ArenaScene extends Phaser.Scene {
     if(this.spawnDueAt!==null&&this.time.now>=this.spawnDueAt){
       this.spawnDueAt=null;this.spawnReplacement();
       if(this.dialogueState?.id)return;
-      if(this.episode.state==='active'&&!this.boss&&this.enemies.filter(e=>!e.dead).length<waveCapacity(this.episode)&&nextType(this.episode)!==null&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;
+      if(this.episode.state==='active'&&!this.boss&&nextType(this.episode)!==null&&this.spawnDueAt===null)this.spawnDueAt=this.time.now+380;
     }
     const keys = this.keys;
     const x = Number(keys.D.isDown || keys.RIGHT.isDown) -

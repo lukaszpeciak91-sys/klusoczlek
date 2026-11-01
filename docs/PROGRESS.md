@@ -1,5 +1,11 @@
 # PROGRESS
 
+## PR49 — timed overlapping mixed waves (2026-11-01; independent audit required)
+- Verified merged PR48 and latest main `a2da35c1c939ea52eb13629e463cc3e495cfac8b`; isolated feature worktree. Existing active clock drives immutable35/75/120/170/225s boundaries and260s Marcin call. All138 ordinary/153 overall budgets remain unchanged.
+- Seeded controlled mix, early first species, heavy buckets/bypass without violating one ordinary heavy, origin-wave deaths, current-only spawn queues and separately cancelled budgets. Retain all living survivors/cap progression; boundary rewards remain optional/one-shot. Crowded boss landing waits for cap7 while combat continues; PR48 terminal victory/PR43/PR46 preserved.
+- RED6 timing/mix tests and RED safe568px introduction test → focused GREEN; Node183/183. Focused real Chromium seeds1/41/104729 at568×320,800×360,320×240 passed clock pause/natural intervals, overlap/intros, reward jumps,9-survivor handoff and fair14-special pool, ending at49/153 earned kills. Full final npm ci/build and Chromium70 PASS groups exit0; reviewed9 screenshots. Final CI evidence belongs to the published PR.
+- See `docs/pr49-timed-waves.md`. No binary/dependency/weapon/AI/geometry/HUD changes, merge/deploy or delegation. Physical Android NOT RUN; independent read-only audit requested.
+
 ## PR47 — forest obstacle authored orientation (2026-10-31; independent audit required)
 - Verified merged PR45 and PR46; latest main `7122f440ee3e66f9041182dcc12fbf74a1c2575e`. Generator now creates every forest variant at angle0, with the same authoritative footprint orientation. Renderer/geometry/catalog/atlas metadata remain unchanged; generic explicitly rotated PR40 shapes still work.
 - Preserve the old RNG stream slot; identical seeds reproduce. Only validation-driven placement differences may result from horizontal footprints. Counts/distribution targets, dimensions, combat, spawn/pickup policies, six waves/boss and UI stay unchanged.

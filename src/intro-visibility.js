@@ -25,6 +25,15 @@ export function introductionSpawnPoint(type,player,obstacles,view,radius,navigat
   {x:center.x+view.width*.26,y:center.y+view.height*.25},
   {x:center.x-view.width*.26,y:center.y-view.height*.25}
  ];
+ // On short landscape screens the old32% samples can all be closer than220px.
+ // Sample the actual visible-body limits too; keep the same distance/geometry rules.
+ const b=introductionBounds(type,0,0);
+ if(b){
+  const left=view.x-b.left+2,right=view.x+view.width-b.right-2;
+  const top=view.y-b.top+2,bottom=view.y+view.height-b.bottom-2;
+  const y=Math.max(top,Math.min(bottom,player.y));
+  candidates.push({x:right,y},{x:left,y},{x:left,y:bottom},{x:right,y:bottom},{x:left,y:top},{x:right,y:top});
+ }
  return candidates.find(p=>introductionVisible(type,p.x,p.y,view)
    &&Math.hypot(p.x-player.x,p.y-player.y)>=ENCOUNTER.minSpawnDistance
    &&clearPoint(p,obstacles,radius+4,navigation))??null;

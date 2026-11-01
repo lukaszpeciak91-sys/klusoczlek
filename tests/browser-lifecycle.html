@@ -7,9 +7,16 @@ import {PLAYER_ART_KEY} from '/src/character-visual.js';
 import { MenuScene, ArenaScene } from '/src/scenes.js';
 import { setupViewport } from '/src/viewport.js';
 import { toggleFullscreen } from '/src/fullscreen.js';
+import {createEpisode,advanceTimedWaves,WAVE_TIMING,recordSpawn} from '/src/episode.js';
 const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},input:{activePointers:3},scene:[MenuScene,ArenaScene]});
 window.__game=game;
 window.__createObstacle=(await import('/src/obstacle-catalog.js')).createObstacle;
+// Fixture-only deterministic clock/state staging; production owns the sole gameplay clock.
+window.__setActiveTime=ms=>{const a=game.scene.getScene('Arena');a.gameplayClock.elapsedMs=ms;a.gameplayClock.lastNow=null;};
+window.__stageTimedWave=(wave,spawned=0)=>{
+ const a=game.scene.getScene('Arena'),e=createEpisode(a.arenaSeed);advanceTimedWaves(e,WAVE_TIMING[wave].startMs);
+ for(let i=0;i<spawned;i++)recordSpawn(e);a.episode=e;a.elapsedGameplayMs=WAVE_TIMING[wave].startMs;window.__setActiveTime(a.elapsedGameplayMs);a.waveText.setText('⚑ '+(wave+1)+'/6');return e;
+};
 setupViewport(game);
 document.getElementById('fullscreen-button').addEventListener('click', () => toggleFullscreen(document.getElementById('game-shell'), () => game.scale.refresh()));
 window.__identity=null;
