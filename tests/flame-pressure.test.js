@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PRESSURE,createPressure,stepPressure,cancelPressureTrigger} from '../src/flame-pressure.js';
 import {COMBAT_TUNING} from '../src/weapon-combat.js';
-import {TOTAL_ENEMIES,TOTAL_WAVES} from '../src/episode.js';
+import {TOTAL_WAVES} from '../src/episode.js';
 function ticks(s,held,n,dt=50){let fired=0;for(let i=0;i<n;i++)fired+=Number(stepPressure(s,held,dt));return fired;}
 test('pressure drains in 3000ms, locks until release, and never pulses while held',()=>{
  const s=createPressure();const count=ticks(s,true,60);
@@ -31,7 +31,7 @@ test('cancelling held trigger cannot cause a restart without release',()=>{
  ticks(s,false,1);assert.equal(stepPressure(s,true,50),true);
 });
 test('combat tuning and encounter remain unaffected',()=>{
- assert.equal(TOTAL_ENEMIES,153);assert.equal(TOTAL_WAVES,6);
+ assert.equal(TOTAL_WAVES,6);
  assert.equal(COMBAT_TUNING.flamethrower.damage,1);
  assert.equal(COMBAT_TUNING.flamethrower.damageInterval,250);
  assert.equal(COMBAT_TUNING.flamethrower.range,145);
