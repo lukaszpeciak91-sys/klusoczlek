@@ -9,6 +9,7 @@ export const PROFILES=Object.freeze([
  {target:8,cap:10,weights:[35,45,20]}
 ].map(p=>Object.freeze({...p,weights:Object.freeze(p.weights)})));
 export const TYPES=Object.freeze(['bobrozombi','bocianolak','zubrokryptyda']);
+export const PREBOSS_TAPER_MS=235000;
 export const PREBOSS_STOP_MS=242000;
 export const MIX_WINDOW=40;
 export function createDirector(seed=0){
@@ -56,6 +57,7 @@ export function directorOpportunity(d,{elapsedMs,wave,population,active=true,int
  d.nextMs=elapsedMs+interval-(low?90:175)+jitter;
  // Preboss: do not replace survivors; after handoff, boss owns all spawning.
  if(preboss)return {due:true,spawn:false,reason:'boss-handoff'};
+ if(elapsedMs>=PREBOSS_TAPER_MS&&population.living>=7)return {due:true,spawn:false,reason:'boss-taper'};
  if(population.living>=p.cap)return {due:true,spawn:false,reason:'hard-cap'};
  if(population.living>=p.target&&!introPending&&!(low&&population.living<p.cap))return {due:true,spawn:false,reason:'soft-target'};
  d.attempts++;
