@@ -47,7 +47,8 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
   await evaluate('window.__setActiveTime(260000);true');await wait("window.__game.scene.getScene('Arena').dialogueState.id==='before-marcin'",'time-only Marcin trigger');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').kills"),jump.kills);assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialoguePanel.text.text"),'Taki jesteś?! Czekaj aż zawołam Marcina');await nextLine();assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialoguePanel.text.text"),'Marcin! Maaaarciiin!');await nextLine();
   assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.bossEntrancePending&&!a.bossEntrance&&!a.boss&&a.livingNonBoss()===9&&!a.physics.world.isPaused&&a.joystick.enabled})()"),true,'Crowded landing must retain survivors and allow combat');
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies.filter(e=>!e.dead&&e.type!=='marcin').slice(0,2)){a.damageEnemy(e,100,a.player,a.time.now);a.finalizeEnemyDeath(e);}})()");
+  // PR43 first-hit portrait is verified independently; isolate the boss-capacity case.
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.firstBocianolakHit=true;for(const e of a.enemies.filter(e=>!e.dead&&e.type!=='marcin').slice(0,2)){a.damageEnemy(e,100,a.player,a.time.now);a.finalizeEnemyDeath(e);}})()");
   // PR43's independent first-hit portrait can legitimately interrupt the boss
   // capacity-release combat. Complete it through real DALEJ; never bypass it.
   const interruption=await evaluate("window.__game.scene.getScene('Arena').dialogueState.id");
