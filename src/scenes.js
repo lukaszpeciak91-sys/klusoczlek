@@ -491,39 +491,20 @@ export class ArenaScene extends Phaser.Scene {
 
   act1NarrativeStagePoint(type){
     const view=this.cameras.main.worldView,r=ENEMY_TYPES[type].radius;
-    // Visible story-role candidates, respecting the approved arena world and
-    // all physical obstacle footprints. The ordinary herald remains strict.
+    // Deterministic camera-visible safe candidates. Collision and navigation
+    // remain authoritative for both the herald and the cinematic witness.
     const candidates=[];
     for(const fy of [.72,.57,.42,.82,.32])for(const fx of [.82,.18,.70,.30,.5])
       candidates.push({x:Math.round(view.x+view.width*fx),y:Math.round(view.y+view.height*fy)});
     const others=this.enemies.filter(e=>!e.dead&&e.hp>0);
     const maxDistance=Math.hypot(view.width*.32,view.height*.32);
     const separation=Math.min(ENCOUNTER.minSpawnDistance,Math.max(110,maxDistance-12));
-    const pick=(points,requiredDistance,navigation)=>points
+    return candidates
       .filter(p=>p.x>=r+5&&p.x<=ARENA.width-r-5&&p.y>=r+5&&p.y<=ARENA.height-r-5)
-      .filter(p=>Math.hypot(p.x-this.player.x,p.y-this.player.y)>=requiredDistance)
-      .filter(p=>clearPoint(p,this.obstacles,r+6,navigation))
+      .filter(p=>Math.hypot(p.x-this.player.x,p.y-this.player.y)>=separation)
+      .filter(p=>clearPoint(p,this.obstacles,r+6,this.navigation))
       .filter(p=>others.every(e=>Math.hypot(p.x-e.x,p.y-e.y)>=r+ENEMY_TYPES[e.type].radius+8))
       .sort((a,b)=>Number(introductionVisible(type,b.x,b.y,view))-Number(introductionVisible(type,a.x,a.y,view)))[0]??null;
-    const strict=pick(candidates,separation,this.navigation);
-    if(strict||type!=='zubrokryptyda'||!this.finalResolution)return strict;
-    // Once combat has irrevocably stopped, the witness is noninteractive:
-    // navigation reachability is no longer required, but real collision and
-    // player clearance still are. A finite denser search handles a crowded
-    // landing/camera without placing an invisible farewell speaker.
-    const fallback=[];
-    for(let yi=2;yi<=9;yi++)for(let xi=1;xi<=9;xi++)
-      fallback.push({x:Math.round(view.x+view.width*xi/10),y:Math.round(view.y+view.height*yi/11)});
-    const physical=pick(fallback,Math.max(90,r+(this.player.body?.radius??17)+18),null);
-    if(physical)return physical;
-    // Last resort is CINEMATIC ONLY: combat, enemy AI, damage and projectiles
-    // have stopped. Unlike a combat spawn, this actor is never given control
-    // of world physics; use a stable in-camera position if no free footprint
-    // is available (e.g. tightly packed 320x240 forest view).
-    const screenCandidates=[.82,.18,.72,.28].flatMap(fx=>[.44,.57,.31].map(fy=>({
-      x:Math.round(view.x+view.width*fx),y:Math.round(view.y+view.height*fy)})));
-    return screenCandidates.find(p=>p.x>=r+4&&p.x<=ARENA.width-r-4&&p.y>=r+4&&p.y<=ARENA.height-r-4
-      &&Math.hypot(p.x-this.player.x,p.y-this.player.y)>=r+(this.player.body?.radius??17)+24)??null;
   }
   ensureAct1Herald(){
     if(this.act1Herald&&!this.act1Herald.dead&&this.act1Herald.hp>0)return true;
