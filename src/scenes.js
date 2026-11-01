@@ -870,6 +870,10 @@ export class ArenaScene extends Phaser.Scene {
       if(this.deathBursts.length===0&&finishBossResolution(this.episode))this.markNarrativeBoundary('after-final-enemy');
       return;
     }
+    // Terminal combat stays physically frozen; final DALEJ can still commit victory.
+    if(this.episode.state==='final-pending'&&!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
+      this.endEpisode(this.playerHp<=0?'defeat':'victory');return;
+    }
     if (this.episode.ended || this.dialogueLoading || this.dialogueState?.id || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);
       cancelPressureTrigger(this.flamePressure);
