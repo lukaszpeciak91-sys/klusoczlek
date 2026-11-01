@@ -703,14 +703,15 @@ try {
       a.obstacles.push({...window.__createObstacle('rock',{id:'spawn-'+x+'-'+y,x,y}),__spawnFixture:true});
     // Block both new camera entries and the preserved world fallback.
     a.obstacles.push({alive:true,footprint:{shape:'circle',x:900,y:600,radius:3000},__spawnFixture:true});
-    const before=a.totalSpawned;a.spawnDueAt=null;
-    a.spawnReplacement();const blocked={before,after:a.totalSpawned,retry:a.spawnDueAt!==null};
+    const before=a.totalSpawned,due=a.encounterDirector.nextMs;
+    const deferred=a.spawnReplacement()===false;const blocked={before,after:a.totalSpawned,deferred,dueUnchanged:a.encounterDirector.nextMs===due};
     a.obstacles=a.obstacles.filter(o=>!o.__spawnFixture);
     a.spawnReplacement();
     return {...blocked,recovered:a.totalSpawned,nextType:a.enemies.at(-1).type,active:a.enemies.filter(v=>!v.dead).length};
   })()`);
   assert.equal(postponedSpawn.after,postponedSpawn.before,'Blocked spawn consumed schedule entry');
-  assert.equal(postponedSpawn.retry,true,'Blocked spawn did not schedule retry');
+  assert.equal(postponedSpawn.deferred,true,'Blocked placement was not deferred');
+  assert.equal(postponedSpawn.dueUnchanged,true,'Placement failure changed gameplay clock scheduler');
   assert.equal(postponedSpawn.recovered,postponedSpawn.before+1,'Scheduled enemy lost after obstruction cleared');
   assert.ok(postponedSpawn.active<=4);
   console.log('PASS Arena blocked spawn: unchanged schedule counter and safe retry after obstacles clear');
