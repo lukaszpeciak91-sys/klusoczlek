@@ -1,4 +1,5 @@
 import {selectOrdinarySpawn} from './enemy-spawn.js';
+import {createIntroEvidence,rememberOrdinaryDeath,introductionEvidence,claimIntroduction} from './introduction-evidence.js';
 import {createDirector,directorPopulation,directorOpportunity,nextDirectorType,recordDirectorSpawn} from './encounter-director.js';
 import {createAmbientBarks} from './ambient-bark-view.js';
 import Phaser from 'phaser';
@@ -212,6 +213,7 @@ export class ArenaScene extends Phaser.Scene {
     this.finalOutcomeHeld=false;
     this.dialogueState=createDialogueState();
     this.pendingIntroductions=new Map();
+    this.introEvidence=createIntroEvidence();
     this.introducedEnemyTypes=new Set();
     this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
     this.hpText=this.add.text(0,0,'HP 5/5',{fontFamily:'monospace',fontSize:'14px',color:'#f3e8d1'})
@@ -399,19 +401,16 @@ export class ArenaScene extends Phaser.Scene {
     // Owed introductions survive discarded wave queues; only a visible living specimen may consume them.
     if(this.episode.wave>=1&&!this.introducedEnemyTypes.has('before-first-bocianolak'))this.narrativeEvents.add('before-first-bocianolak');
     if(this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda'))this.narrativeEvents.add('before-first-zubrokryptyda');
-    if(claimBossIntroduction(this.episode,this.elapsedGameplayMs)){this.narrativeEvents.add('before-marcin');this.ambientBarks?.suspend();}
+    if(claimBossIntroduction(this.episode,this.elapsedGameplayMs)){
+      for(const id of ['before-first-bocianolak','before-first-zubrokryptyda']){this.narrativeEvents.delete(id);this.pendingIntroductions.delete(id);}
+      this.narrativeEvents.add('before-marcin');this.ambientBarks?.suspend();
+    }
     return crossed;
   }
 
   nextOrdinaryType(){
     const ordinaryHeavy=this.enemies.some(e=>!e.dead&&e.hp>0&&e.type==='zubrokryptyda'&&!e.encounterId);
-    const priorities=[['bocianolak',1],['zubrokryptyda',2]].filter(([type,wave])=>this.episode.wave>=wave&&!this.introducedEnemyTypes.has('before-first-'+type)&&!this.enemies.some(e=>!e.dead&&e.hp>0&&e.type===type)).map(([type])=>type);
-    if(priorities.length){
-      const v=this.cameras.main.worldView;
-      const supporting=this.enemies.filter(e=>!e.dead&&e.hp>0&&!e.encounterId&&e.type==='bobrozombi'&&e.x>=v.x-40&&e.x<=v.right+40&&e.y>=v.y-40&&e.y<=v.bottom+40).length;
-      if(supporting<2)return 'bobrozombi';
-    }
-    return nextDirectorType(this.encounterDirector,this.episode.wave,ordinaryHeavy?['zubrokryptyda']:[],priorities);
+    return nextDirectorType(this.encounterDirector,this.episode.wave,ordinaryHeavy?['zubrokryptyda']:[]);
   }
 
   setPlayerHp(next){
@@ -425,10 +424,13 @@ export class ArenaScene extends Phaser.Scene {
 
   tryStartDialogue(){
     if(this.dialogueLoading||this.dialogueState.id||this.episode.ended)return false;
-    for(const id of ['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda',BOCIANOLAK_HIT_DIALOGUE,'before-marcin','after-final-enemy']){
+    for(const id of ['before-wave-1',BOCIANOLAK_HIT_DIALOGUE,'before-marcin','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy']){
       if((id==='before-first-bocianolak'||id==='before-first-zubrokryptyda')&&!this.introductionReady(id))continue;
       if(!this.consumeNarrativeBoundary(id))continue;
-      if(this.pendingIntroductions.has(id)){this.introducedEnemyTypes.add(id);this.pendingIntroductions.delete(id);}
+      if(this.pendingIntroductions.has(id)){
+        if(!claimIntroduction(this.introEvidence,this.introductionContext))continue;
+        this.introducedEnemyTypes.add(id);this.pendingIntroductions.delete(id);this.introductionContext=null;
+      }
       if(id===BOCIANOLAK_HIT_DIALOGUE)this.enemies=this.enemies.filter(enemy=>!enemy.dead);
       if(!beginDialogue(this.dialogueState,id))return false;
       this.ambientBarks?.suspend();
@@ -445,11 +447,15 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   introductionReady(id){
-    if(id==='before-first-zubrokryptyda'&&!this.introducedEnemyTypes.has('before-first-bocianolak'))return false;
+    if(this.episode.bossIntroduced||this.elapsedGameplayMs>=260000)return false;
     const type=id==='before-first-bocianolak'?'bocianolak':'zubrokryptyda';
     const enemy=eligibleIntroductionEnemy(type,this.enemies,this.cameras.main.worldView);
-    if(enemy)this.pendingIntroductions.set(id,enemy);
-    return !!enemy;
+    const context=introductionEvidence(this.introEvidence,id,{
+      wave:this.episode.wave,at:this.elapsedGameplayMs,visible:!!enemy,
+      previousIntroduced:this.introducedEnemyTypes.has('before-first-bocianolak'),
+      boss:this.episode.bossIntroduced});
+    if(!context)return false;
+    this.pendingIntroductions.set(id,enemy);this.introductionContext=context;return true;
   }
   consumeNarrativeBoundary(id){
     if(!this.narrativeEvents.has(id))return false;
@@ -808,6 +814,7 @@ export class ArenaScene extends Phaser.Scene {
     if(!this.finalResolution){this.kills++;this.refreshWeaponHud();}
     const living=this.enemies.filter(e=>!e.dead).length;
     recordDeath(this.episode,living,this.time.now,enemy.encounterId??null,enemy.waveIndex??this.episode.wave);
+    rememberOrdinaryDeath(this.introEvidence,{type:enemy.type,wave:this.episode.wave,at:this.elapsedGameplayMs,playerEarned:!enemy.encounterId,special:!!enemy.encounterId});
     if(enemy.type==='marcin'){this.clearBossProjectiles();this.boss=null;this.renderBossHp();}
     return true;
   }
@@ -826,23 +833,14 @@ export class ArenaScene extends Phaser.Scene {
     if(nextEnemyType==='zubrokryptyda'&&this.enemies.some(e=>!e.dead&&e.type==='zubrokryptyda'&&!e.encounterId)){
       return false;
     }
-    const introductionId=nextEnemyType==='bocianolak'?'before-first-bocianolak':nextEnemyType==='zubrokryptyda'?'before-first-zubrokryptyda':null;
-    const pending=introductionId&&this.pendingIntroductions.get(introductionId);
-    const firstIntroduction=introductionId&&!this.introducedEnemyTypes.has(introductionId)&&(!pending||pending.dead||pending.hp<=0);
     const radius=ENEMY_TYPES[nextEnemyType].radius;
-    const at=(firstIntroduction?introductionSpawnPoint(nextEnemyType,this.player,this.obstacles,this.cameras.main.worldView,radius,this.navigation):null)
-      ||this.ordinarySpawnPoint(radius,this.totalSpawned);
+    const at=this.ordinarySpawnPoint(radius,this.totalSpawned);
     if(!at){return false;}
     const created=this.createEnemy(nextEnemyType,at,this.totalSpawned);
     this.enemies.push(created);
     this.totalSpawned++;
     recordSpawn(this.episode,nextEnemyType);
     recordDirectorSpawn(this.encounterDirector,this.episode.wave,nextEnemyType);
-    if(firstIntroduction){
-      this.pendingIntroductions.set(introductionId,created);
-      this.markNarrativeBoundary(introductionId);
-      this.tryStartDialogue();
-    }
     return true;
   }
 
@@ -924,9 +922,7 @@ export class ArenaScene extends Phaser.Scene {
     if(this.episode.state==='active'&&!this.episode.bossIntroduced&&!this.bossEntrancePending){
       const v=this.cameras.main.worldView;
       const population=directorPopulation(this.enemies,{x:v.x,y:v.y,width:v.width,height:v.height},this.player);
-      const introPending=this.episode.wave>=1&&(
-        (!this.introducedEnemyTypes.has('before-first-bocianolak')&&!this.pendingIntroductions.has('before-first-bocianolak'))||
-        (this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda')&&!this.pendingIntroductions.has('before-first-zubrokryptyda')));
+      const introPending=false; // Narrative never raises spawn targets.
       const opportunity=directorOpportunity(this.encounterDirector,{elapsedMs:this.elapsedGameplayMs,wave:this.episode.wave,population,introPending});
       if(opportunity.spawn){this.spawnReplacement();if(this.dialogueState?.id)return;}
     }
