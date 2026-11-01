@@ -438,6 +438,7 @@ export class ArenaScene extends Phaser.Scene {
     for(const id of ['before-wave-1',BOCIANOLAK_HIT_DIALOGUE,'before-marcin','before-first-bocianolak','before-first-zubrokryptyda','act1-marcin-last','act1-witness-last','act1-aloes-last','after-final-enemy']){
       if((id==='before-first-bocianolak'||id==='before-first-zubrokryptyda')&&!this.introductionReady(id))continue;
       if(id==='before-marcin'&&!this.ensureAct1Herald())continue;
+      if(id==='act1-witness-last'&&!this.ensureAct1Witness())continue;
       if(!this.consumeNarrativeBoundary(id))continue;
       if(this.pendingIntroductions.has(id)){
         if(!claimIntroduction(this.introEvidence,this.introductionContext))continue;
@@ -967,6 +968,7 @@ export class ArenaScene extends Phaser.Scene {
     }
     // Story beats remain input-driven while combat/physics stay frozen.
     if(this.episode.state==='final-pending'){
+      if(this.narrativeEvents.has('act1-witness-last')&&!this.dialogueState?.id)this.tryStartDialogue();
       if(this.act1AwaitWitnessBurst&&this.deathBursts.length===0){
         this.act1AwaitWitnessBurst=false;
         this.markNarrativeBoundary('act1-aloes-last');
