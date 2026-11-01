@@ -95,6 +95,8 @@ try {
     const message=JSON.parse(event.data);
     if(message.method==='Runtime.exceptionThrown'){uncaught.push(message.params.exceptionDetails);console.log('PHASER UNCAUGHT EXCEPTION',JSON.stringify(message.params.exceptionDetails));}
   });
+  const pr54Chromium=await cdp('Browser.getVersion');
+  console.log('INFO PR54 actual Chromium '+pr54Chromium.product+' engine '+pr54Chromium.userAgent);
   await cdp('Runtime.enable');
   async function evaluate(expression) {
     const response = await cdp('Runtime.evaluate', {expression, returnByValue:true, awaitPromise:true});
@@ -395,18 +397,24 @@ try {
   await sleep(80);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').weapon"),'blunderbuss');
   // Exercise actual Phaser projectile collision and barrel removal while not modifying the ground.
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const b=a.obstacles.find(o=>o.type==='toxic_barrel');b.x=a.player.x+130;b.y=a.player.y;b.sprite.setPosition(b.x,b.y);b.footprint=Object.freeze({...b.footprint,x:b.x,y:b.y});return true})()");
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const b=a.obstacles.find(o=>o.type==='toxic_barrel');b.x=a.player.x+130;b.y=a.player.y;b.sprite.setPosition(b.x,b.y);b.footprint=Object.freeze({...b.footprint,x:b.x,y:b.y});a.invulnerableUntil=Infinity;return true})()");
   const barrelAim=await snapshot();
   await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'none'});
   await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'left',buttons:1,clickCount:1});
-  await sleep(1050);
+  // Keep firing through real frames until the actual barrel collision occurs.
+  // A fixed 1050ms delay can fail if an enemy intercepts the first shots.
+  for(let i=0;i<70;i++){
+    if(!(await evaluate("window.__game.scene.getScene('Arena').obstacles.find(o=>o.type==='toxic_barrel').alive")))break;
+    await sleep(50);
+  }
   await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:barrelAim.rect.x+barrelAim.scale.width/2+145,y:barrelAim.rect.y+barrelAim.scale.height/2,button:'left',buttons:0,clickCount:1});
   const exploded=await snapshot();
   assert.equal(exploded.controls.obstacles.find(o=>o.type==='toxic_barrel').alive,false,'Real input did not destroy barrel');
   assert.equal(exploded.controls.groundActive,true,'Barrel removal destroyed arena underlay');
   console.log('PASS browser: obstacle layering, session layout, actual held mouse fire and barrel removal');
 
-  assert.equal(fresh.controls.enemies.length,3,'Fresh deterministic enemy set missing');
+  assert.ok(fresh.controls.enemies.length>=3&&fresh.controls.enemies.length<=6,'Opening must retain three actors with bounded PR51 early refill');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.slice(0,3).every(e=>e.type==='bobrozombi')"),true,'Opening deterministic Bobrozombi trio was changed');
   // Force one enemy into predictable aim lane; shoot via actual CDP mouse coordinates.
   await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'); const e=a.enemies[0];e.x=a.player.x+120;e.y=a.player.y;e.sprite.setPosition(e.x,e.y);return true})()");
   const pos=await snapshot();
@@ -419,7 +427,7 @@ try {
   const killed=await snapshot();
   assert.ok(await evaluate("window.__game.scene.getScene('Arena').kills>=1"),'Actual mouse projectiles did not kill enemy');
   // Contact HP and defeat, while Phaser owns the running scene.
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies){e.x=a.player.x;e.y=a.player.y;e.sprite.setPosition(e.x,e.y)}return true})()");
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.invulnerableUntil=0;a.setPlayerHp(5);for(const e of a.enemies){e.x=a.player.x;e.y=a.player.y;e.sprite.setPosition(e.x,e.y)}return true})()");
   const damaged=await waitFor(s=>s.controls.hp<5,'Contact damage');
   assert.equal(damaged.controls.hp,4);
   assert.equal(damaged.faceHud.current,'hp_4','Enemy contact did not change Aloes portrait');
@@ -432,7 +440,8 @@ try {
   const revived=await waitFor(s=>s.arena&&!s.menu&&!s.controls.defeated,'New game after defeat');
   assert.equal(revived.controls.hp,5);
   assert.equal(revived.faceHud.current,'hp_5','NOWA GRA portrait did not reset');
-  assert.equal(revived.controls.enemies.length,3);
+  assert.ok(revived.controls.enemies.length>=3&&revived.controls.enemies.length<=6,'NEW GAME retains deterministic trio plus bounded PR51 refill');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.slice(0,3).every(e=>e.type==='bobrozombi')"),true,'NEW GAME opening trio changed');
   console.log('PASS real Phaser shots -> enemy death, contact invulnerability, defeat, clean NEW GAME');
   await clickControl('hud');
   await waitFor(s=>s.menu&&s.actions.length===2,'Menu again after fresh session');
@@ -621,24 +630,24 @@ try {
   await evaluate('window.__setActiveTime(260000);true');
   for(let i=0;i<60;i++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='before-marcin'"))break;await sleep(25);}
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'before-marcin');await nextLine();await nextLine();
-  // The director never deletes survivors to clear Marcin's seven nonboss landing slots.
+  // PR54 never deletes survivors to fit the sixteen nonboss hard cap.
   // Sustain combat until genuine player kills free safe slots.
   const pendingBoss=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {live:a.livingNonBoss(),pending:a.bossEntrancePending,spawned:a.episode.spawned}})()");
-  if(pendingBoss.live>7){
+  if(pendingBoss.live>16){
     assert.equal(pendingBoss.pending,true,'Crowded handoff must wait rather than despawn');
-    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');while(a.livingNonBoss()>7){const e=a.enemies.find(x=>!x.dead&&x.type!=='marcin');e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(x=>!x.dead);}})()");
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');while(a.livingNonBoss()>16){const e=a.enemies.find(x=>!x.dead&&x.type!=='marcin');e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(x=>!x.dead);}})()");
   }
   for(let i=0;i<120;i++){
     const stage=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {landed:!!a.boss&&!a.bossEntrance,escorts:a.episode.specialSpawned.size-Number(a.episode.specialSpawned.has('marcin')),due:a.escortDue.length,live:a.livingNonBoss()}})()");
     if(stage.landed&&stage.escorts===2&&stage.due===0)break;
-    if(stage.landed&&stage.live>=7&&stage.due>0){
+    if(stage.landed&&stage.live>=16&&stage.due>0){
       await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(e=>!e.dead&&!e.encounterId);if(e){e.hp=0;a.finalizeEnemyDeath(e);a.enemies=a.enemies.filter(e=>!e.dead);}})()");
     }
     await sleep(60);
   }
   const bossBefore=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {boss:!!a.boss&&a.boss.hp>0,live:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,escorts:[...a.episode.specialSpawned].filter(x=>x.startsWith('escort')).length,planned:a.killsText.text,regular:a.episode.defeated}})()");
   assert.equal(bossBefore.boss,true,'Marcin must remain alive after all ordinary enemies die');
-  assert.ok(bossBefore.live<=7,'Finale exceeded shared non-boss live cap');
+  assert.ok(bossBefore.live<=16,'PR54 shared nonboss hard cap');
   assert.equal(bossBefore.escorts,2,'Both escorts must have been offered');
   assert.ok(bossBefore.regular>=72);
   assert.equal(bossBefore.planned,String(bossBefore.regular));
@@ -655,22 +664,26 @@ try {
   assert.deepEqual(progression.markers,[2,4]);
   console.log('PASS Phaser timed rewards and72 continuous mixed ordinary kills; ignored flamethrower, timed Marcin and two escorts; boss remains decisive');
 
-  const finaleAtHit=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const live=a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;const spawned=a.totalSpawned;const boss=a.boss;if(!boss)throw Error('Marcin missing');boss.hp=0;if(!a.finalizeEnemyDeath(boss)||a.finalizeEnemyDeath(boss))throw Error('Marcin fatal hit was not unique');return {live,spawned,kills:a.kills,hud:a.killsText.text,final:a.finalResolution,state:a.episode.state,others:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,queued:a.reinforcementDue.length+a.escortDue.length,projectiles:a.bossProjectiles.length,bursts:a.deathBursts.length,dialogue:a.dialogueState.id}})()");
+  const finaleAtHit=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const live=a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;const spawned=a.totalSpawned;const boss=a.boss;if(!boss)throw Error('Marcin missing');boss.hp=0;if(!a.finalizeEnemyDeath(boss)||a.finalizeEnemyDeath(boss))throw Error('Marcin fatal hit was not unique');return {live,spawned,afterSpawns:a.totalSpawned,kills:a.kills,hud:a.killsText.text,final:a.finalResolution,state:a.episode.state,others:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,queued:a.reinforcementDue.length+a.escortDue.length,projectiles:a.bossProjectiles.length,bursts:a.deathBursts.length,dialogue:a.dialogueState.id}})()");
   assert.ok(finaleAtHit.live>=1,'Scripted resolution must have living minions to neutralize');
   assert.equal(finaleAtHit.kills,progression.kills+1,'Only the player-earned Marcin kill may increment the numerator');
   assert.equal(finaleAtHit.hud,String(finaleAtHit.kills));
   assert.equal(finaleAtHit.state,'boss-resolving');
   assert.equal(finaleAtHit.final,true);
-  assert.equal(finaleAtHit.others,0,'All spawned live minions must be neutralized atomically');
+  assert.equal(finaleAtHit.others,1,'Exactly one witness must remain alive during finale');
   assert.equal(finaleAtHit.queued,0,'Pending escorts and reinforcements must be cancelled');
   assert.equal(finaleAtHit.projectiles,0,'Boss projectiles retained after death');
   assert.equal(finaleAtHit.dialogue,null,'Final dialogue started before visual resolution');
-  assert.ok(finaleAtHit.bursts>=finaleAtHit.live+1,'Missing visible scripted red death bursts');
+  assert.ok(finaleAtHit.bursts>=finaleAtHit.live,'Scripted bursts must spare the witness');
   const finalShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile('dist/pr48-boss-resolution-active.png',Buffer.from(finalShot.data,'base64'));
   await sleep(950);
   const finalBurstsEnded=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,id:a.dialogueState.id,held:a.finalOutcomeHeld,bursts:a.deathBursts.length,ended:a.episode.ended,kills:a.kills,spawned:a.totalSpawned}})()");
-  assert.deepEqual(finalBurstsEnded,{state:'final-pending',id:'after-final-enemy',held:true,bursts:0,ended:false,kills:finaleAtHit.kills,spawned:finaleAtHit.spawned},'Final dialogue must follow settled VFX and cancel future spawns');
+  assert.equal(finalBurstsEnded.state,'final-pending','Finale not pending after visual resolution');
+   assert.equal(finalBurstsEnded.id,'act1-marcin-last','Marcin must speak first');
+   assert.equal(finalBurstsEnded.held,true);assert.equal(finalBurstsEnded.bursts,0);assert.equal(finalBurstsEnded.ended,false);
+   assert.equal(finalBurstsEnded.kills,finaleAtHit.kills,'Narrative witness cannot grant kill credit');
+   assert.ok(finalBurstsEnded.spawned>=finaleAtHit.afterSpawns&&finalBurstsEnded.spawned<=finaleAtHit.afterSpawns+1,'At most one safely staged farewell witness, no combat respawn');
   const marcinPortrait=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {loaded:a.dialoguePanel.loaded.has('marcin'),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible)}})()");
   let validUploadedMarcin=false,marcinPngMetadata={status:'missing'};
   try{const png=await readFile('public/assets/dialogue/dialogue-marcin.png');validUploadedMarcin=validDialoguePng(png);marcinPngMetadata={status:'present',bytes:png.length,width:png.readUInt32BE(16),height:png.readUInt32BE(20),bitDepth:png[24],colorType:png[25],acceptedByLoader:validUploadedMarcin};}catch{}
@@ -684,22 +697,23 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),clockInFinal,'Timer advanced while final dialogue active');
   const finalAfterShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile('dist/pr48-boss-final-dialogue.png',Buffer.from(finalAfterShot.data,'base64'));
-  const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,id:a.dialogueState.id,first:a.consumeNarrativeBoundary('after-final-enemy')}})()");
-  assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'after-final-enemy',first:false});
-  for(let line=0;line<3;line++){
-    const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,state:a.episode.state}})()");
-    assert.equal(before.id,'after-final-enemy');assert.equal(before.index,line);
-    const isolated=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.knob.visible&&!j.held&&j.pointerId===null)})()");
-    assert.equal(isolated,true,'Joysticks must remain isolated through all three final lines');
-    assert.equal(before.state,'final-pending','Victory occurred before final DALEJ');
-    await sleep(205);
-    const bounds=(await snapshot()).rect;
-    await click(bounds.x+before.x,bounds.y+before.y);
-    const after=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index}})()");
-    assert.equal(after.id,line===2?null:'after-final-enemy','Final DALEJ tap skipped or failed');
-    if(line<2)assert.equal(after.index,line+1);
-  }
-  await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
+  const heldFinal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {state:a.episode.state,held:a.finalOutcomeHeld,id:a.dialogueState.id,first:a.consumeNarrativeBoundary('act1-marcin-last')}})()");
+  assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'act1-marcin-last',first:false});
+  for(const id of ['act1-marcin-last','act1-witness-last','act1-aloes-last']){
+    for(let wait=0;wait<120;wait++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id")==id)break;await sleep(25);}
+    const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,state:a.episode.state,witness:!!a.act1Witness&&!a.act1Witness.dead}})()");
+    assert.equal(before.id,id,'PR54 cinematic order');
+    assert.equal(before.state,'final-pending');
+    if(id==='act1-witness-last')assert.equal(before.witness,true);
+    const isolated=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return [a.joystick,a.aimJoystick].every(j=>!j.enabled&&!j.base.visible&&!j.held)})()");
+    assert.equal(isolated,true);
+    await sleep(205);const rect=(await snapshot()).rect;await click(rect.x+before.x,rect.y+before.y);
+    if(id==='act1-witness-last'){
+      const aftermath=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {witness:!!a.act1Witness,burst:a.deathBursts.length,next:a.dialogueState.id}})()");
+      assert.equal(aftermath.witness,false);assert.ok(aftermath.burst>0);assert.notEqual(aftermath.next,'act1-aloes-last');
+    }
+   }
+   await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   const terminalClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
   await sleep(160);
@@ -708,7 +722,7 @@ try {
   await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu&&!v.arenaPaused,'new game progression reset');
   const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {kills:a.kills,total:a.totalSpawned,weapon:a.weapon,pending:a.pendingRewards.size,triggered:a.triggeredMilestones.size,pickups:a.pickups.map(p=>p.id)}})()");
-  assert.deepEqual(reset,{kills:0,total:3,weapon:null,pending:0,triggered:0,pickups:['blunderbuss']});
+  assert.equal(reset.kills,0);assert.ok(reset.total>=3&&reset.total<=6,'New-game opening retains initial trio plus bounded PR51 refill');assert.equal(reset.weapon,null);assert.equal(reset.pending,0);assert.equal(reset.triggered,0);assert.deepEqual(reset.pickups,['blunderbuss']);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').timerText.text"),'◷ 00:00','NOWA GRA did not reset timer');
   const postponedSpawn=await evaluate(`(()=>{
     const a=window.__game.scene.getScene('Arena'),e=a.enemies.find(e=>!e.dead);
@@ -1268,7 +1282,7 @@ try {
       else for(const e of a.enemies)e.sprite.destroy();
       a.enemies=[];
       window.__stageTimedWave(type==='zubrokryptyda'?2:1);
-      a.introducedEnemyTypes.delete(id);a.pendingIntroductions.delete(id);a.narrativeEvents.delete(id);
+      a.introducedEnemyTypes.delete(id);a.pendingIntroductions.delete(id);a.narrativeEvents.clear(); // Isolate this PR36/PR51 causal intro from unrelated queued narrative
       a.introEvidence.deaths=[];a.introEvidence.claims.delete(id);a.introEvidence.contexts.delete(id);
       if(type==='zubrokryptyda')a.introducedEnemyTypes.add('before-first-bocianolak');
       for(let i=0;i<(type==='zubrokryptyda'?2:1);i++){
@@ -1655,8 +1669,19 @@ try {
   const fatal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.boss.hp=0;a.finalizeEnemyDeath(a.boss);return {state:a.episode.state,kills:a.kills}})()");
   assert.deepEqual(fatal,{state:'boss-resolving',kills:142});
   await sleep(950);
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'after-final-enemy');
-  for(let line=0;line<3;line++)await nextLine();
+  for(const id of ['act1-marcin-last','act1-witness-last','act1-aloes-last']){
+    for(let i=0;i<120;i++){
+      if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id")===id)break;
+      await sleep(30);
+    }
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),id,'PR43/PR54 staged cinematic order');
+    if(id==='act1-witness-last')assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.act1Witness&&!a.act1Witness.dead&&a.act1Witness.hp>0})()"),true,'Witness must be living during farewell');
+    await nextLine();
+    if(id==='act1-witness-last'){
+      const phase=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,waiting:a.act1AwaitWitnessBurst,aloes:a.dialogueState.id==='act1-aloes-last'}})()");
+      assert.ok(phase.bursts>0&&phase.waiting&&!phase.aloes,'Witness must explode before Aloes speaks');
+    }
+  }
   await waitFor(v=>v.menu&&v.arenaPaused,'victory after PR43 and Marcin finale');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   console.log('PASS PR43 first-hit portrait remains pausing; Marcin death then final dialogue and victory');
@@ -1696,8 +1721,8 @@ try {
     await sleep(450);
     await writeFile('dist/pr44-landing-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
     for(let i=0;i<100;i++){if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.boss&&!a.bossEntrance&&a.escortDue.length===0})()"))break;await sleep(40);}
-    const active=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {seed:a.arenaSeed,hp:a.boss?.hp,roster:[...a.episode.specialSpawned],escorts:a.enemies.filter(e=>e.encounterId?.startsWith('escort')).length,bar:a.bossHpLabel.visible,body:a.player.body.radius,nav:a.bossNavigation.free===a.bossNavigation.visited,zoom:a.cameras.main.zoom,live:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,reinforcements:a.episode.reinforcementSpawned.size,remainingReinforcements:a.reinforcementDue.length,remainingRegular:35-a.episode.spawned}})()");
-    assert.equal(active.seed,seed);assert.equal(active.hp,36);assert.deepEqual(active.roster,['marcin','escort-1','escort-2']);assert.equal(active.escorts,2);assert.ok(active.live<=7&&active.reinforcements>=1&&active.remainingReinforcements>0&&active.remainingRegular>0,'Finite reinforcements must respect shared cap while future work remains');assert.ok(active.bar&&active.nav);assert.equal(active.body,17);assert.equal(active.zoom,1);
+    const active=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {seed:a.arenaSeed,hp:a.boss?.hp,roster:[...a.episode.specialSpawned],escorts:a.enemies.filter(e=>e.encounterId?.startsWith('escort')).length,bar:a.bossHpLabel.visible,body:a.player.body.radius,nav:a.bossNavigation.free===a.bossNavigation.visited,zoom:a.cameras.main.zoom,live:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,reinforcements:a.episode.reinforcementSpawned.size,remainingReinforcements:a.reinforcementDue.length,remainingRegular:35-a.episode.spawned,allyAdded:a.act1AllyAdded,allyDue:a.act1AllyDue,herald:!!a.act1Herald&&!a.act1Herald.dead}})()");
+    assert.equal(active.seed,seed);assert.equal(active.hp,36);assert.deepEqual(active.roster,['marcin','escort-1','escort-2']);assert.equal(active.escorts,2);assert.ok(active.live<=16&&active.remainingReinforcements>0&&active.allyAdded>=0&&active.allyAdded+active.allyDue<=12&&active.herald,'PR54 must retain finite reinforcements and herald while initial ordinary ally shortfall drains '+JSON.stringify(active));assert.ok(active.bar&&active.nav);assert.equal(active.body,17);assert.equal(active.zoom,1);
     // Stop normal scheduling for the attack fixture after proving roster creation.
     await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.spawnDueAt=null;a.boss.attack.elapsed=5950;window.__bossWarningAt=performance.now()})()");
     await sleep(100);assert.equal(await evaluate("window.__game.scene.getScene('Arena').boss.attack.phase"),'warning');assert.equal(await evaluate("window.__game.scene.getScene('Arena').bossProjectiles.length"),0);
@@ -1766,7 +1791,7 @@ try {
           // Respect the existing max-one-ordinary-heavy gate: the player must
           // actually defeat an earlier wave-6 heavy before another can spawn.
           const blockingHeavy=living.find(e=>e.type==='zubrokryptyda'&&!e.encounterId);
-          if(living.length>=7){
+          if(living.length>=16){
             const victim=living[0];victim.hp=0;a.finalizeEnemyDeath(victim);
             a.enemies=a.enemies.filter(e=>!e.dead);
           }
@@ -1778,16 +1803,16 @@ try {
       })()`);
       assert.equal(allReinforcements.ids.length,12,'All twelve reinforcements must eventually be offered');
       assert.equal(new Set(allReinforcements.ids).size,12,'Reinforcement duplicate ID');
-      assert.equal(allReinforcements.normalSpawned,allReinforcements.normalsAtBoss,'Ordinary spawning must stop at boss handoff '+JSON.stringify(allReinforcements));
+      assert.ok(allReinforcements.normalSpawned>=allReinforcements.normalsAtBoss&&allReinforcements.normalSpawned-allReinforcements.normalsAtBoss<=12,'Only bounded PR54 initial allies may add ordinary spawns during boss combat '+JSON.stringify(allReinforcements));
       assert.equal(allReinforcements.escorts,2,'Escorts starved');
-      assert.ok(allReinforcements.maxLive<=7,'Shared cap exceeded while draining every source');
+      assert.ok(allReinforcements.maxLive<=16,'Shared cap exceeded while draining every source');
       assert.ok(allReinforcements.living>=1,'Need living minion for boss-death VFX');
-      console.log('PASS PR48 real Phaser finite scheduler: all12 unique reinforcements, no ordinary boss-phase spawns, two escorts, live cap7; '+JSON.stringify(allReinforcements));
+      console.log('PASS PR48 real Phaser finite scheduler: all12 unique reinforcements, initial PR54 ordinary allies, two escorts, hard cap16; '+JSON.stringify(allReinforcements));
     }
     // Killing a boss during a live volley atomically resolves the fight,
     // neutralizes spawned survivors and cancels pending work.
-    const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length,living:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length}})()");
-    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'boss-resolving');assert.equal(death.living,0);assert.equal(death.queued,0);assert.ok(death.bursts>0);
+    const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length,living:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length,witness:!!a.act1Witness,stagePoint:a.act1NarrativeStagePoint('zubrokryptyda'),view:{x:a.cameras.main.worldView.x,y:a.cameras.main.worldView.y,w:a.cameras.main.worldView.width,h:a.cameras.main.worldView.height},player:{x:a.player.x,y:a.player.y},sceneCount:a.enemies.length}})()");
+    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'boss-resolving');assert.equal(death.living,1,'Exactly one living witness must survive scripted cleanup '+JSON.stringify(death));assert.equal(death.queued,0);assert.ok(death.bursts>0);
     const postFatalHp=await evaluate("window.__game.scene.getScene('Arena').playerHp");
     await sleep(150);
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerHp"),postFatalHp,'Post-fatal damage reached Aloes during visual resolution');
@@ -1993,20 +2018,54 @@ try {
   await clickControl('hud');await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu,'PR48 fallback Arena');
   for(let i=0;i<40;i++){if(!await evaluate("window.__game.scene.getScene('Arena').dialogueLoading"))break;await sleep(40);}
-  const marcinFallback=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueState.index=0;a.narrativeEvents.clear();a.episode.wave=5;a.episode.state='final-pending';a.finalResolution=true;a.markNarrativeBoundary('after-final-enemy');return {loaded:a.dialoguePanel.loaded.has('marcin'),id:a.dialogueState.id,letter:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='M'&&x.visible),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible),text:a.dialoguePanel.text.text}})()");
+  const marcinFallback=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueState.index=0;a.narrativeEvents.clear();a.episode.wave=5;a.episode.state='final-pending';a.finalResolution=true;const e=a.createEnemy('zubrokryptyda',{x:a.player.x+105,y:a.player.y+45},1102);e.narrativeRole='witness';a.act1Witness=e;a.enemies.push(e);a.markNarrativeBoundary('act1-marcin-last');return {loaded:a.dialoguePanel.loaded.has('marcin'),id:a.dialogueState.id,letter:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='M'&&x.visible),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible),text:a.dialoguePanel.text.text}})()");
   assert.equal(marcinFallback.loaded,false,'Missing Marcin asset incorrectly registered as loaded');
-  assert.equal(marcinFallback.id,'after-final-enemy');
+  assert.equal(marcinFallback.id,'act1-marcin-last');
   assert.equal(marcinFallback.letter,true,'Missing portrait did not show letter fallback');
   assert.equal(marcinFallback.label,true,'Missing portrait hid MARCIN speaker label');
   assert.ok(marcinFallback.text.includes('Przepowiednia się spełniła'));
-  for(let i=0;i<3;i++)await nextLine();
-  await waitFor(v=>v.menu&&v.arenaPaused,'PR48 missing-portrait victory');
+  for(const id of ['act1-marcin-last','act1-witness-last','act1-aloes-last']){
+    for(let n=0;n<100;n++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id")===id)break;await sleep(30);}
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),id,'Missing-portrait cinematic step');
+    await nextLine();
+    if(id==='act1-witness-last'){
+      const visual=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {burst:a.deathBursts.length,aloes:a.dialogueState.id==='act1-aloes-last'}})()");
+      assert.ok(visual.burst>0&&!visual.aloes,'Missing-portrait fallback skipped witness pixel burst');
+    }
+  }
+  await waitFor(v=>v.menu&&v.arenaPaused,'PR54 missing-portrait victory');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   await cdp('Fetch.disable');socket.removeEventListener('message',missingPortrait);
   console.log('PASS PR48 missing Marcin portrait: fallback letter, speaker, three lines/DALEJ and victory');
 
   await verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,setSeed:seed=>{arenaRun=[1,41,104729].indexOf(seed);}});
   await verifySpawnPacing({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,click});
+  // PR54: real-phaser early cleared-arena summons and on-screen herald.
+  for(const [seed,width,height] of [[1,568,320],[41,800,360],[104729,320,240]]){
+    if(!(await snapshot()).menu){await clickControl('hud');await waitFor(v=>v.menu&&v.arenaPaused,'PR54 MENU');}
+    arenaRun=[1,41,104729].indexOf(seed);await clickControl('NOWA GRA');
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+    await evaluate('window.__game.scale.refresh();true');await sleep(100);
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');for(const e of a.enemies)e.sprite.destroy();a.enemies=[];a.narrativeEvents.clear();a.episode.wave=5;a.episode.elapsedMs=225000;a.waveText.setText('⚑ 6/6');a.invulnerableUntil=Infinity;a.firstBocianolakHit=true;a.introducedEnemyTypes.add('before-first-bocianolak');a.introducedEnemyTypes.add('before-first-zubrokryptyda');a.encounterDirector.nextMs=Number.MAX_SAFE_INTEGER;window.__setActiveTime(239000);})()");
+    await sleep(100);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"),false,'PR54 no boss at 3:59');
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=a.createEnemy('bobrozombi',{x:110,y:100},9999);a.enemies.push(e);a.episode.spawned++;window.__pr54Offcamera=e;window.__setActiveTime(252000)})()");
+    await sleep(100);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"),false,'Off-camera living enemy must block early boss');
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__pr54Offcamera;e.dead=true;e.sprite.destroy();a.enemies=a.enemies.filter(x=>x!==e);a.episode.defeated++;})()");
+    for(let i=0;i<100;i++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='before-marcin'"))break;await sleep(30);}
+    const summoned=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),h=a.act1Herald,v=a.cameras.main.worldView;return {id:a.dialogueState.id,elapsed:a.elapsedGameplayMs,herald:!!h&&!h.dead&&h.hp>0,visible:!!h&&h.x>=v.x&&h.x<=v.right&&h.y>=v.y&&h.y<=v.bottom,paused:a.physics.world.isPaused,spawned:a.totalSpawned}})()");
+    assert.equal(summoned.id,'before-marcin','PR54 no immediate early summon '+JSON.stringify(summoned));
+    assert.ok(summoned.herald&&summoned.visible&&summoned.paused,'PR54 herald must be real visible Bobrozombi');
+    await writeFile('dist/pr54-herald-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    await nextLine();await nextLine();
+    assert.ok(await evaluate("!!window.__game.scene.getScene('Arena').bossEntrance||window.__game.scene.getScene('Arena').bossEntrancePending"));
+    for(let i=0;i<100;i++){if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.boss&&!a.bossEntrance})()"))break;await sleep(30);}
+    const landed=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {boss:!!a.boss,herald:!!a.act1Herald&&!a.act1Herald.dead,live:a.livingNonBoss(),due:a.act1AllyDue,added:a.act1AllyAdded,cap:16}})()");
+    assert.ok(landed.boss&&landed.herald&&landed.live<=16&&landed.due<=12,'PR54 bounded boss ally stage '+JSON.stringify(landed));
+    await writeFile('dist/pr54-boss-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
+    console.log('PASS PR54 '+seed+' '+width+'x'+height+': 3:59 blocked, offcamera actor blocks at4:12, cleared4:12 herald, real DALEJ, boss lands '+JSON.stringify({summoned,landed}));
+  }
   assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {
   socket?.close();

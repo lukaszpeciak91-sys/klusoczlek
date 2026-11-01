@@ -3,6 +3,10 @@ export const WAVES=Object.freeze(PROFILES.map((p,i)=>Object.freeze({index:i+1,ta
 export const TOTAL_WAVES=WAVES.length;
 export const WAVE_TIMING=Object.freeze([35000,40000,45000,50000,55000,Infinity].map((durationMs,index,durations)=>Object.freeze({startMs:durations.slice(0,index).reduce((a,b)=>a+b,0),durationMs})));
 export const BOSS_INTRO_MS=260000;
+export const EARLY_BOSS_MS=240000;
+export const BOSS_ALLY_TARGET=12;
+export const BOSS_SCENE_HARD_CAP=16;
+export function allyShortfall(survivors,target=BOSS_ALLY_TARGET){return Math.max(0,target-Math.max(0,Math.floor(survivors)));}
 export const FINAL_ENCOUNTER=Object.freeze([
  {id:'marcin',type:'marcin'}, {id:'escort-1',type:'zubrokryptyda'}, {id:'escort-2',type:'zubrokryptyda'}
 ].map(Object.freeze));
@@ -10,7 +14,9 @@ export const REINFORCEMENTS=Object.freeze([
  ...Array.from({length:8},(_,i)=>Object.freeze({id:'reinforcement-b-'+(i+1),type:'bobrozombi'})),
  ...Array.from({length:4},(_,i)=>Object.freeze({id:'reinforcement-s-'+(i+1),type:'bocianolak'}))
 ]);
-export const BOSS_NON_MARCIN_CAP=7;
+// PR54: twelve ordinary allies, a story herald and two staggered escorts;
+// one hard non-Marcin cap bounds both roster and later PR48 reinforcements.
+export const BOSS_NON_MARCIN_CAP=BOSS_SCENE_HARD_CAP;
 // Only the fourteen special non-Marcin actors and Marcin form a finite roster.
 export function beginBossResolution(episode){
  if(episode.state!=='active'||!episode.specialSpawned.has('marcin')||episode.specialDefeated.has('marcin'))return false;
@@ -22,8 +28,9 @@ export function finishBossResolution(episode){
  episode.state='final-pending';return true;
 }
 export function remainingNormalEnemies(episode){return Math.max(0,episode.spawned-episode.defeated);}
-export function claimBossIntroduction(episode,elapsedMs=episode.elapsedMs){
- if(episode.state!=='active'||episode.wave!==TOTAL_WAVES-1||episode.bossIntroduced||!Number.isFinite(elapsedMs)||elapsedMs<BOSS_INTRO_MS)return false;
+export function claimBossIntroduction(episode,elapsedMs=episode.elapsedMs,{ordinaryAlive=Infinity,narrativePending=false}={}){
+ if(episode.state!=='active'||episode.wave!==TOTAL_WAVES-1||episode.bossIntroduced||!Number.isFinite(elapsedMs))return false;
+ if(elapsedMs<BOSS_INTRO_MS&&(elapsedMs<EARLY_BOSS_MS||ordinaryAlive!==0||narrativePending))return false;
  episode.bossIntroduced=true;return true;
 }
 export function recordReinforcementSpawn(episode,id){

@@ -16,8 +16,8 @@ import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRe
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
 import {createBurningFx} from './enemy-fire-vfx.js';
-import {WAVES,TOTAL_WAVES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceTimedWaves,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
-import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
+import {WAVES,TOTAL_WAVES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceTimedWaves,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,allyShortfall,BOSS_SCENE_HARD_CAP,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
+import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, clearPoint, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
 import { resolvePose } from './combat-contract.js';
@@ -181,6 +181,7 @@ export class ArenaScene extends Phaser.Scene {
     this.episode=createEpisode(seed);
     this.boss=null;this.bossEntrance=null;this.bossEntrancePending=false;this.bossLandingRetryAt=0;
     this.bossProjectiles=[];this.escortDue=[];this.reinforcementDue=[];this.bossSchedulerTurn=0;this.finalResolution=false;
+    this.act1Herald=null;this.act1Witness=null;this.act1AllyDue=0;this.act1AllyAdded=0;this.act1FadePending=false;this.act1FadeElapsed=0;this.act1AwaitWitnessBurst=false;this.act1FinalLineDone=false;
     this.defeated=false;
     this.completed=false;
     this.weapon=null;
@@ -356,6 +357,9 @@ export class ArenaScene extends Phaser.Scene {
       this.time.paused=false;
       if(this.canResume()&&!this.finalResolution)this.physics.world.resume();
       if(id==='after-final-enemy')this.releaseFinalOutcome();
+      if(id==='act1-marcin-last')this.markNarrativeBoundary('act1-witness-last');
+      if(id==='act1-witness-last'){this.finishAct1Witness();this.act1AwaitWitnessBurst=true;}
+      if(id==='act1-aloes-last'){this.act1FinalLineDone=true;this.beginAct1Fade();}
       if(id==='before-wave-1')this.encounterDirector.nextMs=this.elapsedGameplayMs+450;
       if(id==='before-marcin'){this.bossEntrancePending=true;this.tryBeginBossEntrance();}
       this.resetMovement();
@@ -403,7 +407,12 @@ export class ArenaScene extends Phaser.Scene {
       if(this.episode.wave>=1&&!this.introducedEnemyTypes.has('before-first-bocianolak'))this.narrativeEvents.add('before-first-bocianolak');
       if(this.episode.wave>=2&&!this.introducedEnemyTypes.has('before-first-zubrokryptyda'))this.narrativeEvents.add('before-first-zubrokryptyda');
     }
-    if(claimBossIntroduction(this.episode,this.elapsedGameplayMs)){
+    const livingOrdinary=this.enemies.filter(e=>!e.dead&&e.hp>0&&e.type!=='marcin'&&!e.narrativeRole).length;
+    // PR51's unearned species introductions must not block the early ending.
+    // An active portrait is essential; pending optional intro evidence is not.
+    const narrativePending=this.dialogueLoading||!!this.dialogueState.id||
+      this.narrativeEvents.has('before-wave-1')||this.narrativeEvents.has(BOCIANOLAK_HIT_DIALOGUE);
+    if(claimBossIntroduction(this.episode,this.elapsedGameplayMs,{ordinaryAlive:livingOrdinary,narrativePending})){
       for(const id of ['before-first-bocianolak','before-first-zubrokryptyda']){this.narrativeEvents.delete(id);this.pendingIntroductions.delete(id);}
       this.narrativeEvents.add('before-marcin');this.ambientBarks?.suspend();
     }
@@ -426,8 +435,10 @@ export class ArenaScene extends Phaser.Scene {
 
   tryStartDialogue(){
     if(this.dialogueLoading||this.dialogueState.id||this.episode.ended)return false;
-    for(const id of ['before-wave-1',BOCIANOLAK_HIT_DIALOGUE,'before-marcin','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy']){
+    for(const id of ['before-wave-1',BOCIANOLAK_HIT_DIALOGUE,'before-marcin','before-first-bocianolak','before-first-zubrokryptyda','act1-marcin-last','act1-witness-last','act1-aloes-last','after-final-enemy']){
       if((id==='before-first-bocianolak'||id==='before-first-zubrokryptyda')&&!this.introductionReady(id))continue;
+      if(id==='before-marcin'&&!this.ensureAct1Herald())continue;
+      if(id==='act1-witness-last'&&!this.ensureAct1Witness())continue;
       if(!this.consumeNarrativeBoundary(id))continue;
       if(this.pendingIntroductions.has(id)){
         if(!claimIntroduction(this.introEvidence,this.introductionContext))continue;
@@ -437,7 +448,7 @@ export class ArenaScene extends Phaser.Scene {
       if(!beginDialogue(this.dialogueState,id))return false;
       this.ambientBarks?.suspend();
       if(id===BOCIANOLAK_HIT_DIALOGUE||id==='before-marcin')this.events.emit('episode-boundary',id,this);
-      if(id==='after-final-enemy')this.holdFinalOutcome();
+      if(id==='after-final-enemy'||id==='act1-marcin-last')this.holdFinalOutcome();
       advanceGameplayClock(this.gameplayClock,0,false);
       this.resetMovement();this.physics.world.pause();this.time.paused=true;
       this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
@@ -478,10 +489,67 @@ export class ArenaScene extends Phaser.Scene {
   }
   releaseFinalOutcome(){this.finalOutcomeHeld=false;}
 
+  act1NarrativeStagePoint(type){
+    const view=this.cameras.main.worldView,r=ENEMY_TYPES[type].radius;
+    // Deterministic camera-visible safe candidates. Collision and navigation
+    // remain authoritative for both the herald and the cinematic witness.
+    const candidates=[];
+    for(const fy of [.72,.57,.42,.82,.32])for(const fx of [.82,.18,.70,.30,.5])
+      candidates.push({x:Math.round(view.x+view.width*fx),y:Math.round(view.y+view.height*fy)});
+    const others=this.enemies.filter(e=>!e.dead&&e.hp>0);
+    const maxDistance=Math.hypot(view.width*.32,view.height*.32);
+    const separation=Math.min(ENCOUNTER.minSpawnDistance,Math.max(110,maxDistance-12));
+    return candidates
+      .filter(p=>p.x>=r+5&&p.x<=ARENA.width-r-5&&p.y>=r+5&&p.y<=ARENA.height-r-5)
+      .filter(p=>Math.hypot(p.x-this.player.x,p.y-this.player.y)>=separation)
+      .filter(p=>clearPoint(p,this.obstacles,r+6,this.navigation))
+      .filter(p=>others.every(e=>Math.hypot(p.x-e.x,p.y-e.y)>=r+ENEMY_TYPES[e.type].radius+8))
+      .sort((a,b)=>Number(introductionVisible(type,b.x,b.y,view))-Number(introductionVisible(type,a.x,a.y,view)))[0]??null;
+  }
+  ensureAct1Herald(){
+    if(this.act1Herald&&!this.act1Herald.dead&&this.act1Herald.hp>0)return true;
+    const view=this.cameras.main.worldView;
+    const existing=this.enemies.find(e=>!e.dead&&e.hp>0&&e.type==='bobrozombi'&&
+      e.x>=view.x+24&&e.x<=view.right-24&&e.y>=view.y+30&&e.y<=view.bottom-24);
+    if(existing){this.act1Herald=existing;existing.narrativeRole='herald';return true;}
+    const point=this.act1NarrativeStagePoint('bobrozombi');
+    if(!point)return false;
+    const enemy=this.createEnemy('bobrozombi',point,this.totalSpawned++);
+    // A killable herald contributes to truthful ordinary spawn/death totals,
+    // but its narrative role excludes it from the twelve-ally roster.
+    recordSpawn(this.episode,'bobrozombi');
+    enemy.narrativeRole='herald';this.act1Herald=enemy;this.enemies.push(enemy);return true;
+  }
+  ensureAct1Witness(){
+    if(this.act1Witness&&!this.act1Witness.dead&&this.act1Witness.hp>0&&this.enemies.includes(this.act1Witness)&&this.act1Witness.sprite?.active!==false)return this.act1Witness;
+    // A test fixture, scene reset or external cleanup may remove an actor
+    // without invalidating its role pointer. Never accept such a ghost witness.
+    this.act1Witness=null;
+    const view=this.cameras.main.worldView;
+    const candidate=this.enemies.find(e=>!e.dead&&e.hp>0&&e.type==='zubrokryptyda'&&e.x>=view.x&&e.x<=view.right&&e.y>=view.y&&e.y<=view.bottom);
+    if(candidate){candidate.narrativeRole='witness';this.act1Witness=candidate;return candidate;}
+    const point=this.act1NarrativeStagePoint('zubrokryptyda');
+    if(!point)return null;
+    const enemy=this.createEnemy('zubrokryptyda',point,this.totalSpawned++);
+    enemy.narrativeRole='witness';this.act1Witness=enemy;this.enemies.push(enemy);return enemy;
+  }
+  finishAct1Witness(){
+    const e=this.act1Witness;
+    if(e&&!e.dead){
+      e.dead=true;e.hp=0;this.deathBursts.push(createPixelBurst(this,e.type,e.x,e.y,e.seed));
+      e.burningFx?.destroy();e.burningFx=null;clearIgnition(e.ignition);e.sprite.destroy();
+    }
+    this.act1Witness=null;
+  }
+  beginAct1Fade(){
+    if(this.act1FadePending)return;
+    this.act1FadePending=true;this.act1FadeElapsed=0;this.cameras.main.fadeOut(450,0,0,0);
+  }
+
   tryBeginBossEntrance(){
     if(!this.bossEntrancePending||this.bossEntrance||this.episode.specialSpawned.has('marcin'))return false;
-    // Retain all timed-wave survivors. A crowded arena drains naturally before landing.
-    if(this.livingNonBoss()>BOSS_NON_MARCIN_CAP)return false;
+    // Narrative roles are accounted separately; do not discard existing survivors.
+    if(this.livingNonBoss()>BOSS_SCENE_HARD_CAP)return false;
     const point=landingPoint(this.player,this.cameras.main.worldView,this.obstacles,this.bossNavigation);
     if(!point||!this.bossNavigation.isReachable(point))return false;
     this.bossEntrancePending=false;
@@ -530,6 +598,7 @@ export class ArenaScene extends Phaser.Scene {
       this.escortDue=FINAL_ENCOUNTER.filter(s=>s.id!=='marcin').map((spec,i)=>({spec,at:this.time.now+250+i*700}));
       const first=[...REINFORCEMENTS.filter(x=>x.type==='bobrozombi').slice(0,3),REINFORCEMENTS.find(x=>x.type==='bocianolak')];
       this.reinforcementDue=[...first,...REINFORCEMENTS.filter(x=>!first.includes(x))].map((spec,i)=>({spec,at:this.time.now+(i<4?250+i*350:1800+(i-4)*650)}));
+      this.act1AllyDue=allyShortfall(this.enemies.filter(e=>!e.dead&&e.type!=='marcin'&&!e.narrativeRole).length);
       this.syncJoysticks();if(this.canResume())this.physics.world.resume();
     }
   }
@@ -552,7 +621,26 @@ export class ArenaScene extends Phaser.Scene {
 
   livingNonBoss(){return this.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;}
   spawnBossSlot(now){
-    if(this.episode.state!=='active'||!this.boss||this.boss.dead||this.livingNonBoss()>=BOSS_NON_MARCIN_CAP)return false;
+    if(this.episode.state!=='active'||!this.boss||this.boss.dead||this.livingNonBoss()>=BOSS_SCENE_HARD_CAP)return false;
+    // Narrative escort priority: the initial twelve-ally shortfall must never
+    // starve the two existing PR48 Żubrokryptyda escorts at Marcin's landing.
+    // On a failed safe placement, retry on a later tick instead of filling
+    // the last available slot with an ordinary ally.
+    const escort=this.escortDue.find(x=>now>=x.at);
+    if(escort){
+      const at=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[escort.spec.type].radius,this.navigation);
+      if(!at)return false;
+      const ok=recordSpecialSpawn(this.episode,escort.spec.id);
+      if(ok){const enemy=this.createEnemy(escort.spec.type,at,this.totalSpawned++);enemy.encounterId=escort.spec.id;this.enemies.push(enemy);}
+      this.escortDue.splice(this.escortDue.indexOf(escort),1);
+      return ok;
+    }
+    if(this.act1AllyDue>0){
+      const type=this.nextOrdinaryType()||'bobrozombi';
+      const point=safeEnemySpawn(this.player,this.obstacles,this.totalSpawned,ENEMY_TYPES[type].radius,this.navigation);
+      if(point){const e=this.createEnemy(type,point,this.totalSpawned++);e.act1Ally=true;recordSpawn(this.episode,type);this.enemies.push(e);this.act1AllyDue--;this.act1AllyAdded++;return true;}
+      return false;
+    }
     const sources=['escort','reinforcement'];
     for(let i=0;i<2;i++){
       const source=sources[(this.bossSchedulerTurn+i)%2];
@@ -793,14 +881,19 @@ export class ArenaScene extends Phaser.Scene {
     for(const bullet of this.projectiles)bullet.object.destroy();
     this.projectiles=[];this.resetMovement();this.flameStream.clear();
     this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);this.physics.world.pause();
+    this.ensureAct1Witness();
     for(const enemy of this.enemies){
-      if(enemy.dead||enemy.type==='marcin')continue;
+      if(enemy.dead||enemy.type==='marcin'||enemy===this.act1Witness)continue;
       enemy.dead=true;enemy.hp=0;
       this.deathBursts.push(createPixelBurst(this,enemy.type,enemy.x,enemy.y,enemy.seed));
       enemy.burningFx?.destroy();enemy.burningFx=null;clearIgnition(enemy.ignition);
       this.flameCooldowns.delete(enemy);enemy.sprite.destroy();
     }
     this.enemies=this.enemies.filter(e=>!e.dead);
+    // A full sixteen-actor combat scene can have no spare validated slot.
+    // After neutralizing other enemies, the freed arena allows a single
+    // visible witness to be safely staged before any final portrait begins.
+    if(!this.act1Witness||this.act1Witness.dead||!this.enemies.includes(this.act1Witness))this.ensureAct1Witness();
     return true;
   }
   finalizeEnemyDeath(enemy){
@@ -892,12 +985,30 @@ export class ArenaScene extends Phaser.Scene {
       return;
     }
     if(this.episode.state==='boss-resolving'){
-      if(this.deathBursts.length===0&&finishBossResolution(this.episode))this.markNarrativeBoundary('after-final-enemy');
+      if(this.deathBursts.length===0&&finishBossResolution(this.episode))this.markNarrativeBoundary('act1-marcin-last');
       return;
     }
-    // Terminal combat stays physically frozen; final DALEJ can still commit victory.
-    if(this.episode.state==='final-pending'&&!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
-      this.endEpisode(this.playerHp<=0?'defeat':'victory');return;
+    // Story beats remain input-driven while combat/physics stay frozen.
+    if(this.episode.state==='final-pending'){
+      if(this.narrativeEvents.has('act1-witness-last')&&!this.dialogueState?.id)this.tryStartDialogue();
+      if(this.act1AwaitWitnessBurst&&this.deathBursts.length===0){
+        this.act1AwaitWitnessBurst=false;
+        this.markNarrativeBoundary('act1-aloes-last');
+      }
+      if(this.act1FadePending){
+        this.act1FadeElapsed+=Math.min(this.game.loop.delta,50);
+        if(this.act1FadeElapsed>=600){
+          this.act1FadePending=false;
+          // The terminal MENU pauses Arena: clear the fade before pausing so
+          // the player cannot be stranded behind an opaque frozen camera.
+          this.cameras.main.resetFX();
+          this.releaseFinalOutcome();
+          this.endEpisode(this.playerHp<=0?'defeat':'victory');
+        }
+      }else if(!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
+        this.endEpisode(this.playerHp<=0?'defeat':'victory');
+      }
+      return;
     }
     if (this.episode.ended || this.dialogueLoading || this.dialogueState?.id || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);

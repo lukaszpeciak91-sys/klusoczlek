@@ -54,7 +54,7 @@ test('camera and near-player threat exclude distant living entities without lift
 });
 test('boss finite fourteen additions and true terminal state remain separate',()=>{
  const e=createEpisode();advanceTimedWaves(e,260000);assert.equal(claimBossIntroduction(e),true);
- assert.equal(REINFORCEMENTS.length,12);assert.equal(BOSS_NON_MARCIN_CAP,7);
+ assert.equal(REINFORCEMENTS.length,12);assert.equal(BOSS_NON_MARCIN_CAP,16);
  assert.equal(recordSpecialSpawn(e,'marcin'),true);assert.equal(beginBossResolution(e),true);
  assert.equal(finishBossResolution(e),true);assert.equal(e.state,'final-pending');
 });

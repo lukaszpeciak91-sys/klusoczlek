@@ -46,19 +46,14 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
   await sleep(80);assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"),false);
   await evaluate('window.__setActiveTime(260000);true');await wait("window.__game.scene.getScene('Arena').dialogueState.id==='before-marcin'",'time-only Marcin trigger');
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').kills"),jump.kills);assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialoguePanel.text.text"),'Taki jesteś?! Czekaj aż zawołam Marcina');await nextLine();assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialoguePanel.text.text"),'Marcin! Maaaarciiin!');await nextLine();
-  assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.bossEntrancePending&&!a.bossEntrance&&!a.boss&&a.livingNonBoss()===9&&!a.physics.world.isPaused&&a.joystick.enabled})()"),true,'Crowded landing must retain survivors and allow combat');
-  // PR43 first-hit portrait is verified independently; isolate the boss-capacity case.
-  await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.firstBocianolakHit=true;for(const e of a.enemies.filter(e=>!e.dead&&e.type!=='marcin').slice(0,2)){a.damageEnemy(e,100,a.player,a.time.now);a.finalizeEnemyDeath(e);}})()");
-  // PR43's independent first-hit portrait can legitimately interrupt the boss
-  // capacity-release combat. Complete it through real DALEJ; never bypass it.
-  const interruption=await evaluate("window.__game.scene.getScene('Arena').dialogueState.id");
-  if(interruption==='after-first-bocianolak-hit'){
-    assert.equal(await evaluate("window.__game.scene.getScene('Arena').physics.world.isPaused"),true);
-    await nextLine();
-    assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),null);
-  }else assert.equal(interruption,null,'Unexpected introduction interrupted boss handoff');
-  await wait("!!window.__game.scene.getScene('Arena').boss&&!window.__game.scene.getScene('Arena').bossEntrance",'landing after capacity released');
-  const landed=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.boss.attack.elapsed=-100000;return {live:a.livingNonBoss(),total:a.enemies.filter(e=>!e.dead).length,kills:a.kills}})()");assert.deepEqual(landed,{live:7,total:8,kills:jump.kills+2});
+  const handoff=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {entrance:!!a.bossEntrance,pending:a.bossEntrancePending,live:a.livingNonBoss()}})()");
+  assert.equal(handoff.live,9,'PR54 must retain nine ordinary survivors on boss handoff');
+  assert.ok(handoff.entrance||handoff.pending,'PR54 must admit boss before unnecessary thinning');
+  await wait("!!window.__game.scene.getScene('Arena').boss&&!window.__game.scene.getScene('Arena').bossEntrance",'PR54 landing with nine survivors');
+  const landed=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.boss.attack.elapsed=-100000;return {live:a.livingNonBoss(),total:a.enemies.filter(e=>!e.dead).length,kills:a.kills}})()");
+  assert.ok(landed.live>=9&&landed.live<=16,'PR54 roster has bounded staggered initial allies');
+  assert.equal(landed.total,landed.live+1);
+  assert.equal(landed.kills,jump.kills,'Boss entry must not fabricate kills');
   const pools=await evaluate(`(()=>{const a=window.__game.scene.getScene('Arena');a.firstBocianolakHit=true;let max=0;
    for(let i=0;i<160;i++){
     if(a.episode.reinforcementSpawned.size===12&&a.escortDue.length===0&&a.episode.bossIntroduced)break;
@@ -66,15 +61,25 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
     a.enemies=a.enemies.filter(e=>!e.dead);a.spawnBossSlot(a.time.now+100000+i*380);max=Math.max(max,a.livingNonBoss());
    }
    return {max,escorts:a.episode.specialSpawned.size,reinf:a.episode.reinforcementSpawned.size,ordinary:a.episode.spawnedByWave[5],state:a.episode.state,kills:a.kills};})()`);
-  assert.ok(pools.max<=7);assert.equal(pools.escorts,3);assert.equal(pools.reinf,12);assert.ok(pools.ordinary>=jump.spawns[5]);assert.equal(pools.state,'active');
+  assert.ok(pools.max<=16);assert.equal(pools.escorts,3);assert.equal(pools.reinf,12);assert.ok(pools.ordinary>=jump.spawns[5]);assert.equal(pools.state,'active');
   const fatal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),boss=a.boss,before=a.kills,live=a.livingNonBoss();boss.hp=0;a.finalizeEnemyDeath(boss);return {before,kills:a.kills,live,state:a.episode.state,remaining:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length,shots:a.bossProjectiles.length,bursts:a.deathBursts.length,hud:a.killsText.text}})()");
-  assert.equal(fatal.kills,fatal.before+1);assert.equal(fatal.state,'boss-resolving');assert.equal(fatal.remaining,0);assert.equal(fatal.queued,0);assert.equal(fatal.shots,0);assert.ok(fatal.bursts>=fatal.live+1);assert.equal(fatal.hud,String(fatal.kills));
+  assert.equal(fatal.kills,fatal.before+1);assert.equal(fatal.state,'boss-resolving');assert.equal(fatal.remaining,1);assert.equal(fatal.queued,0);assert.equal(fatal.shots,0);assert.ok(fatal.bursts>=fatal.live);assert.equal(fatal.hud,String(fatal.kills));
   await shot('pr49-victory-resolution-'+seed+'-'+width+'x'+height+'.png',width,height);
-  await wait("window.__game.scene.getScene('Arena').dialogueState.id==='after-final-enemy'",'PR48 cinematic finale');assert.equal(await evaluate("window.__game.scene.getScene('Arena').deathBursts.length"),0);
-  await shot('pr49-epilogue-'+seed+'-'+width+'x'+height+'.png',width,height);
-  for(let i=0;i<3;i++){assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.ended"),false);await nextLine();}
-  await waitFor(v=>v.menu&&v.arenaPaused,'PR49 victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').kills"),fatal.kills);
-  console.log('PASS PR49 seed '+seed+' '+width+'x'+height+': natural active clock/paused blur and dialogues,35/75s intros and overlap,120/170/225 jump/rewards,9 survivors preserved at260s,7-cap handoff,14 specials, truthful PR48 victory '+fatal.hud);
+  await wait("window.__game.scene.getScene('Arena').dialogueState.id==='act1-marcin-last'",'PR54 Marcin final words');
+   assert.equal(await evaluate("window.__game.scene.getScene('Arena').deathBursts.length"),0);
+   await shot('pr49-epilogue-'+seed+'-'+width+'x'+height+'.png',width,height);
+   for(const id of ['act1-marcin-last','act1-witness-last','act1-aloes-last']){
+     await wait("window.__game.scene.getScene('Arena').dialogueState.id==='"+id+"'",'PR54 beat '+id);
+     assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.ended"),false);
+     if(id==='act1-witness-last')assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.act1Witness&&!a.act1Witness.dead})()"),true);
+     await nextLine();
+     if(id==='act1-witness-last'){
+       const fx=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,aloes:a.dialogueState.id==='act1-aloes-last'}})()");
+       assert.ok(fx.bursts>0&&!fx.aloes,'Witness must explode before Aloes speaks');
+     }
+   }
+   await waitFor(v=>v.menu&&v.arenaPaused,'PR49 victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').kills"),fatal.kills);
+  console.log('PASS PR49 seed '+seed+' '+width+'x'+height+': natural active clock/paused blur and dialogues,35/75s intros and overlap,120/170/225 jump/rewards,9 survivors preserved at260s,16-cap handoff,14 specials, truthful PR48 victory '+fatal.hud);
  }
  await fresh(1,568,320);
  const reset=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,boss:a.episode.bossIntroduced,kills:a.kills,pickups:a.pickups.map(p=>p.id)}})()");assert.deepEqual(reset,{wave:0,boss:false,kills:0,pickups:['blunderbuss']});
