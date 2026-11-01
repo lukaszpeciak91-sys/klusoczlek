@@ -63,12 +63,22 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
    return {max,escorts:a.episode.specialSpawned.size,reinf:a.episode.reinforcementSpawned.size,ordinary:a.episode.spawnedByWave[5],state:a.episode.state,kills:a.kills};})()`);
   assert.ok(pools.max<=16);assert.equal(pools.escorts,3);assert.equal(pools.reinf,12);assert.ok(pools.ordinary>=jump.spawns[5]);assert.equal(pools.state,'active');
   const fatal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),boss=a.boss,before=a.kills,live=a.livingNonBoss();boss.hp=0;a.finalizeEnemyDeath(boss);return {before,kills:a.kills,live,state:a.episode.state,remaining:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length,shots:a.bossProjectiles.length,bursts:a.deathBursts.length,hud:a.killsText.text}})()");
-  assert.equal(fatal.kills,fatal.before+1);assert.equal(fatal.state,'boss-resolving');assert.equal(fatal.remaining,0);assert.equal(fatal.queued,0);assert.equal(fatal.shots,0);assert.ok(fatal.bursts>=fatal.live+1);assert.equal(fatal.hud,String(fatal.kills));
+  assert.equal(fatal.kills,fatal.before+1);assert.equal(fatal.state,'boss-resolving');assert.equal(fatal.remaining,1);assert.equal(fatal.queued,0);assert.equal(fatal.shots,0);assert.ok(fatal.bursts>=fatal.live);assert.equal(fatal.hud,String(fatal.kills));
   await shot('pr49-victory-resolution-'+seed+'-'+width+'x'+height+'.png',width,height);
-  await wait("window.__game.scene.getScene('Arena').dialogueState.id==='after-final-enemy'",'PR48 cinematic finale');assert.equal(await evaluate("window.__game.scene.getScene('Arena').deathBursts.length"),0);
-  await shot('pr49-epilogue-'+seed+'-'+width+'x'+height+'.png',width,height);
-  for(let i=0;i<3;i++){assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.ended"),false);await nextLine();}
-  await waitFor(v=>v.menu&&v.arenaPaused,'PR49 victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').kills"),fatal.kills);
+  await wait("window.__game.scene.getScene('Arena').dialogueState.id==='act1-marcin-last'",'PR54 Marcin final words');
+   assert.equal(await evaluate("window.__game.scene.getScene('Arena').deathBursts.length"),0);
+   await shot('pr49-epilogue-'+seed+'-'+width+'x'+height+'.png',width,height);
+   for(const id of ['act1-marcin-last','act1-witness-last','act1-aloes-last']){
+     await wait("window.__game.scene.getScene('Arena').dialogueState.id==='"+id+"'",'PR54 beat '+id);
+     assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.ended"),false);
+     if(id==='act1-witness-last')assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.act1Witness&&!a.act1Witness.dead})()"),true);
+     await nextLine();
+     if(id==='act1-witness-last'){
+       const fx=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,aloes:a.dialogueState.id==='act1-aloes-last'}})()");
+       assert.ok(fx.bursts>0&&!fx.aloes,'Witness must explode before Aloes speaks');
+     }
+   }
+   await waitFor(v=>v.menu&&v.arenaPaused,'PR49 victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').kills"),fatal.kills);
   console.log('PASS PR49 seed '+seed+' '+width+'x'+height+': natural active clock/paused blur and dialogues,35/75s intros and overlap,120/170/225 jump/rewards,9 survivors preserved at260s,16-cap handoff,14 specials, truthful PR48 victory '+fatal.hud);
  }
  await fresh(1,568,320);
