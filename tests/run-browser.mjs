@@ -721,7 +721,11 @@ try {
     assert.equal(results.mode,'results');assert.equal(results.kills,reward.kills);assert.equal(results.clock,reward.clock);
     assert.ok(results.details.includes('POKONANI WROGOWIE — '+reward.kills));
     assert.ok(results.details.includes('ARTEFAKT 1/3 — IROKEZ MARCINA'));
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');window.__pr57ResultDown=0;a.act1Panels.button.on('pointerdown',()=>window.__pr57ResultDown++);return true})() ");
     await clickPanel();
+    const tap=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {touches:window.__pr57ResultDown,phase:a.act1Epilogue,mode:a.act1Panels.mode,state:a.episode.state,ended:a.episode.ended,paused:a.scene.isPaused('Arena')}})()");
+    assert.ok(tap.touches>0,'PR57 results touch absent '+JSON.stringify(tap));
+    assert.equal(tap.phase,'complete','PR57 completion not reached '+JSON.stringify(tap));
     await waitFor(v=>v.menu&&v.arenaPaused,'PR57 terminal victory menu');
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   }
