@@ -1759,7 +1759,7 @@ try {
       assert.ok(phase.bursts>0&&phase.waiting&&!phase.aloes,'Witness must explode before Aloes speaks');
     }
   }
-  await waitFor(v=>v.menu&&v.arenaPaused,'victory after PR43 and Marcin finale');
+  await finishAct1Epilogue();
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   console.log('PASS PR43 first-hit portrait remains pausing; Marcin death then final dialogue and victory');
 
@@ -2110,7 +2110,7 @@ try {
       assert.ok(visual.burst>0&&!visual.aloes,'Missing-portrait fallback skipped witness pixel burst');
     }
   }
-  await waitFor(v=>v.menu&&v.arenaPaused,'PR54 missing-portrait victory');
+  await finishAct1Epilogue();
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   await cdp('Fetch.disable');socket.removeEventListener('message',missingPortrait);
   console.log('PASS PR48 missing Marcin portrait: fallback letter, speaker, three lines/DALEJ and victory');
