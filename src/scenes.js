@@ -11,6 +11,7 @@ import {recordAttack,recordHit} from './combat-feedback.js';
 import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
 import {createDialogueState,beginDialogue,queueBocianolakHitDialogue,BOCIANOLAK_HIT_DIALOGUE} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
+import {createAct1Panels} from './act1-epilogue-ui.js';
 import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
@@ -181,7 +182,7 @@ export class ArenaScene extends Phaser.Scene {
     this.episode=createEpisode(seed);
     this.boss=null;this.bossEntrance=null;this.bossEntrancePending=false;this.bossLandingRetryAt=0;
     this.bossProjectiles=[];this.escortDue=[];this.reinforcementDue=[];this.bossSchedulerTurn=0;this.finalResolution=false;
-    this.act1Herald=null;this.act1Witness=null;this.events.once('shutdown',()=>{this.act1Witness?.sprite?.destroy();this.act1Witness=null;});this.act1AllyDue=0;this.act1AllyAdded=0;this.act1FadePending=false;this.act1FadeElapsed=0;this.act1AwaitWitnessBurst=false;this.act1FinalLineDone=false;
+    this.act1Herald=null;this.act1Witness=null;this.events.once('shutdown',()=>{this.act1Witness?.sprite?.destroy();this.act1Witness=null;});this.act1AllyDue=0;this.act1AllyAdded=0;this.act1FadePending=false;this.act1FadeElapsed=0;this.act1AwaitWitnessBurst=false;this.act1FinalLineDone=false;this.act1Epilogue='combat';this.marcinArtifactAwarded=false;
     this.defeated=false;
     this.completed=false;
     this.weapon=null;
@@ -380,11 +381,16 @@ export class ArenaScene extends Phaser.Scene {
       if(id==='after-final-enemy')this.releaseFinalOutcome();
       if(id==='act1-marcin-last')this.markNarrativeBoundary('act1-witness-last');
       if(id==='act1-witness-last'){this.finishAct1Witness();this.act1AwaitWitnessBurst=true;}
-      if(id==='act1-aloes-last'){this.act1FinalLineDone=true;this.beginAct1Fade();}
+      if(id==='act1-aloes-last'){this.act1FinalLineDone=true;this.showAct1Reward();}
+       if(id==='act1-captain')this.beginAct1ResultsFade();
       if(id==='before-wave-1')this.encounterDirector.nextMs=this.elapsedGameplayMs+450;
       if(id==='before-marcin'){this.bossEntrancePending=true;this.tryBeginBossEntrance();}
       this.resetMovement();
       this.syncJoysticks();
+    });
+    this.act1Panels=createAct1Panels(this,Phaser,()=>this.beginAct1Fade(),()=>{
+      if(this.act1Epilogue!=='results')return;
+      this.act1Epilogue='complete';this.cameras.main.resetFX();this.releaseFinalOutcome();this.endEpisode('victory');
     });
     // Opening boundary was already queued in create, before UI existed.
     // No combat update runs while assets load or an opening line is visible.
@@ -475,7 +481,7 @@ export class ArenaScene extends Phaser.Scene {
 
   tryStartDialogue(){
     if(this.dialogueLoading||this.dialogueState.id||this.episode.ended)return false;
-    for(const id of ['before-wave-1',BOCIANOLAK_HIT_DIALOGUE,'before-marcin','before-first-bocianolak','before-first-zubrokryptyda','act1-marcin-last','act1-witness-last','act1-aloes-last','after-final-enemy']){
+    for(const id of ['before-wave-1',BOCIANOLAK_HIT_DIALOGUE,'before-marcin','before-first-bocianolak','before-first-zubrokryptyda','act1-marcin-last','act1-witness-last','act1-aloes-last','act1-captain','after-final-enemy']){
       if((id==='before-first-bocianolak'||id==='before-first-zubrokryptyda')&&!this.introductionReady(id))continue;
       if(id==='before-marcin'&&!this.ensureAct1Herald())continue;
       if(id==='act1-witness-last'&&!this.ensureAct1Witness())continue;
@@ -589,9 +595,41 @@ export class ArenaScene extends Phaser.Scene {
     witness.sprite?.destroy();
     this.deathBursts.push(createPixelBurst(this,'zubrokryptyda',witness.x,witness.y,0));
   }
+  showAct1Reward(){
+    if(this.act1Epilogue!=='combat')return;
+    this.act1Epilogue='reward';this.marcinArtifactAwarded=true;
+    this.resetMovement();this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
+    this.physics.world.pause();this.time.paused=true;
+    this.act1Panels.showReward();
+  }
   beginAct1Fade(){
-    if(this.act1FadePending)return;
-    this.act1FadePending=true;this.act1FadeElapsed=0;this.cameras.main.fadeOut(450,0,0,0);
+    if(this.act1Epilogue!=='reward'||this.act1FadePending)return;
+    this.act1Epilogue='clearing-fade';this.act1FadePending=true;
+    this.act1FadeElapsed=0;this.cameras.main.fadeOut(450,0,0,0);
+  }
+  clearAct1Combat(){
+    this.spawnDueAt=null;this.bossSpawnDueAt=null;this.escortDue=[];this.reinforcementDue=[];
+    this.act1AllyDue=0;this.bossEntrancePending=false;
+    this.bossEntrance?.marker?.destroy();this.bossEntrance=null;
+    this.ambientBarks?.suspend();this.clearBossProjectiles();this.boss=null;
+    for(const enemy of this.enemies){enemy.burningFx?.destroy();clearIgnition(enemy.ignition);enemy.sprite?.destroy();}
+    this.enemies=[];this.act1Witness?.sprite?.destroy();this.act1Witness=null;
+    for(const p of this.projectiles)p.object?.destroy();
+    this.projectiles=[];
+    for(const p of this.flameParticles)p.object?.destroy();
+    this.flameParticles=[];this.flameStream.clear();this.flameCooldowns.clear();
+    for(const p of this.explosionEffects)p.sprite?.destroy();
+    this.explosionEffects=[];
+    destroyBursts(this.deathBursts);this.deathBursts.length=0;
+    for(const p of this.pickups)p.object?.destroy();
+    this.pickups=[];this.pendingRewards.clear();
+    this.resetMovement();this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
+    this.physics.world.pause();this.time.paused=true;
+  }
+  beginAct1ResultsFade(){
+    if(this.act1Epilogue!=='captain')return;
+    this.act1Epilogue='results-fade';this.act1FadeElapsed=0;
+    this.cameras.main.fadeOut(450,0,0,0);
   }
 
   tryBeginBossEntrance(){
@@ -1039,15 +1077,17 @@ export class ArenaScene extends Phaser.Scene {
         this.act1AwaitWitnessBurst=false;
         this.markNarrativeBoundary('act1-aloes-last');
       }
-      if(this.act1FadePending){
+      if(this.act1Epilogue==='clearing-fade'||this.act1Epilogue==='results-fade'){
         this.act1FadeElapsed+=Math.min(this.game.loop.delta,50);
         if(this.act1FadeElapsed>=600){
-          this.act1FadePending=false;
-          // The terminal MENU pauses Arena: clear the fade before pausing so
-          // the player cannot be stranded behind an opaque frozen camera.
-          this.cameras.main.resetFX();
-          this.releaseFinalOutcome();
-          this.endEpisode(this.playerHp<=0?'defeat':'victory');
+          if(this.act1Epilogue==='clearing-fade'){
+            this.act1FadePending=false;this.clearAct1Combat();
+            this.act1Epilogue='captain';this.cameras.main.fadeIn(450,0,0,0);
+            this.markNarrativeBoundary('act1-captain');
+          }else{
+            this.act1Epilogue='results';
+            this.act1Panels.showResults(this.kills,formatGameplayClock(this.elapsedGameplayMs));
+          }
         }
       }else if(!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
         this.endEpisode(this.playerHp<=0?'defeat':'victory');
