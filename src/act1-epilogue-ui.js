@@ -47,7 +47,7 @@ export function createAct1Panels(scene, Phaser, onReward, onResults) {
     subtitle.setText('Gratulacje! Las może wreszcie odetchnąć. Chyba.');
     details.setText('POKONANI WROGOWIE — '+kills+'\nCZAS WALKI — '+time+'\nARTEFAKT 1/3 — IROKEZ MARCINA');
     fallback.setVisible(false);if(image)image.setVisible(false);
-    armedAt=scene.game.loop.time+200;layout();root.setVisible(true);
+    armedAt=scene.game.loop.time+200;layout();root.setVisible(true);button.setVisible(true);buttonText.setVisible(true);
   }
   // Missing/invalid PNG never blocks the scripted transition.
   void (async()=>{
