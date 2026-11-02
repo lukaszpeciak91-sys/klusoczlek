@@ -690,6 +690,42 @@ try {
   assert.deepEqual(progression.markers,[2,4]);
   console.log('PASS Phaser timed rewards and72 continuous mixed ordinary kills; ignored flamethrower, timed Marcin and two escorts; boss remains decisive');
 
+  // PR57: focused real Chromium epilogue path, reused by existing finale fixtures.
+  async function finishAct1Epilogue(){
+    async function waitStage(stage){
+      for(let n=0;n<130;n++){
+        if(await evaluate("window.__game.scene.getScene('Arena').act1Epilogue")==stage)return;
+        await sleep(40);
+      }
+      throw Error('PR57 epilogue stage timeout: '+stage);
+    }
+    async function clickPanel(){
+      await sleep(215);
+      const point=await evaluate("(()=>{const b=window.__game.scene.getScene('Arena').act1Panels.button;return {x:b.x,y:b.y}})()");
+      const rect=(await snapshot()).rect;await click(rect.x+point.x,rect.y+point.y);
+    }
+    await waitStage('reward');
+    const reward=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {award:a.marcinArtifactAwarded,mode:a.act1Panels.mode,disabled:!a.joystick.enabled&&!a.aimJoystick.enabled,kills:a.kills,clock:a.elapsedGameplayMs}})()");
+    assert.equal(reward.award,true);assert.equal(reward.mode,'reward');assert.equal(reward.disabled,true);
+    await clickPanel();
+    await waitStage('captain');
+    const clearing=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,enemies:a.enemies.length,shots:a.projectiles.length,boss:a.bossProjectiles.length,disabled:!a.joystick.enabled&&!a.aimJoystick.enabled}})()");
+    assert.deepEqual(clearing,{id:'act1-captain',enemies:0,shots:0,boss:0,disabled:true},'PR57 empty clearing');
+    for(let index=0;index<6;index++){
+      const current=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,index:a.dialogueState.index,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
+      assert.equal(current.id,'act1-captain');assert.equal(current.index,index,'Marian requires six DALEJ');
+      await sleep(215);const rect=(await snapshot()).rect;await click(rect.x+current.x,rect.y+current.y);
+    }
+    await waitStage('results');
+    const results=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {mode:a.act1Panels.mode,details:a.act1Panels.details.text,kills:a.kills,clock:a.elapsedGameplayMs,award:a.marcinArtifactAwarded}})()");
+    assert.equal(results.mode,'results');assert.equal(results.kills,reward.kills);assert.equal(results.clock,reward.clock);
+    assert.ok(results.details.includes('POKONANI WROGOWIE — '+reward.kills));
+    assert.ok(results.details.includes('ARTEFAKT 1/3 — IROKEZ MARCINA'));
+    await clickPanel();
+    await waitFor(v=>v.menu&&v.arenaPaused,'PR57 terminal victory menu');
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+  }
+
   const finaleAtHit=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const live=a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;const spawned=a.totalSpawned;const boss=a.boss;if(!boss)throw Error('Marcin missing');boss.hp=0;if(!a.finalizeEnemyDeath(boss)||a.finalizeEnemyDeath(boss))throw Error('Marcin fatal hit was not unique');return {live,spawned,afterSpawns:a.totalSpawned,kills:a.kills,hud:a.killsText.text,final:a.finalResolution,state:a.episode.state,others:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,queued:a.reinforcementDue.length+a.escortDue.length,projectiles:a.bossProjectiles.length,bursts:a.deathBursts.length,dialogue:a.dialogueState.id}})()");
   assert.ok(finaleAtHit.live>=1,'Scripted resolution must have living minions to neutralize');
   assert.equal(finaleAtHit.kills,progression.kills+1,'Only the player-earned Marcin kill may increment the numerator');
@@ -739,7 +775,7 @@ try {
       assert.equal(aftermath.witness,false);assert.ok(aftermath.burst>0);assert.notEqual(aftermath.next,'act1-aloes-last');
     }
    }
-   await waitFor(v=>v.menu&&v.arenaPaused,'victory terminal menu');
+   await finishAct1Epilogue();
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   const terminalClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
   await sleep(160);
