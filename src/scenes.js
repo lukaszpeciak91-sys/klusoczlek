@@ -12,6 +12,7 @@ import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js'
 import {createDialogueState,beginDialogue,queueBocianolakHitDialogue,BOCIANOLAK_HIT_DIALOGUE} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {createAct1Panels} from './act1-epilogue-ui.js';
+import {createCaptainArrival} from './captain-arrival.js';
 import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
@@ -388,6 +389,7 @@ export class ArenaScene extends Phaser.Scene {
       this.resetMovement();
       this.syncJoysticks();
     });
+    this.captainArrival=createCaptainArrival(this);
     this.act1Panels=createAct1Panels(this,Phaser,()=>this.beginAct1Fade(),()=>{
       if(this.act1Epilogue!=='results')return;
       this.act1Epilogue='complete';this.cameras.main.resetFX();this.releaseFinalOutcome();this.endEpisode('victory');
@@ -1082,13 +1084,16 @@ export class ArenaScene extends Phaser.Scene {
         if(this.act1FadeElapsed>=600){
           if(this.act1Epilogue==='clearing-fade'){
             this.act1FadePending=false;this.clearAct1Combat();
-            this.act1Epilogue='captain';this.cameras.main.fadeIn(450,0,0,0);
-            this.markNarrativeBoundary('act1-captain');
+            this.act1Epilogue='captain-arrival';this.captainArrival.start();this.cameras.main.fadeIn(450,0,0,0);
           }else{
             this.act1Epilogue='results';
             this.cameras.main.resetFX();
             this.act1Panels.showResults(this.kills,formatGameplayClock(this.elapsedGameplayMs));
           }
+        }
+      }else if(this.act1Epilogue==='captain-arrival'){
+        if(this.captainArrival.update(this.game.loop.delta)){
+          this.act1Epilogue='captain';this.markNarrativeBoundary('act1-captain');
         }
       }else if(!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
         this.endEpisode(this.playerHp<=0?'defeat':'victory');
