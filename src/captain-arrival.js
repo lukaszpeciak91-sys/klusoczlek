@@ -1,3 +1,4 @@
+import Phaser from 'phaser';
 import {assetUrl} from './character-visual.js';
 import {playerFrame} from './combat-contract.js';
 import {resolveObstaclePosition} from './obstacles.js';
