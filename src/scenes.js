@@ -181,7 +181,7 @@ export class ArenaScene extends Phaser.Scene {
     this.episode=createEpisode(seed);
     this.boss=null;this.bossEntrance=null;this.bossEntrancePending=false;this.bossLandingRetryAt=0;
     this.bossProjectiles=[];this.escortDue=[];this.reinforcementDue=[];this.bossSchedulerTurn=0;this.finalResolution=false;
-    this.act1Herald=null;this.act1Witness=null;this.act1AllyDue=0;this.act1AllyAdded=0;this.act1FadePending=false;this.act1FadeElapsed=0;this.act1AwaitWitnessBurst=false;this.act1FinalLineDone=false;
+    this.act1Herald=null;this.act1Witness=null;this.events.once('shutdown',()=>{this.act1Witness?.sprite?.destroy();this.act1Witness=null;});this.act1AllyDue=0;this.act1AllyAdded=0;this.act1FadePending=false;this.act1FadeElapsed=0;this.act1AwaitWitnessBurst=false;this.act1FinalLineDone=false;
     this.defeated=false;
     this.completed=false;
     this.weapon=null;
@@ -521,25 +521,20 @@ export class ArenaScene extends Phaser.Scene {
     enemy.narrativeRole='herald';this.act1Herald=enemy;this.enemies.push(enemy);return true;
   }
   ensureAct1Witness(){
-    if(this.act1Witness&&!this.act1Witness.dead&&this.act1Witness.hp>0&&this.enemies.includes(this.act1Witness)&&this.act1Witness.sprite?.active!==false)return this.act1Witness;
-    // A test fixture, scene reset or external cleanup may remove an actor
-    // without invalidating its role pointer. Never accept such a ghost witness.
-    this.act1Witness=null;
-    const view=this.cameras.main.worldView;
-    const candidate=this.enemies.find(e=>!e.dead&&e.hp>0&&e.type==='zubrokryptyda'&&e.x>=view.x&&e.x<=view.right&&e.y>=view.y&&e.y<=view.bottom);
-    if(candidate){candidate.narrativeRole='witness';this.act1Witness=candidate;return candidate;}
+    if(this.act1Witness?.sprite?.active)return this.act1Witness;
+    if(!this.finalResolution)return null;
     const point=this.act1NarrativeStagePoint('zubrokryptyda');
     if(!point)return null;
-    const enemy=this.createEnemy('zubrokryptyda',point,this.totalSpawned++);
-    enemy.narrativeRole='witness';this.act1Witness=enemy;this.enemies.push(enemy);return enemy;
+    const sprite=this.enemyRenderers.zubrokryptyda.create(point.x,point.y);
+    this.act1Witness={x:point.x,y:point.y,sprite};
+    return this.act1Witness;
   }
   finishAct1Witness(){
-    const e=this.act1Witness;
-    if(e&&!e.dead){
-      e.dead=true;e.hp=0;this.deathBursts.push(createPixelBurst(this,e.type,e.x,e.y,e.seed));
-      e.burningFx?.destroy();e.burningFx=null;clearIgnition(e.ignition);e.sprite.destroy();
-    }
+    const witness=this.act1Witness;
+    if(!witness)return;
     this.act1Witness=null;
+    witness.sprite?.destroy();
+    this.deathBursts.push(createPixelBurst(this,'zubrokryptyda',witness.x,witness.y,0));
   }
   beginAct1Fade(){
     if(this.act1FadePending)return;
@@ -881,19 +876,14 @@ export class ArenaScene extends Phaser.Scene {
     for(const bullet of this.projectiles)bullet.object.destroy();
     this.projectiles=[];this.resetMovement();this.flameStream.clear();
     this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);this.physics.world.pause();
-    this.ensureAct1Witness();
     for(const enemy of this.enemies){
-      if(enemy.dead||enemy.type==='marcin'||enemy===this.act1Witness)continue;
+      if(enemy.dead||enemy.type==='marcin')continue;
       enemy.dead=true;enemy.hp=0;
       this.deathBursts.push(createPixelBurst(this,enemy.type,enemy.x,enemy.y,enemy.seed));
       enemy.burningFx?.destroy();enemy.burningFx=null;clearIgnition(enemy.ignition);
       this.flameCooldowns.delete(enemy);enemy.sprite.destroy();
     }
     this.enemies=this.enemies.filter(e=>!e.dead);
-    // A full sixteen-actor combat scene can have no spare validated slot.
-    // After neutralizing other enemies, the freed arena allows a single
-    // visible witness to be safely staged before any final portrait begins.
-    if(!this.act1Witness||this.act1Witness.dead||!this.enemies.includes(this.act1Witness))this.ensureAct1Witness();
     return true;
   }
   finalizeEnemyDeath(enemy){
