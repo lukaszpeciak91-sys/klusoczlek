@@ -67,5 +67,5 @@ export function createAct1Panels(scene, Phaser, onReward, onResults) {
   })();
   scene.scale.on(Phaser.Scale.Events.RESIZE,layout);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{disposed=true;scene.scale.off(Phaser.Scale.Events.RESIZE,layout);root.destroy();});
-  return {showReward,showResults,hide,get mode(){return mode;}};
+  return {showReward,showResults,hide,get mode(){return mode;},get button(){return button;},get details(){return details;}};
 }
