@@ -492,7 +492,11 @@ export class ArenaScene extends Phaser.Scene {
   act1NarrativeStagePoint(type){
     // Dialogue pauses before another camera render; stage against the viewport
     // that is actually being rendered, not a predicted follow-scroll position.
-    const view=this.cameras.main.worldView,r=ENEMY_TYPES[type].radius;
+    const camera=this.cameras.main,follow=camera.getScroll(this.player.x,this.player.y);
+    const view=type==='bobrozombi'
+      ?{x:follow.x,y:follow.y,right:follow.x+camera.width,bottom:follow.y+camera.height,width:camera.width,height:camera.height}
+      :camera.worldView;
+    const r=ENEMY_TYPES[type].radius;
     // Deterministic camera-visible safe candidates. Collision and navigation
     // remain authoritative for both the herald and the cinematic witness.
     const candidates=[];
@@ -510,10 +514,16 @@ export class ArenaScene extends Phaser.Scene {
       .sort((a,b)=>Number(introductionVisible(type,b.x,b.y,view))-Number(introductionVisible(type,a.x,a.y,view)))[0]??null;
   }
   ensureAct1Herald(){
-    if(this.act1Herald&&!this.act1Herald.dead&&this.act1Herald.hp>0)return true;
-    const view=this.cameras.main.worldView;
-    const existing=this.enemies.find(e=>!e.dead&&e.hp>0&&e.type==='bobrozombi'&&
-      e.x>=view.x+24&&e.x<=view.right-24&&e.y>=view.y+30&&e.y<=view.bottom-24);
+    // Follow lerp can finish after dialogue pauses. Validate against the
+    // settled camera position rather than an intermediate resize frame.
+    const camera=this.cameras.main,scroll=camera.getScroll(this.player.x,this.player.y);
+    const view={x:scroll.x,y:scroll.y,right:scroll.x+camera.width,bottom:scroll.y+camera.height};
+    const visible=e=>e&&!e.dead&&e.hp>0&&e.type==='bobrozombi'&&
+      e.x>=view.x+24&&e.x<=view.right-24&&e.y>=view.y+30&&e.y<=view.bottom-24;
+    if(visible(this.act1Herald))return true;
+    if(this.act1Herald?.narrativeRole==='herald')delete this.act1Herald.narrativeRole;
+    this.act1Herald=null;
+    const existing=this.enemies.find(visible);
     if(existing){this.act1Herald=existing;existing.narrativeRole='herald';return true;}
     const point=this.act1NarrativeStagePoint('bobrozombi');
     if(!point)return false;
