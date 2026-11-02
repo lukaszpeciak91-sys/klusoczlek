@@ -709,6 +709,8 @@ try {
     assert.equal(reward.award,true);assert.equal(reward.mode,'reward');assert.equal(reward.disabled,true);
     await clickPanel();
     await waitStage('captain');
+    const arrival=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {actor:!!a.captainArrival.actor?.active,arrived:a.captainArrival.arrived,visible:!!a.captainArrival.actor?.visible}})()");
+    assert.deepEqual(arrival,{actor:true,arrived:true,visible:true},'PR57 Captain world arrival must finish before dialogue');
     const clearing=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,enemies:a.enemies.length,shots:a.projectiles.length,boss:a.bossProjectiles.length,disabled:!a.joystick.enabled&&!a.aimJoystick.enabled}})()");
     assert.deepEqual(clearing,{id:'act1-captain',enemies:0,shots:0,boss:0,disabled:true},'PR57 empty clearing');
     for(let index=0;index<6;index++){
