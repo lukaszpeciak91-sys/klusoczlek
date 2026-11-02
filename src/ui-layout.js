@@ -27,8 +27,7 @@ export function arenaHudLayout(height,width=960){
  const gap=tiny?3:compact?6:10;
  const hudY=margin+Math.max(menuHeight,tokenSize,portraitSize)/2;
  const menuX=margin+menuWidth/2;
- const weaponX=menuX+menuWidth/2+gap+tokenSize/2;
- const skullX=weaponX+tokenSize/2+gap+skullSize/2;
+ const skullX=menuX+menuWidth/2+gap+skullSize/2;
  const killsX=skullX+skullSize/2+2;
  // Reserve sufficient width for the longest displayed killed/total string.
  // The count is dynamic; renderer should use the same max-width reservation.
@@ -43,21 +42,26 @@ export function arenaHudLayout(height,width=960){
  const timerRight=portraitX-portraitSize/2-gap;
  // Native 92px sticks on normal Android landscape. Smaller viewports shrink
  // the physical circles as needed, without extending outside the screen.
- const radius=Math.min(46,Math.max(28,Math.floor(Math.min(height*0.175,width*0.13))));
+ const radius=Math.min(52,Math.max(30,Math.floor(Math.min(height*0.196,width*0.145))));
  const sideInset=Math.max(radius+10,Math.min(94,Math.floor(width*0.15)));
- const bottomInset=Math.max(radius+8,Math.min(82,Math.floor(height*0.24)));
+ const bottomInset=Math.max(radius+8,Math.min(88,Math.floor(height*0.25)));
+ const aimX=width-sideInset,movementX=sideInset;
+ const available=Math.max(0,aimX-movementX-2*radius*1.45-16);
+ const switchSize=Math.min(58,Math.max(30,available*0.68));
+ const switchX=aimX-radius*1.45-8-switchSize/2;
  return {
   // Legacy measurements are retained for downstream tests; no panel is drawn.
   panelX:margin,panelY:margin,panelWidth:width-2*margin,panelHeight:portraitSize+12,
   menuX,menuY:hudY,menuWidth,menuHeight,menuFont:tiny?12:compact?16:19,
-  weaponX,weaponY:hudY,tokenSize,
+  weaponX:switchX,weaponY:height-bottomInset,tokenSize:switchSize,
+  switchX,switchY:height-bottomInset,switchSize,
   skullX,skullY:hudY,skullSize,
   killsX,killsY:hudY,countFont,countRight,
   waveX,waveY:hudY,waveFont,
   timerX,timerY:hudY,timerFont,timerRight,
   portraitX,portraitY,portraitSize,hpX:portraitX,hpY,hpFont,
-  joystickX:sideInset,joystickY:height-bottomInset,
-  joystickRadius:radius,aimX:width-sideInset,aimY:height-bottomInset,
+  joystickX:movementX,joystickY:height-bottomInset,
+  joystickRadius:radius,aimX,aimY:height-bottomInset,
   joystickActivationRadius:radius*1.45
  };
 }
