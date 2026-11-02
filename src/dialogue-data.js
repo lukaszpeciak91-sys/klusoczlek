@@ -27,6 +27,14 @@ export const DIALOGUES=Object.freeze({
  'act1-aloes-last':[
   ['aloes','ALOES','*chlip* Żegnajcie… przyjaciele…']
  ],
+ 'act1-captain':[
+  ['captain','CAPTAIN','Szybko Klusoczłeku zaraz zaroi się tu od tych abominacji!'],
+  ['aloes','ALOES','Znowu to samo… Kim pan właściwie jest?'],
+  ['captain','CAPTAIN','Kapitanem podniebnego parostatku. Dla przyjaciół Marian. Ale Ty możesz mówić mi Kapitanie!'],
+  ['captain','CAPTAIN','Wskakuj na pokład, nie mamy całego dnia!'],
+  ['aloes','ALOES','Parostatku? W powietrzu?!'],
+  ['captain','CAPTAIN','A gdzie miałby latać? Pod ziemią?']
+ ],
  'before-marcin':[
   ['bobrozombi','BOBROZOMBI','Taki jesteś?! Czekaj aż zawołam Marcina'],
   ['bobrozombi','BOBROZOMBI','Marcin! Maaaarciiin!']
