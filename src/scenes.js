@@ -1086,6 +1086,7 @@ export class ArenaScene extends Phaser.Scene {
             this.markNarrativeBoundary('act1-captain');
           }else{
             this.act1Epilogue='results';
+            this.cameras.main.resetFX();
             this.act1Panels.showResults(this.kills,formatGameplayClock(this.elapsedGameplayMs));
           }
         }
