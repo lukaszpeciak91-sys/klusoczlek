@@ -490,9 +490,9 @@ export class ArenaScene extends Phaser.Scene {
   releaseFinalOutcome(){this.finalOutcomeHeld=false;}
 
   act1NarrativeStagePoint(type){
-    // Use the camera's actual follow target, not worldView from a pre-render resize frame.
-    const camera=this.cameras.main,scroll=camera.getScroll(this.player.x,this.player.y);
-    const view={x:scroll.x,y:scroll.y,width:camera.width,height:camera.height},r=ENEMY_TYPES[type].radius;
+    // Dialogue pauses before another camera render; stage against the viewport
+    // that is actually being rendered, not a predicted follow-scroll position.
+    const view=this.cameras.main.worldView,r=ENEMY_TYPES[type].radius;
     // Deterministic camera-visible safe candidates. Collision and navigation
     // remain authoritative for both the herald and the cinematic witness.
     const candidates=[];
@@ -503,6 +503,7 @@ export class ArenaScene extends Phaser.Scene {
     const separation=Math.min(ENCOUNTER.minSpawnDistance,Math.max(110,maxDistance-12));
     return candidates
       .filter(p=>p.x>=r+5&&p.x<=ARENA.width-r-5&&p.y>=r+5&&p.y<=ARENA.height-r-5)
+      .filter(p=>p.x>=view.x&&p.x<=view.right&&p.y>=view.y&&p.y<=view.bottom)
       .filter(p=>Math.hypot(p.x-this.player.x,p.y-this.player.y)>=separation)
       .filter(p=>clearPoint(p,this.obstacles,r+6,this.navigation))
       .filter(p=>others.every(e=>Math.hypot(p.x-e.x,p.y-e.y)>=r+ENEMY_TYPES[e.type].radius+8))
