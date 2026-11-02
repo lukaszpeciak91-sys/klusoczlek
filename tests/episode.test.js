@@ -34,7 +34,9 @@ test('heavy weights unlock at wave 3',()=>{assert.deepEqual(WAVES.map(w=>w.weigh
 test('timer layout stays inside original ribbon at landscape widths',()=>{
  for(const [w,h] of [[320,240],[568,320],[800,360]]){
   const u=arenaHudLayout(h,w);
-  assert.ok(u.timerX>=u.weaponX+u.tokenSize/2-10);
+  assert.ok(u.timerX>u.waveX,`timer overlaps wave at ${w}`);
+  assert.ok(u.timerX>u.killsX,`timer overlaps kills at ${w}`);
+  assert.ok(u.switchX+u.switchSize/2<=u.aimX-u.joystickActivationRadius,`weapon switch overlaps attack joystick at ${w}`);
   assert.ok(u.timerX+70<u.portraitX-u.portraitSize/2);
   assert.ok(u.timerY>=u.panelY&&u.timerY+u.timerFont/2<u.panelY+u.panelHeight);
  }
