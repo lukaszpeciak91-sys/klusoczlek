@@ -18,6 +18,15 @@ export const DIALOGUES=Object.freeze({
   ['zubrokryptyda','ŻUBROKRYPTYDA','Nigdy nie zapomnę naszych wspólnych wakacji, Marcin…'],
   ['aloes','ALOES','*chlip* Żegnajcie… przyjaciele…']
  ],
+ 'act1-marcin-last':[
+  ['marcin','MARCIN','A więc dokonało się… Przepowiednia się spełniła… Wszystkich nas wykończy przeklęty Kłusoczłek!']
+ ],
+ 'act1-witness-last':[
+  ['zubrokryptyda','ŻUBROKRYPTYDA','Nigdy nie zapomnę naszych wspólnych wakacji, Marcin…']
+ ],
+ 'act1-aloes-last':[
+  ['aloes','ALOES','*chlip* Żegnajcie… przyjaciele…']
+ ],
  'before-marcin':[
   ['bobrozombi','BOBROZOMBI','Taki jesteś?! Czekaj aż zawołam Marcina'],
   ['bobrozombi','BOBROZOMBI','Marcin! Maaaarciiin!']
