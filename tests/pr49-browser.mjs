@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {WAVES} from '../src/episode.js';
 import {writeFile} from 'node:fs/promises';
 
-export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,setSeed}){
+export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,setSeed,finishAct1Epilogue}){
  const wait=async(expression,label)=>{for(let i=0;i<1600;i++){if(await evaluate(expression))return;await sleep(25);}throw Error('PR49 timeout '+label+' '+JSON.stringify(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {wave:a.episode.wave,ms:a.elapsedGameplayMs,due:a.spawnDueAt,now:a.time.now,director:{...a.encounterDirector,history:undefined},events:[...a.narrativeEvents],seen:[...a.introducedEnemyTypes],id:a.dialogueState.id,paused:a.physics.world.isPaused,enemies:a.enemies.map(e=>({type:e.type,x:e.x,y:e.y,hp:e.hp}))}})()")));};
  const shot=async(name,width,height)=>{const png=Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64');assert.deepEqual([png.readUInt32BE(16),png.readUInt32BE(20)],[width,height]);await writeFile('dist/'+name,png);};
  const fresh=async(seed,width,height)=>{
@@ -78,7 +78,7 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
        assert.ok(fx.bursts>0&&!fx.aloes,'Witness must explode before Aloes speaks');
      }
    }
-   await waitFor(v=>v.menu&&v.arenaPaused,'PR49 victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').kills"),fatal.kills);
+   await finishAct1Epilogue();assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').kills"),fatal.kills);
   console.log('PASS PR49 seed '+seed+' '+width+'x'+height+': natural active clock/paused blur and dialogues,35/75s intros and overlap,120/170/225 jump/rewards,9 survivors preserved at260s,16-cap handoff,14 specials, truthful PR48 victory '+fatal.hud);
  }
  await fresh(1,568,320);
