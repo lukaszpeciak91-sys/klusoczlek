@@ -153,5 +153,5 @@ function createEnemyRenderer(scene,Phaser,type){
       if(alive)console.info('['+type+'] procedural fallback:',error.message);
     }
   })();
-  return {create,update,feedbackOf,damagePoseOf,speechAnchorOf,destroyAll,shutdown,loading,get loaded(){return ready;},get fallback(){return failed;}};
+  return {create,update,feedbackOf,damagePoseOf,speechAnchorOf,destroyAll,shutdown,loading,get activeVisuals(){return [...containers].filter(c=>c.active).length;},get loaded(){return ready;},get fallback(){return failed;}};
 }
