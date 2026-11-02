@@ -9,7 +9,7 @@ for(const [w,h] of viewports){
  test('PR52 independent floating HUD and thumb controls '+w+'x'+h,()=>{
   const x=arenaHudLayout(h,w);
   const r=x.joystickRadius;
-  assert.ok(r>=28&&r<=46);
+  assert.ok(r>=30&&r<=52,`joystick radius outside PR56 bounds at ${w}x${h}`);
   assert.equal(x.aimX,w-x.joystickX);
   assert.equal(x.aimY,x.joystickY);
   assert.ok(x.joystickX-r>=8);

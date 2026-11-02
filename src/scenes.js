@@ -17,7 +17,7 @@ import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,clearIgnition,isBurning,fleeStep} from './enemy-panic.js';
 import {createBurningFx} from './enemy-fire-vfx.js';
 import {WAVES,TOTAL_WAVES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity,recordSpawn,recordDeath,advanceTimedWaves,terminateEpisode,healedHp,FINAL_ENCOUNTER,claimBossIntroduction,allyShortfall,BOSS_SCENE_HARD_CAP,recordSpecialSpawn,REINFORCEMENTS,BOSS_NON_MARCIN_CAP,recordReinforcementSpawn,beginBossResolution,finishBossResolution} from './episode.js';
-import { WEAPONS, initialPickupPoint, dropPoint, safeEnemySpawn, clearPoint, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
+import { WEAPONS, cycleUnlockedWeapon, selectUnlockedWeapon, initialPickupPoint, dropPoint, safeEnemySpawn, clearPoint, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
 import { resolvePose } from './combat-contract.js';
@@ -185,6 +185,8 @@ export class ArenaScene extends Phaser.Scene {
     this.defeated=false;
     this.completed=false;
     this.weapon=null;
+    this.unlockedWeapons=new Set();
+    this.weaponCooldownUntil=new Map();
     this.kills=0;
     this.gameplayClock=createGameplayClock();
     this.elapsedGameplayMs=0;
@@ -220,10 +222,19 @@ export class ArenaScene extends Phaser.Scene {
     this.hpText=this.add.text(0,0,'HP 5/5',{fontFamily:'monospace',fontSize:'14px',color:'#f3e8d1'})
       .setOrigin(0.5,0).setScrollFactor(0).setDepth(81);
     this.weaponToken=this.add.container(0,0).setScrollFactor(0).setDepth(66);
-    this.weaponTokenBody=this.add.circle(0,0,17,0x303b2b,0.92).setStrokeStyle(2,0xb9a16b);
+    this.weaponTokenBody=this.add.circle(0,0,21,0x303b2b,0.92).setStrokeStyle(2,0xb9a16b);
     this.weaponText=this.add.text(0,0,'—',{fontFamily:'monospace',fontSize:'21px',fontStyle:'bold',color:'#ffffff'})
       .setOrigin(0.5);
     this.weaponToken.add([this.weaponTokenBody,this.weaponText]);
+    // Route touch by screen-space position, independently of nested Container hit testing.
+    const onWeaponSwitchPointer=pointer=>{
+      if(pointer.id===this.joystick.pointerId||pointer.id===this.aimJoystick.pointerId)return;
+      const pos=this.hudLayout;
+      if(Math.hypot(pointer.x-pos.switchX,pointer.y-pos.switchY)>pos.switchSize/2)return;
+      this.cycleWeapon();
+    };
+    this.input.on('pointerdown',onWeaponSwitchPointer);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.input.off('pointerdown',onWeaponSwitchPointer));
     this.pressureBar=this.add.graphics().setScrollFactor(0).setDepth(67);
     this.skullIcon=this.add.text(0,0,'☠',{fontFamily:'sans-serif',fontSize:'23px',color:'#d7b978'})
       .setOrigin(0.5).setScrollFactor(0).setDepth(66);
@@ -240,6 +251,16 @@ export class ArenaScene extends Phaser.Scene {
     void this.playerVisual.setVariant('unarmed');
     this.addPickup('blunderbuss',initialPickupPoint(this.player,this.cameras.main,this.scale,this.obstacles,this.navigation));
     this.refreshWeaponHud();
+    const onWeaponKey=e=>{
+      if(e.repeat)return;
+      if(e.code==='KeyQ')this.cycleWeapon();
+      else {
+        const id=({Digit1:'blunderbuss',Digit2:'rifle',Digit3:'flamethrower'})[e.code];
+        if(id)this.selectWeapon(id);
+      }
+    };
+    this.input.keyboard.on('keydown',onWeaponKey);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.input.keyboard.off('keydown',onWeaponKey));
     this.mouseHeld=false;
     this.mouseAim={x:0,y:0};
     const mouseDown=p=>{if(p.wasTouch===false&&p.leftButtonDown())this.mouseHeld=true;};
@@ -268,9 +289,9 @@ export class ArenaScene extends Phaser.Scene {
       this.aimJoystick.reposition(pos.aimX,pos.aimY,pos.joystickRadius);
       this.mouseHeld=false;
       this.stopWeaponFire();
-      this.weaponToken.setPosition(pos.weaponX,pos.weaponY);
+      this.weaponToken.setPosition(pos.switchX,pos.switchY);
       this.renderPressureBar();
-      this.weaponToken.setScale(pos.tokenSize/42);
+      this.weaponToken.setScale(pos.switchSize/42);
       this.skullIcon.setPosition(pos.skullX,pos.skullY).setFontSize(pos.skullSize);
       this.killsText.setPosition(pos.killsX,pos.killsY).setFontSize(pos.countFont);
       this.hpText.setPosition(pos.hpX,pos.hpY).setFontSize(pos.hpFont);
@@ -387,6 +408,25 @@ export class ArenaScene extends Phaser.Scene {
     return {...point,type,seed:index,waveIndex:this.episode.wave,hp:def.hp,
       sprite:this.enemyRenderers[type].create(point.x,point.y),hitUntil:0,dead:false,facing:'s',ignition:createIgnitionState(),burningFx:null,fleeFacingVector:null};
   }
+
+  canSwitchWeapon(){
+    return this.sys.isActive()&&!this.scene.isPaused('Arena')&&!this.physics.world.isPaused&&
+      !this.dialogueLoading&&!this.dialogueState?.id&&!this.finalResolution&&
+      !this.episode.ended&&!this.bossEntrance&&!this.defeated&&this.canResume();
+  }
+  selectWeapon(id){
+    if(!this.canSwitchWeapon())return false;
+    const next=selectUnlockedWeapon(id,this.unlockedWeapons);
+    if(!next||next===this.weapon)return false;
+    this.stopWeaponFire();
+    this.weapon=next;
+    this.flameStream.clear();
+    void this.playerVisual.setVariant(next);
+    this.refreshWeaponHud();
+    this.renderPressureBar();
+    return true;
+  }
+  cycleWeapon(){return this.selectWeapon(cycleUnlockedWeapon(this.weapon,this.unlockedWeapons));}
 
   refreshWeaponHud(){
     const selected=this.weapon?WEAPONS[this.weapon]:null;
@@ -705,6 +745,7 @@ export class ArenaScene extends Phaser.Scene {
         this.setPlayerHp(healedHp(this.playerHp,ENCOUNTER.playerMaxHp));
         pickup.object.destroy();pickup.collected=true;continue;
       }
+      this.unlockedWeapons.add(pickup.id);
       this.weapon=pickup.id;
       this.renderPressureBar();
       this.stopWeaponFire();
@@ -720,7 +761,7 @@ export class ArenaScene extends Phaser.Scene {
     const g=this.pressureBar;if(!g)return;
     g.clear();
     if(this.weapon!=='flamethrower')return;
-    const p=this.hudLayout,w=p.tokenSize,h=4,x=p.weaponX-w/2,y=p.weaponY+p.tokenSize/2+5;
+    const p=this.hudLayout,w=p.switchSize,h=4,x=p.switchX-w/2,y=p.switchY+p.switchSize/2+5;
     g.fillStyle(0x382721,0.95).fillRect(x,y,w,h);
     g.fillStyle(this.flamePressure.value<20?0x9b3932:0xee903a,1).fillRect(x,y,w*this.flamePressure.value/100,h);
   }
@@ -1070,7 +1111,12 @@ export class ArenaScene extends Phaser.Scene {
     this.updateBossCombat(Math.min(this.game.loop.delta,50),now);
     if(this.defeated||this.finalResolution)return;
     if(!firing)this.lastShotAt=null;
-    const count=firingStep(this.firingState,this.weapon,firing,now);
+    // Per-weapon gate survives switching even when the firing gesture is reset.
+    const cooling=now<(this.weaponCooldownUntil.get(this.weapon)??0);
+    const count=cooling?0:firingStep(this.firingState,this.weapon,firing,now);
+    if(count&&this.weapon==='blunderbuss')this.weaponCooldownUntil.set(this.weapon,now+COMBAT_TUNING.blunderbuss.interval);
+    if(count&&this.weapon==='rifle')this.weaponCooldownUntil.set(this.weapon,now+
+      (this.firingState.burstShots===0?COMBAT_TUNING.rifle.burstPause:COMBAT_TUNING.rifle.shotInterval));
     for(let i=0;i<count;i++)this.spawnShot(aiming,this.weapon,now);
     const flameActive=this.weapon==='flamethrower'&&stepPressure(this.flamePressure,aimingHeld,this.game.loop.delta);
     if(flameActive)this.applyFlame(aiming,now);

@@ -7,6 +7,15 @@ export const WEAPONS=Object.freeze({
  rifle:Object.freeze({label:'KARABIN',color:0x2499ad,symbol:'⊕'}),
  flamethrower:Object.freeze({label:'MIOTACZ',color:0xd65d32,symbol:'♨'}),
 });
+export const WEAPON_ORDER=Object.freeze(['blunderbuss','rifle','flamethrower']);
+export function cycleUnlockedWeapon(selected,unlocked){
+ const owned=WEAPON_ORDER.filter(id=>unlocked.has(id));
+ if(!owned.length)return null;
+ if(owned.length===1)return owned[0];
+ const at=owned.indexOf(selected);
+ return owned[(at+1)%owned.length];
+}
+export function selectUnlockedWeapon(id,unlocked){return unlocked.has(id)&&WEAPON_ORDER.includes(id)?id:null;}
 const CLEARANCE=29;
 export function clearPoint(point,obstacles,margin=CLEARANCE,navigation=null){
  return point.x>=margin&&point.y>=margin&&point.x<=ARENA.width-margin&&point.y<=ARENA.height-margin&&
