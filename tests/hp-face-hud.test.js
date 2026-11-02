@@ -20,8 +20,11 @@ test('strict PNG RGBA 128 by 128 validator',()=>{
 test('compact status ribbon zones and joystick clearance',()=>{
  for(const [w,h] of [[320,240],[568,320],[640,360],[800,360],[960,540]]){
   const p=arenaHudLayout(h,w);
-  assert.ok(p.weaponX-p.tokenSize/2>p.menuX+p.menuWidth/2);
-  assert.ok(p.skullX-p.skullSize/2>p.weaponX+p.tokenSize/2);
+  assert.ok(p.skullX-p.skullSize/2>p.menuX+p.menuWidth/2,`MENU/skull collision ${w}`);
+  assert.ok(p.waveX>p.killsX,`kills/wave ordering ${w}`);
+  assert.ok(p.timerX>p.waveX,`wave/timer ordering ${w}`);
+  assert.ok(p.switchX-p.switchSize/2>=p.joystickX+p.joystickActivationRadius,`weapon switch overlaps movement joystick ${w}`);
+  assert.ok(p.switchX+p.switchSize/2<=p.aimX-p.joystickActivationRadius,`weapon switch overlaps attack joystick ${w}`);
   assert.ok(p.killsX+String('28/28').length*p.countFont*.64<p.portraitX-p.portraitSize/2,`count collision ${w}`);
   assert.ok(p.portraitX+p.portraitSize/2<w);
   assert.ok(p.portraitY+p.portraitSize/2<h/2);
