@@ -1296,10 +1296,16 @@ try {
       const offscreen={id:a.dialogueState.id,pending:a.narrativeEvents.has(id)};
       original.dead=true;original.hp=0;
       const afterDeath=a.tryStartDialogue();
+      const afterDeathState={
+        returned:afterDeath,id:a.dialogueState.id,events:[...a.narrativeEvents],
+        pending:[...a.pendingIntroductions.keys()],
+        original:{dead:original.dead,hp:original.hp,visible:original.x>=view.x&&original.x<=view.right&&original.y>=view.y&&original.y<=view.bottom},
+        episodeState:a.episode.state,bossIntroduced:a.episode.bossIntroduced,finalResolution:a.finalResolution
+      };
       const successor=a.createEnemy(type,{x:view.x+view.width/2,y:view.y+view.height*.7},62);
       a.enemies.push(successor);
       const afterReplacement=a.tryStartDialogue();
-      const state={offscreen,afterDeath,afterReplacement,id:a.dialogueState.id,
+      const state={offscreen,afterDeathState,afterReplacement,id:a.dialogueState.id,
         seen:a.introducedEnemyTypes.has(id),originalDead:original.dead,
         selected:a.dialogueState.id===id,paused:a.physics.world.isPaused,
         count:a.enemies.filter(e=>e===original||e===successor).length};
@@ -1307,7 +1313,11 @@ try {
     })()`);
     assert.equal(state.offscreen.id,null,'Offscreen original prematurely introduced');
     assert.equal(state.offscreen.pending,true);
-    assert.equal(state.afterDeath,false);
+    assert.equal(state.afterDeathState.id,null,'No unrelated or target dialogue may start after dead original: '+JSON.stringify(state.afterDeathState));
+    assert.equal(state.afterDeathState.events.includes(id),true,'Target introduction must remain pending: '+JSON.stringify(state.afterDeathState));
+    assert.equal(state.afterDeathState.original.dead,true);
+    assert.equal(state.afterDeathState.original.hp,0);
+    assert.equal(state.afterDeathState.original.visible,false);
     assert.equal(state.afterReplacement,true,'Replacement living visible specimen did not trigger pending introduction');
     assert.equal(state.selected,true);
     assert.equal(state.paused,true);
