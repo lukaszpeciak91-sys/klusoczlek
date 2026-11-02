@@ -2115,7 +2115,7 @@ try {
   await cdp('Fetch.disable');socket.removeEventListener('message',missingPortrait);
   console.log('PASS PR48 missing Marcin portrait: fallback letter, speaker, three lines/DALEJ and victory');
 
-  await verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,setSeed:seed=>{arenaRun=[1,41,104729].indexOf(seed);}});
+  await verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,finishAct1Epilogue,setSeed:seed=>{arenaRun=[1,41,104729].indexOf(seed);}});
   await verifySpawnPacing({cdp,evaluate,sleep,snapshot,waitFor,clickControl,nextLine,click});
   // PR54: real-phaser early cleared-arena summons and on-screen herald.
   for(const [seed,width,height] of [[1,568,320],[41,800,360],[104729,320,240]]){
