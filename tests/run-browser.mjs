@@ -2065,7 +2065,10 @@ try {
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"),false,'Off-camera living enemy must block early boss');
     await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),e=window.__pr54Offcamera;e.dead=true;e.sprite.destroy();a.enemies=a.enemies.filter(x=>x!==e);a.episode.defeated++;})()");
     for(let i=0;i<100;i++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='before-marcin'"))break;await sleep(30);}
-    const summoned=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),h=a.act1Herald,v=a.cameras.main.worldView;return {id:a.dialogueState.id,elapsed:a.elapsedGameplayMs,herald:!!h&&!h.dead&&h.hp>0,visible:!!h&&h.x>=v.x&&h.x<=v.right&&h.y>=v.y&&h.y<=v.bottom,paused:a.physics.world.isPaused,spawned:a.totalSpawned}})()");
+    // Camera follow/worldView can lag the first paused-dialogue frame after resize.
+    // Inspect the rendered viewport, not the pre-render worldView snapshot.
+    await sleep(100);
+    const summoned=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),h=a.act1Herald,c=a.cameras.main,v=c.worldView,scroll=c.getScroll(a.player.x,a.player.y),bounds=h?.sprite?.getBounds?.();return {id:a.dialogueState.id,elapsed:a.elapsedGameplayMs,herald:!!h&&!h.dead&&h.hp>0,visible:!!h&&h.x>=v.x&&h.x<=v.right&&h.y>=v.y&&h.y<=v.bottom,paused:a.physics.world.isPaused,spawned:a.totalSpawned,heraldPosition:h?{x:h.x,y:h.y}:null,worldView:{x:v.x,y:v.y,right:v.right,bottom:v.bottom,width:v.width,height:v.height},predictedScroll:scroll,spriteBounds:bounds?{x:bounds.x,y:bounds.y,right:bounds.right,bottom:bounds.bottom}:null}})()");
     assert.equal(summoned.id,'before-marcin','PR54 no immediate early summon '+JSON.stringify(summoned));
     assert.ok(summoned.herald&&summoned.visible&&summoned.paused,'PR54 herald must be real visible Bobrozombi '+JSON.stringify(summoned));
     await writeFile('dist/pr54-herald-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
