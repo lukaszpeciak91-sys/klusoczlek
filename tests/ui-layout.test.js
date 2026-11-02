@@ -20,7 +20,9 @@ for (const height of [320, 360, 375, 420, 540]) {
   });
   test('joystick is circular, reachable and clear of safe-area boundaries at ' + height, () => {
     const layout = arenaHudLayout(height, Math.round(height * 16 / 9));
-    assert.equal(layout.joystickRadius * 2, 92);
+    assert.ok(layout.joystickRadius >= 30 && layout.joystickRadius <= 52, 'joystick radius respects PR56 supported range');
+    assert.ok(layout.joystickX + layout.joystickRadius <= Math.round(height * 16 / 9) / 2, 'movement joystick stays on left side');
+    assert.ok(layout.aimX - layout.joystickRadius >= Math.round(height * 16 / 9) / 2, 'attack joystick stays on right side');
     assert.ok(layout.joystickX - layout.joystickRadius >= 0);
     assert.ok(layout.joystickY + layout.joystickRadius <= height);
     assert.ok(layout.menuY > 0);
