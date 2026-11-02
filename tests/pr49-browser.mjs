@@ -63,7 +63,7 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
    return {max,escorts:a.episode.specialSpawned.size,reinf:a.episode.reinforcementSpawned.size,ordinary:a.episode.spawnedByWave[5],state:a.episode.state,kills:a.kills};})()`);
   assert.ok(pools.max<=16);assert.equal(pools.escorts,3);assert.equal(pools.reinf,12);assert.ok(pools.ordinary>=jump.spawns[5]);assert.equal(pools.state,'active');
   const fatal=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),boss=a.boss,before=a.kills,live=a.livingNonBoss();boss.hp=0;a.finalizeEnemyDeath(boss);return {before,kills:a.kills,live,state:a.episode.state,remaining:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length,shots:a.bossProjectiles.length,bursts:a.deathBursts.length,hud:a.killsText.text}})()");
-  assert.equal(fatal.kills,fatal.before+1);assert.equal(fatal.state,'boss-resolving');assert.equal(fatal.remaining,1);assert.equal(fatal.queued,0);assert.equal(fatal.shots,0);assert.ok(fatal.bursts>=fatal.live);assert.equal(fatal.hud,String(fatal.kills));
+  assert.equal(fatal.kills,fatal.before+1);assert.equal(fatal.state,'boss-resolving');assert.equal(fatal.remaining,0);assert.equal(fatal.queued,0);assert.equal(fatal.shots,0);assert.ok(fatal.bursts>=fatal.live);assert.equal(fatal.hud,String(fatal.kills));
   await shot('pr49-victory-resolution-'+seed+'-'+width+'x'+height+'.png',width,height);
   await wait("window.__game.scene.getScene('Arena').dialogueState.id==='act1-marcin-last'",'PR54 Marcin final words');
    assert.equal(await evaluate("window.__game.scene.getScene('Arena').deathBursts.length"),0);
@@ -71,7 +71,7 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
    for(const id of ['act1-marcin-last','act1-witness-last','act1-aloes-last']){
      await wait("window.__game.scene.getScene('Arena').dialogueState.id==='"+id+"'",'PR54 beat '+id);
      assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.ended"),false);
-     if(id==='act1-witness-last')assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.act1Witness&&!a.act1Witness.dead})()"),true);
+     if(id==='act1-witness-last')assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.act1Witness?.sprite?.active&&!a.enemies.includes(a.act1Witness)})()"),true);
      await nextLine();
      if(id==='act1-witness-last'){
        const fx=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,aloes:a.dialogueState.id==='act1-aloes-last'}})()");
