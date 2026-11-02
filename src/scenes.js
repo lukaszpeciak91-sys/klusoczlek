@@ -490,7 +490,9 @@ export class ArenaScene extends Phaser.Scene {
   releaseFinalOutcome(){this.finalOutcomeHeld=false;}
 
   act1NarrativeStagePoint(type){
-    const view=this.cameras.main.worldView,r=ENEMY_TYPES[type].radius;
+    // Use the camera's actual follow target, not worldView from a pre-render resize frame.
+    const camera=this.cameras.main,scroll=camera.getScroll(this.player.x,this.player.y);
+    const view={x:scroll.x,y:scroll.y,width:camera.width,height:camera.height},r=ENEMY_TYPES[type].radius;
     // Deterministic camera-visible safe candidates. Collision and navigation
     // remain authoritative for both the herald and the cinematic witness.
     const candidates=[];
