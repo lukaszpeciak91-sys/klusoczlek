@@ -2067,7 +2067,7 @@ try {
     for(let i=0;i<100;i++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='before-marcin'"))break;await sleep(30);}
     const summoned=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),h=a.act1Herald,v=a.cameras.main.worldView;return {id:a.dialogueState.id,elapsed:a.elapsedGameplayMs,herald:!!h&&!h.dead&&h.hp>0,visible:!!h&&h.x>=v.x&&h.x<=v.right&&h.y>=v.y&&h.y<=v.bottom,paused:a.physics.world.isPaused,spawned:a.totalSpawned}})()");
     assert.equal(summoned.id,'before-marcin','PR54 no immediate early summon '+JSON.stringify(summoned));
-    assert.ok(summoned.herald&&summoned.visible&&summoned.paused,'PR54 herald must be real visible Bobrozombi');
+    assert.ok(summoned.herald&&summoned.visible&&summoned.paused,'PR54 herald must be real visible Bobrozombi '+JSON.stringify(summoned));
     await writeFile('dist/pr54-herald-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
     await nextLine();await nextLine();
     assert.ok(await evaluate("!!window.__game.scene.getScene('Arena').bossEntrance||window.__game.scene.getScene('Arena').bossEntrancePending"));
