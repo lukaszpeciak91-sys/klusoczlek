@@ -670,11 +670,11 @@ try {
   assert.equal(finaleAtHit.hud,String(finaleAtHit.kills));
   assert.equal(finaleAtHit.state,'boss-resolving');
   assert.equal(finaleAtHit.final,true);
-  assert.equal(finaleAtHit.others,1,'Exactly one witness must remain alive during finale');
+  assert.equal(finaleAtHit.others,0,'All combat enemies are neutralized before cinematic staging');
   assert.equal(finaleAtHit.queued,0,'Pending escorts and reinforcements must be cancelled');
   assert.equal(finaleAtHit.projectiles,0,'Boss projectiles retained after death');
   assert.equal(finaleAtHit.dialogue,null,'Final dialogue started before visual resolution');
-  assert.ok(finaleAtHit.bursts>=finaleAtHit.live,'Scripted bursts must spare the witness');
+  assert.ok(finaleAtHit.bursts>=finaleAtHit.live+1,'Marcin and combat enemies produce their existing VFX');
   const finalShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
   await writeFile('dist/pr48-boss-resolution-active.png',Buffer.from(finalShot.data,'base64'));
   await sleep(950);
@@ -701,7 +701,7 @@ try {
   assert.deepEqual(heldFinal,{state:'final-pending',held:true,id:'act1-marcin-last',first:false});
   for(const id of ['act1-marcin-last','act1-witness-last','act1-aloes-last']){
     for(let wait=0;wait<120;wait++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id")==id)break;await sleep(25);}
-    const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,state:a.episode.state,witness:!!a.act1Witness&&!a.act1Witness.dead}})()");
+    const before=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {id:a.dialogueState.id,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,state:a.episode.state,witness:!!a.act1Witness?.sprite?.active&&!a.enemies.includes(a.act1Witness)}})()");
     assert.equal(before.id,id,'PR54 cinematic order');
     assert.equal(before.state,'final-pending');
     if(id==='act1-witness-last')assert.equal(before.witness,true);
@@ -1282,7 +1282,7 @@ try {
       else for(const e of a.enemies)e.sprite.destroy();
       a.enemies=[];
       window.__stageTimedWave(type==='zubrokryptyda'?2:1);
-      a.introducedEnemyTypes.delete(id);a.pendingIntroductions.delete(id);a.narrativeEvents.clear(); // Isolate this PR36/PR51 causal intro from unrelated queued narrative
+      a.introducedEnemyTypes.delete(id);a.pendingIntroductions.clear();a.narrativeEvents.clear(); // Isolate this PR36/PR51 causal intro from unrelated queued narrative
       a.introEvidence.deaths=[];a.introEvidence.claims.delete(id);a.introEvidence.contexts.delete(id);
       if(type==='zubrokryptyda')a.introducedEnemyTypes.add('before-first-bocianolak');
       for(let i=0;i<(type==='zubrokryptyda'?2:1);i++){
@@ -1295,9 +1295,10 @@ try {
       a.markNarrativeBoundary(id);
       const offscreen={id:a.dialogueState.id,pending:a.narrativeEvents.has(id)};
       original.dead=true;original.hp=0;
+      const eligibleBefore=a.enemies.filter(e=>e.type===type&&!e.dead&&e.hp>0).map(e=>({x:e.x,y:e.y,hp:e.hp,dead:e.dead,visible:e.x>=view.x&&e.x<=view.right&&e.y>=view.y&&e.y<=view.bottom}));
       const afterDeath=a.tryStartDialogue();
       const afterDeathState={
-        returned:afterDeath,id:a.dialogueState.id,events:[...a.narrativeEvents],
+        returned:afterDeath,id:a.dialogueState.id,eligibleBefore,events:[...a.narrativeEvents],
         pending:[...a.pendingIntroductions.keys()],
         original:{dead:original.dead,hp:original.hp,visible:original.x>=view.x&&original.x<=view.right&&original.y>=view.y&&original.y<=view.bottom},
         episodeState:a.episode.state,bossIntroduced:a.episode.bossIntroduced,finalResolution:a.finalResolution
@@ -1685,7 +1686,7 @@ try {
       await sleep(30);
     }
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),id,'PR43/PR54 staged cinematic order');
-    if(id==='act1-witness-last')assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.act1Witness&&!a.act1Witness.dead&&a.act1Witness.hp>0})()"),true,'Witness must be living during farewell');
+    if(id==='act1-witness-last')assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return !!a.act1Witness?.sprite?.active&&!a.enemies.includes(a.act1Witness)})()"),true,'Witness must be living during farewell');
     await nextLine();
     if(id==='act1-witness-last'){
       const phase=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {bursts:a.deathBursts.length,waiting:a.act1AwaitWitnessBurst,aloes:a.dialogueState.id==='act1-aloes-last'}})()");
@@ -1822,7 +1823,7 @@ try {
     // Killing a boss during a live volley atomically resolves the fight,
     // neutralizes spawned survivors and cancels pending work.
     const death=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),b=a.boss;a.damageEnemy(b,36,a.player,a.time.now);const first=a.finalizeEnemyDeath(b),second=a.finalizeEnemyDeath(b);return {first,second,boss:!!a.boss,shots:a.bossProjectiles.length,state:a.episode.state,bar:a.bossHpLabel.visible,bursts:a.deathBursts.length,living:a.enemies.filter(e=>!e.dead).length,queued:a.escortDue.length+a.reinforcementDue.length,witness:!!a.act1Witness,stagePoint:a.act1NarrativeStagePoint('zubrokryptyda'),view:{x:a.cameras.main.worldView.x,y:a.cameras.main.worldView.y,w:a.cameras.main.worldView.width,h:a.cameras.main.worldView.height},player:{x:a.player.x,y:a.player.y},sceneCount:a.enemies.length}})()");
-    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'boss-resolving');assert.equal(death.living,1,'Exactly one living witness must survive scripted cleanup '+JSON.stringify(death));assert.equal(death.queued,0);assert.ok(death.bursts>0);
+    assert.ok(death.first&&!death.second&&!death.boss&&!death.bar);assert.equal(death.shots,0);assert.equal(death.state,'boss-resolving');assert.equal(death.living,0,'No combat witness survives scripted cleanup '+JSON.stringify(death));assert.equal(death.queued,0);assert.ok(death.bursts>0);
     const postFatalHp=await evaluate("window.__game.scene.getScene('Arena').playerHp");
     await sleep(150);
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerHp"),postFatalHp,'Post-fatal damage reached Aloes during visual resolution');
@@ -2028,7 +2029,7 @@ try {
   await clickControl('hud');await clickControl('NOWA GRA');
   await waitFor(v=>v.arena&&!v.menu,'PR48 fallback Arena');
   for(let i=0;i<40;i++){if(!await evaluate("window.__game.scene.getScene('Arena').dialogueLoading"))break;await sleep(40);}
-  const marcinFallback=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueState.index=0;a.narrativeEvents.clear();a.episode.wave=5;a.episode.state='final-pending';a.finalResolution=true;const e=a.createEnemy('zubrokryptyda',{x:a.player.x+105,y:a.player.y+45},1102);e.narrativeRole='witness';a.act1Witness=e;a.enemies.push(e);a.markNarrativeBoundary('act1-marcin-last');return {loaded:a.dialoguePanel.loaded.has('marcin'),id:a.dialogueState.id,letter:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='M'&&x.visible),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible),text:a.dialoguePanel.text.text}})()");
+  const marcinFallback=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');a.dialoguePanel.hide();a.dialogueState.id=null;a.dialogueState.index=0;a.narrativeEvents.clear();a.episode.wave=5;a.episode.state='final-pending';a.finalResolution=true;a.act1Witness=null;a.markNarrativeBoundary('act1-marcin-last');return {loaded:a.dialoguePanel.loaded.has('marcin'),id:a.dialogueState.id,letter:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='M'&&x.visible),label:a.dialoguePanel.shell.list.some(x=>x.type==='Text'&&x.text==='MARCIN'&&x.visible),text:a.dialoguePanel.text.text}})()");
   assert.equal(marcinFallback.loaded,false,'Missing Marcin asset incorrectly registered as loaded');
   assert.equal(marcinFallback.id,'act1-marcin-last');
   assert.equal(marcinFallback.letter,true,'Missing portrait did not show letter fallback');
