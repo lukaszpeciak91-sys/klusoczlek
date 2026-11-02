@@ -183,7 +183,7 @@ export class ArenaScene extends Phaser.Scene {
     this.episode=createEpisode(seed);
     this.boss=null;this.bossEntrance=null;this.bossEntrancePending=false;this.bossLandingRetryAt=0;
     this.bossProjectiles=[];this.escortDue=[];this.reinforcementDue=[];this.bossSchedulerTurn=0;this.finalResolution=false;
-    this.act1Herald=null;this.act1Witness=null;this.events.once('shutdown',()=>{this.act1Witness?.sprite?.destroy();this.act1Witness=null;});this.act1AllyDue=0;this.act1AllyAdded=0;this.act1FadePending=false;this.act1FadeElapsed=0;this.act1AwaitWitnessBurst=false;this.act1FinalLineDone=false;this.act1Epilogue='combat';this.marcinArtifactAwarded=false;
+    this.act1Herald=null;this.act1Witness=null;this.act1WitnessCreated=false;this.act1WitnessExploded=false;this.events.once('shutdown',()=>{this.act1Witness?.sprite?.destroy();this.act1Witness=null;});this.act1AllyDue=0;this.act1AllyAdded=0;this.act1FadePending=false;this.act1FadeElapsed=0;this.act1AwaitWitnessBurst=false;this.act1FinalLineDone=false;this.act1Epilogue='combat';this.marcinArtifactAwarded=false;
     this.defeated=false;
     this.completed=false;
     this.weapon=null;
@@ -583,16 +583,19 @@ export class ArenaScene extends Phaser.Scene {
   }
   ensureAct1Witness(){
     if(this.act1Witness?.sprite?.active)return this.act1Witness;
+    if(this.act1WitnessCreated)return null;
     if(!this.finalResolution)return null;
     const point=this.act1NarrativeStagePoint('zubrokryptyda');
     if(!point)return null;
     const sprite=this.enemyRenderers.zubrokryptyda.create(point.x,point.y);
+    this.act1WitnessCreated=true;
     this.act1Witness={x:point.x,y:point.y,sprite};
     return this.act1Witness;
   }
   finishAct1Witness(){
     const witness=this.act1Witness;
-    if(!witness)return;
+    if(!witness||this.act1WitnessExploded)return;
+    this.act1WitnessExploded=true;
     this.act1Witness=null;
     witness.sprite?.destroy();
     this.deathBursts.push(createPixelBurst(this,'zubrokryptyda',witness.x,witness.y,0));
@@ -616,6 +619,8 @@ export class ArenaScene extends Phaser.Scene {
     this.ambientBarks?.suspend();this.clearBossProjectiles();this.boss=null;
     for(const enemy of this.enemies){enemy.burningFx?.destroy();clearIgnition(enemy.ignition);enemy.sprite?.destroy();}
     this.enemies=[];this.act1Witness?.sprite?.destroy();this.act1Witness=null;
+    // Renderers also own detached / transitional sprite containers.
+    for(const renderer of Object.values(this.enemyRenderers))renderer.destroyAll();
     for(const p of this.projectiles)p.object?.destroy();
     this.projectiles=[];
     for(const p of this.flameParticles)p.object?.destroy();
