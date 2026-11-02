@@ -226,11 +226,15 @@ export class ArenaScene extends Phaser.Scene {
     this.weaponText=this.add.text(0,0,'—',{fontFamily:'monospace',fontSize:'21px',fontStyle:'bold',color:'#ffffff'})
       .setOrigin(0.5);
     this.weaponToken.add([this.weaponTokenBody,this.weaponText]);
-    this.weaponTokenBody.setInteractive({useHandCursor:true});
-    this.weaponTokenBody.on('pointerdown',pointer=>{
+    // Route touch by screen-space position, independently of nested Container hit testing.
+    const onWeaponSwitchPointer=pointer=>{
       if(pointer.id===this.joystick.pointerId||pointer.id===this.aimJoystick.pointerId)return;
+      const pos=this.hudLayout;
+      if(Math.hypot(pointer.x-pos.switchX,pointer.y-pos.switchY)>pos.switchSize/2)return;
       this.cycleWeapon();
-    });
+    };
+    this.input.on('pointerdown',onWeaponSwitchPointer);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.input.off('pointerdown',onWeaponSwitchPointer));
     this.pressureBar=this.add.graphics().setScrollFactor(0).setDepth(67);
     this.skullIcon=this.add.text(0,0,'☠',{fontFamily:'sans-serif',fontSize:'23px',color:'#d7b978'})
       .setOrigin(0.5).setScrollFactor(0).setDepth(66);
