@@ -16,13 +16,15 @@ test('five stable acts with exact approved Polish title cards',()=>{
 });
 test('unimplemented acts cannot route to unregistered gameplay scenes',()=>{
   assert.equal(sceneForAct('act1'),'Arena');
-  assert.equal(getAct('act2').scene,null);
+  assert.equal(getAct('act2').scene,'Airship');
   assert.equal(nextAct('act1')?.id,'act2');
   assert.equal(nextAct('act5'),null);
   assert.equal(nextAct('unknown'),null);
-  assert.equal(nextAvailableAct('act1'),null);
-  assert.equal(completionDestination('act1'),null);
-  assert.equal(sceneForAct('act2'),null);
+  assert.equal(nextAvailableAct('act1')?.id,'act2');
+  assert.equal(completionDestination('act1'),'Airship');
+  assert.equal(sceneForAct('act2'),'Airship');
+  assert.equal(nextAvailableAct('act2'),null);
+  assert.equal(sceneForAct('act3'),null);
   assert.equal(sceneForAct('unknown'),null);
 });
 test('future asset contracts describe paths but require no PNG binaries',()=>{
