@@ -131,7 +131,7 @@ try {
       assert.equal(cardResize,true,'PR60 title card resize');
       for(let k=0;k<100;k++){if(await evaluate("window.__game.scene.isActive('Arena')"))break;await sleep(35);}
       assert.equal(await evaluate("window.__game.scene.isActive('Arena')"),true,'PR60 card must enter playable Arena');
-      assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),r=a.campaignRun;return r.actId==='act1'&&r.hp===r.maxHp&&r.unlockedWeapons.has('blunderbuss')&&r.selectedWeapon==='blunderbuss'&&r.stats.kills===0&&r.artifacts.size===0&&r.completedActs.size===0})()"),true,'PR61 NEW GAME must start a fresh run');
+      assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),r=a.campaignRun;return r.actId==='act1'&&r.hp===r.maxHp&&r.unlockedWeapons.has('blunderbuss')&&r.selectedWeapon===null&&a.weapon===null&&r.stats.kills===0&&r.artifacts.size===0&&r.completedActs.size===0})()"),true,'PR61 NEW GAME must start a fresh run');
       for(let k=0;k<100;k++){
         const status=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {ready:!!a.dialoguePanel&&!a.dialogueLoading,id:a.dialogueState?.id??null,index:a.dialogueState?.index??0,button:a.dialoguePanel?.button?{x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}:null}})()");
         if(!status.ready){await sleep(60);continue;}
