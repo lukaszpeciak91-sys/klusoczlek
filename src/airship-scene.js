@@ -24,6 +24,7 @@ export class AirshipScene extends Phaser.Scene {
     }
     this.cameras.main.setBackgroundColor('#6b9db7');
     this.cameras.main.setBounds(0,0,AIRSHIP_WORLD.width,AIRSHIP_WORLD.height);
+    this.physics.world.setBounds(0,0,AIRSHIP_WORLD.width,AIRSHIP_WORLD.height);
     this.layers=[];
     this.optionalArtStatus={};
     this.artAbort=new AbortController();
