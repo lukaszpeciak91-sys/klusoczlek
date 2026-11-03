@@ -121,7 +121,17 @@ try {
     assert.ok(target.y-target.height/2>=0&&target.y+target.height/2<=state.rect.height,'Button clipped: '+which);
     await click(state.rect.x+target.x,state.rect.y+target.y);
     if(which==='NOWA GRA'){
-      for(let k=0;k<60;k++){
+      for(let k=0;k<30;k++){
+        if(await evaluate("window.__game.scene.isActive('ActTitle')"))break;
+        await sleep(20);
+      }
+      const card=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return {active:g.scene.isActive('ActTitle'),arena:g.scene.isActive('Arena'),number:t.children.list.find(o=>o.type==='Text'&&o.text==='AKT I')?.text,title:t.children.list.find(o=>o.type==='Text'&&o.text==='POBUDKA')?.text,background:t.cameras.main.backgroundColor.color}})()");
+      assert.deepEqual(card,{active:true,arena:false,number:'AKT I',title:'POBUDKA',background:0},'PR60 title must precede Arena and block combat');
+      const cardResize=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');g.scale.refresh();return t.children.list.filter(o=>o.type==='Text').every(o=>o.x>=0&&o.x<=t.scale.width)})()");
+      assert.equal(cardResize,true,'PR60 title card resize');
+      for(let k=0;k<100;k++){if(await evaluate("window.__game.scene.isActive('Arena')"))break;await sleep(35);}
+      assert.equal(await evaluate("window.__game.scene.isActive('Arena')"),true,'PR60 card must enter playable Arena');
+      for(let k=0;k<100;k++){
         const status=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {ready:!!a.dialoguePanel&&!a.dialogueLoading,id:a.dialogueState?.id??null,index:a.dialogueState?.index??0,button:a.dialoguePanel?.button?{x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}:null}})()");
         if(!status.ready){await sleep(60);continue;}
         if(status.id!=='before-wave-1')break;

@@ -13,6 +13,7 @@ import {createDialogueState,beginDialogue,queueBocianolakHitDialogue,BOCIANOLAK_
 import {createDialoguePanel} from './dialogue-ui.js';
 import {createAct1Panels} from './act1-epilogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
+import {FIRST_ACT_ID,completionDestination} from './campaign.js';
 import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
@@ -86,7 +87,7 @@ export class MenuScene extends Phaser.Scene {
       if (!allowed()) return;
       this.navigating = true;
       if (hasSession) this.scene.stop('Arena');
-      this.scene.start('Arena');
+      this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
     });
     const resume = hasSession && !terminal ? button(this, initial.centerX, resumeY, initial.startWidth, initial.startHeight, 'WZNÓW', () => {
       if (!allowed()) return;
