@@ -58,6 +58,14 @@ export function completeCampaignAct(run,actId,{hp,maxHp,unlockedWeapons,selected
   run.stats.activeCombatMs+=result.activeCombatMs;
   return true;
 }
+export function snapshotCampaignRun(run){
+  return {actId:run.actId,hp:run.hp,maxHp:run.maxHp,
+    unlockedWeapons:new Set(run.unlockedWeapons),selectedWeapon:run.selectedWeapon,
+    artifacts:new Set(run.artifacts),completedActs:new Set(run.completedActs),
+    upgrades:new Set(run.upgrades),
+    stats:{kills:run.stats.kills,activeCombatMs:run.stats.activeCombatMs,
+      byAct:Object.fromEntries(Object.entries(run.stats.byAct).map(([id,result])=>[id,{...result}]))}};
+}
 export function nextActHandoff(run,registeredScenes){
   if(!getAct(run.actId)||!run.completedActs.has(run.actId))return null;
   const next=nextAct(run.actId);
