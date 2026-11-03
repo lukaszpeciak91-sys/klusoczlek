@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCampaignRun,beginCampaignRun,currentCampaignRun,updateRunHealth,updateRunEquipment,
-  awardRunArtifact,completeCampaignAct,nextActHandoff,prepareActStart,MARCIN_MOHAWK_ID} from '../src/campaign-run.js';
+  awardRunArtifact,completeCampaignAct,snapshotCampaignRun,nextActHandoff,prepareActStart,MARCIN_MOHAWK_ID} from '../src/campaign-run.js';
 import {ENCOUNTER} from '../src/bobrozombi.js';
 
 function fixtureRegistry(){
@@ -45,6 +45,17 @@ test('exactly-once artifact, completion, equipment and health survive handoff',(
   assert.equal(run.stats.activeCombatMs,194321);
   assert.deepEqual(run.stats.byAct.act1,{kills:108,activeCombatMs:194321});
   assert.deepEqual([run.hp,run.maxHp],[3,6]);
+  const handoff=snapshotCampaignRun(run);
+  assert.equal(handoff.hp,3);
+  assert.equal(handoff.selectedWeapon,'water-thrower');
+  assert.deepEqual([...handoff.unlockedWeapons],[...unlocked]);
+  assert.deepEqual(handoff.stats.byAct.act1,{kills:108,activeCombatMs:194321});
+  handoff.unlockedWeapons.delete('rifle');
+  handoff.artifacts.clear();
+  handoff.stats.byAct.act1.kills=0;
+  assert.equal(run.unlockedWeapons.has('rifle'),true,'snapshot must not alias inventory');
+  assert.equal(run.artifacts.has(MARCIN_MOHAWK_ID),true);
+  assert.equal(run.stats.byAct.act1.kills,108);
   const registered=new Set(['Arena']);
   assert.equal(nextActHandoff(run,registered),null,'Act II not registered or implemented');
   assert.equal(prepareActStart(run,{actId:'act2',scene:'Airship'},registered),false);
