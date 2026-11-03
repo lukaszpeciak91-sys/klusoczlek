@@ -12,7 +12,7 @@ export function createCampaignRun(){
   return {
     actId:FIRST_ACT_ID,
     hp:ENCOUNTER.playerMaxHp,maxHp:ENCOUNTER.playerMaxHp,
-    unlockedWeapons:new Set([STARTING_WEAPON_ID]),selectedWeapon:STARTING_WEAPON_ID,
+    unlockedWeapons:new Set([STARTING_WEAPON_ID]),selectedWeapon:null,
     artifacts:new Set(),completedActs:new Set(),
     stats:{kills:0,activeCombatMs:0,byAct:{}},
     upgrades:new Set(),
@@ -37,9 +37,9 @@ export function updateRunEquipment(run,unlocked,selected){
   const owned=new Set([...run.unlockedWeapons,...unlocked].filter(id=>typeof id==='string'&&id.length));
   // Future act weapons are accepted as IDs; only known starting IDs are defined here.
   if(!owned.size)return false;
-  if(selected!==null&&selected!==undefined&&!owned.has(selected))return false;
+  if(selected!==null&&!owned.has(selected))return false;
   run.unlockedWeapons=owned;
-  if(selected)run.selectedWeapon=selected;
+  run.selectedWeapon=selected;
   return true;
 }
 export function awardRunArtifact(run,id){
