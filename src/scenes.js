@@ -14,6 +14,7 @@ import {createDialoguePanel} from './dialogue-ui.js';
 import {createAct1Panels} from './act1-epilogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
 import {FIRST_ACT_ID,completionDestination} from './campaign.js';
+import {beginCampaignRun,currentCampaignRun,updateRunHealth,updateRunEquipment,awardRunArtifact,completeCampaignAct,MARCIN_MOHAWK_ID} from './campaign-run.js';
 import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
@@ -87,6 +88,7 @@ export class MenuScene extends Phaser.Scene {
       if (!allowed()) return;
       this.navigating = true;
       if (hasSession) this.scene.stop('Arena');
+      beginCampaignRun(this.game);
       this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
     });
     const resume = hasSession && !terminal ? button(this, initial.centerX, resumeY, initial.startWidth, initial.startHeight, 'WZNÓW', () => {
@@ -179,6 +181,7 @@ export class ArenaScene extends Phaser.Scene {
     this.flameCooldowns=new Map();
     this.flameEmissionAt=null;
     this.projectiles=[];
+    this.campaignRun=currentCampaignRun(this.game);
     this.playerHp=ENCOUNTER.playerMaxHp;
     this.invulnerableUntil=0;
     this.episode=createEpisode(seed);
@@ -393,7 +396,13 @@ export class ArenaScene extends Phaser.Scene {
     this.captainArrival=createCaptainArrival(this);
     this.act1Panels=createAct1Panels(this,Phaser,()=>this.beginAct1Fade(),()=>{
       if(this.act1Epilogue!=='results')return;
-      this.act1Epilogue='complete';this.cameras.main.resetFX();this.releaseFinalOutcome();this.endEpisode('victory');
+      this.act1Epilogue='complete';this.cameras.main.resetFX();
+      completeCampaignAct(this.campaignRun,FIRST_ACT_ID,{
+        hp:this.playerHp,maxHp:ENCOUNTER.playerMaxHp,
+        unlockedWeapons:this.unlockedWeapons,selectedWeapon:this.weapon,
+        kills:this.kills,activeCombatMs:this.elapsedGameplayMs,
+      });
+      this.releaseFinalOutcome();this.endEpisode('victory');
     });
     // Opening boundary was already queued in create, before UI existed.
     // No combat update runs while assets load or an opening line is visible.
@@ -429,6 +438,7 @@ export class ArenaScene extends Phaser.Scene {
     if(!next||next===this.weapon)return false;
     this.stopWeaponFire();
     this.weapon=next;
+    updateRunEquipment(this.campaignRun,this.unlockedWeapons,this.weapon);
     this.flameStream.clear();
     void this.playerVisual.setVariant(next);
     this.refreshWeaponHud();
@@ -476,6 +486,7 @@ export class ArenaScene extends Phaser.Scene {
   setPlayerHp(next){
     const before=this.playerHp;
     this.playerHp=Math.max(0,Math.min(ENCOUNTER.playerMaxHp,Math.floor(next)));
+    updateRunHealth(this.campaignRun,this.playerHp,ENCOUNTER.playerMaxHp);
     if(this.playerHp!==before)this.hpFace.setHp(this.playerHp);
     if(this.playerHp<before)this.playerVisual?.hit(this.lastDamageSource||{x:this.player.x,y:this.player.y-1});
     this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
@@ -604,6 +615,7 @@ export class ArenaScene extends Phaser.Scene {
   showAct1Reward(){
     if(this.act1Epilogue!=='combat')return;
     this.act1Epilogue='reward';this.marcinArtifactAwarded=true;
+    awardRunArtifact(this.campaignRun,MARCIN_MOHAWK_ID);
     this.resetMovement();this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
     this.physics.world.pause();this.time.paused=true;
     this.act1Panels.showReward();
@@ -793,6 +805,7 @@ export class ArenaScene extends Phaser.Scene {
       }
       this.unlockedWeapons.add(pickup.id);
       this.weapon=pickup.id;
+      updateRunEquipment(this.campaignRun,this.unlockedWeapons,this.weapon);
       this.renderPressureBar();
       this.stopWeaponFire();
       void this.playerVisual.setVariant(pickup.id);

@@ -131,6 +131,7 @@ try {
       assert.equal(cardResize,true,'PR60 title card resize');
       for(let k=0;k<100;k++){if(await evaluate("window.__game.scene.isActive('Arena')"))break;await sleep(35);}
       assert.equal(await evaluate("window.__game.scene.isActive('Arena')"),true,'PR60 card must enter playable Arena');
+      assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),r=a.campaignRun;return r.actId==='act1'&&r.hp===r.maxHp&&r.unlockedWeapons.has('blunderbuss')&&r.selectedWeapon===null&&a.weapon===null&&r.stats.kills===0&&r.artifacts.size===0&&r.completedActs.size===0})()"),true,'PR61 NEW GAME must start a fresh run');
       for(let k=0;k<100;k++){
         const status=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {ready:!!a.dialoguePanel&&!a.dialogueLoading,id:a.dialogueState?.id??null,index:a.dialogueState?.index??0,button:a.dialoguePanel?.button?{x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}:null}})()");
         if(!status.ready){await sleep(60);continue;}
@@ -370,6 +371,7 @@ try {
   const retainedPosition=(await snapshot()).player;
   const retainedObstacles=(await snapshot()).controls.obstacles;
   const retainedLayout=(await snapshot()).controls.seed;
+  const retainedRun=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');window.__pr61SavedRun=a.campaignRun;return {hp:a.campaignRun.hp,selected:a.campaignRun.selectedWeapon}})()");
 
   for(let i=0;i<20;i++){
     await clickControl('hud');
@@ -389,6 +391,7 @@ try {
     assert.equal(state.physics,false);
     assert.equal(state.controls.seed,retainedLayout);
     assert.deepEqual(state.controls.obstacles,retainedObstacles);
+    assert.equal(await evaluate("window.__game.scene.getScene('Arena').campaignRun===window.__pr61SavedRun"),true,'PR61 WZNÓW must preserve run identity');
     assert.equal(state.samePlayer,true);
     assert.equal(state.sameCamera,true);
     assert.equal(state.fullscreenVisible,false);
@@ -420,6 +423,7 @@ try {
   await clickControl('NOWA GRA');
   const fresh=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'New game replaces session');
   assert.equal(fresh.samePlayer,false,'NOWA GRA reused existing player');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').campaignRun===window.__pr61SavedRun"),false,'PR61 NOWA GRA must replace run identity');
   assert.notDeepEqual(fresh.player,{x:552,y:440},'NOWA GRA retained old position');
   assert.equal(fresh.physics,false,'New game physics paused');
   assert.equal(fresh.controls.hp,5,'Fresh player HP not reset');
@@ -717,6 +721,7 @@ try {
     await waitStage('reward');
     const reward=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {award:a.marcinArtifactAwarded,mode:a.act1Panels.mode,disabled:!a.joystick.enabled&&!a.aimJoystick.enabled,kills:a.kills,clock:a.elapsedGameplayMs}})()");
     assert.equal(reward.award,true);assert.equal(reward.mode,'reward');assert.equal(reward.disabled,true);
+    assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.campaignRun.artifacts.has('marcin-mohawk')&&a.campaignRun.artifacts.size===1})()"),true,'PR61 unique mohawk artifact');
     await clickPanel();
     await waitStage('captain-arrival');
     const gaitBefore=await evaluate("(()=>{const c=window.__game.scene.getScene('Arena').captainArrival;return {x:c.actor.x,y:c.actor.y,bob:c.sprite?.y,angle:c.sprite?.rotation}})()");
@@ -756,6 +761,12 @@ try {
     const tap=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {touches:window.__pr57ResultDown,phase:a.act1Epilogue,mode:a.act1Panels.mode,state:a.episode.state,ended:a.episode.ended,paused:a.scene.isPaused('Arena')}})()");
     assert.ok(tap.touches>0,'PR57 results touch absent '+JSON.stringify(tap));
     assert.equal(tap.phase,'complete','PR57 completion not reached '+JSON.stringify(tap));
+    const handoff=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),r=a.campaignRun;return {act:r.actId,completed:[...r.completedActs],hp:r.hp,maxHp:r.maxHp,selected:r.selectedWeapon,weapons:[...r.unlockedWeapons],kills:r.stats.kills,time:r.stats.activeCombatMs,artifact:r.artifacts.has('marcin-mohawk'),results:r.stats.byAct.act1}})()");
+    assert.equal(handoff.act,'act1');assert.deepEqual(handoff.completed,['act1']);
+    assert.equal(handoff.hp,await evaluate("window.__game.scene.getScene('Arena').playerHp"));
+    assert.equal(handoff.selected,await evaluate("window.__game.scene.getScene('Arena').weapon"));
+    assert.equal(handoff.kills,reward.kills);assert.equal(handoff.time,reward.clock);
+    assert.equal(handoff.artifact,true);assert.deepEqual(handoff.results,{kills:reward.kills,activeCombatMs:reward.clock});
     await waitFor(v=>v.menu&&v.arenaPaused,'PR57 terminal victory menu');
     assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
   }
