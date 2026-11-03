@@ -1,9 +1,10 @@
 import {FIRST_ACT_ID,getAct,nextAct,sceneForAct} from './campaign.js';
 import {ENCOUNTER} from './bobrozombi.js';
-import {WEAPONS} from './weapon-progression.js';
+import {WEAPON_ORDER} from './weapon-progression.js';
 
 export const CAMPAIGN_RUN_KEY='campaign-run';
 export const MARCIN_MOHAWK_ID='marcin-mohawk';
+const STARTING_WEAPON_ID=WEAPON_ORDER[0];
 
 // Game registry owns this volatile run across Phaser scene shutdown/restart.
 // Arena combat state remains authoritative until an explicit sync or completion.
@@ -11,7 +12,7 @@ export function createCampaignRun(){
   return {
     actId:FIRST_ACT_ID,
     hp:ENCOUNTER.playerMaxHp,maxHp:ENCOUNTER.playerMaxHp,
-    unlockedWeapons:new Set(['blunderbuss']),selectedWeapon:'blunderbuss',
+    unlockedWeapons:new Set([STARTING_WEAPON_ID]),selectedWeapon:STARTING_WEAPON_ID,
     artifacts:new Set(),completedActs:new Set(),
     stats:{kills:0,activeCombatMs:0,byAct:{}},
     upgrades:new Set(),
