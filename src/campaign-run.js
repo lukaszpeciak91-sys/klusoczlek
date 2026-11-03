@@ -33,7 +33,8 @@ export function updateRunHealth(run,hp,maxHp=run.maxHp){
   return true;
 }
 export function updateRunEquipment(run,unlocked,selected){
-  const owned=new Set([...unlocked].filter(id=>typeof id==='string'&&id.length));
+  // Unlocks accumulate across acts. An optional Act I pickup cannot revoke the starting entitlement.
+  const owned=new Set([...run.unlockedWeapons,...unlocked].filter(id=>typeof id==='string'&&id.length));
   // Future act weapons are accepted as IDs; only known starting IDs are defined here.
   if(!owned.size)return false;
   if(selected!==null&&selected!==undefined&&!owned.has(selected))return false;
