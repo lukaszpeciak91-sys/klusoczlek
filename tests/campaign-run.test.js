@@ -74,6 +74,16 @@ test('skipping the optional blunderbuss pickup never revokes the campaign starte
   }),true);
   assert.equal(run.unlockedWeapons.has('blunderbuss'),true);
   assert.equal(run.selectedWeapon,'rifle');
+  assert.equal(run.stats.activeCombatMs,1000);
+});
+test('active gameplay milliseconds are preserved without truncation',()=>{
+  const run=createCampaignRun();
+  assert.equal(completeCampaignAct(run,'act1',{
+    hp:5,maxHp:5,unlockedWeapons:new Set(),selectedWeapon:'blunderbuss',
+    kills:1,activeCombatMs:261199.9,
+  }),true);
+  assert.equal(run.stats.activeCombatMs,261199.9);
+  assert.equal(run.stats.byAct.act1.activeCombatMs,261199.9);
 });
 test('unknown act, invalid selections and incomplete campaign cannot start future scene',()=>{
   const run=createCampaignRun();
