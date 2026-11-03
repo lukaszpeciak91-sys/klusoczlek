@@ -711,6 +711,11 @@ try {
     await waitStage('captain');
     const arrival=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {actor:!!a.captainArrival.actor?.active,arrived:a.captainArrival.arrived,visible:!!a.captainArrival.actor?.visible}})()");
     assert.deepEqual(arrival,{actor:true,arrived:true,visible:true},'PR57 Captain world arrival must finish before dialogue');
+    const captainVisual=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),c=a.captainArrival;return {status:c.loadStatus,real:c.selectedAppearance,scale:c.sprite?.scaleX,frame:c.sprite?.frame?.name,angle:c.sprite?.rotation,y:c.sprite?.y,children:c.actor?.list.length}})()");
+    assert.equal(captainVisual.status,'ready','PR59 Captain PNG must preload before arrival');
+    assert.equal(captainVisual.real,true,'PR59 no geometric fallback on normal path');
+    assert.equal(captainVisual.scale,0.75,'PR59 Captain display scale');
+    assert.equal(captainVisual.angle,0,'PR59 Captain returns to neutral stance');
     for(let attempt=0;attempt<80;attempt++){
       if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.captainArrival.actor?.list.some(o=>o.type==='Sprite'&&o.texture?.key==='npc-captain')})()"))break;
       await sleep(40);
