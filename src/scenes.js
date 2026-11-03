@@ -399,7 +399,7 @@ export class ArenaScene extends Phaser.Scene {
       this.act1Epilogue='complete';this.cameras.main.resetFX();
       completeCampaignAct(this.campaignRun,FIRST_ACT_ID,{
         hp:this.playerHp,maxHp:ENCOUNTER.playerMaxHp,
-        unlockedWeapons:this.unlockedWeapons,selectedWeapon:this.weapon||this.campaignRun.selectedWeapon,
+        unlockedWeapons:this.unlockedWeapons,selectedWeapon:this.weapon,
         kills:this.kills,activeCombatMs:this.elapsedGameplayMs,
       });
       this.releaseFinalOutcome();this.endEpisode('victory');
