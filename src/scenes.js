@@ -14,7 +14,7 @@ import {createDialoguePanel} from './dialogue-ui.js';
 import {createAct1Panels} from './act1-epilogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
 import {FIRST_ACT_ID,completionDestination} from './campaign.js';
-import {beginCampaignRun,currentCampaignRun,updateRunHealth,updateRunEquipment,awardRunArtifact,completeCampaignAct,MARCIN_MOHAWK_ID} from './campaign-run.js';
+import {beginCampaignRun,currentCampaignRun,updateRunHealth,updateRunEquipment,awardRunArtifact,completeCampaignAct,nextActHandoff,MARCIN_MOHAWK_ID} from './campaign-run.js';
 import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
@@ -76,8 +76,9 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.background);
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
-    const hasSession = this.scene.isPaused('Arena');
-    const terminal = hasSession && this.scene.get('Arena').episode?.ended;
+    const sessionKey=this.scene.isPaused('Airship')?'Airship':'Arena';
+    const hasSession = this.scene.isPaused(sessionKey);
+    const terminal = hasSession && sessionKey==='Arena' && this.scene.get('Arena').episode?.ended;
     const defeated = terminal && this.scene.get('Arena').episode.state==='defeat';
     const victorious=terminal&&!defeated;
     const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
@@ -87,16 +88,16 @@ export class MenuScene extends Phaser.Scene {
     const newGame = button(this, initial.centerX, startY, initial.startWidth, initial.startHeight, 'NOWA GRA', () => {
       if (!allowed()) return;
       this.navigating = true;
-      if (hasSession) this.scene.stop('Arena');
+      if (hasSession) this.scene.stop(sessionKey);
       beginCampaignRun(this.game);
       this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
     });
     const resume = hasSession && !terminal ? button(this, initial.centerX, resumeY, initial.startWidth, initial.startHeight, 'WZNÓW', () => {
       if (!allowed()) return;
       this.navigating = true;
-      const arena = this.scene.get('Arena');
-      arena.resetMovement();
-      this.scene.resume('Arena');
+      const activeSession = this.scene.get(sessionKey);
+      activeSession.resetMovement();
+      this.scene.resume(sessionKey);
       this.scene.stop();
     }) : null;
     const resize = () => {
@@ -402,7 +403,10 @@ export class ArenaScene extends Phaser.Scene {
         unlockedWeapons:this.unlockedWeapons,selectedWeapon:this.weapon,
         kills:this.kills,activeCombatMs:this.elapsedGameplayMs,
       });
-      this.releaseFinalOutcome();this.endEpisode('victory');
+      const next=nextActHandoff(this.campaignRun,new Set(Object.keys(this.scene.manager.keys)));
+      this.releaseFinalOutcome();
+      if(next){this.scene.start('ActTitle',{actId:next.actId,handoff:next});return;}
+      this.endEpisode('victory');
     });
     // Opening boundary was already queued in create, before UI existed.
     // No combat update runs while assets load or an opening line is visible.
