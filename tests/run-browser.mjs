@@ -776,6 +776,16 @@ try {
     assert.equal(ship.act,'act2');assert.equal(ship.hp,handoff.hp);assert.equal(ship.maxHp,handoff.maxHp);
     assert.equal(ship.weapon,handoff.selected);assert.deepEqual(ship.unlocked,handoff.weapons);
     assert.equal(ship.layers,4);assert.equal(ship.dialogue,false);
+    assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('Airship').physics.world.bounds;return [b.width,b.height]})()"),[960,540],'PR62 Arcade world bounds');
+    const shipViewport=(await snapshot()).rect;
+    await cdp('Emulation.setDeviceMetricsOverride',{width:568,height:320,deviceScaleFactor:1,mobile:false});
+    await evaluate("window.__game.scale.refresh();true");await sleep(100);
+    const airshipResize=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),l=a.hudLayout;return {zoom:a.cameras.main.zoom,viewport:[a.scale.width,a.scale.height],left:l.joystickX-l.joystickRadius,right:l.aimX+l.joystickRadius,feet:a.player.y}})()");
+    assert.deepEqual(airshipResize.viewport,[568,320],'PR62 Airship resize');
+    assert.equal(airshipResize.zoom,1,'PR62 mobile HUD must retain native pixel size');
+    assert.ok(airshipResize.left>=0&&airshipResize.right<=568,'PR62 joysticks clipped after resize');
+    await cdp('Emulation.setDeviceMetricsOverride',{width:Math.round(shipViewport.width),height:Math.round(shipViewport.height),deviceScaleFactor:1,mobile:false});
+    await evaluate("window.__game.scale.refresh();true");await sleep(75);
     const driftBefore=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {x:a.player.x,y:a.player.y,deck:JSON.stringify(a.deckVisual.geom),offsets:a.layers.map(l=>l.tilePositionX)}})()");
     await sleep(140);
     const driftAfter=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {x:a.player.x,y:a.player.y,deck:JSON.stringify(a.deckVisual.geom),offsets:a.layers.map(l=>l.tilePositionX)}})()");
