@@ -13,7 +13,7 @@ test('new run is independent, starts with baseline equipment and no campaign pro
   assert.equal(a.actId,'act1');
   assert.deepEqual([a.hp,a.maxHp],[ENCOUNTER.playerMaxHp,ENCOUNTER.playerMaxHp]);
   assert.deepEqual([...a.unlockedWeapons],['blunderbuss']);
-  assert.equal(a.selectedWeapon,'blunderbuss');
+  assert.equal(a.selectedWeapon,null,'Act I starts unequipped despite starter entitlement');
   assert.deepEqual([...a.artifacts],[]);
   assert.deepEqual([...a.completedActs],[]);
   assert.deepEqual([...a.upgrades],[]);
@@ -85,10 +85,36 @@ test('active gameplay milliseconds are preserved without truncation',()=>{
   assert.equal(run.stats.activeCombatMs,261199.9);
   assert.equal(run.stats.byAct.act1.activeCombatMs,261199.9);
 });
+test('unequipped Act I snapshots stay unequipped while retaining starter entitlement',()=>{
+  const run=createCampaignRun();
+  assert.equal(updateRunEquipment(run,new Set(),null),true);
+  assert.equal(run.unlockedWeapons.has('blunderbuss'),true);
+  assert.equal(run.selectedWeapon,null);
+  assert.equal(completeCampaignAct(run,'act1',{
+    hp:4,maxHp:5,unlockedWeapons:new Set(),selectedWeapon:null,kills:0,activeCombatMs:1234.5,
+  }),true);
+  assert.equal(run.selectedWeapon,null);
+  assert.equal(snapshotCampaignRun(run).selectedWeapon,null);
+  assert.equal(run.unlockedWeapons.has('blunderbuss'),true);
+});
+test('rifle and flamethrower pickup selections survive completion without a default override',()=>{
+  for(const equipped of ['rifle','flamethrower']){
+    const run=createCampaignRun();
+    assert.equal(updateRunEquipment(run,new Set([equipped]),equipped),true);
+    assert.equal(run.selectedWeapon,equipped);
+    assert.equal(completeCampaignAct(run,'act1',{
+      hp:2,maxHp:5,unlockedWeapons:new Set([equipped]),selectedWeapon:equipped,
+      kills:30,activeCombatMs:2000,
+    }),true);
+    assert.equal(run.selectedWeapon,equipped);
+    assert.equal(run.unlockedWeapons.has('blunderbuss'),true);
+    assert.equal(snapshotCampaignRun(run).selectedWeapon,equipped);
+  }
+});
 test('unknown act, invalid selections and incomplete campaign cannot start future scene',()=>{
   const run=createCampaignRun();
   assert.equal(updateRunEquipment(run,new Set(['blunderbuss']),'rifle'),false);
-  assert.equal(run.selectedWeapon,'blunderbuss');
+  assert.equal(run.selectedWeapon,null);
   assert.equal(completeCampaignAct(run,'not-an-act',{hp:5,maxHp:5,unlockedWeapons:new Set(['blunderbuss']),selectedWeapon:'blunderbuss',kills:0,activeCombatMs:0}),false);
   assert.equal(nextActHandoff(run,new Set(['Arena','Airship'])),null);
   assert.equal(prepareActStart(run,{actId:'unknown',scene:'Arena'},new Set(['Arena'])),false);
