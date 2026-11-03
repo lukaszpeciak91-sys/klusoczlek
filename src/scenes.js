@@ -1089,12 +1089,20 @@ export class ArenaScene extends Phaser.Scene {
         if(this.act1FadeElapsed>=600){
           if(this.act1Epilogue==='clearing-fade'){
             this.act1FadePending=false;this.clearAct1Combat();
-            this.act1Epilogue='captain-arrival';this.captainArrival.start();this.cameras.main.fadeIn(450,0,0,0);
+            this.act1Epilogue='captain-preparing';this.captainPreparationMs=0;
           }else{
             this.act1Epilogue='results';
             this.cameras.main.resetFX();
             this.act1Panels.showResults(this.kills,formatGameplayClock(this.elapsedGameplayMs));
           }
+        }
+      }else if(this.act1Epilogue==='captain-preparing'){
+        // Remain black for a bounded interval if the preloaded texture is still in flight.
+        // A failed/slow request cannot strand the epilogue.
+        this.captainPreparationMs+=Math.min(this.game.loop.delta,50);
+        if(this.captainArrival.loadStatus!=='pending'||this.captainPreparationMs>=1200){
+          this.captainArrival.start();this.act1Epilogue='captain-arrival';
+          this.cameras.main.fadeIn(450,0,0,0);
         }
       }else if(this.act1Epilogue==='captain-arrival'){
         if(this.captainArrival.update(this.game.loop.delta)){

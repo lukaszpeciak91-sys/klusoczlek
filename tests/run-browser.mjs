@@ -708,9 +708,20 @@ try {
     const reward=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {award:a.marcinArtifactAwarded,mode:a.act1Panels.mode,disabled:!a.joystick.enabled&&!a.aimJoystick.enabled,kills:a.kills,clock:a.elapsedGameplayMs}})()");
     assert.equal(reward.award,true);assert.equal(reward.mode,'reward');assert.equal(reward.disabled,true);
     await clickPanel();
+    await waitStage('captain-arrival');
+    const gaitBefore=await evaluate("(()=>{const c=window.__game.scene.getScene('Arena').captainArrival;return {x:c.actor.x,y:c.actor.y,bob:c.sprite?.y,angle:c.sprite?.rotation}})()");
+    await sleep(180);
+    const gaitAfter=await evaluate("(()=>{const c=window.__game.scene.getScene('Arena').captainArrival;return {x:c.actor.x,y:c.actor.y,bob:c.sprite?.y,angle:c.sprite?.rotation}})()");
+    if(Math.hypot(gaitAfter.x-gaitBefore.x,gaitAfter.y-gaitBefore.y)>2)
+      assert.ok(Math.abs(gaitAfter.bob-gaitBefore.bob)>0.05||Math.abs(gaitAfter.angle-gaitBefore.angle)>0.001,'PR59 moving Captain needs visible gait');
     await waitStage('captain');
     const arrival=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {actor:!!a.captainArrival.actor?.active,arrived:a.captainArrival.arrived,visible:!!a.captainArrival.actor?.visible}})()");
     assert.deepEqual(arrival,{actor:true,arrived:true,visible:true},'PR57 Captain world arrival must finish before dialogue');
+    const captainVisual=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),c=a.captainArrival;return {status:c.loadStatus,real:c.selectedAppearance,scale:c.sprite?.scaleX,frame:c.sprite?.frame?.name,angle:c.sprite?.rotation,y:c.sprite?.y,children:c.actor?.list.length}})()");
+    assert.equal(captainVisual.status,'ready','PR59 Captain PNG must preload before arrival');
+    assert.equal(captainVisual.real,true,'PR59 no geometric fallback on normal path');
+    assert.equal(captainVisual.scale,0.75,'PR59 Captain display scale');
+    assert.equal(captainVisual.angle,0,'PR59 Captain returns to neutral stance');
     for(let attempt=0;attempt<80;attempt++){
       if(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.captainArrival.actor?.list.some(o=>o.type==='Sprite'&&o.texture?.key==='npc-captain')})()"))break;
       await sleep(40);
