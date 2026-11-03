@@ -40,7 +40,8 @@ export function createMarcinRenderer(scene,Phaser){
   const art=e.sprite.getData('marcin-art');
   return art?.active?{art:true,x:e.sprite.x+art.x,y:e.sprite.y+art.y,angle:art.rotation,scale:art.scaleX,frame:Number(art.frame.name)}:null;
  };
- const shutdown=()=>{alive=false;containers.clear();};scene.events.once('shutdown',shutdown);
+ const destroyAll=()=>{for(const container of [...containers])if(container.active)container.destroy();containers.clear();};
+ const shutdown=()=>{alive=false;destroyAll();};scene.events.once('shutdown',shutdown);
  const loading=(async()=>{
   try{
    const texture=scene.textures,asset=MARCIN_ASSET;
@@ -61,5 +62,5 @@ export function createMarcinRenderer(scene,Phaser){
    texture.get(asset.key).setFilter(Phaser.Textures.FilterMode.NEAREST);ready=true;for(const c of containers)attach(c);
   }catch(error){failed=true;if(alive)console.info('[marcin] procedural fallback:',String(error));}
  })();
- return {create,update,damagePoseOf,loading,feedbackOf:e=>e.sprite.getData('feedback'),shutdown,get loaded(){return ready;},get fallback(){return failed;}};
+ return {create,update,damagePoseOf,loading,feedbackOf:e=>e.sprite.getData('feedback'),destroyAll,shutdown,get activeVisuals(){return [...containers].filter(c=>c.active).length;},get loaded(){return ready;},get fallback(){return failed;}};
 }

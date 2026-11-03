@@ -118,7 +118,8 @@ function createEnemyRenderer(scene,Phaser,type){
     for(const part of parts){const b=part.getBounds();left=Math.min(left,b.left);top=Math.min(top,b.top);right=Math.max(right,b.right);bottom=Math.max(bottom,b.bottom);}
     return {x:(left+right)/2,y:top,left,top,right,bottom};
   };
-  const shutdown=()=>{alive=false;containers.clear();};
+  const destroyAll=()=>{for(const container of [...containers])if(container.active)container.destroy();containers.clear();};
+  const shutdown=()=>{alive=false;destroyAll();};
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN,shutdown);
   // One request per Arena session, independent of individual enemy spawns.
   const loading=(async()=>{
@@ -152,5 +153,5 @@ function createEnemyRenderer(scene,Phaser,type){
       if(alive)console.info('['+type+'] procedural fallback:',error.message);
     }
   })();
-  return {create,update,feedbackOf,damagePoseOf,speechAnchorOf,shutdown,loading,get loaded(){return ready;},get fallback(){return failed;}};
+  return {create,update,feedbackOf,damagePoseOf,speechAnchorOf,destroyAll,shutdown,loading,get activeVisuals(){return [...containers].filter(c=>c.active).length;},get loaded(){return ready;},get fallback(){return failed;}};
 }

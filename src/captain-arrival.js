@@ -28,19 +28,20 @@ export function createCaptainArrival(scene){
         if(!res.ok)throw Error('missing Captain sheet');
         const bytes=new Uint8Array(await res.arrayBuffer());
         const n=i=>(bytes[i]*16777216+bytes[i+1]*65536+bytes[i+2]*256+bytes[i+3])>>>0;
-        if(bytes.length<26||!([137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v))||n(16)!==768||n(20)!==96||bytes[24]!==8||bytes[25]!==6)throw Error('invalid Captain sheet');
+        if(bytes.length<26||!([137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v))||n(16)!==8*n(20)||n(20)<64||bytes[24]!==8||![2,6].includes(bytes[25]))throw Error('invalid Captain PNG: expected eight square horizontal frames');
+        const frameSize=n(20);
         const url=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
         try{
           const img=new Image();await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=url;});
           if(disposed||!actor?.active)return;
           const key='npc-captain';
-          if(!scene.textures.exists(key))scene.textures.addSpriteSheet(key,img,{frameWidth:96,frameHeight:96});
+          if(!scene.textures.exists(key))scene.textures.addSpriteSheet(key,img,{frameWidth:frameSize,frameHeight:frameSize});
           scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
           const facing=to.x<scene.player.x?'e':'w';
           const sprite=scene.add.sprite(0,-43,key,playerFrame(facing)).setOrigin(.5);
           actor.addAt(sprite,0);for(const part of [body,head,cap,label])part.setVisible(false);
         }finally{URL.revokeObjectURL(url);}
-      }catch{/* Visible fallback actor remains. */}
+      }catch(error){if(!disposed)console.warn('[Captain] PNG fallback:',error.message);}
     })();
     return true;
   }
