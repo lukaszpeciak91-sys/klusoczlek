@@ -72,6 +72,8 @@ export class AirshipScene extends Phaser.Scene {
     this.rails.lineStyle(3,0xe4c183,1).strokePoints(DECK_POLYGON,true);
     this.player=createPlayer(this,AIRSHIP_WORLD.start.x,AIRSHIP_WORLD.start.y);
     this.player.body.setVelocity(0,0);
+    // Keep UI/joystick pixels at 1:1; follow in world space instead of zooming the HUD.
+    this.cameras.main.startFollow(this.player,true,0.12,0.12);
     this.facingMarker=this.add.triangle(this.player.x,this.player.y,0,-28,-7,-15,7,-15,0xe9d6ab).setDepth(11);
     this.playerVisual=createPlayerVisual(this,this.player,this.facingMarker,Phaser);
     this.weapon=this.campaignRun.selectedWeapon;
@@ -83,7 +85,8 @@ export class AirshipScene extends Phaser.Scene {
     this.aimJoystick=createJoystick(this,'right');
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
     this.lastFacing='s';
-    this.input.keyboard.on('keydown-Q',()=>this.cycleWeapon());
+    const onSwitchKey=()=>this.cycleWeapon();
+    this.input.keyboard.on('keydown-Q',onSwitchKey);
     this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
     this.menuButton=this.add.rectangle(0,0,80,38,0x2b3324,0.95)
       .setStrokeStyle(2,0xb9a16b).setScrollFactor(0).setDepth(60).setInteractive({useHandCursor:true});
@@ -118,7 +121,7 @@ export class AirshipScene extends Phaser.Scene {
       this.hpFace.resize(l);this.hpText.setPosition(l.hpX,l.hpY);
       this.weaponToken.setPosition(l.switchX,l.switchY).setScale(l.switchSize/42);
       this.switchLabel.setPosition(l.switchX,l.switchY-l.switchSize/2-12);
-      this.cameras.main.setZoom(Math.min(w/AIRSHIP_WORLD.width,h/AIRSHIP_WORLD.height)).centerOn(480,270);
+      this.cameras.main.setZoom(1);
     };
     resize();
     this.scale.on(Phaser.Scale.Events.RESIZE,resize);
@@ -126,6 +129,7 @@ export class AirshipScene extends Phaser.Scene {
       this.artAlive=false;this.artAbort.abort();
       this.scale.off(Phaser.Scale.Events.RESIZE,resize);
       this.input.off('pointerdown',touchSwitch);
+      this.input.keyboard.off('keydown-Q',onSwitchKey);
       window.removeEventListener('blur',this.onBlur);
       window.removeEventListener('focus',this.onFocus);
       document.removeEventListener('visibilitychange',this.onVisibility);
