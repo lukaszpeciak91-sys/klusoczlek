@@ -53,7 +53,7 @@ export function completeCampaignAct(run,actId,{hp,maxHp,unlockedWeapons,selected
   if(!Number.isSafeInteger(kills)||kills<0||!Number.isFinite(activeCombatMs)||activeCombatMs<0)return false;
   if(!updateRunHealth(run,hp,maxHp))return false;
   if(!updateRunEquipment(run,unlockedWeapons,selectedWeapon))return false;
-  const result={kills,activeCombatMs:Math.floor(activeCombatMs)};
+  const result={kills,activeCombatMs};
   run.completedActs.add(actId);
   run.stats.byAct[actId]=result;
   run.stats.kills+=result.kills;
