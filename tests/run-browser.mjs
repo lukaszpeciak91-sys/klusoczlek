@@ -767,8 +767,35 @@ try {
     assert.equal(handoff.selected,await evaluate("window.__game.scene.getScene('Arena').weapon"));
     assert.equal(handoff.kills,reward.kills);assert.equal(handoff.time,reward.clock);
     assert.equal(handoff.artifact,true);assert.deepEqual(handoff.results,{kills:reward.kills,activeCombatMs:reward.clock});
-    await waitFor(v=>v.menu&&v.arenaPaused,'PR57 terminal victory menu');
-    assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+    for(let n=0;n<60;n++){if(await evaluate("window.__game.scene.isActive('ActTitle')"))break;await sleep(20);}
+    const act2Card=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return {active:g.scene.isActive('ActTitle'),arena:g.scene.isActive('Arena'),label:t.children.list.find(o=>o.text==='AKT II')?.text,title:t.children.list.find(o=>o.text==='W PRZESTWORZACH')?.text}})()");
+    assert.deepEqual(act2Card,{active:true,arena:false,label:'AKT II',title:'W PRZESTWORZACH'},'PR62 Act II title must precede Airship');
+    for(let n=0;n<100;n++){if(await evaluate("window.__game.scene.isActive('Airship')"))break;await sleep(35);}
+    assert.equal(await evaluate("window.__game.scene.isActive('Airship')"),true,'PR62 Airship must start after the title card');
+    const ship=await evaluate("(()=>{const g=window.__game,a=g.scene.getScene('Airship'),r=a.campaignRun;return {act:r.actId,hp:a.playerHp,maxHp:a.maxHp,weapon:a.weapon,unlocked:[...a.unlockedWeapons],position:{x:a.player.x,y:a.player.y},layers:a.layers.length,dialogue:g.scene.isActive('Arena')}})()");
+    assert.equal(ship.act,'act2');assert.equal(ship.hp,handoff.hp);assert.equal(ship.maxHp,handoff.maxHp);
+    assert.equal(ship.weapon,handoff.selected);assert.deepEqual(ship.unlocked,handoff.weapons);
+    assert.equal(ship.layers,4);assert.equal(ship.dialogue,false);
+    const driftBefore=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {x:a.player.x,y:a.player.y,deck:JSON.stringify(a.deckVisual.geom),offsets:a.layers.map(l=>l.tilePositionX)}})()");
+    await sleep(140);
+    const driftAfter=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {x:a.player.x,y:a.player.y,deck:JSON.stringify(a.deckVisual.geom),offsets:a.layers.map(l=>l.tilePositionX)}})()");
+    assert.deepEqual([driftAfter.x,driftAfter.y],[driftBefore.x,driftBefore.y],'PR62 cloud motion moved player');
+    assert.ok(driftAfter.offsets[3]>driftBefore.offsets[3]&&driftAfter.offsets[0]===driftBefore.offsets[0],'PR62 clouds not scrolling independently');
+    await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.player.setPosition(0,0);a.player.body.reset(0,0);return true})()");
+    await sleep(90);
+    assert.equal(await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship');const m=await import('/klusoczlek/src/airship-contract.js');return m.insideDeck({x:a.player.x,y:a.player.y})})()"),true,'PR62 player escaped deck');
+    const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+    await writeFile('dist/pr62-airship-fallback.png',Buffer.from(shot.data,'base64'));
+    await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
+    await waitFor(v=>v.menu,'PR62 Airship MENU');
+    assert.equal(await evaluate("window.__game.scene.isPaused('Airship')"),true);
+    const pausedCloud=await evaluate("window.__game.scene.getScene('Airship').layers[3].tilePositionX");
+    await sleep(90);
+    assert.equal(await evaluate("window.__game.scene.getScene('Airship').layers[3].tilePositionX"),pausedCloud,'PR62 parallax moved while paused');
+    await clickControl('WZNÓW');
+    assert.equal(await evaluate("window.__game.scene.isActive('Airship')"),true,'PR62 WZNÓW did not resume Airship');
+    await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
+    await waitFor(v=>v.menu,'PR62 development-stage exit to MENU');
   }
 
   const finaleAtHit=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const live=a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;const spawned=a.totalSpawned;const boss=a.boss;if(!boss)throw Error('Marcin missing');boss.hp=0;if(!a.finalizeEnemyDeath(boss)||a.finalizeEnemyDeath(boss))throw Error('Marcin fatal hit was not unique');return {live,spawned,afterSpawns:a.totalSpawned,kills:a.kills,hud:a.killsText.text,final:a.finalResolution,state:a.episode.state,others:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,queued:a.reinforcementDue.length+a.escortDue.length,projectiles:a.bossProjectiles.length,bursts:a.deathBursts.length,dialogue:a.dialogueState.id}})()");
@@ -821,7 +848,7 @@ try {
     }
    }
    await finishAct1Epilogue();
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').campaignRun.completedActs.has('act1')"),true,'Act I completion must persist through Act II handoff');
   const terminalClock=await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs");
   await sleep(160);
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').elapsedGameplayMs"),terminalClock,'Timer advanced after victory');
@@ -1801,7 +1828,7 @@ try {
     }
   }
   await finishAct1Epilogue();
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').campaignRun.completedActs.has('act1')"),true,'Act I completion must persist through Act II handoff');
   console.log('PASS PR43 first-hit portrait remains pausing; Marcin death then final dialogue and victory');
 
   // PR44 live encounter. Fixtures advance the schedule, not the boss state
@@ -2152,7 +2179,7 @@ try {
     }
   }
   await finishAct1Epilogue();
-  assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').campaignRun.completedActs.has('act1')"),true,'Act I completion must persist through Act II handoff');
   await cdp('Fetch.disable');socket.removeEventListener('message',missingPortrait);
   console.log('PASS PR48 missing Marcin portrait: fallback letter, speaker, three lines/DALEJ and victory');
 
