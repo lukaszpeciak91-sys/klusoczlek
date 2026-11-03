@@ -87,7 +87,7 @@ export class MenuScene extends Phaser.Scene {
       if (!allowed()) return;
       this.navigating = true;
       if (hasSession) this.scene.stop('Arena');
-      this.scene.start('Arena');
+      this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
     });
     const resume = hasSession && !terminal ? button(this, initial.centerX, resumeY, initial.startWidth, initial.startHeight, 'WZNÓW', () => {
       if (!allowed()) return;
