@@ -9,7 +9,7 @@ This document is a technical *layout proposal*, not final artwork approval or an
 - Collision projection keeps the player's radius plus 8 px inside the rail outline. Rails are clearly drawn even when PNG assets are absent.
 - Art position: image centered at world `(480,270)`, currently *displayed* within an approximate **804 × 384 logical-pixel** footprint and clipped to the deck polygon. These are renderer layout values, **not required source PNG dimensions**. Revisit after the approved ship's footprint, pixel density and transparent margins are established.
 - Reserved landing-zone centers (not active): `port-aft (240,270)`, `starboard-fore (730,270)` with conceptual radius 45. No glider/enemy logic.
-- Player starts centered at `(480,270)`. Physics and deck remain fixed; only a camera zoom fits the logical world to the landscape viewport.
+- Player starts centered at `(480,270)`. Physics and deck remain fixed in world coordinates. The camera follows Aloes at zoom 1; this keeps HUD and mobile joystick pixels readable rather than shrinking the entire game UI.
 
 ## Optional layers / future artwork
 
