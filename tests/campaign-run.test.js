@@ -1,0 +1,65 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createCampaignRun,beginCampaignRun,currentCampaignRun,updateRunHealth,updateRunEquipment,
+  awardRunArtifact,completeCampaignAct,nextActHandoff,prepareActStart,MARCIN_MOHAWK_ID} from '../src/campaign-run.js';
+import {ENCOUNTER} from '../src/bobrozombi.js';
+
+function fixtureRegistry(){
+  const storage=new Map();
+  return {registry:{set:(key,value)=>storage.set(key,value),get:key=>storage.get(key)}};
+}
+test('new run is independent, starts with baseline equipment and no campaign progress',()=>{
+  const a=createCampaignRun(),b=createCampaignRun();
+  assert.equal(a.actId,'act1');
+  assert.deepEqual([a.hp,a.maxHp],[ENCOUNTER.playerMaxHp,ENCOUNTER.playerMaxHp]);
+  assert.deepEqual([...a.unlockedWeapons],['blunderbuss']);
+  assert.equal(a.selectedWeapon,'blunderbuss');
+  assert.deepEqual([...a.artifacts],[]);
+  assert.deepEqual([...a.completedActs],[]);
+  assert.deepEqual([...a.upgrades],[]);
+  assert.deepEqual(a.stats,{kills:0,activeCombatMs:0,byAct:{}});
+  a.artifacts.add(MARCIN_MOHAWK_ID);
+  assert.equal(b.artifacts.size,0);
+});
+test('fresh NEW GAME replaces run, while RESUME reads the identical in-memory instance',()=>{
+  const game=fixtureRegistry(),first=beginCampaignRun(game);
+  updateRunHealth(first,3,5);
+  assert.equal(currentCampaignRun(game),first);
+  assert.equal(currentCampaignRun(game).hp,3);
+  const fresh=beginCampaignRun(game);
+  assert.notEqual(fresh,first);
+  assert.equal(fresh.hp,5);
+  assert.equal(fresh.artifacts.size,0);
+});
+test('exactly-once artifact, completion, equipment and health survive handoff',()=>{
+  const run=createCampaignRun();
+  assert.equal(awardRunArtifact(run,MARCIN_MOHAWK_ID),true);
+  assert.equal(awardRunArtifact(run,MARCIN_MOHAWK_ID),false);
+  const unlocked=new Set(['blunderbuss','rifle','flamethrower','water-thrower']);
+  assert.equal(updateRunEquipment(run,unlocked,'water-thrower'),true);
+  assert.equal(updateRunHealth(run,3,6),true);
+  const record={hp:3,maxHp:6,unlockedWeapons:unlocked,selectedWeapon:'water-thrower',kills:108,activeCombatMs:194321};
+  assert.equal(completeCampaignAct(run,'act1',record),true);
+  assert.equal(completeCampaignAct(run,'act1',record),false);
+  assert.equal(run.stats.kills,108);
+  assert.equal(run.stats.activeCombatMs,194321);
+  assert.deepEqual(run.stats.byAct.act1,{kills:108,activeCombatMs:194321});
+  assert.deepEqual([run.hp,run.maxHp],[3,6]);
+  const registered=new Set(['Arena']);
+  assert.equal(nextActHandoff(run,registered),null,'Act II not registered or implemented');
+  assert.equal(prepareActStart(run,{actId:'act2',scene:'Airship'},registered),false);
+  assert.equal(run.actId,'act1');
+  assert.equal(run.selectedWeapon,'water-thrower');
+  assert.deepEqual([...run.unlockedWeapons],[...unlocked]);
+  assert.equal(run.artifacts.size,1);
+  assert.equal(run.completedActs.size,1);
+});
+test('unknown act, invalid selections and incomplete campaign cannot start future scene',()=>{
+  const run=createCampaignRun();
+  assert.equal(updateRunEquipment(run,new Set(['blunderbuss']),'rifle'),false);
+  assert.equal(run.selectedWeapon,'blunderbuss');
+  assert.equal(completeCampaignAct(run,'not-an-act',{hp:5,maxHp:5,unlockedWeapons:new Set(['blunderbuss']),selectedWeapon:'blunderbuss',kills:0,activeCombatMs:0}),false);
+  assert.equal(nextActHandoff(run,new Set(['Arena','Airship'])),null);
+  assert.equal(prepareActStart(run,{actId:'unknown',scene:'Arena'},new Set(['Arena'])),false);
+  assert.equal(run.completedActs.size,0);
+});
