@@ -16,7 +16,7 @@ export const FUTURE_ACT_ASSETS=Object.freeze([
   'vehicles/hang-glider.png',
 ]);
 export function getAct(id=FIRST_ACT_ID){return CAMPAIGN_ACTS.find(act=>act.id===id)??null;}
-export function nextAct(id){return getAct(getAct(id)?.nextActId);}
+export function nextAct(id){const nextId=getAct(id)?.nextActId;return nextId?getAct(nextId):null;}
 export function nextAvailableAct(id){const next=nextAct(id);return next?.scene?next:null;}
 export function sceneForAct(id){return getAct(id)?.scene??null;}
 // PR60 transition seam: results may eventually offer an upgrade and next act.
