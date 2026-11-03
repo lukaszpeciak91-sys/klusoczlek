@@ -5,7 +5,7 @@ import {enforceOrientationOnSceneStart} from './viewport.js';
 // Short opaque intertitle; the playable Arena is not constructed until completion.
 export class ActTitleScene extends Phaser.Scene {
   constructor(){super('ActTitle');}
-  init(data={}){this.actId=data.actId??FIRST_ACT_ID;this.nextScene=sceneForAct(this.actId);}
+  init(data={}){this.actId=data.actId??FIRST_ACT_ID;this.nextScene=sceneForAct(this.actId);this.handoff=data.handoff??null;}
   create(){
     const act=getAct(this.actId);
     if(!act||!this.nextScene){this.scene.start('Menu');return;}
@@ -33,7 +33,7 @@ export class ActTitleScene extends Phaser.Scene {
     this.time.delayedCall(260,()=>this.tweens.add({targets:name,alpha:1,duration:440,ease:'Linear'}));
     this.time.delayedCall(1600,()=>this.tweens.add({
       targets:[number,name],alpha:0,duration:220,ease:'Linear',
-      onComplete:()=>{if(this.sys.isActive()&&sceneForAct(this.actId))this.scene.start(this.nextScene);}
+      onComplete:()=>{if(this.sys.isActive()&&sceneForAct(this.actId))this.scene.start(this.nextScene,{handoff:this.handoff});}
     }));
     enforceOrientationOnSceneStart(this);
   }
