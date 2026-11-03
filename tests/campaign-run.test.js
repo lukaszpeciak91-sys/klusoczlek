@@ -65,6 +65,16 @@ test('exactly-once artifact, completion, equipment and health survive handoff',(
   assert.equal(run.artifacts.size,1);
   assert.equal(run.completedActs.size,1);
 });
+test('skipping the optional blunderbuss pickup never revokes the campaign starter unlock',()=>{
+  const run=createCampaignRun();
+  assert.equal(updateRunEquipment(run,new Set(['rifle']),'rifle'),true);
+  assert.deepEqual([...run.unlockedWeapons],['blunderbuss','rifle']);
+  assert.equal(completeCampaignAct(run,'act1',{
+    hp:2,maxHp:5,unlockedWeapons:new Set(),selectedWeapon:'rifle',kills:42,activeCombatMs:1000,
+  }),true);
+  assert.equal(run.unlockedWeapons.has('blunderbuss'),true);
+  assert.equal(run.selectedWeapon,'rifle');
+});
 test('unknown act, invalid selections and incomplete campaign cannot start future scene',()=>{
   const run=createCampaignRun();
   assert.equal(updateRunEquipment(run,new Set(['blunderbuss']),'rifle'),false);
