@@ -933,7 +933,15 @@ try {
     if(!gliderDemoVerified){
       gliderDemoVerified=true;
       const expected=await evaluate("(async()=>{const m=await import('/klusoczlek/src/dialogue-data.js');return m.DIALOGUES['act2-opening']})()");
-      assert.equal(expected.length,21,'PR64 approved opening dialogue length');
+      assert.equal(expected.length,23,'PR72 complete opening including Bober Wojtek');
+      assert.deepEqual(expected.slice(-2),[
+        ['bobrozombi','BOBROZOMBI','Haha! Tego się nie spodziewaliście!'],
+        ['bobrozombi','BOBROZOMBI','Bober Wojtek — As przestworzy! ATAAAAK!']
+      ]);
+      const openingStage=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {requested:a.playerVisual.requestedVariant,weapon:a.weapon,entitled:[...a.unlockedWeapons],player:{x:a.player.x,y:a.player.y},captain:{x:a.captainActor.x,y:a.captainActor.y,frame:a.captainSprite?.frame?.name}}})()");
+      assert.equal(openingStage.requested,'unarmed','PR72 opening uses unarmed appearance');
+      assert.ok(openingStage.captain.x>openingStage.player.x+90,'PR72 Captain faces Aloes from right');
+      assert.equal(openingStage.captain.frame,4,'PR72 Captain looks west during dialogue');
       for(let i=0;i<expected.length;i++){
         const line=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {index:a.dialogueState.index,id:a.dialogueState.id,text:a.dialoguePanel.text.text,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,shake:a.shakeTriggered,clock:a.defense.elapsedMs,spawned:a.gliderDelivery.spawnedCount}})()");
         assert.equal(line.id,'act2-opening');assert.equal(line.index,i,'PR64 one DALEJ per line');
@@ -945,6 +953,8 @@ try {
         const rect=(await snapshot()).rect;await click(rect.x+line.x,rect.y+line.y);
       }
       assert.equal(await evaluate("window.__game.scene.getScene('Airship').openingPhase"),'active','PR64 final DALEJ must start defense');
+      assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.playerVisual.requestedVariant===a.weapon})()"),true,'PR72 combat restores equipped appearance after last Wojtek panel');
+      assert.equal(await evaluate("window.__game.scene.getScene('Airship').act2Bark.visible"),false,'PR72 barks hidden at combat boundary');
       assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.defense.state==='active'&&a.defense.elapsedMs<500&&a.objectiveText.text.startsWith('WYTRZYMAJ')})()"),true);
       // Keep this bounded integration test alive until both actual landings finish.
       await evaluate("window.__game.scene.getScene('Airship').invulnerableUntil=Infinity;true");
@@ -1000,9 +1010,9 @@ try {
       assert.equal(fired.afterDuplicate,1,'PR64 dead enemy cannot be credited twice');
       assert.equal(fired.otherAlive,true,'PR64 isolated second enemy must survive');
       assert.equal(fired.burst,true,'PR64 reuse pixel-death visual');
-      console.log('PASS PR64 approved 21-line intro, exact shake, guarded timer, encounter-owned gliders, pause and safe drops');
+      console.log('PASS PR72 approved 23-panel intro, exact shake, guarded timer, encounter-owned gliders, pause and safe drops');
     }else{
-      // Other preexisting Act I regression fixtures do not re-test Act II's entire 21-line script.
+      // Other preexisting Act I regression fixtures do not re-test Act II's entire 23-panel script.
       await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.dialoguePanel.hide();a.startDefense();a.invulnerableUntil=Infinity;return true})()");
     }
     assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('Airship').physics.world.bounds;return [b.width,b.height]})()"),[960,540],'PR62 Arcade world bounds');
