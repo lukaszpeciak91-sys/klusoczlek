@@ -49,6 +49,7 @@ test('Phaser adapter allocates at most seven Images, recycles, resizes, and dest
   const objects=[];
   const scene={
     scale:{width:915,height:412},
+    cameras:{main:{zoom:1}},
     textures:{get:()=>({getSourceImage:()=>({width:1024,height:512})})},
     add:{image:()=>{made++;const o={
       alpha:1,active:true,x:0,y:0,scale:1,
@@ -60,6 +61,13 @@ test('Phaser adapter allocates at most seven Images, recycles, resizes, and dest
   };
   const layers=AIRSHIP_LAYERS.map(def=>createHorizontalParallaxLayer(scene,def,'fallback'));
   assert.equal(made,7);
+  const initialScale=layers[1].images[0].scale;
+  scene.cameras.main.zoom=.6;
+  layers.forEach(l=>l.update());
+  assert.ok(layers[1].images[0].scale>initialScale/.7,'cinematic zoom must preserve full-screen coverage');
+  scene.cameras.main.zoom=1;
+  layers.forEach(l=>l.update());
+  assert.ok(Math.abs(layers[1].images[0].scale-initialScale)<1e-9);
   for(let n=0;n<2200;n++){
     scrollCloudLayers(layers,50);
     layers.forEach(l=>l.update());
