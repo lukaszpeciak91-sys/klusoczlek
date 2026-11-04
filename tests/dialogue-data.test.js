@@ -4,8 +4,8 @@ import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue,currentDialo
 import {validDialoguePng} from '../src/dialogue-ui.js';
 import {WAVES,WAVE_TIMING,HEALTH_AFTER_WAVES} from '../src/episode.js';
 test('four original and one first-hit boundary dialogues and approved speaker sequence',()=>{
- assert.deepEqual(Object.keys(DIALOGUES),['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy','act1-marcin-last','act1-witness-last','act1-aloes-last','act1-captain','act2-opening','before-marcin','after-first-bocianolak-hit']);
- assert.deepEqual(Object.values(DIALOGUES).map(lines=>lines.length),[3,3,2,3,1,1,1,6,21,2,1]);
+ assert.deepEqual(Object.keys(DIALOGUES),['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy','act1-marcin-last','act1-witness-last','act1-aloes-last','act1-captain','act2-opening','act2-finale','before-marcin','after-first-bocianolak-hit']);
+ assert.deepEqual(Object.values(DIALOGUES).map(lines=>lines.length),[3,3,2,3,1,1,1,6,21,2,2,1]);
  assert.deepEqual([...DIALOGUES['act1-marcin-last'],...DIALOGUES['act1-witness-last'],...DIALOGUES['act1-aloes-last']],DIALOGUES['after-final-enemy'],'PR54 finale splits existing verbatim lines only');
  const state=createDialogueState();
  for(const [id,lines] of Object.entries(DIALOGUES)){
@@ -51,5 +51,13 @@ test('PR48 approved epilogue and literal stage directions remain exact',()=>{
  assert.deepEqual(DIALOGUES['before-marcin'],[
   ['bobrozombi','BOBROZOMBI','Taki jesteś?! Czekaj aż zawołam Marcina'],
   ['bobrozombi','BOBROZOMBI','Marcin! Maaaarciiin!']
+ ]);
+});
+
+test('PR66 captain finale and uncertain Bobrozombi wording are exact',()=>{
+ assert.equal(DIALOGUES['before-wave-1'][1][2],'Matko Boska! To z pewnością Kłusoczłek! Szybko, bracia, do ataku!');
+ assert.deepEqual(DIALOGUES['act2-finale'],[
+  ['captain','KAPITAN','Uff udało się nam...'],
+  ['captain','KAPITAN','A teraz nie ma co mitrężyć! Kurs na Wulkan Bogdana!']
  ]);
 });
