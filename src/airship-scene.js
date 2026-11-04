@@ -93,6 +93,7 @@ export class AirshipScene extends Phaser.Scene {
     this.playerHp=this.campaignRun.hp;
     this.maxHp=this.campaignRun.maxHp;
     this.invulnerableUntil=0;
+    this.focusSuspended=false;
     this.openingPhase='overview';
     this.openingElapsed=0;
     this.shakeTriggered=0;
@@ -204,12 +205,14 @@ export class AirshipScene extends Phaser.Scene {
     });
     this.resetMovement=()=>{this.joystick.reset();this.aimJoystick.reset();this.input.keyboard.resetKeys();};
     this.onBlur=()=>{
+      this.focusSuspended=true;
       advanceGameplayClock(this.defense.clock,0,false);
       this.resetMovement();this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
       this.combat.stopFire();
     };
     this.onFocus=()=>{
-      const allowed=this.openingPhase==='active'&&!document.hidden&&document.hasFocus()&&
+      if(document.hasFocus())this.focusSuspended=false;
+      const allowed=this.openingPhase==='active'&&!this.focusSuspended&&!document.hidden&&document.hasFocus()&&
         window.innerWidth>=window.innerHeight&&!this.scene.isPaused();
       this.joystick.setEnabled(allowed);this.aimJoystick.setEnabled(allowed);
       if(!allowed)advanceGameplayClock(this.defense.clock,0,false);
@@ -347,7 +350,7 @@ export class AirshipScene extends Phaser.Scene {
     return true;
   }
   update(time,delta){
-    const allowed=!document.hidden&&document.hasFocus()&&window.innerWidth>=window.innerHeight&&!this.scene.isPaused();
+    const allowed=!this.focusSuspended&&!document.hidden&&document.hasFocus()&&window.innerWidth>=window.innerHeight&&!this.scene.isPaused();
     if(!allowed){
       advanceGameplayClock(this.defense.clock,0,false);
       this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
