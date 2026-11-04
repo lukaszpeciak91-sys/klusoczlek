@@ -377,14 +377,13 @@ export class AirshipScene extends Phaser.Scene {
         if(!this.sys.isActive()||this.defense.state!=='survived')return;
         this.cameras.main.once('camerafadeoutcomplete',()=>{
           if(!this.sys.isActive())return;
-          this.cameras.main.fadeIn(450,0,0,0);
-          this.dialoguePanel.loading.finally(()=>{
-            if(!this.sys.isActive()||this.defense.state!=='survived')return;
-            this.cameras.main.once('camerafadeincomplete',()=>{
-              if(!this.sys.isActive())return;
+          this.cameras.main.once('camerafadeincomplete',()=>{
+            this.dialoguePanel.loading.finally(()=>{
+              if(!this.sys.isActive()||this.defense.state!=='survived')return;
               if(beginDialogue(this.dialogueState,'act2-finale'))this.dialoguePanel.show(this.dialogueState);
             });
           });
+          this.cameras.main.fadeIn(450,0,0,0);
         });
         this.cameras.main.fadeOut(450,0,0,0);
       });
