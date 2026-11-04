@@ -69,8 +69,8 @@ export function createAirshipCombat(scene,delivery){
   if(stopped)return;
   updateBursts(bursts,dt);
   const seconds=Math.min(50,dt)/1000;
-  const count=firingStep(firing,scene.weapon,Boolean(held&&scene.weapon),now);
   const cooling=now<(weaponCooldownUntil.get(scene.weapon)??0);
+  const count=cooling?0:firingStep(firing,scene.weapon,Boolean(held&&scene.weapon),now);
   if(count&&!cooling&&scene.weapon!=='flamethrower'){
    spawnShot(aim,scene.weapon,now);
    const tune=COMBAT_TUNING[scene.weapon];
