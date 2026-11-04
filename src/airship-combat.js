@@ -17,7 +17,12 @@ export function createAirshipCombat(scene,delivery){
  const firing=createFiringState(),pressure=createPressure(),weaponCooldownUntil=new Map();
  const stream=scene.add.graphics().setDepth(12);
  let flameEmissionAt=null,stopped=false;
- function stopFire(){resetFiring(firing,scene.weapon);cancelPressureTrigger(pressure);stream.clear();}
+ function stopFire(){
+  resetFiring(firing,scene.weapon);
+  if(scene.weapon==='flamethrower')cancelPressureTrigger(pressure);
+  else {pressure.wasHeld=false;pressure.active=false;pressure.locked=false;}
+  stream.clear();
+ }
  function damage(enemy,amount,source,now){
   if(stopped||enemy.dead||enemy.hp<=0)return false;
   const before=enemy.hp;
