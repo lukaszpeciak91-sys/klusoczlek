@@ -271,6 +271,7 @@ try {
     // A fresh menu deliberately stops the debug scene; the next checkpoint cannot inherit timers/listeners.
     await evaluate("(()=>{const g=window.__game;g.scene.stop("+JSON.stringify(expectedScene)+");g.scene.start('Menu');return true})()");
   }
+  await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2&&v.actions[0].label==='NOWA GRA'&&v.actions[1].label==='DEBUG','PR65 final return to menu');
   assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG']);
   console.log('PASS PR65 eight real-touch debug checkpoints, isolated runs, clean repeated scene stops');
   await clickControl('NOWA GRA');
