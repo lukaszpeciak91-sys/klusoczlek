@@ -294,6 +294,8 @@ try {
       assert.equal(final.completed,false,'PR66 only DALEJ completes the act');
       assert.equal(final.kills,42,'PR66 no provisional double counting');
       assert.equal(final.time,240000,'PR66 no provisional time double counting');
+      // Results DALEJ intentionally arms 200ms after the fade completes.
+      await sleep(260);
       const rect=(await snapshot()).rect;
       await click(rect.x+final.x,rect.y+final.y);
       for(let k=0;k<80;k++){
