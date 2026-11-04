@@ -13,7 +13,7 @@ import {enforceOrientationOnSceneStart} from './viewport.js';
 import {createGliderDelivery} from './glider-visual.js';
 import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,createCaptainPatrol,advanceCaptainPatrol,ACT2_BATTLE_CRIES,eligibleAct2Bark} from './act2-staging.js';
 import {playerFrame} from './combat-contract.js';
-import {createDialogueState,beginDialogue} from './dialogue-data.js';
+import {DIALOGUES,createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {CAPTAIN_VISUAL_SCALE} from './captain-arrival.js';
 import {createAirshipDefense,AIRSHIP_SURVIVAL_MS,AIRSHIP_GROUND_CAP,tickAirshipDefense,finishAirshipDefense} from './airship-defense.js';
