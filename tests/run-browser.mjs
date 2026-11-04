@@ -254,7 +254,49 @@ try {
       for(let k=0;k<55;k++){if(await evaluate("window.__game.scene.getScene('Arena').act1Panels.mode==='results'"))break;await sleep(40);}
       assert.equal(await evaluate("window.__game.scene.getScene('Arena').act1Panels.mode"),'results');
     }
-    if(id==='act2-defense')assert.equal(check.defense,'active');
+    if(id==='act2-opening'){
+      await sleep(260);
+      const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+      await writeFile('dist/pr67-airship-overview.png',Buffer.from(shot.data,'base64'));
+    }
+    if(id==='act2-defense'){
+      assert.equal(check.defense,'active');
+      for(let n=0;n<60;n++){
+        const status=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return [a.optionalArtStatus['arenas/airship-deck.png'],a.optionalArtStatus['obstacles/airship-wheelhouse.png'],a.optionalArtStatus['obstacles/airship-paddlewheel.png']]})()");
+        if(status.every(value=>value==='loaded'))break;
+        await sleep(50);
+      }
+      const visuals=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {deck:a.deckArt.visible,provisional:a.deckVisual.visible,rails:a.rails.visible,house:a.wheelhouse.visible,wheel:a.paddlewheel.visible,variant:a.playerVisual.appliedVariant}})()");
+      assert.deepEqual(visuals,{deck:true,provisional:false,rails:false,house:true,wheel:true,variant:'rifle'},'PR67 approved deck and integrated PNG assets');
+      const bounds=(await snapshot()).rect;
+      const mx=bounds.x+450,my=bounds.y+170;
+      await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:mx,y:my,button:'none'});
+      await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:mx,y:my,button:'left',buttons:1,clickCount:1});
+      await sleep(300);
+      const rifle=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {held:a.mouseHeld,aim:a.mouseAim.x,bullets:a.combat.bulletCount}})()");
+      assert.equal(rifle.held,true,'PR67 mouse-held fire not captured');
+      assert.ok(rifle.aim>0,'PR67 camera-correct mouse aim missing');
+      assert.ok(rifle.bullets>0,'PR67 rifle not firing while mouse held');
+      await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:mx,y:my,button:'left',buttons:0,clickCount:1});
+      await sleep(45);
+      assert.equal(await evaluate("window.__game.scene.getScene('Airship').mouseHeld"),false,'PR67 mouse release stuck');
+      await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'q',code:'KeyQ',windowsVirtualKeyCode:81});
+      await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'q',code:'KeyQ',windowsVirtualKeyCode:81});
+      await sleep(100);
+      assert.equal(await evaluate("window.__game.scene.getScene('Airship').weapon"),'flamethrower','PR67 keyboard weapon cycling');
+      await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:mx,y:my,button:'left',buttons:1,clickCount:1});
+      await sleep(240);
+      const flame=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {active:a.combat.pressure.active,pressure:a.combat.pressure.value,variant:a.playerVisual.appliedVariant}})()");
+      assert.ok(flame.active&&flame.pressure<100,'PR67 flamethrower must produce pressure-draining stream');
+      assert.equal(flame.variant,'flamethrower','PR67 approved player flamethrower sheet');
+      const flameShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+      await writeFile('dist/pr67-airship-flamethrower.png',Buffer.from(flameShot.data,'base64'));
+      await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:mx,y:my,button:'left',buttons:0,clickCount:1});
+      await evaluate("window.__game.scene.getScene('Airship').onBlur();true");
+      assert.equal(await evaluate("window.__game.scene.getScene('Airship').mouseHeld"),false,'PR67 blur must release mouse');
+      await evaluate("window.__game.scene.getScene('Airship').onFocus();true");
+      console.log('PASS PR67 PNG integration, real desktop rifle/flame input, pause-safe release and screenshots');
+    }
     if(id==='act2-last15')assert.ok(check.remaining<=15000&&check.remaining>13000,'PR65 15s clock fixture');
     if(id==='act2-results'){
       assert.equal(check.defense,'survived');

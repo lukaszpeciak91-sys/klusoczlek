@@ -6,6 +6,30 @@ export const DECK_POLYGON=Object.freeze([
   [142,78],[818,78],[882,140],[882,400],[818,462],[142,462],[78,400],[78,140],
 ].map(([x,y])=>Object.freeze({x,y})));
 export const DECK_MARGIN=PLAYER_RADIUS+8;
+// The wheelhouse's solid footing is much smaller than its tall transparent PNG.
+// Coordinates describe the base resting on the deck, not the image's bounding box.
+export const WHEELHOUSE_FOOTPRINT=Object.freeze({x:480,y:194,rx:51,ry:23});
+export function wheelhouseSegmentHit(from,to,margin=0){
+  const f=WHEELHOUSE_FOOTPRINT,a=f.rx+margin,b=f.ry+margin;
+  const sx=(from.x-f.x)/a,sy=(from.y-f.y)/b;
+  const dx=(to.x-from.x)/a,dy=(to.y-from.y)/b;
+  const A=dx*dx+dy*dy,B=2*(sx*dx+sy*dy),C=sx*sx+sy*sy-1;
+  if(C<=0)return true;
+  const discriminant=B*B-4*A*C;
+  if(A<1e-12||discriminant<0)return false;
+  const t=(-B-Math.sqrt(discriminant))/(2*A);
+  return t>=0&&t<=1;
+}
+export function avoidWheelhouse(point,radius=PLAYER_RADIUS){
+  const {x,y,rx,ry}=WHEELHOUSE_FOOTPRINT;
+  const a=rx+radius,b=ry+radius;
+  let dx=point.x-x,dy=point.y-y;
+  const distance=Math.hypot(dx/a,dy/b);
+  if(distance>=1)return {x:point.x,y:point.y};
+  if(distance<1e-6){dx=0;dy=b;return {x:x,y:y+dy};}
+  return {x:x+dx/distance,y:y+dy/distance};
+}
+
 export const AIRSHIP_LANDING_ZONES=Object.freeze([
   Object.freeze({id:'port-aft',x:240,y:270,radius:45}),
   Object.freeze({id:'starboard-fore',x:730,y:270,radius:45}),

@@ -1,4 +1,4 @@
-import {clampToDeck,insideDeck,AIRSHIP_WORLD} from './airship-contract.js';
+import {clampToDeck,insideDeck,AIRSHIP_WORLD,avoidWheelhouse,WHEELHOUSE_FOOTPRINT,wheelhouseSegmentHit} from './airship-contract.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {applyEnemyHit,applyPlayerContact,ENCOUNTER} from './bobrozombi.js';
 import {enemyProjectileHit,enemyFlameVisible} from './enemy-damage.js';
@@ -17,7 +17,12 @@ export function createAirshipCombat(scene,delivery){
  const firing=createFiringState(),pressure=createPressure(),weaponCooldownUntil=new Map();
  const stream=scene.add.graphics().setDepth(12);
  let flameEmissionAt=null,stopped=false;
- function stopFire(){resetFiring(firing,scene.weapon);cancelPressureTrigger(pressure);stream.clear();}
+ function stopFire(){
+  resetFiring(firing,scene.weapon);
+  if(scene.weapon==='flamethrower')cancelPressureTrigger(pressure);
+  else {pressure.wasHeld=false;pressure.active=false;pressure.locked=false;}
+  stream.clear();
+ }
  function damage(enemy,amount,source,now){
   if(stopped||enemy.dead||enemy.hp<=0)return false;
   const before=enemy.hp;
@@ -42,24 +47,46 @@ export function createAirshipCombat(scene,delivery){
   bullets.push({object,vx:aim.x*tune.speed,vy:aim.y*tune.speed,radius:tune.radius,damage:tune.damage});
   if(weapon==='rifle')scene.playerVisual.recoil();
  }
- function flame(aim,now,dt){
-  const tune=COMBAT_TUNING.flamethrower,origin=muzzlePoint(scene.player.x,scene.player.y,aim);
-  stream.clear();
-  stream.fillStyle(0xe7441b,0.65).fillTriangle(origin.x,origin.y,
-   origin.x+Math.cos(Math.atan2(aim.y,aim.x)-tune.halfAngle)*tune.range,
-   origin.y+Math.sin(Math.atan2(aim.y,aim.x)-tune.halfAngle)*tune.range,
-   origin.x+Math.cos(Math.atan2(aim.y,aim.x)+tune.halfAngle)*tune.range,
-   origin.y+Math.sin(Math.atan2(aim.y,aim.x)+tune.halfAngle)*tune.range);
-  stream.fillStyle(0xffb35c,0.66).fillCircle(origin.x+aim.x*24,origin.y+aim.y*24,8);
-  if(flameEmissionAt===null||now-flameEmissionAt>=tune.particleInterval){
-   flameEmissionAt=now;
-   if(flameParticles.length<tune.maxParticles){
-    const object=scene.add.circle(origin.x+aim.x*7,origin.y+aim.y*7,4,0xffa544,0.72).setDepth(13);
-    flameParticles.push({object,vx:aim.x*225,vy:aim.y*225,age:0,life:260});
+ function flame(aim,now){
+   const tune=COMBAT_TUNING.flamethrower,origin=muzzlePoint(scene.player.x,scene.player.y,aim);
+   stream.clear();
+   const normal={x:-aim.y,y:aim.x};
+   // Match Act I's layered, pulsing flame fan rather than the prototype triangle.
+   for(const [color,factor,alpha] of [[0xe7441b,1,0.72],[0xff8c24,0.66,0.84],[0xffed96,0.28,0.95]]){
+     stream.fillStyle(color,alpha);
+     let last=origin;
+     for(let i=1;i<=11;i++){
+       const distance=i*tune.range/11;
+       const center={x:origin.x+aim.x*distance,y:origin.y+aim.y*distance};
+       if(scene.wheelhouse?.visible&&wheelhouseSegmentHit(last,center))break;
+       const wave=Math.sin(now*0.022+i*1.7)*2.4;
+       const spread=Math.min(19,distance*Math.tan(tune.halfAngle)*0.45)*factor*(0.95+0.09*Math.sin(now*0.035+i));
+       const tip=Math.max(1,spread*(1-distance/tune.range*0.55));
+       const left={x:center.x+normal.x*(tip+wave*factor),y:center.y+normal.y*(tip+wave*factor)};
+       const right={x:center.x-normal.x*(tip-wave*factor),y:center.y-normal.y*(tip-wave*factor)};
+       stream.fillTriangle(last.x,last.y,left.x,left.y,right.x,right.y);
+       last=center;
+     }
    }
-  }
+   stream.fillStyle(0xfff4b3,0.96).fillCircle(origin.x,origin.y,5);
+   if(flameEmissionAt===null||now-flameEmissionAt>=tune.particleInterval){
+     flameEmissionAt=now;
+     if(flameParticles.length<tune.maxParticles){
+       const wobble=Math.sin(now*0.021)*0.21;
+       const angle=Math.atan2(aim.y,aim.x)+wobble;
+       const speed=160+(Math.sin(now*0.017)+1)*52;
+       const dir={x:Math.cos(angle),y:Math.sin(angle)};
+       const start={x:origin.x+aim.x*6,y:origin.y+aim.y*6};
+       const life=180+(Math.sin(now*0.031)+1)*85;
+       const color=[0xffd65d,0xff903b,0xf14b27][Math.floor(now/67)%3];
+       const object=scene.add.circle(start.x,start.y,3.4+(Math.sin(now*0.034)+1)*1.6,color,0.8).setDepth(13);
+       flameParticles.push({object,vx:dir.x*speed,vy:dir.y*speed,age:0,life});
+     }
+   }
   for(const enemy of delivery.groundEnemies){
-   if(enemy.dead||now<enemy.activationAt||!enemyFlameVisible(origin,aim,enemy,[],delivery.renderers[enemy.type].damagePoseOf(enemy)))continue;
+   if(enemy.dead||now<enemy.activationAt||
+      (scene.wheelhouse?.visible&&wheelhouseSegmentHit(origin,enemy))||
+      !enemyFlameVisible(origin,aim,enemy,[],delivery.renderers[enemy.type].damagePoseOf(enemy)))continue;
    if(!cooldownReady(flameCooldowns,enemy,now,tune.damageInterval))continue;
    if(damage(enemy,tune.damage,origin,now)&&!enemy.dead){
     enemy.ignition??=createIgnitionState();
@@ -80,18 +107,21 @@ export function createAirshipCombat(scene,delivery){
      ?firing.burstShots===0?tune.burstPause:tune.shotInterval:tune.interval));
   }
   const activeFlame=scene.weapon==='flamethrower'&&stepPressure(pressure,held,dt);
-  if(activeFlame)flame(aim,now,dt);
+  if(activeFlame)flame(aim,now);
   else stream.clear();
   for(const particle of flameParticles){
    particle.age+=dt;particle.object.x+=particle.vx*seconds;particle.object.y+=particle.vy*seconds;
    if(particle.age>=particle.life)particle.object.destroy();
-   else particle.object.setAlpha(.7*(1-particle.age/particle.life));
+   else particle.object.setAlpha(.82*(1-particle.age/particle.life));
   }
   for(let i=flameParticles.length-1;i>=0;i--)if(!flameParticles[i].object.active)flameParticles.splice(i,1);
   for(const shot of bullets){
    const old={x:shot.object.x,y:shot.object.y};
    const next={x:old.x+shot.vx*seconds,y:old.y+shot.vy*seconds};
    let hit=null;
+   if(scene.wheelhouse?.visible&&wheelhouseSegmentHit(old,next,shot.radius)){
+    shot.object.destroy();continue;
+   }
    for(const enemy of delivery.groundEnemies){
     if(enemy.dead||enemy.hp<=0||now<enemy.activationAt)continue;
     const collision=enemyProjectileHit(old,next,enemy,shot.radius,delivery.renderers[enemy.type].damagePoseOf(enemy));
@@ -109,7 +139,19 @@ export function createAirshipCombat(scene,delivery){
     if(enemy.ignition&&advanceIgnition(enemy.ignition,now)){enemy.burningFx?.destroy();enemy.burningFx=null;}
     const burning=enemy.ignition&&isBurning(enemy.ignition,now);
     const next=burning?fleeStep(enemy,scene.player,seconds):moveEnemy(enemy,scene.player,seconds,now/1000);
-    const position=clampToDeck(next,ENEMY_TYPES[enemy.type].radius+8);
+    let position=clampToDeck(next,ENEMY_TYPES[enemy.type].radius+8);
+    if(scene.wheelhouse?.visible){
+     const radius=ENEMY_TYPES[enemy.type].radius+8;
+     const clear=avoidWheelhouse(position,radius);
+     if(Math.hypot(clear.x-position.x,clear.y-position.y)>0.01){
+      const side=enemy.x<WHEELHOUSE_FOOTPRINT.x?-1:
+        enemy.x>WHEELHOUSE_FOOTPRINT.x?1:(enemy.seed%2?-1:1);
+      const step=Math.max(1,Math.hypot(next.x-enemy.x,next.y-enemy.y));
+      position=clampToDeck(avoidWheelhouse({
+        x:enemy.x+side*step,y:enemy.y+(next.y-enemy.y)*.2
+      },radius),radius);
+     }
+    }
     enemy.x=position.x;enemy.y=position.y;
     if(burning)enemy.fleeFacingVector={x:enemy.x-previous.x,y:enemy.y-previous.y};
     else enemy.fleeFacingVector=null;
