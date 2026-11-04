@@ -560,7 +560,7 @@ try {
     try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
     await sleep(40);
   }
-  await waitFor(s=>s.menu&&s.actions.length===1,'synthetic sprite fresh page');
+  await waitFor(s=>s.menu&&s.actions.length===2,'synthetic sprite fresh page');
   await clickControl('NOWA GRA');
   const art=await waitFor(s=>s.arena&&s.playerVisual?.loaded,'actual synthetic RGBA sprite load');
   assert.deepEqual(art.playerVisual.textureFrames,Array(8).fill(true),'Phaser did not produce eight 64x64 frames');
@@ -599,7 +599,7 @@ try {
     const prior=await snapshot();
     assert.equal(prior.playerVisual.shadowCount,1);
     await clickControl('hud');
-    const paused=await waitFor(v=>v.menu&&v.arenaPaused&&v.actions.length===2,'menu visual cycle '+cycle);
+    const paused=await waitFor(v=>v.menu&&v.arenaPaused&&v.actions.length===3,'menu visual cycle '+cycle);
     assert.equal(paused.playerVisual.shadowCount,1,'Menu duplicated visual shadow');
     const frozen=await evaluate("(()=>{const v=window.__visualSession();window.__resumeIdentity={player:v.player,shadow:v.shadow,sprite:v.sprite};return true;})()");
     assert.equal(frozen,true);
@@ -650,7 +650,7 @@ try {
     try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
     await sleep(40);
   }
-  await waitFor(v=>v.menu&&!v.arena&&v.actions.length===1,'fresh game before delayed load');
+  await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2,'fresh game before delayed load');
   await clickControl('NOWA GRA');
   for(let attempt=0;attempt<50&&delayedRequest===null;attempt++)await sleep(80);
   assert.ok(delayedRequest,'Expected real pending PNG request');
@@ -1714,7 +1714,7 @@ try {
     try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
     await sleep(40);
   }
-  await waitFor(v=>v.menu&&v.actions.length===1,'PR41 clean real-art boot');
+  await waitFor(v=>v.menu&&v.actions.length===2,'PR41 clean real-art boot');
   // PR41: actual generated worlds, not a substitute for the full regressions above.
   for(const seed of [1,41,104729]){
     if(!(await snapshot()).menu)await clickControl('hud');
@@ -1794,7 +1794,7 @@ try {
     try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
     await sleep(40);
   }
-  await waitFor(v=>v.menu&&v.actions.length===1,'PR42 real-art boot');
+  await waitFor(v=>v.menu&&v.actions.length===2,'PR42 real-art boot');
   for(const [seed,width,height] of [[1,320,240],[41,568,320],[104729,800,360]]){
     arenaRun=[1,41,104729].indexOf(seed);
     if(!(await snapshot()).menu)await clickControl('hud');
@@ -1858,7 +1858,7 @@ try {
   await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/enemies/zubrokryptyda.png*',requestStage:'Request'}]});
   await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
   for(let boot=0;boot<100;boot++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
-  await waitFor(v=>v.menu&&v.actions.length===1,'PR42 missing-art boot');
+  await waitFor(v=>v.menu&&v.actions.length===2,'PR42 missing-art boot');
   await clickControl('NOWA GRA');
   const fallback=await evaluate(`(async()=>{
     const a=window.__game.scene.getScene('Arena');await a.enemyRenderers.zubrokryptyda.loading;
@@ -1876,7 +1876,7 @@ try {
   // PR43 standard first-hit dialogue: true sources, settled deaths, session ownership.
   await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
   for(let boot=0;boot<100;boot++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
-  await waitFor(v=>v.menu&&v.actions.length===1,'PR43 clean boot');
+  await waitFor(v=>v.menu&&v.actions.length===2,'PR43 clean boot');
   const hitId='after-first-bocianolak-hit';
   async function nextLine(){
     await sleep(200);const b=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
@@ -2127,7 +2127,7 @@ try {
     socket.addEventListener('message',fetchBoss);await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/enemies/marcin.png*',requestStage:'Request'}]});
     await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
     for(let i=0;i<100;i++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
-    await waitFor(v=>v.menu&&v.actions.length===1,'boss asset '+mode);await clickControl('NOWA GRA');
+    await waitFor(v=>v.menu&&v.actions.length===2,'boss asset '+mode);await clickControl('NOWA GRA');
     const init=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena');await a.enemyRenderers.marcin.loading;
       for(const e of a.enemies)e.sprite.destroy();const e=a.createEnemy('marcin',{x:900,y:600},44);e.attack={phase:'warning',elapsed:0};a.enemies=[e];a.boss=e;a.spawnDueAt=null;a.invulnerableUntil=Infinity;
       window.__marcinQA=e;return {loaded:a.enemyRenderers.marcin.loaded,fallback:a.enemyRenderers.marcin.fallback,art:!!e.sprite.getData('marcin-art')};})()`);
@@ -2164,7 +2164,7 @@ try {
     socket.addEventListener('message',onForest);await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/obstacles/forest-obstacles.png*',requestStage:'Request'}]});
     await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
     for(let i=0;i<100;i++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
-    await waitFor(v=>v.menu&&v.actions.length===1,'forest '+mode+' boot');await clickControl('NOWA GRA');
+    await waitFor(v=>v.menu&&v.actions.length===2,'forest '+mode+' boot');await clickControl('NOWA GRA');
     if(mode==='late'){
       assert.ok(held,'Atlas request not held');
       assert.equal(await evaluate("window.__game.scene.getScene('Arena').obstacles.every(o=>o.sprite.active&&o.sprite.getData('fallback').visible&&!o.sprite.getData('atlasSprite'))"),true);
