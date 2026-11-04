@@ -6,6 +6,7 @@ import {COMBAT_TUNING,createFiringState,resetFiring,firingStep,cooldownReady} fr
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,isBurning,fleeStep} from './enemy-panic.js';
 import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
+import {createBurningFx} from './enemy-fire-vfx.js';
 import {recordHit,recordAttack} from './combat-feedback.js';
 import {muzzlePoint} from './shooting.js';
 
@@ -27,6 +28,7 @@ export function createAirshipCombat(scene,delivery){
    enemy.hitUntil=now+140;
   }else{
    enemy.dead=true;enemy.hp=0;
+   enemy.burningFx?.destroy();enemy.burningFx=null;
    enemy.sprite?.destroy();
    bursts.push(createPixelBurst(scene,enemy.type,enemy.x,enemy.y,enemy.seed));
    flameCooldowns.delete(enemy);
@@ -61,7 +63,7 @@ export function createAirshipCombat(scene,delivery){
    if(!cooldownReady(flameCooldowns,enemy,now,tune.damageInterval))continue;
    if(damage(enemy,tune.damage,origin,now)&&!enemy.dead){
     enemy.ignition??=createIgnitionState();
-    igniteEnemy(enemy.ignition,enemy.type,now);
+    if(igniteEnemy(enemy.ignition,enemy.type,now))enemy.burningFx=createBurningFx(scene,enemy.type);
    }
   }
  }
@@ -104,7 +106,7 @@ export function createAirshipCombat(scene,delivery){
    if(enemy.dead||!enemy.sprite.active)continue;
    const previous={x:enemy.x,y:enemy.y};
    if(now>=enemy.activationAt){
-    if(enemy.ignition)advanceIgnition(enemy.ignition,now);
+    if(enemy.ignition&&advanceIgnition(enemy.ignition,now)){enemy.burningFx?.destroy();enemy.burningFx=null;}
     const burning=enemy.ignition&&isBurning(enemy.ignition,now);
     const next=burning?fleeStep(enemy,scene.player,seconds):moveEnemy(enemy,scene.player,seconds,now/1000);
     const position=clampToDeck(next,ENEMY_TYPES[enemy.type].radius+8);
@@ -114,6 +116,7 @@ export function createAirshipCombat(scene,delivery){
    }
    const traveled=Math.hypot(enemy.x-previous.x,enemy.y-previous.y);
    delivery.renderers[enemy.type].update(enemy,scene.player,traveled,seconds);
+   enemy.burningFx?.update(enemy,now);
    if(enemy.hitUntil<now)enemy.sprite.setAlpha(1);
    if(now<enemy.activationAt)continue;
    if(Math.hypot(enemy.x-scene.player.x,enemy.y-scene.player.y)<=ENEMY_TYPES[enemy.type].radius+17){
@@ -133,9 +136,9 @@ export function createAirshipCombat(scene,delivery){
   for(const particle of flameParticles)particle.object.destroy();flameParticles.length=0;
   if(neutralize)for(const enemy of delivery.groundEnemies)if(!enemy.dead){
    bursts.push(createPixelBurst(scene,enemy.type,enemy.x,enemy.y,enemy.seed));
-   enemy.dead=true;enemy.sprite?.destroy();
+   enemy.dead=true;enemy.burningFx?.destroy();enemy.burningFx=null;enemy.sprite?.destroy();
   }
  }
- function cleanup(){stop();destroyBursts(bursts);stream.destroy();}
+ function cleanup(){stop();for(const enemy of delivery.groundEnemies){enemy.burningFx?.destroy();enemy.burningFx=null;}destroyBursts(bursts);stream.destroy();}
  return {update,stop,cleanup,damage,stopFire,pressure,bursts,get bulletCount(){return bullets.length;}};
 }
