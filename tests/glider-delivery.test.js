@@ -166,12 +166,12 @@ test('PR69 R2 approved 2560x320 atlas is exactly eight unrotated 320px direction
   assert.equal(GLIDER_FRAME_SIZE,320);
   assert.equal(GLIDER_SHEET_WIDTH/GLIDER_FRAME_SIZE,8);
   assert.equal(GLIDER_SHEET_HEIGHT/GLIDER_FRAME_SIZE,1);
-  assert.deepEqual(GLIDER_DIRECTION_ORDER,['w','sw','s','se','e','ne','n','nw']);
+  assert.deepEqual(GLIDER_DIRECTION_ORDER,['e','se','s','sw','w','nw','n','ne']);
   const origin={x:0,y:0};
-  const headings=[[-1,0,0],[-1,1,1],[0,1,2],[1,1,3],[1,0,4],[1,-1,5],[0,-1,6],[-1,-1,7]];
+  const headings=[[1,0,0],[1,1,1],[0,1,2],[-1,1,3],[-1,0,4],[-1,-1,5],[0,-1,6],[1,-1,7]];
   for(const [x,y,frame] of headings)assert.equal(flightDirectionFrame(origin,{x,y}),frame);
-  assert.equal(flightDirectionFrame(GLIDER_DEMO[0].from,AIRSHIP_LANDING_ZONES[0]),3);
-  assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[0],{x:1120,y:115}),4);
-  assert.equal(flightDirectionFrame(GLIDER_DEMO[1].from,AIRSHIP_LANDING_ZONES[1]),7);
-  assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[1],{x:-160,y:390}),0);
+  assert.equal(flightDirectionFrame(GLIDER_DEMO[0].from,AIRSHIP_LANDING_ZONES[0]),1);
+  assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[0],{x:1120,y:115}),0);
+  assert.equal(flightDirectionFrame(GLIDER_DEMO[1].from,AIRSHIP_LANDING_ZONES[1]),5);
+  assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[1],{x:-160,y:390}),4);
 });
