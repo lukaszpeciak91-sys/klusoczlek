@@ -952,15 +952,23 @@ try {
       const flying=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery,f=m.flights[0];return {count:m.spawnedCount,pilot:!!f?.pilot?.active,passenger:!!f?.passenger?.active,vehicle:!!f?.visual?.active,type:f?.type}})()");
       assert.equal(flying.count,1);assert.deepEqual([flying.pilot,flying.passenger,flying.vehicle],[false,true,true], 'PR69 exactly one passenger without pilot');
       assert.equal(flying.type,'bobrozombi','PR64 first glider must deliver Bobrozombi');
-      const vehicleArt=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,f=m.flights[0];return {status:a.gliderArtStatus,art:f.visual.getData('vehicleImage').visible,fallback:f.visual.getData('vehicleFallback').visible,texture:f.visual.getData('vehicleImage').texture.key}})()");
-      if(vehicleArt.status==='loaded'){
-        assert.equal(vehicleArt.art,true,'PR69 approved glider PNG should be visible when loaded');
-        assert.equal(vehicleArt.fallback,false,'PR69 no prototype glider over approved PNG');
-        assert.equal(vehicleArt.texture,'airship-hang-glider-v1');
-      }else{
-        assert.equal(vehicleArt.status,'fallback','PR69 unloaded glider must report real asset failure');
-        assert.equal(vehicleArt.fallback,true,'PR69 fallback art must remain visible when PNG is absent');
+      for(let k=0;k<80;k++){
+        if(await evaluate("window.__game.scene.getScene('Airship').gliderArtStatus!=='pending'"))break;
+        await sleep(40);
       }
+      const vehicleArt=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,f=m.flights[0],art=f.visual.getData('vehicleImage'),t=a.textures.get('airship-hang-glider-v1'),source=t.getSourceImage();return {status:a.gliderArtStatus,art:art.visible,fallback:f.visual.getData('vehicleFallback').visible,texture:art.texture.key,frame:art.frame.name,cutWidth:art.frame.cutWidth,cutHeight:art.frame.cutHeight,displayWidth:art.displayWidth,displayHeight:art.displayHeight,sourceWidth:source.width,sourceHeight:source.height,frames:[0,1,2,3,4,5,6,7].map(n=>t.has(n))}})()");
+      assert.equal(vehicleArt.status,'loaded','PR69 R2 approved atlas must load from repository');
+      assert.equal(vehicleArt.art,true,'PR69 approved glider PNG should be visible when loaded');
+      assert.equal(vehicleArt.fallback,false,'PR69 no prototype glider over approved PNG');
+      assert.equal(vehicleArt.texture,'airship-hang-glider-v1');
+      assert.deepEqual([vehicleArt.sourceWidth,vehicleArt.sourceHeight],[2560,320],'PR69 R2 real atlas geometry');
+      assert.deepEqual(vehicleArt.frames,Array(8).fill(true),'PR69 R2 all eight frame registrations');
+      assert.deepEqual([vehicleArt.cutWidth,vehicleArt.cutHeight],[320,320],'PR69 R2 render one frame, NEVER the full 2560px atlas');
+      assert.deepEqual([vehicleArt.displayWidth,vehicleArt.displayHeight],[176,176],'PR69 R2 keep natural square frame ratio');
+      assert.equal(Number(vehicleArt.frame),1,'PR69 R2 approaching SE glider frame');
+      const passengerFacing=await evaluate("(()=>{const f=window.__game.scene.getScene('Airship').gliderDelivery.flights[0],p=f.passenger,art=p?.getData(f.type+'-art');return {selected:p?.getData(f.type+'-facing'),spriteFrame:art?.active?Number(art.frame.name):null,wingFrame:Number(f.visual.getData('vehicleImage').frame.name)}})()");
+      assert.equal(passengerFacing.selected,passengerFacing.wingFrame,'PR69 R2 carried monster must face same direction as wing');
+      if(passengerFacing.spriteFrame!==null)assert.equal(passengerFacing.spriteFrame,passengerFacing.wingFrame,'PR69 R2 painted monster frame must match wing heading');
       await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
       await waitFor(v=>v.menu,'PR64 pause glider');
       const paused=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,clock:a.defense.elapsedMs,x:f.x,y:f.y}})()");

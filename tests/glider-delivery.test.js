@@ -4,6 +4,7 @@ import {GLIDER_DEMO,GLIDER_ART_PATH,GLIDER_ART_KEY,GLIDER_PHASES,
   LANDING_MS,GLIDER_HOLD_MS,GLIDER_EXPANDED_SEARCH_MS,landingPosition,makeFlight,stepFlight,stepLanding} from '../src/glider-delivery.js';
 import {AIRSHIP_WORLD,insideDeck,AIRSHIP_LANDING_ZONES,WHEELHOUSE_FOOTPRINT} from '../src/airship-contract.js';
 import {BOBROZOMBI_ASSET,BOCIANOLAK_ASSET,ZUBROKRYPTYDA_ASSET} from '../src/enemy-visual.js';
+import {GLIDER_FRAME_SIZE,GLIDER_SHEET_WIDTH,GLIDER_SHEET_HEIGHT,GLIDER_DIRECTION_ORDER,flightDirectionFrame} from '../src/glider-spritesheet.js';
 import {ENEMY_TYPES} from '../src/enemy-types.js';
 import {createAirshipDefense,tickAirshipDefense,AIRSHIP_SURVIVAL_MS,AIRSHIP_GROUND_CAP,AIRSHIP_GLIDER_CAP} from '../src/airship-defense.js';
 
@@ -157,4 +158,20 @@ test('180-second ordinary defense director delivers passengers without starvatio
   assert.equal(drops-activated.size,stillDescending,'no released passenger may silently skip activation');
   assert.ok(maxAirborne>=1&&maxAirborne<=AIRSHIP_GLIDER_CAP);
   assert.ok(maxGroundPending>=1&&maxGroundPending<=AIRSHIP_GROUND_CAP);
+});
+
+test('PR69 R2 approved 2560x320 atlas is exactly eight unrotated 320px directional frames',()=>{
+  assert.equal(GLIDER_SHEET_WIDTH,2560);
+  assert.equal(GLIDER_SHEET_HEIGHT,320);
+  assert.equal(GLIDER_FRAME_SIZE,320);
+  assert.equal(GLIDER_SHEET_WIDTH/GLIDER_FRAME_SIZE,8);
+  assert.equal(GLIDER_SHEET_HEIGHT/GLIDER_FRAME_SIZE,1);
+  assert.deepEqual(GLIDER_DIRECTION_ORDER,['e','se','s','sw','w','nw','n','ne']);
+  const origin={x:0,y:0};
+  const headings=[[1,0,0],[1,1,1],[0,1,2],[-1,1,3],[-1,0,4],[-1,-1,5],[0,-1,6],[1,-1,7]];
+  for(const [x,y,frame] of headings)assert.equal(flightDirectionFrame(origin,{x,y}),frame);
+  assert.equal(flightDirectionFrame(GLIDER_DEMO[0].from,AIRSHIP_LANDING_ZONES[0]),1);
+  assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[0],{x:1120,y:115}),0);
+  assert.equal(flightDirectionFrame(GLIDER_DEMO[1].from,AIRSHIP_LANDING_ZONES[1]),5);
+  assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[1],{x:-160,y:390}),4);
 });
