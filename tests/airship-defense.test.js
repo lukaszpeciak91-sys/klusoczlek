@@ -10,11 +10,11 @@ import {insideDeck} from '../src/airship-contract.js';
 
 test('Act II opening is exactly approved and final acknowledgement closes once',()=>{
  const lines=DIALOGUES['act2-opening'];
- assert.equal(lines.length,21);
+ assert.equal(lines.length,23);
  assert.deepEqual(lines.map(line=>line[1]),[
  'ALOES','KAPITAN','ALOES','KAPITAN','ALOES','KAPITAN','ALOES','KAPITAN',
  'ALOES','KAPITAN','ALOES','KAPITAN','ALOES','KAPITAN','ALOES','KAPITAN',
- 'KAPITAN','ALOES','KAPITAN','ALOES','KAPITAN']);
+ 'KAPITAN','ALOES','KAPITAN','ALOES','KAPITAN','BOBROZOMBI','BOBROZOMBI']);
  assert.equal(lines[0][2],'Kapitanie, gdzie my właściwie jesteśmy? Co to za magiczna kraina?');
  assert.equal(lines[15][2],'Oczywiście! Masz moje kapitańskie słowo!');
  assert.equal(lines[16][2],'O nie! Kłusoczłeku! Chwyć za broń!');
