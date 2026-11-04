@@ -256,7 +256,43 @@ try {
     }
     if(id==='act2-defense')assert.equal(check.defense,'active');
     if(id==='act2-last15')assert.ok(check.remaining<=15000&&check.remaining>13000,'PR65 15s clock fixture');
-    if(id==='act2-results')assert.equal(check.defense,'survived');
+    if(id==='act2-results'){
+      assert.equal(check.defense,'survived');
+      for(let k=0;k<110;k++){
+        if(await evaluate("window.__game.scene.getScene('Airship').dialogueState.id==='act2-finale'"))break;
+        await sleep(40);
+      }
+      assert.equal(await evaluate("window.__game.scene.getScene('Airship').dialogueState.id"),'act2-finale','PR66 Captain finale must follow fades');
+      for(const line of ['Uff udało się nam...','A teraz nie ma co mitrężyć! Kurs na Wulkan Bogdana!']){
+        const state=await evaluate("(()=>{const s=window.__game.scene.getScene('Airship');return {text:s.dialoguePanel.text.text,x:s.dialoguePanel.button.x,y:s.dialoguePanel.button.y}})()");
+        assert.equal(state.text,line,'PR66 exact Captain line');
+        const rect=(await snapshot()).rect;
+        await click(rect.x+state.x,rect.y+state.y);
+        await sleep(240);
+      }
+      for(let k=0;k<60;k++){
+        if(await evaluate("window.__game.scene.getScene('Airship').resultOverlay.visible"))break;
+        await sleep(40);
+      }
+      const final=await evaluate("(()=>{const s=window.__game.scene.getScene('Airship'),r=s.campaignRun;return {visible:s.resultOverlay.visible,label:s.resultLabel.text,completed:r.completedActs.has('act2'),kills:r.stats.kills,time:r.stats.activeCombatMs,x:s.resultsButton.x,y:s.resultsButton.y}})()");
+      assert.equal(final.visible,true,'PR66 final results visible');
+      assert.equal(final.label,'KONIEC AKTU II — PAROSTATEK');
+      assert.equal(final.completed,false,'PR66 only DALEJ completes the act');
+      assert.equal(final.kills,42,'PR66 no provisional double counting');
+      assert.equal(final.time,240000,'PR66 no provisional time double counting');
+      const rect=(await snapshot()).rect;
+      await click(rect.x+final.x,rect.y+final.y);
+      for(let k=0;k<80;k++){
+        if(await evaluate("window.__game.scene.isActive('Menu')"))break;
+        await sleep(40);
+      }
+      assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'PR66 returns to Menu');
+      const completed=await evaluate("(()=>{const r=window.__game.registry.get('campaign-run');return {act2:r.completedActs.has('act2'),kills:r.stats.kills,time:r.stats.activeCombatMs,byAct:r.stats.byAct.act2}})()");
+      assert.equal(completed.act2,true,'PR66 narrative completion');
+      assert.equal(completed.kills,42,'PR66 exactly-once total kills');
+      assert.equal(completed.time,420000,'PR66 exactly-once total time');
+      assert.equal(completed.byAct.activeCombatMs,180000);
+    }
     if(id==='act1-ending'){
       for(let k=0;k<70;k++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='act1-marcin-last'"))break;await sleep(35);}
       assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'act1-marcin-last');
