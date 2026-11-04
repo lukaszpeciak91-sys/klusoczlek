@@ -44,7 +44,7 @@ export function createCaptainArrival(scene){
   function start(){
     if(actor||disposed)return false;
     const p=scene.player;
-    const options=[{x:-112,y:55},{x:112,y:55},{x:-112,y:-35},{x:112,y:-35},{x:0,y:110}];
+    const options=[{x:112,y:45},{x:-112,y:45},{x:112,y:-35},{x:-112,y:-35},{x:0,y:110}];
     const target=options.map(o=>({x:p.x+o.x*.58,y:p.y+o.y*.58})).find(o=>safe(o.x,o.y));
     const initial=options.map(o=>({x:p.x+o.x,y:p.y+o.y})).find(o=>safe(o.x,o.y)&&target&&Math.hypot(o.x-target.x,o.y-target.y)>25);
     from=initial||target||{x:p.x+58,y:p.y+35};to=target||from;elapsed=0;arrived=false;
