@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {AIRSHIP_WORLD,DECK_POLYGON,DECK_MARGIN,AIRSHIP_LAYERS,AIRSHIP_LANDING_ZONES,
-  insideDeck,clampToDeck,stepDeckPosition,scrollCloudLayers} from '../src/airship-contract.js';
+  insideDeck,clampToDeck,stepDeckPosition,scrollCloudLayers,avoidWheelhouse,WHEELHOUSE_FOOTPRINT} from '../src/airship-contract.js';
 import {createCampaignRun,completeCampaignAct,nextActHandoff,prepareActStart} from '../src/campaign-run.js';
 
 test('provisional beveled deck contains spawn but excludes sky and rail edges',()=>{
@@ -47,4 +47,20 @@ test('Act I completion hands exact nullable equipment and HP to Airship only whe
     assert.equal(prepareActStart(run,handoff,new Set(['Arena','Airship'])),false);
     assert.equal(nextActHandoff(run,new Set(['Arena','Airship'])),null);
   }
+});
+
+test('wheelhouse footing blocks actors, not the full tall sprite',()=>{
+  const f=WHEELHOUSE_FOOTPRINT;
+  const radius=17;
+  for(const p of [
+    {x:f.x,y:f.y},{x:f.x+9,y:f.y-6},{x:f.x-22,y:f.y+14},
+  ]){
+    const projected=avoidWheelhouse(p,radius);
+    assert.ok(Math.hypot((projected.x-f.x)/(f.rx+radius),
+      (projected.y-f.y)/(f.ry+radius))>=1-1e-6);
+    assert.equal(insideDeck(projected),true);
+  }
+  for(const zone of AIRSHIP_LANDING_ZONES)
+    assert.deepEqual(avoidWheelhouse(zone,45),{x:zone.x,y:zone.y});
+  assert.deepEqual(avoidWheelhouse(AIRSHIP_WORLD.start,radius),AIRSHIP_WORLD.start);
 });
