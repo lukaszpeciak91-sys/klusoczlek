@@ -78,6 +78,17 @@ export function createAirshipCombat(scene,delivery){
        flameParticles.push({object,vx:dir.x*speed,vy:dir.y*speed,age:0,life});
      }
    }
+  for(const enemy of delivery.groundEnemies){
+   if(enemy.dead||now<enemy.activationAt||
+      (scene.wheelhouse?.visible&&wheelhouseSegmentHit(origin,enemy))||
+      !enemyFlameVisible(origin,aim,enemy,[],delivery.renderers[enemy.type].damagePoseOf(enemy)))continue;
+   if(!cooldownReady(flameCooldowns,enemy,now,tune.damageInterval))continue;
+   if(damage(enemy,tune.damage,origin,now)&&!enemy.dead){
+    enemy.ignition??=createIgnitionState();
+    if(igniteEnemy(enemy.ignition,enemy.type,now))enemy.burningFx=createBurningFx(scene,enemy.type);
+   }
+  }
+ }
  function update(aim,held,dt,now){
   if(stopped)return;
   updateBursts(bursts,dt);
