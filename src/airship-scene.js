@@ -102,8 +102,27 @@ export class AirshipScene extends Phaser.Scene {
     this.aimJoystick=createJoystick(this,'right');
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
     this.lastFacing='s';
-    const onSwitchKey=()=>this.cycleWeapon();
-    this.input.keyboard.on('keydown-Q',onSwitchKey);
+    this.mouseHeld=false;
+    this.mouseAim={x:0,y:0};
+    const onWeaponKey=event=>{
+      if(event.repeat||this.openingPhase!=='active')return;
+      if(event.code==='KeyQ')this.cycleWeapon();
+      else {
+        const weapon=({Digit1:'blunderbuss',Digit2:'rifle',Digit3:'flamethrower'})[event.code];
+        if(weapon)this.selectWeapon(weapon);
+      }
+    };
+    this.input.keyboard.on('keydown',onWeaponKey);
+    const mouseDown=pointer=>{
+      if(pointer.wasTouch!==false||!pointer.leftButtonDown()||!this.canFire())return;
+      const l=this.hudLayout;
+      if(Math.abs(pointer.x-l.menuX)<=l.menuWidth/2+8&&Math.abs(pointer.y-l.menuY)<=l.menuHeight/2+8)return;
+      if(Math.hypot(pointer.x-l.switchX,pointer.y-l.switchY)<=l.switchSize/2+8)return;
+      this.mouseHeld=true;
+    };
+    const mouseUp=pointer=>{if(pointer.wasTouch===false||!pointer)this.mouseHeld=false;};
+    this.input.on('pointerdown',mouseDown);
+    for(const event of ['pointerup','pointerupoutside','pointercancel'])this.input.on(event,mouseUp);
     this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
     this.menuButton=this.add.rectangle(0,0,80,38,0x2b3324,0.95)
       .setStrokeStyle(2,0xb9a16b).setScrollFactor(0).setDepth(60).setInteractive({useHandCursor:true});
@@ -180,6 +199,8 @@ export class AirshipScene extends Phaser.Scene {
     const resize=()=>{
       const w=this.scale.width,h=this.scale.height,l=arenaHudLayout(h,w);
       this.hudLayout=l;
+      this.mouseHeld=false;
+      this.combat?.stopFire();
       for(const tile of this.layers)tile.setSize(w,h);
       this.joystick.reposition(l.joystickX,l.joystickY,l.joystickRadius);
       this.aimJoystick.reposition(l.aimX,l.aimY,l.joystickRadius);
@@ -205,7 +226,9 @@ export class AirshipScene extends Phaser.Scene {
       this.artAlive=false;this.artAbort.abort();
       this.scale.off(Phaser.Scale.Events.RESIZE,resize);
       this.input.off('pointerdown',touchSwitch);
-      this.input.keyboard.off('keydown-Q',onSwitchKey);
+      this.input.keyboard.off('keydown',onWeaponKey);
+      this.input.off('pointerdown',mouseDown);
+      for(const event of ['pointerup','pointerupoutside','pointercancel'])this.input.off(event,mouseUp);
       window.removeEventListener('blur',this.onBlur);
       window.removeEventListener('focus',this.onFocus);
       document.removeEventListener('visibilitychange',this.onVisibility);
@@ -214,7 +237,11 @@ export class AirshipScene extends Phaser.Scene {
       this.pressureBar?.destroy();this.resultsButton?.destroy();this.resultsButtonText?.destroy();
       this.deckMask.destroy();this.playerVisual.destroy();this.hpFace.destroy();
     });
-    this.resetMovement=()=>{this.joystick.reset();this.aimJoystick.reset();this.input.keyboard.resetKeys();};
+    this.resetMovement=()=>{
+      this.joystick.reset();this.aimJoystick.reset();this.input.keyboard.resetKeys();
+      this.mouseHeld=false;this.mouseAim={x:0,y:0};
+      this.combat.stopFire();
+    };
     this.onBlur=()=>{
       this.focusSuspended=true;
       advanceGameplayClock(this.defense.clock,0,false);
@@ -266,14 +293,25 @@ export class AirshipScene extends Phaser.Scene {
     this.weaponBody?.setFillStyle(def?.color??0x6b6153);
     this.switchLabel?.setText(def?.label??'BEZ BRONI');
   }
+  canFire(){
+    return this.openingPhase==='active'&&!this.focusSuspended&&!document.hidden&&
+      document.hasFocus()&&!this.scene.isPaused()&&!this.scene.isActive('Menu')&&
+      window.innerWidth>=window.innerHeight;
+  }
+  selectWeapon(weapon){
+    if(!this.canFire()||!this.unlockedWeapons.has(weapon)||this.weapon===weapon)return false;
+    this.weapon=weapon;
+    this.mouseHeld=false;this.combat.stopFire();
+    updateRunEquipment(this.campaignRun,this.unlockedWeapons,weapon);
+    if(Object.hasOwn(WEAPONS,weapon))void this.playerVisual.setVariant(weapon);
+    this.syncWeaponHud();
+    return true;
+  }
   cycleWeapon(){
     if(this.scene.isPaused()||document.hidden||this.openingPhase!=='active')return false;
     const next=cycleUnlockedWeapon(this.weapon,this.unlockedWeapons);
     if(!next||next===this.weapon)return false;
-    this.weapon=next;
-    updateRunEquipment(this.campaignRun,this.unlockedWeapons,next);
-    if(Object.hasOwn(WEAPONS,next))void this.playerVisual.setVariant(next);
-    this.syncWeaponHud();return true;
+    return this.selectWeapon(next);
   }
   openMenu(){
     if(this.scene.isPaused()||this.scene.isActive('Menu'))return;
@@ -474,8 +512,13 @@ export class AirshipScene extends Phaser.Scene {
       updateRunEquipment(this.campaignRun,this.unlockedWeapons,this.weapon);
       void this.playerVisual.setVariant('blunderbuss');this.syncWeaponHud();
     }
+    const pointer=this.input.activePointer;
+    if(pointer.wasTouch===false){
+      const world=this.cameras.main.getWorldPoint(pointer.x,pointer.y);
+      this.mouseAim=resolveAim(world.x-this.player.x,world.y-this.player.y,12);
+    }
     const aim=this.aimJoystick.held?resolveAim(this.aimJoystick.direction.x,this.aimJoystick.direction.y):
-      this.mouseAim??{x:0,y:0};
+      this.mouseHeld?this.mouseAim:{x:0,y:0};
     const held=this.aimJoystick.held||this.mouseHeld;
     this.lastFacing=facingOf(aim.x||input.x,aim.y||input.y,this.lastFacing);
     this.facingMarker.setPosition(point.x,point.y);
