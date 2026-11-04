@@ -181,6 +181,7 @@ export class ArenaScene extends Phaser.Scene {
   constructor() { super('Arena'); }
 
   create(data={}) {
+    this.debugCheckpoint=data.debugCheckpoint??null;
     document.getElementById('fullscreen-button').hidden = true;
     this.cameras.main.setBackgroundColor(COLORS.background);
     this.physics.world.setBounds(0, 0, ARENA.width, ARENA.height);
@@ -467,12 +468,61 @@ export class ArenaScene extends Phaser.Scene {
       if(!this.sys.isActive())return;
       this.dialogueLoading=false;
       this.cameras.main.fadeIn(280,0,0,0);
-      this.tryStartDialogue();
+      if(this.debugCheckpoint)this.applyDebugCheckpoint(this.debugCheckpoint);
+      else this.tryStartDialogue();
     });
     enforceOrientationOnSceneStart(this);
     this.onResize();
   }
 
+  applyDebugCheckpoint(id){
+    if(!['act1-opening','act1-marcin','act1-ending','act1-results'].includes(id))return false;
+    this.narrativeEvents.clear();
+    this.pendingIntroductions.clear();
+    this.resetMovement();
+    if(id==='act1-opening'){
+      this.narrativeEvents.add('before-wave-1');
+      return this.tryStartDialogue();
+    }
+    // Remove initial ordinary spawns and pickups; no ghost actor can survive a jump.
+    for(const enemy of this.enemies){enemy.burningFx?.destroy();enemy.sprite?.destroy();}
+    this.enemies=[];
+    for(const pickup of this.pickups)pickup.object?.destroy();
+    this.pickups=[];
+    this.unlockedWeapons=new Set(this.campaignRun.unlockedWeapons);
+    this.weapon=this.campaignRun.selectedWeapon;
+    this.kills=42;
+    this.elapsedGameplayMs=240000;
+    this.gameplayClock.elapsedMs=this.elapsedGameplayMs;
+    this.gameplayClock.lastNow=null;
+    this.episode.wave=TOTAL_WAVES-1;
+    this.waveText.setText('⚑ '+TOTAL_WAVES+'/'+TOTAL_WAVES);
+    this.timerText.setText('◷ '+formatGameplayClock(this.elapsedGameplayMs));
+    this.refreshWeaponHud();
+    if(this.weapon)void this.playerVisual.setVariant(this.weapon);
+    if(id==='act1-marcin'){
+      this.episode.bossIntroduced=true;
+      this.bossEntrancePending=true;
+      this.spawnDueAt=null;
+      this.physics.world.resume();this.time.paused=false;
+      this.tryBeginBossEntrance();
+      this.syncJoysticks();
+      return true;
+    }
+    this.episode.state='final-pending';
+    this.finalResolution=true;
+    this.finalOutcomeHeld=true;
+    this.spawnDueAt=null;
+    this.physics.world.pause();this.time.paused=true;
+    this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
+    if(id==='act1-ending'){
+      this.markNarrativeBoundary('act1-marcin-last');
+    }else{
+      this.act1Epilogue='results';
+      this.act1Panels.showResults(this.kills,formatGameplayClock(this.elapsedGameplayMs));
+    }
+    return true;
+  }
   createEnemy(type,point,index){
     const def=ENEMY_TYPES[type];
     return {...point,type,seed:index,waveIndex:this.episode.wave,hp:def.hp,
