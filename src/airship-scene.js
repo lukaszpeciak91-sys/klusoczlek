@@ -314,8 +314,8 @@ export class AirshipScene extends Phaser.Scene {
   }
   selectWeapon(weapon){
     if(!this.canFire()||!this.unlockedWeapons.has(weapon)||this.weapon===weapon)return false;
+    this.combat.stopFire();
     this.weapon=weapon;
-    this.mouseHeld=false;this.combat.stopFire();
     updateRunEquipment(this.campaignRun,this.unlockedWeapons,weapon);
     if(Object.hasOwn(WEAPONS,weapon))void this.playerVisual.setVariant(weapon);
     this.syncWeaponHud();
