@@ -115,6 +115,7 @@ try {
   let arenaRun=0;
   let gliderDemoVerified=false;
   let windowPr64VictoryVerified=false;
+  let windowPr64DefeatVerified=false;
   async function clickControl(which){
     if(which==='NOWA GRA')await evaluate("history.replaceState(null,'','?arenaSeed="+[1,41,104729][arenaRun++%3]+"');true");
     const state=await snapshot();
@@ -774,6 +775,7 @@ try {
     assert.deepEqual(act2Card,{active:true,arena:false,label:'AKT II',title:'W PRZESTWORZACH'},'PR62 Act II title must precede Airship');
     for(let n=0;n<100;n++){if(await evaluate("window.__game.scene.isActive('Airship')"))break;await sleep(35);}
     assert.equal(await evaluate("window.__game.scene.isActive('Airship')"),true,'PR62 Airship must start after the title card');
+    const shouldTestDefeat=windowPr64VictoryVerified&&!windowPr64DefeatVerified;
     const ship=await evaluate("(()=>{const g=window.__game,a=g.scene.getScene('Airship'),r=a.campaignRun;return {act:r.actId,hp:a.playerHp,maxHp:a.maxHp,weapon:a.weapon,unlocked:[...a.unlockedWeapons],position:{x:a.player.x,y:a.player.y},layers:a.layers.length,dialogue:g.scene.isActive('Arena')}})()");
     assert.equal(ship.act,'act2');assert.equal(ship.hp,handoff.hp);assert.equal(ship.maxHp,handoff.maxHp);
     assert.equal(ship.weapon,handoff.selected);assert.deepEqual(ship.unlocked,handoff.weapons);
@@ -812,6 +814,12 @@ try {
       await sleep(170);
       assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,clock:a.defense.elapsedMs,x:f.x,y:f.y}})()"),paused,'PR64 MENU must freeze flight and timer');
       await clickControl('WZNÓW');
+      await evaluate("window.dispatchEvent(new Event('blur'));true");
+      const blurred=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0];return {clock:a.defense.elapsedMs,x:f.x,y:f.y,enabled:a.joystick.enabled||a.aimJoystick.enabled}})()");
+      assert.equal(blurred.enabled,false,'PR64 blur must disable touch controls');
+      await sleep(130);
+      assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0];return {clock:a.defense.elapsedMs,x:f.x,y:f.y,enabled:a.joystick.enabled||a.aimJoystick.enabled}})()"),blurred,'PR64 blur must freeze clock and glider');
+      await evaluate("window.dispatchEvent(new Event('focus'));true");
       let done=false;
       for(let n=0;n<390;n++){
         done=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery;return m.finishedCount>=2&&m.groundEnemies.filter(e=>!e.dead).length>=2})()");
@@ -878,6 +886,13 @@ try {
       assert.equal(victory.result.activeCombatMs,180000,'PR64 clock caps at 180 seconds');
       const duplicate=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.finishDefense('survived')})()");
       assert.equal(duplicate,false,'PR64 one-shot outcome');
+    }
+    if(shouldTestDefeat){
+      windowPr64DefeatVerified=true;
+      await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.applyDamage(0,{x:a.player.x-3,y:a.player.y});a.defense.clock.elapsedMs=180001;return true})()");
+      await sleep(80);
+      const lost=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,completed:a.campaignRun.completedActs.has('act2'),result:a.campaignRun.stats.byAct.act2?.outcome}})()");
+      assert.deepEqual(lost,{state:'defeat',ended:true,completed:false,result:'defeat'},'PR64 defeat must block late victory');
     }
     await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
     await waitFor(v=>v.menu,'PR64 safe Airship MENU');
