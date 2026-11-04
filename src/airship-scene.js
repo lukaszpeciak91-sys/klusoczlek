@@ -24,7 +24,7 @@ import {updateBursts} from './pixel-death-vfx.js';
 const DECK_TEXTURE='airship-deck-approved';
 export class AirshipScene extends Phaser.Scene {
   constructor(){super('Airship');}
-  init(data={}){this.handoff=data.handoff??null;}
+  init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
   create(){
     this.campaignRun=currentCampaignRun(this.game);
     const registered=new Set(Object.keys(this.scene.manager.keys));
@@ -227,6 +227,8 @@ export class AirshipScene extends Phaser.Scene {
     document.getElementById('fullscreen-button').hidden=true;
     this.onFocus();
     this.setOpeningHud(false);
+    if(this.debugCheckpoint)this.applyDebugCheckpoint(this.debugCheckpoint);
+    this.cameras.main.fadeIn(240,0,0,0);
     enforceOrientationOnSceneStart(this);
   }
   async loadOptional(path,key,target,deck=false){
@@ -276,6 +278,29 @@ export class AirshipScene extends Phaser.Scene {
     const l=this.hudLayout,w=l.switchSize,x=l.switchX-w/2,y=l.switchY+l.switchSize/2+5;
     g.fillStyle(0x382721,0.95).fillRect(x,y,w,4);
     g.fillStyle(this.combat.pressure.value<20?0x9b3932:0xee903a).fillRect(x,y,w*this.combat.pressure.value/100,4);
+  }
+  applyDebugCheckpoint(id){
+    if(!['act2-opening','act2-defense','act2-last15','act2-results'].includes(id))return false;
+    if(id==='act2-opening')return true;
+    // The combat checkpoint omits the introductory movie without faking its dialogue.
+    this.cameras.main.stopFollow();
+    this.cameras.main.setZoom(1);
+    this.cameras.main.centerOn(this.player.x,this.player.y);
+    this.cameras.main.startFollow(this.player,true,0.12,0.12);
+    this.openingPhase='dialogue';
+    if(!this.startDefense())return false;
+    if(id==='act2-last15'){
+      this.defense.clock.elapsedMs=165000;
+      this.defense.clock.lastNow=null;
+      this.defense.elapsedMs=165000;
+      this.defense.nextDeliveryMs=165500;
+      this.objectiveText.setText('WYTRZYMAJ 00:15');
+    }else if(id==='act2-results'){
+      this.defense.clock.elapsedMs=180000;
+      this.defense.elapsedMs=180000;
+      this.finishDefense('survived');
+    }
+    return true;
   }
   frameFullShip(){
     const zoom=Math.min(this.scale.width/AIRSHIP_WORLD.width,this.scale.height/AIRSHIP_WORLD.height);
