@@ -9,6 +9,17 @@ export const DECK_MARGIN=PLAYER_RADIUS+8;
 // The wheelhouse's solid footing is much smaller than its tall transparent PNG.
 // Coordinates describe the base resting on the deck, not the image's bounding box.
 export const WHEELHOUSE_FOOTPRINT=Object.freeze({x:480,y:194,rx:51,ry:23});
+export function wheelhouseSegmentHit(from,to,margin=0){
+  const f=WHEELHOUSE_FOOTPRINT,a=f.rx+margin,b=f.ry+margin;
+  const sx=(from.x-f.x)/a,sy=(from.y-f.y)/b;
+  const dx=(to.x-from.x)/a,dy=(to.y-from.y)/b;
+  const A=dx*dx+dy*dy,B=2*(sx*dx+sy*dy),C=sx*sx+sy*sy-1;
+  if(C<=0)return true;
+  const discriminant=B*B-4*A*C;
+  if(A<1e-12||discriminant<0)return false;
+  const t=(-B-Math.sqrt(discriminant))/(2*A);
+  return t>=0&&t<=1;
+}
 export function avoidWheelhouse(point,radius=PLAYER_RADIUS){
   const {x,y,rx,ry}=WHEELHOUSE_FOOTPRINT;
   const a=rx+radius,b=ry+radius;
