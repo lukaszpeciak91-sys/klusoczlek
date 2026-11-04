@@ -11,6 +11,8 @@ import {facingOf} from './combat-contract.js';
 import {WEAPONS,cycleUnlockedWeapon} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {createGliderDelivery} from './glider-visual.js';
+import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,createCaptainPatrol,advanceCaptainPatrol,ACT2_BATTLE_CRIES,eligibleAct2Bark} from './act2-staging.js';
+import {playerFrame} from './combat-contract.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {CAPTAIN_VISUAL_SCALE} from './captain-arrival.js';
@@ -87,7 +89,7 @@ export class AirshipScene extends Phaser.Scene {
     this.paddlewheel=this.add.image(863,282,'airship-fallback-sky')
       .setOrigin(.5,.5).setDepth(3).setVisible(false);
     void this.loadOptional('obstacles/airship-paddlewheel.png','airship-paddlewheel-approved',this.paddlewheel,'paddlewheel');
-    this.player=createPlayer(this,AIRSHIP_WORLD.start.x,AIRSHIP_WORLD.start.y);
+    this.player=createPlayer(this,AIRSHIP_ALOES_START.x,AIRSHIP_ALOES_START.y);
     this.player.body.setVelocity(0,0);
     // Keep UI/joystick pixels at 1:1; follow in world space instead of zooming the HUD.
     this.cameras.main.startFollow(this.player,true,0.12,0.12);
@@ -95,7 +97,9 @@ export class AirshipScene extends Phaser.Scene {
     this.playerVisual=createPlayerVisual(this,this.player,this.facingMarker,Phaser);
     this.weapon=this.campaignRun.selectedWeapon;
     this.unlockedWeapons=new Set(this.campaignRun.unlockedWeapons);
-    if(this.weapon&&Object.hasOwn(WEAPONS,this.weapon))void this.playerVisual.setVariant(this.weapon);
+    // During the opening conversation Aloes carries no visible weapon.
+    // The actual equipped weapon and entitlements remain unchanged in campaign state.
+    void this.playerVisual.setVariant('unarmed');
     this.playerHp=this.campaignRun.hp;
     this.maxHp=this.campaignRun.maxHp;
     this.invulnerableUntil=0;
@@ -107,7 +111,7 @@ export class AirshipScene extends Phaser.Scene {
     this.joystick=createJoystick(this,'left');
     this.aimJoystick=createJoystick(this,'right');
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
-    this.lastFacing='s';
+    this.lastFacing='e';
     this.mouseHeld=false;
     this.mouseAim={x:0,y:0};
     const onWeaponKey=event=>{
@@ -150,22 +154,28 @@ export class AirshipScene extends Phaser.Scene {
     this.gliderDelivery=createGliderDelivery(this);
     this.combat=createAirshipCombat(this,this.gliderDelivery);
     // Non-combat Captain, visually reused from Act I's already loaded 8-frame sheet.
-    this.captainActor=this.add.container(595,208).setDepth(11);
+    this.captainActor=this.add.container(AIRSHIP_CAPTAIN_START.x,AIRSHIP_CAPTAIN_START.y).setDepth(11);
+    this.captainPatrol=createCaptainPatrol();
+    this.captainSprite=null;
     this.captainActor.add(this.add.ellipse(0,1,38,10,0x241b16,0.24));
     if(this.textures.exists('npc-captain')){
       const height=this.textures.get('npc-captain').source[0].height;
-      this.captainActor.add(this.add.sprite(0,-height*CAPTAIN_VISUAL_SCALE/2,'npc-captain',4).setScale(CAPTAIN_VISUAL_SCALE));
+      this.captainSprite=this.add.sprite(0,-height*CAPTAIN_VISUAL_SCALE/2,'npc-captain',4).setScale(CAPTAIN_VISUAL_SCALE);
+      this.captainActor.add(this.captainSprite);
     }else{
       this.captainActor.add(this.add.rectangle(0,-26,38,51,0x456e83));
       this.captainActor.add(this.add.circle(0,-63,16,0xe7b28d));
       console.warn('[Airship] Captain spritesheet absent, using stable NPC fallback');
     }
+    this.act2Bark=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'13px',fontStyle:'bold',color:'#fff1c9',backgroundColor:'#1c2028',padding:{x:5,y:3}})
+      .setOrigin(.5,1).setDepth(49).setVisible(false);
+    this.barkElapsed=0;this.barkUntil=0;this.barkOrdinal=0;
     this.dialogueState=createDialogueState();
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
       if(id==='act2-opening')this.startDefense();
       if(id==='act2-finale')this.beginFinalResultsFade();
     },state=>{
-      if(state.id==='act2-opening'&&state.index===16&&this.shakeTriggered===0){
+      if(state.id==='act2-opening'&&state.index===DIALOGUES['act2-opening'].findIndex(line=>line[2]==='O nie! Kłusoczłeku! Chwyć za broń!')&&this.shakeTriggered===0){
         this.shakeTriggered=1;this.cameras.main.shake(200,0.005);
       }
     });
@@ -380,6 +390,9 @@ export class AirshipScene extends Phaser.Scene {
   beginOpeningDialogue(){
     if(this.openingPhase!=='zoom')return;
     this.openingPhase='dialogue-loading';
+    this.playerVisual.update('e',false,0);
+    this.captainSprite?.setFrame(playerFrame('w'));
+    void this.playerVisual.setVariant('unarmed');
     this.cameras.main.startFollow(this.player,true,0.12,0.12);
     this.cameras.main.setZoom(1);
     this.dialoguePanel.loading.finally(()=>{
@@ -393,11 +406,36 @@ export class AirshipScene extends Phaser.Scene {
     if(this.defense.state!=='ready'||this.openingPhase!=='dialogue')return false;
     this.defense.state='active';
     this.openingPhase='active';
+    if(this.weapon)void this.playerVisual.setVariant(this.weapon);
+    this.playerVisual.update('e',false,0);
     this.cameras.main.resetFX();
     this.setOpeningHud(true);
     this.pickup?.setVisible(true);
     this.onFocus();
     return true;
+  }
+  updateCaptainDefense(delta){
+    const result=advanceCaptainPatrol(this.captainPatrol,this.captainActor,delta);
+    this.captainActor.setPosition(result.x,result.y);
+    if(this.captainSprite?.active){
+      this.captainSprite.setFrame(playerFrame(result.facing));
+      const baseline=-this.captainSprite.frame.height*CAPTAIN_VISUAL_SCALE/2;
+      this.captainSprite.setY(baseline-(result.moving?Math.abs(Math.sin(this.captainPatrol.travel/8))*1.8:0));
+    }
+  }
+  updateAct2Barks(delta){
+    this.barkElapsed+=Math.max(0,Math.min(50,delta));
+    if(this.barkUntil&&this.barkElapsed>=this.barkUntil){
+      this.act2Bark.setVisible(false);this.barkUntil=0;
+    }
+    if(this.barkUntil||this.barkElapsed<6500+this.barkOrdinal*8500)return;
+    // A single non-interactive in-world bubble; no global Act I bark changes.
+    const speakers=this.gliderDelivery.groundEnemies.filter(e=>eligibleAct2Bark(e,this.cameras.main.worldView));
+    if(!speakers.length)return;
+    const speaker=speakers[this.barkOrdinal%speakers.length];
+    this.act2Bark.setText(ACT2_BATTLE_CRIES[this.barkOrdinal%ACT2_BATTLE_CRIES.length])
+      .setPosition(speaker.x,speaker.y-56).setVisible(true);
+    this.barkUntil=this.barkElapsed+1350;this.barkOrdinal++;
   }
   applyDamage(next,source=null){
     if(this.defense.ended)return;
@@ -412,6 +450,8 @@ export class AirshipScene extends Phaser.Scene {
     if(outcome==='survived'&&this.playerHp<=0)outcome='defeat';
     if(!finishAirshipDefense(this.defense,outcome))return false;
     this.openingPhase='complete';
+    this.act2Bark.setVisible(false);
+    this.captainSprite?.setFrame(playerFrame('w'));
     this.gliderDelivery.stop();
     this.combat.stop({neutralize:outcome==='survived'});
     this.resetMovement();
@@ -515,6 +555,8 @@ export class AirshipScene extends Phaser.Scene {
     if(defenseEvent?.outcome){this.finishDefense('survived');return;}
     if(defenseEvent?.delivery)this.gliderDelivery.request(defenseEvent.delivery);
     this.gliderDelivery.update(delta);
+    this.updateCaptainDefense(delta);
+    this.updateAct2Barks(delta);
     const key=this.keys;
     const input=normalizeInput(this.joystick.direction.x+Number(key.D.isDown||key.RIGHT.isDown)-Number(key.A.isDown||key.LEFT.isDown),
       this.joystick.direction.y+Number(key.S.isDown||key.DOWN.isDown)-Number(key.W.isDown||key.UP.isDown));
