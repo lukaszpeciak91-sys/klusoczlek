@@ -35,6 +35,29 @@ export const DIALOGUES=Object.freeze({
   ['aloes','ALOES','Parostatku? W powietrzu?!'],
   ['captain','CAPTAIN','A gdzie miałby latać? Pod ziemią?']
  ],
+ 'act2-opening':[
+  ['aloes','ALOES','Kapitanie, gdzie my właściwie jesteśmy? Co to za magiczna kraina?'],
+  ['captain','KAPITAN','Nie magiczna, a zaczarowana! I nie kraina, tylko cały świat! Zaczarowany Świat!'],
+  ['aloes','ALOES','I czym są te wszystkie stwory? Skąd się wzięły?'],
+  ['captain','KAPITAN','Co?! Nie wiem! Ja na pewno nie miałem z tym nic wspólnego!'],
+  ['aloes','ALOES','Ale ja przecież tylko...'],
+  ['captain','KAPITAN','Dobra, nieważne! Chcesz wrócić do domu czy nie?'],
+  ['aloes','ALOES','No właśnie! Pomożesz mi wrócić do domu?'],
+  ['captain','KAPITAN','Oczywiście, Kłusoczłeku! Musisz jedynie zebrać dla mnie trzy magiczne artefakty Potwornych Mocarzy!'],
+  ['aloes','ALOES','Trzy artefakty?'],
+  ['captain','KAPITAN','Jeden już masz! Perukę Marcina! Pozostały jeszcze róg myśliwski Bogdana i rower Błażeja!'],
+  ['aloes','ALOES','Rower?'],
+  ['captain','KAPITAN','Tak! Rower! Masz coś do rowerów?!'],
+  ['aloes','ALOES','Nie, nie... A gdzie znajdę te artefakty?'],
+  ['captain','KAPITAN','Bocianołak Bogdan mieszka w pobliskim wulkanie, a Żubrokryptyda Błażej uczy się w pobliskiej szkole zawodowej!'],
+  ['aloes','ALOES','A kiedy już je zdobędę, naprawdę odwieziesz mnie do domu?'],
+  ['captain','KAPITAN','Oczywiście! Masz moje kapitańskie słowo!'],
+  ['captain','KAPITAN','O nie! Kłusoczłeku! Chwyć za broń!'],
+  ['aloes','ALOES','Co się dzieje?!'],
+  ['captain','KAPITAN','Zbliża się komando potwornych lotniarzy!'],
+  ['aloes','ALOES','Że co?!'],
+  ['captain','KAPITAN','NIE MA CZASU NA WYJAŚNIENIA! BROŃ PAROSTATKU!']
+ ],
  'before-marcin':[
   ['bobrozombi','BOBROZOMBI','Taki jesteś?! Czekaj aż zawołam Marcina'],
   ['bobrozombi','BOBROZOMBI','Marcin! Maaaarciiin!']
