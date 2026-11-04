@@ -224,6 +224,49 @@ try {
     assert.ok(hp.bottom<Math.min(geometry.stickTop,geometry.rightStickTop),label+' HP hits joystick');
     return geometry;
   };
+  // PR65: one real-touch navigator smoke, no URL shortcut or debug bypass of Phaser menu.
+  for(const [id,label,expectedScene] of [
+    ['act1-opening','AKT I — POCZĄTEK','Arena'],
+    ['act1-marcin','AKT I — MARCIN','Arena'],
+    ['act1-ending','AKT I — DIALOG KOŃCOWY','Arena'],
+    ['act1-results','AKT I — WYNIKI','Arena'],
+    ['act2-opening','AKT II — POCZĄTEK','Airship'],
+    ['act2-defense','AKT II — OBRONA','Airship'],
+    ['act2-last15','AKT II — OSTATNIE 15 S','Airship'],
+    ['act2-results','AKT II — WYNIK OBRONY','Airship'],
+  ]){
+    await waitFor(v=>v.menu&&!v.arena,'PR65 checkpoint menu '+id);
+    assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG'],'PR65 DEBUG missing');
+    await clickControl('DEBUG');
+    assert.equal(await evaluate("window.__game.scene.getScene('Menu').debugOpen"),true,'PR65 selector not opened');
+    const target=await evaluate("(()=>{const menu=window.__game.scene.getScene('Menu');const t=menu.children.list.find(o=>o.type==='Text'&&o.visible&&o.text==="+JSON.stringify(label)+");if(!t)return null;const box=menu.input._list.find(o=>o.input&&o.visible&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1);return box?{x:box.x,y:box.y,width:box.width,height:box.height}:null})()");
+    assert.ok(target,'PR65 visible checkpoint missing '+id);
+    assert.ok(target.x-target.width/2>=0&&target.x+target.width/2<=800,'PR65 checkpoint clipped');
+    const rect=(await snapshot()).rect;
+    await click(rect.x+target.x,rect.y+target.y);
+    for(let n=0;n<100;n++){if(await evaluate("window.__game.scene.isActive("+JSON.stringify(expectedScene)+")"))break;await sleep(35);}
+    assert.equal(await evaluate("window.__game.scene.isActive("+JSON.stringify(expectedScene)+")"),true,'PR65 scene start failed '+id);
+    const check=await evaluate("(()=>{const g=window.__game,s=g.scene.getScene("+JSON.stringify(expectedScene)+"),r=s.campaignRun;return {checkpoint:s.debugCheckpoint,act:r.actId,hp:r.hp,weapon:r.selectedWeapon,artifact:r.artifacts.has('marcin-mohawk'),completed:[...r.completedActs],phase:s.openingPhase,defense:s.defense?.state,remaining:180000-(s.defense?.elapsedMs??0),results:s.act1Panels?.mode}})()");
+    assert.equal(check.checkpoint,id,'PR65 checkpoint ID wrong');
+    assert.equal(check.hp,5);
+    assert.equal(check.act,id.startsWith('act2')?'act2':'act1');
+    if(id==='act1-results'){
+      for(let k=0;k<55;k++){if(await evaluate("window.__game.scene.getScene('Arena').act1Panels.mode==='results'"))break;await sleep(40);}
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').act1Panels.mode"),'results');
+    }
+    if(id==='act2-defense')assert.equal(check.defense,'active');
+    if(id==='act2-last15')assert.ok(check.remaining<=15000&&check.remaining>13000,'PR65 15s clock fixture');
+    if(id==='act2-results')assert.equal(check.defense,'survived');
+    if(id==='act1-ending'){
+      for(let k=0;k<70;k++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='act1-marcin-last'"))break;await sleep(35);}
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'act1-marcin-last');
+    }
+    if(id==='act1-marcin')assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"),true);
+    // A fresh menu deliberately stops the debug scene; the next checkpoint cannot inherit timers/listeners.
+    await evaluate("(()=>{const g=window.__game;g.scene.stop("+JSON.stringify(expectedScene)+");g.scene.start('Menu');return true})()");
+  }
+  assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG']);
+  console.log('PASS PR65 eight real-touch debug checkpoints, isolated runs, clean repeated scene stops');
   await clickControl('NOWA GRA');
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   await assertHudBounds('initial create');
