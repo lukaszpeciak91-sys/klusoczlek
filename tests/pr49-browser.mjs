@@ -78,7 +78,7 @@ export async function verifyTimedWaves({cdp,evaluate,sleep,snapshot,waitFor,clic
        assert.ok(fx.bursts>0&&!fx.aloes,'Witness must explode before Aloes speaks');
      }
    }
-   await finishAct1Epilogue();assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.state"),'victory');assert.equal(await evaluate("window.__game.scene.getScene('Arena').kills"),fatal.kills);
+   await finishAct1Epilogue();assert.equal(await evaluate("window.__game.scene.getScene('Arena').campaignRun.completedActs.has('act1')"),true,'Act I must complete before Act II handoff');assert.equal(await evaluate("window.__game.scene.getScene('Arena').kills"),fatal.kills);
   console.log('PASS PR49 seed '+seed+' '+width+'x'+height+': natural active clock/paused blur and dialogues,35/75s intros and overlap,120/170/225 jump/rewards,9 survivors preserved at260s,16-cap handoff,14 specials, truthful PR48 victory '+fatal.hud);
  }
  await fresh(1,568,320);

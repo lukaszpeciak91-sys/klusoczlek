@@ -1,7 +1,7 @@
 // Narrative order and public-facing strings live here; unbuilt acts are not scenes.
 export const CAMPAIGN_ACTS=Object.freeze([
   Object.freeze({id:'act1',number:1,label:'AKT I',title:'POBUDKA',scene:'Arena',nextActId:'act2'}),
-  Object.freeze({id:'act2',number:2,label:'AKT II',title:'W PRZESTWORZACH',scene:null,nextActId:'act3'}),
+  Object.freeze({id:'act2',number:2,label:'AKT II',title:'W PRZESTWORZACH',scene:'Airship',nextActId:'act3'}),
   Object.freeze({id:'act3',number:3,label:'AKT III',title:'PRZYTULNE M4 W WULKANIE',scene:null,nextActId:'act4'}),
   Object.freeze({id:'act4',number:4,label:'AKT IV',title:'ROWER BŁAŻEJA',scene:null,nextActId:'act5'}),
   Object.freeze({id:'act5',number:5,label:'AKT V',title:'TOŻSAMOŚĆ MARIANA',scene:null,nextActId:null}),
