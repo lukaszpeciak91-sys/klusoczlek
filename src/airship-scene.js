@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers} from './airship-contract.js';
-import {currentCampaignRun,prepareActStart,updateRunEquipment} from './campaign-run.js';
+import {currentCampaignRun,prepareActStart,updateRunEquipment,completeCampaignAct} from './campaign-run.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl} from './character-visual.js';
 import {createJoystick} from './joystick.js';
@@ -138,6 +138,7 @@ export class AirshipScene extends Phaser.Scene {
     this.dialogueState=createDialogueState();
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
       if(id==='act2-opening')this.startDefense();
+      if(id==='act2-finale')this.beginFinalResultsFade();
     },state=>{
       if(state.id==='act2-opening'&&state.index===16&&this.shakeTriggered===0){
         this.shakeTriggered=1;this.cameras.main.shake(200,0.005);
@@ -154,6 +155,14 @@ export class AirshipScene extends Phaser.Scene {
     this.resultLabel=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'21px',fontStyle:'bold',color:'#f3ca76',align:'center'}).setOrigin(.5);
     this.resultDetails=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'14px',color:'#e9d9c2',align:'center'}).setOrigin(.5);
     this.resultOverlay.add([this.resultBackground,this.resultLabel,this.resultDetails]);
+    this.resultsButton=this.add.rectangle(0,0,114,35,0x655039)
+      .setStrokeStyle(2,0xd9bd80).setScrollFactor(0).setDepth(194)
+      .setInteractive({useHandCursor:true}).setVisible(false);
+    this.resultsButtonText=this.add.text(0,0,'DALEJ',{
+      fontFamily:'monospace',fontSize:'17px',color:'#fff2d6'
+    }).setOrigin(.5).setScrollFactor(0).setDepth(195).setVisible(false);
+    this.resultsArmedAt=Infinity;
+    this.resultsButton.on('pointerdown',()=>this.completeAct2());
     this.pickup=null;
     if(this.weapon===null){
       this.pickup=this.add.container(563,275).setDepth(12).setVisible(false);
@@ -186,6 +195,8 @@ export class AirshipScene extends Phaser.Scene {
       this.resultBackground.setSize(w,h);
       this.resultLabel.setPosition(w/2,h*.43).setWordWrapWidth(w-20);
       this.resultDetails.setPosition(w/2,h*.62).setWordWrapWidth(w-20);
+      this.resultsButton.setPosition(w/2,h-25);
+      this.resultsButtonText.setPosition(w/2,h-25);
       this.onFocus?.();
     };
     resize();
@@ -200,7 +211,7 @@ export class AirshipScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange',this.onVisibility);
       this.gliderDelivery?.shutdown();
       this.combat?.cleanup();
-      this.pressureBar?.destroy();
+      this.pressureBar?.destroy();this.resultsButton?.destroy();this.resultsButtonText?.destroy();
       this.deckMask.destroy();this.playerVisual.destroy();this.hpFace.destroy();
     });
     this.resetMovement=()=>{this.joystick.reset();this.aimJoystick.reset();this.input.keyboard.resetKeys();};
@@ -355,23 +366,62 @@ export class AirshipScene extends Phaser.Scene {
     this.pickup?.setVisible(false);
     this.objectiveText.setVisible(false);this.defenseKillsText.setVisible(false);
     this.pressureBar.clear();
-    // A provisional assault result, not the narrative completion of Act II.
+    // Defense resolves once; campaign totals are booked at narrative completion.
     const result=this.defense.result;
-    this.campaignRun.stats.byAct.act2={...result,provisional:true};
-    this.campaignRun.stats.kills+=result.kills;
-    this.campaignRun.stats.activeCombatMs+=result.activeCombatMs;
-    this.resultLabel.setText(outcome==='survived'?'OBRONA PAROSTATKU ZAKOŃCZONA':'KONIEC GRY');
-    this.resultDetails.setText('POKONANI: '+result.kills+
-      '\\nCZAS WALKI: '+formatGameplayClock(result.activeCombatMs)+
-      '\\nMENU — WZNÓW / NOWA GRA');
+    this.resultLabel.setText(outcome==='survived'?'KONIEC AKTU II — PAROSTATEK':'KONIEC GRY');
+    this.resultDetails.setText('POKONANI WROGOWIE — '+result.kills+
+      '\nCZAS WALKI — '+formatGameplayClock(result.activeCombatMs));
     if(outcome==='survived'){
-      // Keep the 0.5 s pixel-death neutralization readable before the opaque result.
+      // Existing pixel-death bursts stay visible before the fade.
       this.time.delayedCall(520,()=>{
-        if(this.sys.isActive()&&this.defense.state==='survived')this.resultOverlay.setVisible(true);
+        if(!this.sys.isActive()||this.defense.state!=='survived')return;
+        this.cameras.main.once('camerafadeoutcomplete',()=>{
+          if(!this.sys.isActive())return;
+          this.cameras.main.fadeIn(450,0,0,0);
+          this.dialoguePanel.loading.finally(()=>{
+            if(!this.sys.isActive()||this.defense.state!=='survived')return;
+            this.cameras.main.once('camerafadeincomplete',()=>{
+              if(!this.sys.isActive())return;
+              if(beginDialogue(this.dialogueState,'act2-finale'))this.dialoguePanel.show(this.dialogueState);
+            });
+          });
+        });
+        this.cameras.main.fadeOut(450,0,0,0);
       });
-    }else this.resultOverlay.setVisible(true);
-    this.menuButton.setVisible(true).setDepth(192);
-    this.menuLabel.setVisible(true).setDepth(193);
+    }else{
+      this.resultDetails.setText(this.resultDetails.text+'\nMENU — WZNÓW / NOWA GRA');
+      this.resultOverlay.setVisible(true);
+      this.menuButton.setVisible(true).setDepth(192);
+      this.menuLabel.setVisible(true).setDepth(193);
+    }
+    return true;
+  }
+  beginFinalResultsFade(){
+    if(this.defense.state!=='survived'||this.finalResultsPending)return;
+    this.finalResultsPending=true;
+    this.cameras.main.once('camerafadeoutcomplete',()=>{
+      if(!this.sys.isActive())return;
+      this.resultOverlay.setVisible(true);
+      this.resultsArmedAt=this.game.loop.time+200;
+      this.resultsButton.setVisible(true);
+      this.resultsButtonText.setVisible(true);
+      this.menuButton.setVisible(false);this.menuLabel.setVisible(false);
+      this.cameras.main.resetFX();
+    });
+    this.cameras.main.fadeOut(450,0,0,0);
+  }
+  completeAct2(){
+    if(!this.finalResultsPending||!this.resultOverlay.visible||
+        this.game.loop.time<this.resultsArmedAt||document.hidden)return false;
+    const result=this.defense.result;
+    if(!result||result.outcome!=='survived')return false;
+    if(!completeCampaignAct(this.campaignRun,'act2',{
+      hp:this.playerHp,maxHp:this.maxHp,
+      unlockedWeapons:this.unlockedWeapons,selectedWeapon:this.weapon,
+      kills:result.kills,activeCombatMs:result.activeCombatMs
+    }))return false;
+    this.resultsButton.disableInteractive();
+    this.scene.start('Menu');
     return true;
   }
   update(time,delta){
