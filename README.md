@@ -43,6 +43,17 @@ npm run build
 npm run dev
 ```
 
+### Szybka praca lokalna (bez GitHub Pages)
+
+Z katalogu repozytorium uruchom:
+
+```sh
+npm ci
+npm run dev
+```
+
+Otwórz w przeglądarce **http://localhost:5173/klusoczlek/** (lub adres podany przez Vite w terminalu). Serwer Vite odświeża grę po zapisaniu zmian; nie trzeba commitować, otwierać PR ani czekać na GitHub Actions. Do szybkiego testowania Aktu II użyj przycisku **DEBUG** w menu gry. Przed PR uruchom `npm test` oraz `npm run build`; zmiany w kodzie rozgrywki i scen przechodzą także testy Chromium w CI.
+
 Aby sprawdzić wynik builda: `npm run preview`. Vite buduje pod bazą `/klusoczlek/`; w podglądzie użyj ścieżki `/klusoczlek/`. W repo przygotowano workflow Pages uruchamiany po autoryzowanym merge do `main`.
 
 ### Manualny smoke przed merge
@@ -58,7 +69,7 @@ Aby sprawdzić wynik builda: `npm run preview`. Vite buduje pod bazą `/klusoczl
 
 ## GitHub Pages (po autoryzowanym merge)
 
-Workflow `.github/workflows/pages.yml` publikuje **wyłącznie po push do `main`**, a nie z pull requestów. Używa Node.js 22 i wymaga sukcesu `npm ci`, `npm test`, `npm run build` oraz obecności `dist/index.html`. Dopiero wtedy oficjalne akcje GitHub Pages publikują zawartość `dist/`. Kolejne wdrożenia nie wykonują się równocześnie. Nie są potrzebne żadne dodatkowe sekrety.
+Workflow `.github/workflows/pages.yml` publikuje **wyłącznie po push do `main`**, a nie z pull requestów. Używa Node.js 22 i wymaga sukcesu `npm ci`, `npm run build` oraz obecności `dist/index.html`. Testy Node i Chromium wykonuje osobny workflow `Web CI` na PR, a nie workflow publikacji. Dopiero wtedy oficjalne akcje GitHub Pages publikują zawartość `dist/`. Kolejne wdrożenia nie wykonują się równocześnie. Nie są potrzebne żadne dodatkowe sekrety.
 
-W ustawieniach repo GitHub → Settings → Pages jako źródło wybierz **GitHub Actions**. Wymagana jest autoryzacja merge tego PR; samo otwarcie PR nie publikuje witryny. Base Vite pozostaje `/klusoczlek/`. Dotychczasowy `Web CI` działa osobno i pozostaje niezmieniony.
+W ustawieniach repo GitHub → Settings → Pages jako źródło wybierz **GitHub Actions**. Wymagana jest autoryzacja merge tego PR; samo otwarcie PR nie publikuje witryny. Base Vite pozostaje `/klusoczlek/`. `Web CI` zachowuje zadanie `verify`, testy Node i build dla każdego PR. Test Chromium jest pomijany tylko wtedy, gdy wszystkie zmienione pliki należą do `docs/` lub są plikiem `README.md`; zmiany w kodzie gry, dialogach i workflow zachowują pełną regresję przeglądarkową.
 
