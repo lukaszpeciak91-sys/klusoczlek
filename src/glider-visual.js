@@ -72,7 +72,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
     const passenger=renderers[spec.type].create(0,0);
     passenger.setScale(.68).setPosition(0,47);
     visual.add([pilot,passenger]);
-    flight.visual=visual;flight.pilot=pilot;flight.passenger=passenger;
+    flight.visual=visual;flight.pilot=pilot;flight.passenger=passenger;flight.telegraph=null;
     flights.push(flight);started.add(flight.id);airborneCount++;
     return flight;
   }
@@ -114,13 +114,18 @@ export function createGliderDelivery(scene,{demo=false}={}){
       const occupied=[...groundEnemies,...landings.filter(l=>!l.finished)].map(e=>({x:e.x,y:e.y,radius:e.radius??ENEMY_TYPES[e.type].radius}));
       const point=flight.phase==='dropping'&&!flight.released
         ?landingPosition(flight.zoneId,scene.player,occupied,ENEMY_TYPES[flight.type].radius):null;
+      if(flight.phase==='dropping'&&point&&!flight.released&&!flight.telegraph){
+        flight.telegraph=scene.add.ellipse(point.x,point.y,64,24,0xd8a255,0.18)
+          .setStrokeStyle(3,0xeccb7d,0.9).setDepth(7);
+      }
+      if(flight.telegraph?.active)flight.telegraph.setAlpha(.45+.35*Math.sin(elapsed/105));
       const event=stepFlight(flight,dt,point);
-      if(event.drop)releasePassenger(flight);
+      if(event.drop){flight.telegraph?.destroy();flight.telegraph=null;releasePassenger(flight);}
       if(flight.visual?.active){
         flight.visual.setPosition(flight.x,flight.y);
         flight.visual.setRotation(Math.sin(elapsed/320)*.018);
       }
-      if(event.finished){flight.visual?.destroy();flight.visual=null;}
+      if(event.finished){flight.visual?.destroy();flight.visual=null;flight.telegraph?.destroy();flight.telegraph=null;}
     }
     for(const landing of landings){
       if(landing.finished)continue;
@@ -136,7 +141,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
   };
   function stop(){
     stopped=true;
-    for(const flight of flights){flight.visual?.destroy();flight.visual=null;flight.finished=true;flight.phase='finished';}
+    for(const flight of flights){flight.visual?.destroy();flight.visual=null;flight.telegraph?.destroy();flight.telegraph=null;flight.finished=true;flight.phase='finished';}
     for(const landing of landings){landing.visual?.destroy();landing.visual=null;landing.finished=true;}
   }
   function shutdown(){
