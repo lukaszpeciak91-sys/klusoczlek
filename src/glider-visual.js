@@ -124,9 +124,16 @@ export function createGliderDelivery(scene,{demo=false}={}){
       const point=flight.phase==='dropping'&&!flight.released
         ?landingPosition(flight.zoneId,scene.player,occupied,ENEMY_TYPES[flight.type].radius,
           flight.elapsed>=GLIDER_EXPANDED_SEARCH_MS):null;
-      if(flight.phase==='dropping'&&point&&!flight.released&&!flight.telegraph){
-        flight.telegraph=scene.add.ellipse(point.x,point.y,64,24,0xd8a255,0.18)
-          .setStrokeStyle(3,0xeccb7d,0.9).setDepth(7);
+      if(flight.phase==='dropping'&&!flight.released){
+        if(point){
+          if(!flight.telegraph){
+            flight.telegraph=scene.add.ellipse(point.x,point.y,64,24,0xd8a255,0.18)
+              .setStrokeStyle(3,0xeccb7d,0.9).setDepth(7);
+          }else flight.telegraph.setPosition(point.x,point.y);
+        }else if(flight.telegraph){
+          flight.telegraph.destroy();
+          flight.telegraph=null;
+        }
       }
       if(flight.telegraph?.active)flight.telegraph.setAlpha(.45+.35*Math.sin(elapsed/105));
       const event=stepFlight(flight,dt,point);
