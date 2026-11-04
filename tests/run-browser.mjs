@@ -273,6 +273,7 @@ try {
       assert.deepEqual(beforeSky.counts,[1,2,2,2],'PR sky must use seven bounded Image objects, not TileSprites');
       assert.ok(beforeSky.keys.every((key,i)=>key==='airship-approved-'+['sky','far','mid','near'][i]),'PR sky approved PNG textures loaded');
       const savedSky=await evaluate("window.__game.scene.getScene('Airship').layers.map(l=>l.tilePositionX)");
+      const originalSkyViewport=(await snapshot()).rect;
       for(const [width,height] of [[915,412],[568,320]]){
         await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
         await evaluate("window.__game.scale.refresh();true");
@@ -291,8 +292,8 @@ try {
           await writeFile('dist/act2-sky-'+width+'x'+height+'-'+stage+'.png',Buffer.from(shot.data,'base64'));
         }
       }
-      await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:450,deviceScaleFactor:1,mobile:false});
-      await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.scale.refresh();const saved="+JSON.stringify([0,0,0,0])+";for(let i=0;i<a.layers.length;i++){a.layers[i].tilePositionX=saved[i];a.layers[i].update();}return true})()");
+      await cdp('Emulation.setDeviceMetricsOverride',{width:Math.round(originalSkyViewport.width),height:Math.round(originalSkyViewport.height),deviceScaleFactor:1,mobile:false});
+      await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.scale.refresh();const saved="+JSON.stringify(savedSky)+";for(let i=0;i<a.layers.length;i++){a.layers[i].tilePositionX=saved[i];a.layers[i].update();}return true})()");
       await sleep(80);
       for(let n=0;n<60;n++){
         const status=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return [a.optionalArtStatus['arenas/airship-deck.png'],a.optionalArtStatus['obstacles/airship-wheelhouse.png'],a.optionalArtStatus['obstacles/airship-paddlewheel.png']]})()");
