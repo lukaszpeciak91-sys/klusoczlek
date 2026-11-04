@@ -73,11 +73,12 @@ export class AirshipScene extends Phaser.Scene {
     this.deckVisual=geometry;
     this.deckArt=this.add.image(480,270,'airship-fallback-sky').setDepth(1).setVisible(false);
     // Approved PNG owns its silhouette; prototype polygon is fallback only.
-    void this.loadOptional('arenas/airship-deck.png',DECK_TEXTURE,this.deckArt,'deck');
     // Provisional rails remain only when the approved deck is unavailable.
     this.rails=this.add.graphics().setDepth(5);
     this.rails.lineStyle(6,0x2b2423,1).strokePoints(DECK_POLYGON,true);
     this.rails.lineStyle(3,0xe4c183,1).strokePoints(DECK_POLYGON,true);
+    // The fallback rail object must exist before a cached texture can hide it.
+    void this.loadOptional('arenas/airship-deck.png',DECK_TEXTURE,this.deckArt,'deck');
     // Tall building and wheel are art sprites; the roof is not a collision box.
     this.wheelhouse=this.add.image(480,218,'airship-fallback-sky')
       .setOrigin(.5,1).setDepth(9).setVisible(false);
