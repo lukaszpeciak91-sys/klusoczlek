@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers} from './airship-contract.js';
+import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers,clampToDeck,avoidWheelhouse} from './airship-contract.js';
 import {currentCampaignRun,prepareActStart,updateRunEquipment,completeCampaignAct} from './campaign-run.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl} from './character-visual.js';
@@ -72,15 +72,20 @@ export class AirshipScene extends Phaser.Scene {
     for(let y=124;y<452;y+=27)geometry.lineBetween(132,y,828,y);
     this.deckVisual=geometry;
     this.deckArt=this.add.image(480,270,'airship-fallback-sky').setDepth(1).setVisible(false);
-    const artMask=this.make.graphics({x:0,y:0});
-    artMask.fillStyle(0xffffff).fillPoints(DECK_POLYGON,true);
-    this.deckArt.setMask(artMask.createGeometryMask());
-    this.deckMask=artMask;
-    void this.loadOptional('arenas/airship-deck.png',DECK_TEXTURE,this.deckArt,true);
-    // The rails stay above the artwork and expose the only traversable perimeter.
+    // Approved PNG owns its silhouette; prototype polygon is fallback only.
+    void this.loadOptional('arenas/airship-deck.png',DECK_TEXTURE,this.deckArt,'deck');
+    // Provisional rails remain only when the approved deck is unavailable.
     this.rails=this.add.graphics().setDepth(5);
     this.rails.lineStyle(6,0x2b2423,1).strokePoints(DECK_POLYGON,true);
     this.rails.lineStyle(3,0xe4c183,1).strokePoints(DECK_POLYGON,true);
+    // Tall building and wheel are art sprites; the roof is not a collision box.
+    this.wheelhouse=this.add.image(480,218,'airship-fallback-sky')
+      .setOrigin(.5,1).setDepth(9).setVisible(false);
+    void this.loadOptional('obstacles/airship-wheelhouse.png','airship-wheelhouse-approved',this.wheelhouse,'wheelhouse');
+    // The perspective wheel stays static: rotating the entire PNG is incorrect.
+    this.paddlewheel=this.add.image(863,282,'airship-fallback-sky')
+      .setOrigin(.5,.5).setDepth(3).setVisible(false);
+    void this.loadOptional('obstacles/airship-paddlewheel.png','airship-paddlewheel-approved',this.paddlewheel,'paddlewheel');
     this.player=createPlayer(this,AIRSHIP_WORLD.start.x,AIRSHIP_WORLD.start.y);
     this.player.body.setVelocity(0,0);
     // Keep UI/joystick pixels at 1:1; follow in world space instead of zooming the HUD.
@@ -235,7 +240,7 @@ export class AirshipScene extends Phaser.Scene {
       this.gliderDelivery?.shutdown();
       this.combat?.cleanup();
       this.pressureBar?.destroy();this.resultsButton?.destroy();this.resultsButtonText?.destroy();
-      this.deckMask.destroy();this.playerVisual.destroy();this.hpFace.destroy();
+      this.playerVisual.destroy();this.hpFace.destroy();
     });
     this.resetMovement=()=>{
       this.joystick.reset();this.aimJoystick.reset();this.input.keyboard.resetKeys();
@@ -269,7 +274,7 @@ export class AirshipScene extends Phaser.Scene {
     this.cameras.main.fadeIn(240,0,0,0);
     enforceOrientationOnSceneStart(this);
   }
-  async loadOptional(path,key,target,deck=false){
+  async loadOptional(path,key,target,kind=null){
     try{
       if(!this.textures.exists(key)){
         const response=await fetch(assetUrl(import.meta.env.BASE_URL,path),{signal:this.artAbort.signal});
@@ -281,7 +286,16 @@ export class AirshipScene extends Phaser.Scene {
       if(!this.artAlive)return;
       this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
       target.setTexture(key);
-      if(deck){target.setDisplaySize(804,384).setVisible(true);}
+      if(kind==='deck'){
+        const tex=this.textures.get(key).getSourceImage();
+        const fit=Math.min(804/tex.width,384/tex.height);
+        target.setDisplaySize(tex.width*fit,tex.height*fit).setVisible(true);
+        this.deckVisual.setVisible(false);this.rails.setVisible(false);
+      }else if(kind==='wheelhouse'){
+        target.setDisplaySize(120,174).setVisible(true);
+      }else if(kind==='paddlewheel'){
+        target.setDisplaySize(100,153).setVisible(true);
+      }
       this.optionalArtStatus[path]='loaded';
     }catch(error){
       if(this.artAlive){this.optionalArtStatus[path]='fallback';console.info('[Airship] procedural fallback for '+path+': '+error.message);}
@@ -503,7 +517,8 @@ export class AirshipScene extends Phaser.Scene {
     const key=this.keys;
     const input=normalizeInput(this.joystick.direction.x+Number(key.D.isDown||key.RIGHT.isDown)-Number(key.A.isDown||key.LEFT.isDown),
       this.joystick.direction.y+Number(key.S.isDown||key.DOWN.isDown)-Number(key.W.isDown||key.UP.isDown));
-    const point=stepDeckPosition(this.player,input,delta);
+    let point=stepDeckPosition(this.player,input,delta);
+    if(this.wheelhouse.visible)point=clampToDeck(avoidWheelhouse(point),25);
     this.player.setPosition(point.x,point.y);
     this.player.body.reset(point.x,point.y);
     if(this.pickup?.active&&Math.hypot(point.x-this.pickup.x,point.y-this.pickup.y)<42){
