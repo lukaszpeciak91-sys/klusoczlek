@@ -19,14 +19,14 @@ function wingFallback(scene){
   wing.lineBetween(0,-65,0,16);
   return wing;
 }
-export function createGliderDelivery(scene){
+export function createGliderDelivery(scene,{demo=false}={}){
   const renderers={
     bobrozombi:createBobrozombiRenderer(scene,Phaser),
     bocianolak:createBocianolakRenderer(scene,Phaser),
     zubrokryptyda:createZubrokryptydaRenderer(scene,Phaser),
   };
   const flights=[],landings=[],groundEnemies=[],started=new Set();
-  let elapsed=0,alive=true,airborneCount=0,dropCount=0;
+  let elapsed=0,alive=true,stopped=false,airborneCount=0,dropCount=0;
   const pendingArt=new Set();
   async function loadVehicle(){
     try{
@@ -54,6 +54,7 @@ export function createGliderDelivery(scene){
   void loadVehicle();
 
   function createAirborne(spec){
+    if(!alive||stopped||started.has(spec.id))return null;
     const flight=makeFlight(spec);
     const visual=scene.add.container(flight.x,flight.y).setDepth(23);
     const wing=wingFallback(scene);
@@ -96,7 +97,8 @@ export function createGliderDelivery(scene){
     const renderer=renderers[landing.type];
     const sprite=renderer.create(landing.x,landing.y);
     const enemy={id:landing.id,type:landing.type,x:landing.x,y:landing.y,
-      hp:ENEMY_TYPES[landing.type].hp,seed:groundEnemies.length+1,facing:'s',sprite,dead:false};
+      hp:ENEMY_TYPES[landing.type].hp,seed:groundEnemies.length+1,facing:'s',sprite,dead:false,
+      hitUntil:0,activationAt:scene.time.now+900,ignition:null};
     renderer.update(enemy,scene.player,0,0);
     groundEnemies.push(enemy);
   }
@@ -104,7 +106,7 @@ export function createGliderDelivery(scene){
     if(!alive)return;
     const dt=Math.max(0,Math.min(50,delta));
     elapsed+=dt;
-    for(const spec of GLIDER_DEMO){
+    if(demo)for(const spec of GLIDER_DEMO){
       if(elapsed>=spec.atMs&&!started.has(spec.id))createAirborne(spec);
     }
     for(const flight of flights){
@@ -130,10 +132,15 @@ export function createGliderDelivery(scene){
       if(touchdown)finishLanding(landing);
     }
     // Ground actors are intentionally inert in PR63: only the existing renderer is updated.
-    for(const enemy of groundEnemies)if(enemy.sprite.active)renderers[enemy.type].update(enemy,scene.player,0,0);
+    for(const enemy of groundEnemies)if(!enemy.dead&&enemy.sprite.active)renderers[enemy.type].update(enemy,scene.player,0,0);
   };
+  function stop(){
+    stopped=true;
+    for(const flight of flights){flight.visual?.destroy();flight.visual=null;flight.finished=true;flight.phase='finished';}
+    for(const landing of landings){landing.visual?.destroy();landing.visual=null;landing.finished=true;}
+  }
   function shutdown(){
-    if(!alive)return;alive=false;
+    if(!alive)return;alive=false;stop();
     for(const flight of flights)flight.visual?.destroy();
     for(const landing of landings)landing.visual?.destroy();
     for(const enemy of groundEnemies)enemy.sprite?.destroy();
@@ -141,9 +148,11 @@ export function createGliderDelivery(scene){
     pendingArt.clear();
   }
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN,shutdown);
-  return {update,shutdown,renderers,get flights(){return flights;},get landings(){return landings;},
+  return {update,shutdown,stop,request:createAirborne,renderers,get flights(){return flights;},get landings(){return landings;},
     get groundEnemies(){return groundEnemies;},get spawnedCount(){return airborneCount;},
     get dropCount(){return dropCount;},get finishedCount(){return flights.filter(f=>f.finished).length;},
     get activeAirborneVisuals(){return flights.filter(f=>f.visual?.active).length;},
-    get activeLandingVisuals(){return landings.filter(l=>l.visual?.active).length;}};
+    get activeLandingVisuals(){return landings.filter(l=>l.visual?.active).length;},
+    get pendingPassengers(){return flights.filter(f=>!f.released&&!f.finished).length+landings.filter(l=>!l.finished).length;},
+    get activeGliders(){return flights.filter(f=>!f.finished).length;}};
 }
