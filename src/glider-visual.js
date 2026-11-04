@@ -6,11 +6,17 @@ import {AIRSHIP_GROUND_CAP,AIRSHIP_GLIDER_CAP} from './airship-defense.js';
 import {GLIDER_ART_KEY,GLIDER_ART_PATH,GLIDER_DEMO,LANDING_MS,GLIDER_EXPANDED_SEARCH_MS,
   landingPosition,makeFlight,stepFlight,stepLanding} from './glider-delivery.js';
 
+import {GLIDER_FRAME_SIZE,GLIDER_SHEET_WIDTH,GLIDER_SHEET_HEIGHT,flightDirectionFrame} from './glider-spritesheet.js';
+
 const WING_DISPLAY_WIDTH=176;
-function showApprovedWing(scene,art){
-  const source=scene.textures.get(GLIDER_ART_KEY).getSourceImage();
-  const width=source.width||176,height=source.height||94;
-  art.setTexture(GLIDER_ART_KEY).setDisplaySize(WING_DISPLAY_WIDTH,WING_DISPLAY_WIDTH*height/width).setVisible(true);
+function frameForFlight(flight){
+  return flight.phase==='departing'
+    ?flightDirectionFrame(flight.target,flight.exit)
+    :flightDirectionFrame(flight.from,flight.target);
+}
+function showApprovedWing(art,flight){
+  art.setTexture(GLIDER_ART_KEY,frameForFlight(flight))
+    .setDisplaySize(WING_DISPLAY_WIDTH,WING_DISPLAY_WIDTH).setVisible(true);
 }
 function wingFallback(scene){
   const wing=scene.add.graphics();
@@ -40,7 +46,14 @@ export function createGliderDelivery(scene,{demo=false}={}){
         if(!response.ok)throw Error('PNG HTTP '+response.status);
         const img=await createImageBitmap(await response.blob());
         if(!alive){img.close();return;}
-        scene.textures.addImage(GLIDER_ART_KEY,img);
+        if(img.width!==GLIDER_SHEET_WIDTH||img.height!==GLIDER_SHEET_HEIGHT){
+          img.close();
+          throw Error('Invalid hang-glider spritesheet dimensions: expected 2560x320');
+        }
+        scene.textures.addSpriteSheet(GLIDER_ART_KEY,img,{
+          frameWidth:GLIDER_FRAME_SIZE,frameHeight:GLIDER_FRAME_SIZE,
+          startFrame:0,endFrame:7,margin:0,spacing:0
+        });
       }
       if(!alive)return;
       scene.textures.get(GLIDER_ART_KEY).setFilter(Phaser.Textures.FilterMode.NEAREST);
@@ -48,7 +61,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
       for(const visual of pendingArt){
         if(!visual.active)continue;
         const art=visual.getData('vehicleImage'),fallback=visual.getData('vehicleFallback');
-        showApprovedWing(scene,art);
+        showApprovedWing(art,visual.getData('flight'));
         fallback.setVisible(false);
       }
     }catch(error){
@@ -66,12 +79,13 @@ export function createGliderDelivery(scene,{demo=false}={}){
     const flight=makeFlight(spec);
     const visual=scene.add.container(flight.x,flight.y).setDepth(23);
     const wing=wingFallback(scene);
-    const approved=scene.add.image(0,-15,'airship-fallback-sky').setVisible(false);
+    const approved=scene.add.sprite(0,-15,'airship-fallback-sky').setVisible(false);
     visual.add([wing,approved]);
     visual.setData('vehicleFallback',wing);
     visual.setData('vehicleImage',approved);
+    visual.setData('flight',flight);
     if(scene.textures.exists(GLIDER_ART_KEY)){
-      showApprovedWing(scene,approved);
+      showApprovedWing(approved,flight);
       wing.setVisible(false);
     }else pendingArt.add(visual);
     visual.once(Phaser.GameObjects.Events.DESTROY,()=>pendingArt.delete(visual));
@@ -143,7 +157,14 @@ export function createGliderDelivery(scene,{demo=false}={}){
         flight.telegraph?.destroy();flight.telegraph=null;
         console.warn('[Airship glider] Landing blocked after bounded retries:',flight.id);
       }
-      if(flight.visual?.active)flight.visual.setPosition(flight.x,flight.y);
+      if(flight.visual?.active){
+        flight.visual.setPosition(flight.x,flight.y);
+        const art=flight.visual.getData('vehicleImage');
+        if(art?.visible&&art.texture.key===GLIDER_ART_KEY){
+          const frame=frameForFlight(flight);
+          if(art.frame.name!==frame)art.setFrame(frame);
+        }
+      }
       if(event.finished){flight.visual?.destroy();flight.visual=null;flight.telegraph?.destroy();flight.telegraph=null;}
     }
     for(const landing of landings){
