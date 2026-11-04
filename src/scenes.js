@@ -30,6 +30,7 @@ import {COMBAT_TUNING,createFiringState,resetFiring,firingStep,flameTargetVisibl
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
 import {createGameplayClock,advanceGameplayClock,formatGameplayClock} from './gameplay-clock.js';
 import { ENCOUNTER, applyEnemyHit, applyPlayerContact } from './bobrozombi.js';
+import {DEBUG_CHECKPOINTS,createDebugFixture} from './debug-checkpoints.js';
 import { menuLayout, arenaHudLayout } from './ui-layout.js';
 import { enforceOrientationOnSceneStart } from './viewport.js';
 import {OBSTACLE_RULES,resolveObstaclePosition,steerObstacleStep,segmentObstacleHit,damageObstacle,inExplosion} from './obstacles.js';
@@ -82,17 +83,19 @@ export class MenuScene extends Phaser.Scene {
     const defeated = terminal && this.scene.get('Arena').episode.state==='defeat';
     const victorious=terminal&&!defeated;
     const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
-    const startY = hasSession ? initial.startY - Math.min(44, this.scale.height * 0.12) : initial.startY;
-    const resumeY = initial.startY + Math.min(44, this.scale.height * 0.12);
     const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
-    const newGame = button(this, initial.centerX, startY, initial.startWidth, initial.startHeight, 'NOWA GRA', () => {
+    const newGame = button(this, initial.centerX, 0, initial.startWidth, 44, 'NOWA GRA', () => {
       if (!allowed()) return;
       this.navigating = true;
       if (hasSession) this.scene.stop(sessionKey);
       beginCampaignRun(this.game);
       this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
     });
-    const resume = hasSession && !terminal ? button(this, initial.centerX, resumeY, initial.startWidth, initial.startHeight, 'WZNÓW', () => {
+    const debug = button(this, initial.centerX, 0, initial.startWidth, 44, 'DEBUG', () => {
+      if(!allowed())return;
+      this.debugOpen=true;resize();
+    });
+    const resume = hasSession && !terminal ? button(this, initial.centerX, 0, initial.startWidth, 44, 'WZNÓW', () => {
       if (!allowed()) return;
       this.navigating = true;
       const activeSession = this.scene.get(sessionKey);
@@ -100,17 +103,59 @@ export class MenuScene extends Phaser.Scene {
       this.scene.resume(sessionKey);
       this.scene.stop();
     }) : null;
+    this.debugOpen=false;
+    const choices=DEBUG_CHECKPOINTS.map(checkpoint=>({
+      checkpoint,
+      control:button(this,initial.centerX,0,160,34,checkpoint.label,()=>{
+        if(!allowed()||!this.debugOpen)return;
+        const fixture=createDebugFixture(checkpoint.id);
+        if(!fixture)return;
+        this.navigating=true;
+        this.cameras.main.once('camerafadeoutcomplete',()=>{
+          if(!this.sys.isActive())return;
+          if(hasSession)this.scene.stop(sessionKey);
+          this.game.registry.set('campaign-run',fixture.run);
+          this.scene.start(checkpoint.scene,{debugCheckpoint:checkpoint.id,handoff:fixture.handoff});
+        });
+        this.cameras.main.fadeOut(240,0,0,0);
+      })
+    }));
+    const back=button(this,initial.centerX,0,150,35,'WRÓĆ',()=>{
+      if(!allowed())return;
+      this.debugOpen=false;resize();
+    });
     const resize = () => {
       const layout = menuLayout(this.scale.width, this.scale.height);
-      const offset = Math.min(44, this.scale.height * 0.12);
-      title.setPosition(layout.centerX, layout.titleY).setFontSize(layout.titleSize);
-      subtitle.setPosition(layout.centerX, layout.subtitleY).setFontSize(layout.subtitleSize);
-      for (const [control, y] of [[newGame, hasSession ? layout.startY - offset : layout.startY], [resume, layout.startY + offset]]) {
-        if (!control) continue;
-        control.background.setPosition(layout.centerX, y).setSize(layout.startWidth, layout.startHeight);
-        control.caption.setPosition(layout.centerX, y);
+      const w=this.scale.width,h=this.scale.height;
+      title.setPosition(layout.centerX,this.debugOpen?h*.105:layout.titleY)
+        .setFontSize(this.debugOpen?Math.max(18,Math.min(31,h*.09)):layout.titleSize);
+      subtitle.setVisible(!this.debugOpen);
+      subtitle.setPosition(layout.centerX,layout.subtitleY).setFontSize(layout.subtitleSize);
+      const count=resume?3:2;
+      const gap=Math.min(55,Math.max(39,h*.165));
+      const base=resume?h*.57:h*.66;
+      const menuHeight=Math.min(55,Math.max(34,h*.125));
+      for(const [index,control] of [newGame,debug,resume].filter(Boolean).entries()){
+        const y=base+index*gap;
+        control.background.setPosition(layout.centerX,y).setSize(layout.startWidth,menuHeight).setVisible(!this.debugOpen);
+        control.caption.setPosition(layout.centerX,y).setFontSize(Math.max(14,Math.min(24,h*.058))).setVisible(!this.debugOpen);
+        control.background.input.enabled=!this.debugOpen;
       }
+      const colWidth=Math.min(275,(w-24)/2-6);
+      const rowGap=Math.min(57,Math.max(42,h*.145));
+      const firstY=h*.26;
+      choices.forEach(({control},i)=>{
+        const x=w/2+(i%2===0?-1:1)*(colWidth/2+3);
+        const y=firstY+Math.floor(i/2)*rowGap;
+        control.background.setPosition(x,y).setSize(colWidth,Math.min(43,rowGap-5)).setVisible(this.debugOpen);
+        control.caption.setPosition(x,y).setFontSize(Math.max(10,Math.min(15,w*.018,h*.043))).setVisible(this.debugOpen);
+        control.background.input.enabled=this.debugOpen;
+      });
+      back.background.setPosition(w/2,h*.91).setSize(Math.min(170,w*.35),Math.min(37,h*.10)).setVisible(this.debugOpen);
+      back.caption.setPosition(w/2,h*.91).setFontSize(Math.max(13,Math.min(18,h*.052))).setVisible(this.debugOpen);
+      back.background.input.enabled=this.debugOpen;
     };
+    resize();
     this.scale.on(Phaser.Scale.Events.RESIZE, resize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, resize));
     const fullscreenButton = document.getElementById('fullscreen-button');
@@ -133,6 +178,7 @@ export class ArenaScene extends Phaser.Scene {
   constructor() { super('Arena'); }
 
   create(data={}) {
+    this.debugCheckpoint=data.debugCheckpoint??null;
     document.getElementById('fullscreen-button').hidden = true;
     this.cameras.main.setBackgroundColor(COLORS.background);
     this.physics.world.setBounds(0, 0, ARENA.width, ARENA.height);
@@ -419,12 +465,61 @@ export class ArenaScene extends Phaser.Scene {
       if(!this.sys.isActive())return;
       this.dialogueLoading=false;
       this.cameras.main.fadeIn(280,0,0,0);
-      this.tryStartDialogue();
+      if(this.debugCheckpoint)this.applyDebugCheckpoint(this.debugCheckpoint);
+      else this.tryStartDialogue();
     });
     enforceOrientationOnSceneStart(this);
     this.onResize();
   }
 
+  applyDebugCheckpoint(id){
+    if(!['act1-opening','act1-marcin','act1-ending','act1-results'].includes(id))return false;
+    this.narrativeEvents.clear();
+    this.pendingIntroductions.clear();
+    this.resetMovement();
+    if(id==='act1-opening'){
+      this.narrativeEvents.add('before-wave-1');
+      return this.tryStartDialogue();
+    }
+    // Remove initial ordinary spawns and pickups; no ghost actor can survive a jump.
+    for(const enemy of this.enemies){enemy.burningFx?.destroy();enemy.sprite?.destroy();}
+    this.enemies=[];
+    for(const pickup of this.pickups)pickup.object?.destroy();
+    this.pickups=[];
+    this.unlockedWeapons=new Set(this.campaignRun.unlockedWeapons);
+    this.weapon=this.campaignRun.selectedWeapon;
+    this.kills=42;
+    this.elapsedGameplayMs=240000;
+    this.gameplayClock.elapsedMs=this.elapsedGameplayMs;
+    this.gameplayClock.lastNow=null;
+    this.episode.wave=TOTAL_WAVES-1;
+    this.waveText.setText('⚑ '+TOTAL_WAVES+'/'+TOTAL_WAVES);
+    this.timerText.setText('◷ '+formatGameplayClock(this.elapsedGameplayMs));
+    this.refreshWeaponHud();
+    if(this.weapon)void this.playerVisual.setVariant(this.weapon);
+    if(id==='act1-marcin'){
+      this.episode.bossIntroduced=true;
+      this.bossEntrancePending=true;
+      this.spawnDueAt=null;
+      this.physics.world.resume();this.time.paused=false;
+      this.tryBeginBossEntrance();
+      this.syncJoysticks();
+      return true;
+    }
+    this.episode.state='final-pending';
+    this.finalResolution=true;
+    this.finalOutcomeHeld=true;
+    this.spawnDueAt=null;
+    this.physics.world.pause();this.time.paused=true;
+    this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
+    if(id==='act1-ending'){
+      this.markNarrativeBoundary('act1-marcin-last');
+    }else{
+      this.act1Epilogue='results';
+      this.act1Panels.showResults(this.kills,formatGameplayClock(this.elapsedGameplayMs));
+    }
+    return true;
+  }
   createEnemy(type,point,index){
     const def=ENEMY_TYPES[type];
     return {...point,type,seed:index,waveIndex:this.episode.wave,hp:def.hp,

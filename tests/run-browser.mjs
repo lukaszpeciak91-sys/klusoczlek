@@ -172,14 +172,14 @@ try {
     }
   }
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
-  await waitFor(s=>s.menu&&s.actions.length===1&&s.actions[0].label==='NOWA GRA','initial single new game');
+  await waitFor(s=>s.menu&&s.actions.length===2&&s.actions[0].label==='NOWA GRA'&&s.actions[1].label==='DEBUG','initial single new game');
   await evaluate('window.__traceEvents()');
   for(const height of [320,360,375,420]){
     const width=Math.round(height*20/9);
     await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
     await evaluate('window.__game.scale.refresh();true');
     const state=await waitFor(s=>Math.abs(s.rect.height-height)<2,'resize '+height);
-    assert.equal(state.actions.length,1);
+    assert.equal(state.actions.length,2);
     assert.ok(state.actions[0].y+state.actions[0].height/2<=height,'NOWA GRA clipped');
   }
   await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
@@ -224,6 +224,56 @@ try {
     assert.ok(hp.bottom<Math.min(geometry.stickTop,geometry.rightStickTop),label+' HP hits joystick');
     return geometry;
   };
+  // PR65: one real-touch navigator smoke, no URL shortcut or debug bypass of Phaser menu.
+  for(const [id,label,expectedScene] of [
+    ['act1-opening','AKT I — POCZĄTEK','Arena'],
+    ['act1-marcin','AKT I — MARCIN','Arena'],
+    ['act1-ending','AKT I — DIALOG KOŃCOWY','Arena'],
+    ['act1-results','AKT I — WYNIKI','Arena'],
+    ['act2-opening','AKT II — POCZĄTEK','Airship'],
+    ['act2-defense','AKT II — OBRONA','Airship'],
+    ['act2-last15','AKT II — OSTATNIE 15 S','Airship'],
+    ['act2-results','AKT II — WYNIK OBRONY','Airship'],
+  ]){
+    await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2&&v.actions[0].label==='NOWA GRA'&&v.actions[1].label==='DEBUG','PR65 checkpoint menu '+id);
+    assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG'],'PR65 DEBUG missing');
+    await clickControl('DEBUG');
+    assert.equal(await evaluate("window.__game.scene.getScene('Menu').debugOpen"),true,'PR65 selector not opened');
+    const target=await evaluate("(()=>{const menu=window.__game.scene.getScene('Menu');const t=menu.children.list.find(o=>o.type==='Text'&&o.visible&&o.text==="+JSON.stringify(label)+");if(!t)return null;const box=menu.input._list.find(o=>o.input&&o.visible&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1);return box?{x:box.x,y:box.y,width:box.width,height:box.height}:null})()");
+    assert.ok(target,'PR65 visible checkpoint missing '+id);
+    assert.ok(target.x-target.width/2>=0&&target.x+target.width/2<=800,'PR65 checkpoint clipped');
+    const rect=(await snapshot()).rect;
+    await click(rect.x+target.x,rect.y+target.y);
+    for(let n=0;n<100;n++){if(await evaluate("window.__game.scene.isActive("+JSON.stringify(expectedScene)+")"))break;await sleep(35);}
+    assert.equal(await evaluate("window.__game.scene.isActive("+JSON.stringify(expectedScene)+")"),true,'PR65 scene start failed '+id);
+    const check=await evaluate("(()=>{const g=window.__game,s=g.scene.getScene("+JSON.stringify(expectedScene)+"),r=s.campaignRun;return {checkpoint:s.debugCheckpoint,act:r.actId,hp:r.hp,weapon:r.selectedWeapon,artifact:r.artifacts.has('marcin-mohawk'),completed:[...r.completedActs],phase:s.openingPhase,defense:s.defense?.state,remaining:180000-(s.defense?.elapsedMs??0),results:s.act1Panels?.mode}})()");
+    assert.equal(check.checkpoint,id,'PR65 checkpoint ID wrong');
+    assert.equal(check.hp,5);
+    assert.equal(check.act,id.startsWith('act2')?'act2':'act1');
+    if(id==='act1-results'){
+      for(let k=0;k<55;k++){if(await evaluate("window.__game.scene.getScene('Arena').act1Panels.mode==='results'"))break;await sleep(40);}
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').act1Panels.mode"),'results');
+    }
+    if(id==='act2-defense')assert.equal(check.defense,'active');
+    if(id==='act2-last15')assert.ok(check.remaining<=15000&&check.remaining>13000,'PR65 15s clock fixture');
+    if(id==='act2-results')assert.equal(check.defense,'survived');
+    if(id==='act1-ending'){
+      for(let k=0;k<70;k++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='act1-marcin-last'"))break;await sleep(35);}
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'act1-marcin-last');
+    }
+    if(id==='act1-marcin'){
+      for(let k=0;k<85;k++){
+        if(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"))break;
+        await sleep(40);
+      }
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"),true,'PR65 Marcin checkpoint did not initialize');
+    }
+    // A fresh menu deliberately stops the debug scene; the next checkpoint cannot inherit timers/listeners.
+    await evaluate("(()=>{const g=window.__game;g.scene.stop("+JSON.stringify(expectedScene)+");g.scene.start('Menu');return true})()");
+  }
+  await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2&&v.actions[0].label==='NOWA GRA'&&v.actions[1].label==='DEBUG','PR65 final return to menu');
+  assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG']);
+  console.log('PASS PR65 eight real-touch debug checkpoints, isolated runs, clean repeated scene stops');
   await clickControl('NOWA GRA');
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
   await assertHudBounds('initial create');
@@ -378,14 +428,14 @@ try {
 
   for(let i=0;i<20;i++){
     await clickControl('hud');
-    let state=await waitFor(s=>s.menu&&s.arenaPaused&&s.actions.length===2,'Menu two buttons '+i);
-    assert.deepEqual(state.actions.map(a=>a.label),['NOWA GRA','WZNÓW']);
+    let state=await waitFor(s=>s.menu&&s.arenaPaused&&s.actions.length===3,'Menu three buttons '+i);
+    assert.deepEqual(state.actions.map(a=>a.label),['NOWA GRA','DEBUG','WZNÓW']);
     assert.equal(state.menuOverArena,true);
     assert.equal(state.fullscreenVisible,true);
     assert.equal(state.physics,true);
     assert.equal(state.samePlayer,true);
     assert.equal(state.sameCamera,true);
-    assert.ok(state.actions[1].y-state.actions[0].y>state.actions[0].height,'Overlapping menu hitboxes');
+    assert.ok(state.actions[1].y-state.actions[0].y>state.actions[0].height&&state.actions[2].y-state.actions[1].y>state.actions[1].height,'Overlapping menu hitboxes');
     await evaluate('window.dispatchEvent(new Event("blur"));window.dispatchEvent(new Event("focus"));true');
     assert.equal((await snapshot()).arenaPaused,true);
     await clickControl('WZNÓW');
@@ -422,7 +472,7 @@ try {
   assert.equal(desktop.controls.shotAt,null,'Desktop release did not stop firing');
   console.log('PASS real CDP desktop keyboard + mouse held fire and release');
   await clickControl('hud');
-  await waitFor(s=>s.menu&&s.actions.length===2,'Menu before new game');
+  await waitFor(s=>s.menu&&s.actions.length===3,'Menu before new game');
   await clickControl('NOWA GRA');
   const fresh=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'New game replaces session');
   assert.equal(fresh.samePlayer,false,'NOWA GRA reused existing player');
@@ -478,7 +528,7 @@ try {
   assert.equal((await snapshot()).controls.hp,4,'Invulnerability failed on continuous overlap');
   await waitFor(s=>s.menu&&s.arenaPaused&&s.controls.defeated,'Defeat opens existing Menu');
   const defeat=await snapshot();
-  assert.deepEqual(defeat.actions.map(a=>a.label),['NOWA GRA'],'Defeat exposed resume');
+  assert.deepEqual(defeat.actions.map(a=>a.label),['NOWA GRA','DEBUG'],'Defeat exposed resume');
   await clickControl('NOWA GRA');
   const revived=await waitFor(s=>s.arena&&!s.menu&&!s.controls.defeated,'New game after defeat');
   assert.equal(revived.controls.hp,5);
@@ -487,7 +537,7 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.slice(0,3).every(e=>e.type==='bobrozombi')"),true,'NEW GAME opening trio changed');
   console.log('PASS real Phaser shots -> enemy death, contact invulnerability, defeat, clean NEW GAME');
   await clickControl('hud');
-  await waitFor(s=>s.menu&&s.actions.length===2,'Menu again after fresh session');
+  await waitFor(s=>s.menu&&s.actions.length===3,'Menu again after fresh session');
   console.log('PASS real Phaser touch: NOWA GRA always, WZNÓW additional, 20 cycles, fresh session, physics and fullscreen visibility');
 
   // Positive path: intercept only the optional PNG URL, generated entirely in memory.
@@ -511,7 +561,7 @@ try {
     try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
     await sleep(40);
   }
-  await waitFor(s=>s.menu&&s.actions.length===1,'synthetic sprite fresh page');
+  await waitFor(s=>s.menu&&s.actions.length===2,'synthetic sprite fresh page');
   await clickControl('NOWA GRA');
   const art=await waitFor(s=>s.arena&&s.playerVisual?.loaded,'actual synthetic RGBA sprite load');
   assert.deepEqual(art.playerVisual.textureFrames,Array(8).fill(true),'Phaser did not produce eight 64x64 frames');
@@ -550,7 +600,7 @@ try {
     const prior=await snapshot();
     assert.equal(prior.playerVisual.shadowCount,1);
     await clickControl('hud');
-    const paused=await waitFor(v=>v.menu&&v.arenaPaused&&v.actions.length===2,'menu visual cycle '+cycle);
+    const paused=await waitFor(v=>v.menu&&v.arenaPaused&&v.actions.length===3,'menu visual cycle '+cycle);
     assert.equal(paused.playerVisual.shadowCount,1,'Menu duplicated visual shadow');
     const frozen=await evaluate("(()=>{const v=window.__visualSession();window.__resumeIdentity={player:v.player,shadow:v.shadow,sprite:v.sprite};return true;})()");
     assert.equal(frozen,true);
@@ -601,7 +651,7 @@ try {
     try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
     await sleep(40);
   }
-  await waitFor(v=>v.menu&&!v.arena&&v.actions.length===1,'fresh game before delayed load');
+  await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2,'fresh game before delayed load');
   await clickControl('NOWA GRA');
   for(let attempt=0;attempt<50&&delayedRequest===null;attempt++)await sleep(80);
   assert.ok(delayedRequest,'Expected real pending PNG request');
@@ -1665,7 +1715,7 @@ try {
     try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
     await sleep(40);
   }
-  await waitFor(v=>v.menu&&v.actions.length===1,'PR41 clean real-art boot');
+  await waitFor(v=>v.menu&&v.actions.length===2,'PR41 clean real-art boot');
   // PR41: actual generated worlds, not a substitute for the full regressions above.
   for(const seed of [1,41,104729]){
     if(!(await snapshot()).menu)await clickControl('hud');
@@ -1745,7 +1795,7 @@ try {
     try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}
     await sleep(40);
   }
-  await waitFor(v=>v.menu&&v.actions.length===1,'PR42 real-art boot');
+  await waitFor(v=>v.menu&&v.actions.length===2,'PR42 real-art boot');
   for(const [seed,width,height] of [[1,320,240],[41,568,320],[104729,800,360]]){
     arenaRun=[1,41,104729].indexOf(seed);
     if(!(await snapshot()).menu)await clickControl('hud');
@@ -1809,7 +1859,7 @@ try {
   await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/enemies/zubrokryptyda.png*',requestStage:'Request'}]});
   await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
   for(let boot=0;boot<100;boot++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
-  await waitFor(v=>v.menu&&v.actions.length===1,'PR42 missing-art boot');
+  await waitFor(v=>v.menu&&v.actions.length===2,'PR42 missing-art boot');
   await clickControl('NOWA GRA');
   const fallback=await evaluate(`(async()=>{
     const a=window.__game.scene.getScene('Arena');await a.enemyRenderers.zubrokryptyda.loading;
@@ -1827,7 +1877,7 @@ try {
   // PR43 standard first-hit dialogue: true sources, settled deaths, session ownership.
   await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
   for(let boot=0;boot<100;boot++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
-  await waitFor(v=>v.menu&&v.actions.length===1,'PR43 clean boot');
+  await waitFor(v=>v.menu&&v.actions.length===2,'PR43 clean boot');
   const hitId='after-first-bocianolak-hit';
   async function nextLine(){
     await sleep(200);const b=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return {x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y}})()");
@@ -2078,7 +2128,7 @@ try {
     socket.addEventListener('message',fetchBoss);await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/enemies/marcin.png*',requestStage:'Request'}]});
     await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
     for(let i=0;i<100;i++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
-    await waitFor(v=>v.menu&&v.actions.length===1,'boss asset '+mode);await clickControl('NOWA GRA');
+    await waitFor(v=>v.menu&&v.actions.length===2,'boss asset '+mode);await clickControl('NOWA GRA');
     const init=await evaluate(`(async()=>{const a=window.__game.scene.getScene('Arena');await a.enemyRenderers.marcin.loading;
       for(const e of a.enemies)e.sprite.destroy();const e=a.createEnemy('marcin',{x:900,y:600},44);e.attack={phase:'warning',elapsed:0};a.enemies=[e];a.boss=e;a.spawnDueAt=null;a.invulnerableUntil=Infinity;
       window.__marcinQA=e;return {loaded:a.enemyRenderers.marcin.loaded,fallback:a.enemyRenderers.marcin.fallback,art:!!e.sprite.getData('marcin-art')};})()`);
@@ -2115,7 +2165,7 @@ try {
     socket.addEventListener('message',onForest);await cdp('Fetch.enable',{patterns:[{urlPattern:'*assets/obstacles/forest-obstacles.png*',requestStage:'Request'}]});
     await evaluate('window.__qaReloadPending=true');await cdp('Page.reload',{ignoreCache:true});
     for(let i=0;i<100;i++){try{if(await evaluate('!window.__qaReloadPending&&!!window.__snapshot'))break;}catch{}await sleep(40);}
-    await waitFor(v=>v.menu&&v.actions.length===1,'forest '+mode+' boot');await clickControl('NOWA GRA');
+    await waitFor(v=>v.menu&&v.actions.length===2,'forest '+mode+' boot');await clickControl('NOWA GRA');
     if(mode==='late'){
       assert.ok(held,'Atlas request not held');
       assert.equal(await evaluate("window.__game.scene.getScene('Arena').obstacles.every(o=>o.sprite.active&&o.sprite.getData('fallback').visible&&!o.sprite.getData('atlasSprite'))"),true);
