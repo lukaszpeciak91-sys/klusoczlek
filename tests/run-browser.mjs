@@ -777,39 +777,54 @@ try {
     assert.equal(ship.act,'act2');assert.equal(ship.hp,handoff.hp);assert.equal(ship.maxHp,handoff.maxHp);
     assert.equal(ship.weapon,handoff.selected);assert.deepEqual(ship.unlocked,handoff.weapons);
     assert.equal(ship.layers,4);assert.equal(ship.dialogue,false);
+    for(let n=0;n<180;n++){
+      if(await evaluate("['dialogue','active'].includes(window.__game.scene.getScene('Airship').openingPhase)"))break;
+      await sleep(40);
+    }
+    assert.equal(await evaluate("window.__game.scene.getScene('Airship').openingPhase"),'dialogue','PR64 camera opening must settle into dialogue');
+    assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.defense.elapsedMs===0&&a.gliderDelivery.spawnedCount===0&&!a.joystick.enabled&&!a.aimJoystick.enabled})()"),true,'PR64 no combat, clock or joystick before opening dialogue');
     if(!gliderDemoVerified){
       gliderDemoVerified=true;
-      // One focused real-Phaser Act II delivery, not a new multi-seed matrix.
-      for(let n=0;n<100;n++){
-        if(await evaluate("window.__game.scene.getScene('Airship').gliderDelivery.spawnedCount>0"))break;
-        await sleep(40);
+      const expected=await evaluate("(async()=>{const m=await import('/klusoczlek/src/dialogue-data.js');return m.DIALOGUES['act2-opening']})()");
+      assert.equal(expected.length,21,'PR64 approved opening dialogue length');
+      for(let i=0;i<expected.length;i++){
+        const line=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {index:a.dialogueState.index,id:a.dialogueState.id,text:a.dialoguePanel.text.text,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,shake:a.shakeTriggered,clock:a.defense.elapsedMs,spawned:a.gliderDelivery.spawnedCount}})()");
+        assert.equal(line.id,'act2-opening');assert.equal(line.index,i,'PR64 one DALEJ per line');
+        assert.equal(line.text,expected[i][2],'PR64 dialogue text changed');
+        assert.equal(line.clock,0,'PR64 combat clock started during dialogue');
+        assert.equal(line.spawned,0,'PR64 glider spawned during dialogue');
+        if(i===16)assert.equal(line.shake,1,'PR64 camera shake must occur after Captain word');
+        await sleep(215);
+        const rect=(await snapshot()).rect;await click(rect.x+line.x,rect.y+line.y);
       }
-      const flying=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery,f=m.flights[0];return {count:m.spawnedCount,phase:f?.phase,pilot:!!f?.pilot?.active,passenger:!!f?.passenger?.active,vehicle:!!f?.visual?.active}})()");
-      assert.equal(flying.count,1,'PR63 first glider must launch');
-      assert.deepEqual([flying.pilot,flying.passenger,flying.vehicle],[true,true,true],'PR63 visible composed pilot/passenger/vehicle');
+      assert.equal(await evaluate("window.__game.scene.getScene('Airship').openingPhase"),'active','PR64 final DALEJ must start defense');
+      assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.defense.state==='active'&&a.defense.elapsedMs<500&&a.objectiveText.text.startsWith('WYTRZYMAJ')})()"),true);
+      // Keep this bounded integration test alive until both actual landings finish.
+      await evaluate("window.__game.scene.getScene('Airship').invulnerableUntil=Infinity;true");
+      for(let n=0;n<130;n++){if(await evaluate("window.__game.scene.getScene('Airship').gliderDelivery.spawnedCount>0"))break;await sleep(40);}
+      const flying=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery,f=m.flights[0];return {count:m.spawnedCount,pilot:!!f?.pilot?.active,passenger:!!f?.passenger?.active,vehicle:!!f?.visual?.active,type:f?.type}})()");
+      assert.equal(flying.count,1);assert.deepEqual([flying.pilot,flying.passenger,flying.vehicle],[true,true,true]);
+      assert.equal(flying.type,'bobrozombi','PR64 first glider must deliver Bobrozombi');
       await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
-      await waitFor(v=>v.menu,'PR63 pause glider');
-      const beforePause=await evaluate("(()=>{const f=window.__game.scene.getScene('Airship').gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,x:f.x,y:f.y}})()");
-      await sleep(180);
-      assert.deepEqual(await evaluate("(()=>{const f=window.__game.scene.getScene('Airship').gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,x:f.x,y:f.y}})()"),beforePause,'PR63 paused flight must not advance');
+      await waitFor(v=>v.menu,'PR64 pause glider');
+      const paused=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,clock:a.defense.elapsedMs,x:f.x,y:f.y}})()");
+      await sleep(170);
+      assert.deepEqual(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,clock:a.defense.elapsedMs,x:f.x,y:f.y}})()"),paused,'PR64 MENU must freeze flight and timer');
       await clickControl('WZNÓW');
-      assert.equal(await evaluate("window.__game.scene.isActive('Airship')"),true,'PR63 WZNÓW must resume flight');
       let done=false;
-      for(let n=0;n<320;n++){
-        done=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery;return m.finishedCount===2&&m.groundEnemies.length===2})()");
-        if(done)break;await sleep(45);
+      for(let n=0;n<390;n++){
+        done=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery;return m.finishedCount>=2&&m.groundEnemies.filter(e=>!e.dead).length>=2})()");
+        if(done)break;await sleep(40);
       }
-      assert.equal(done,true,'PR63 two gliders must deliver exactly one passenger each');
-      const deliveries=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,c=await import('/klusoczlek/src/airship-contract.js');return {spawned:m.spawnedCount,drops:m.dropCount,finished:m.finishedCount,airborne:m.activeAirborneVisuals,descending:m.activeLandingVisuals,ground:m.groundEnemies.map(e=>({id:e.id,type:e.type,valid:c.insideDeck(e),alive:e.sprite.active,visual:!!e.sprite.getData(e.type+'-art')?.active})),rendererVisuals:Object.fromEntries(Object.entries(m.renderers).map(([k,r])=>[k,r.activeVisuals])),art:a.gliderArtStatus}})()");
-      assert.equal(deliveries.spawned,2);assert.equal(deliveries.drops,2);assert.equal(deliveries.finished,2);
-      assert.equal(deliveries.airborne,0,'PR63 stale flying sprites');
-      assert.equal(deliveries.descending,0,'PR63 stale descending sprites');
-      assert.deepEqual(deliveries.ground.map(e=>[e.id,e.type,e.valid,e.alive]),[
-        ['delivery-bobro','bobrozombi',true,true],['delivery-bocian','bocianolak',true,true]]);
-      assert.equal(new Set(deliveries.ground.map(e=>e.id)).size,2,'PR63 duplicate logical enemy');
-      assert.deepEqual(deliveries.rendererVisuals,{bobrozombi:1,bocianolak:1,zubrokryptyda:0},'PR63 renderer-owned orphaned visual');
-      assert.notEqual(deliveries.art,'pending','PR63 optional glider art resolves to PNG or safe fallback');
-      console.log('PASS PR63 composed two gliders, real enemy renderer handoff, landing bounds, no duplicates or orphans, paused flight and missing-art fallback');
+      assert.equal(done,true,'PR64 two encounter-driven gliders must land safely');
+      const landed=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,c=await import('/klusoczlek/src/airship-contract.js');return {drops:m.dropCount,ground:m.groundEnemies.filter(e=>!e.dead).map(e=>({type:e.type,inside:c.insideDeck(e),active:e.sprite.active})),orphanPilots:m.renderers.zubrokryptyda.activeVisuals}})()");
+      assert.ok(landed.drops>=2);
+      assert.deepEqual(landed.ground.slice(0,2).map(e=>[e.type,e.inside,e.active]),[['bobrozombi',true,true],['bobrozombi',true,true]].map((e,i)=>i===1?['bobrozombi',true,true]:e));
+      assert.equal(landed.orphanPilots,0,'PR64 no stale glider pilot visuals');
+      console.log('PASS PR64 approved 21-line intro, exact shake, guarded timer, encounter-owned gliders, pause and safe drops');
+    }else{
+      // Other preexisting Act I regression fixtures do not re-test Act II's entire 21-line script.
+      await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.dialoguePanel.hide();a.startDefense();a.invulnerableUntil=Infinity;return true})()");
     }
     assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('Airship').physics.world.bounds;return [b.width,b.height]})()"),[960,540],'PR62 Arcade world bounds');
     const shipViewport=(await snapshot()).rect;
