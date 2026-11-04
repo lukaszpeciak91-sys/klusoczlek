@@ -263,20 +263,129 @@ export class AirshipScene extends Phaser.Scene {
     this.combat.stopFire();
     this.scene.pause();this.scene.launch('Menu');this.scene.bringToTop('Menu');
   }
+  frameFullShip(){
+    const zoom=Math.min(this.scale.width/AIRSHIP_WORLD.width,this.scale.height/AIRSHIP_WORLD.height);
+    this.cameras.main.setZoom(Math.min(1,zoom)).centerOn(AIRSHIP_WORLD.start.x,AIRSHIP_WORLD.start.y);
+  }
+  setOpeningHud(visible){
+    this.menuButton.setVisible(visible);this.menuLabel.setVisible(visible);
+    this.hpFace.root.setVisible(visible);this.hpText.setVisible(visible);
+    this.weaponToken.setVisible(visible);this.switchLabel.setVisible(visible);
+    this.objectiveText.setVisible(visible);this.defenseKillsText.setVisible(visible);
+    if(!visible){this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);}
+  }
+  beginOpeningDialogue(){
+    if(this.openingPhase!=='zoom')return;
+    this.openingPhase='dialogue-loading';
+    this.cameras.main.startFollow(this.player,true,0.12,0.12);
+    this.cameras.main.setZoom(1);
+    this.dialoguePanel.loading.finally(()=>{
+      if(!this.sys.isActive()||this.openingPhase!=='dialogue-loading')return;
+      this.openingPhase='dialogue';
+      beginDialogue(this.dialogueState,'act2-opening');
+      this.dialoguePanel.show(this.dialogueState);
+    });
+  }
+  startDefense(){
+    if(this.defense.state!=='ready'||this.openingPhase!=='dialogue')return false;
+    this.defense.state='active';
+    this.openingPhase='active';
+    this.cameras.main.resetFX();
+    this.setOpeningHud(true);
+    this.pickup?.setVisible(true);
+    this.onFocus();
+    return true;
+  }
+  applyDamage(next,source=null){
+    if(this.defense.ended)return;
+    this.playerHp=Math.max(0,Math.min(this.maxHp,Math.floor(next)));
+    updateRunHealth(this.campaignRun,this.playerHp,this.maxHp);
+    this.hpFace.setHp(this.playerHp);
+    this.hpText.setText('HP '+this.playerHp+'/'+this.maxHp);
+    if(source)this.playerVisual.hit(source);
+    if(this.playerHp<=0)this.finishDefense('defeat');
+  }
+  finishDefense(outcome){
+    if(outcome==='survived'&&this.playerHp<=0)outcome='defeat';
+    if(!finishAirshipDefense(this.defense,outcome))return false;
+    this.openingPhase='complete';
+    this.gliderDelivery.stop();
+    this.combat.stop({neutralize:outcome==='survived'});
+    this.resetMovement();
+    this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
+    this.pickup?.setVisible(false);
+    this.objectiveText.setVisible(false);this.defenseKillsText.setVisible(false);
+    // A provisional assault result, not the narrative completion of Act II.
+    const result=this.defense.result;
+    this.campaignRun.stats.byAct.act2={...result,provisional:true};
+    this.campaignRun.stats.kills+=result.kills;
+    this.campaignRun.stats.activeCombatMs+=result.activeCombatMs;
+    this.resultLabel.setText(outcome==='survived'?'OBRONA PAROSTATKU ZAKOŃCZONA':'KONIEC GRY');
+    this.resultDetails.setText('POKONANI: '+result.kills+
+      '\\nCZAS WALKI: '+formatGameplayClock(result.activeCombatMs)+
+      '\\nMENU — WZNÓW / NOWA GRA');
+    this.resultOverlay.setVisible(true);
+    return true;
+  }
   update(time,delta){
-    if(document.hidden||window.innerWidth<window.innerHeight||this.scene.isPaused())return;
+    const allowed=!document.hidden&&document.hasFocus()&&window.innerWidth>=window.innerHeight&&!this.scene.isPaused();
+    if(!allowed){
+      advanceGameplayClock(this.defense.clock,0,false);
+      this.combat.stopFire();
+      return;
+    }
     scrollCloudLayers(this.layers,delta);
-    this.gliderDelivery?.update(delta);
+    if(this.openingPhase==='overview'){
+      this.openingElapsed+=Math.min(50,delta);
+      if(this.openingElapsed>=650){
+        this.openingPhase='zoom';this.openingElapsed=0;
+        this.cameras.main.zoomTo(1,1050,'Sine.easeInOut');
+      }
+      return;
+    }
+    if(this.openingPhase==='zoom'){
+      this.openingElapsed+=Math.min(50,delta);
+      if(this.openingElapsed>=1100)this.beginOpeningDialogue();
+      return;
+    }
+    if(this.openingPhase==='complete'){
+      updateBursts(this.combat.bursts,delta);
+      return;
+    }
+    if(this.openingPhase!=='active'){
+      advanceGameplayClock(this.defense.clock,0,false);
+      return;
+    }
+    const defenseEvent=tickAirshipDefense(this.defense,performance.now(),{
+      active:true,
+      ground:this.gliderDelivery.groundEnemies.filter(e=>!e.dead).length,
+      airborne:this.gliderDelivery.activeGliders,
+      pending:this.gliderDelivery.pendingPassengers,
+    });
+    if(defenseEvent?.outcome){this.finishDefense('survived');return;}
+    if(defenseEvent?.delivery)this.gliderDelivery.request(defenseEvent.delivery);
+    this.gliderDelivery.update(delta);
     const key=this.keys;
     const input=normalizeInput(this.joystick.direction.x+Number(key.D.isDown||key.RIGHT.isDown)-Number(key.A.isDown||key.LEFT.isDown),
       this.joystick.direction.y+Number(key.S.isDown||key.DOWN.isDown)-Number(key.W.isDown||key.UP.isDown));
     const point=stepDeckPosition(this.player,input,delta);
     this.player.setPosition(point.x,point.y);
     this.player.body.reset(point.x,point.y);
-    const aim=this.aimJoystick.held?this.aimJoystick.direction:{x:0,y:0};
+    if(this.pickup?.active&&Math.hypot(point.x-this.pickup.x,point.y-this.pickup.y)<42){
+      this.pickup.destroy();this.pickup=null;
+      this.weapon='blunderbuss';this.unlockedWeapons.add('blunderbuss');
+      updateRunEquipment(this.campaignRun,this.unlockedWeapons,this.weapon);
+      void this.playerVisual.setVariant('blunderbuss');this.syncWeaponHud();
+    }
+    const aim=this.aimJoystick.held?resolveAim(this.aimJoystick.direction.x,this.aimJoystick.direction.y):
+      this.mouseAim??{x:0,y:0};
+    const held=this.aimJoystick.held||this.mouseHeld;
     this.lastFacing=facingOf(aim.x||input.x,aim.y||input.y,this.lastFacing);
     this.facingMarker.setPosition(point.x,point.y);
     this.playerVisual.update(this.lastFacing,Math.hypot(input.x,input.y)>0.1,delta);
+    this.combat.update(aim,Boolean(held&&(aim.x||aim.y)),Math.min(50,delta),this.time.now);
     this.hpFace.update(delta);
+    this.objectiveText.setText('WYTRZYMAJ '+formatGameplayClock(Math.max(0,AIRSHIP_SURVIVAL_MS-this.defense.elapsedMs)));
+    this.defenseKillsText.setText('POKONANI '+this.defense.kills);
   }
 }
