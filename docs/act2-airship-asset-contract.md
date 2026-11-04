@@ -23,7 +23,7 @@ All paths are under `public/assets/`; runtime asset URLs derive from Vite `BASE_
 | Near clouds | `backgrounds/act2-clouds-near.png` | -10 | 23 |
 | Fixed deck | `arenas/airship-deck.png` | 1 | 0 |
 
-Sky/cloud PNG textures tile in screen space below the deck, not the game world. Favor seamless horizontal tile edges and transparent cloud regions in the eventual art. Pixel-art textures use NEAREST. Actual source image dimensions, pixel density, alpha margins, and tiling density remain an artist review item.
+Sky and cloud PNGs are rendered in screen space below the deck using Phaser Images (not tiled). The static sky is fitted to cover the viewport. Each moving cloud layer uses two bounded, oversized images with Justimania-style smoothstep crossfades and controlled horizontal offset; logical speeds remain 0/5/12/23 px/s. This avoids directly joining non-seamless artwork edges, preserves the existing filenames and alpha, and allocates no new textures during scrolling. On narrow screens some cloud imagery is cropped by the overscan coverage requirement. Pixel-art uses NEAREST. Texture revisions, if wanted, are a separate artwork decision.
 
 When an optional PNG is missing, an inexpensive generated-once 512 × 256 fallback texture or the drawn deck remains visible. Image loading is aborted on shutdown, and optional missing assets cannot prevent entering the scene. The deck art is not used as collision geometry; align the provisional polygon to the approved illustration in a later visual-integration PR.
 
