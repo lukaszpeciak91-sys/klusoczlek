@@ -48,7 +48,8 @@ export function stepFlight(flight,deltaMs,point=null){
     flight.y=mix(flight.from.y,flight.target.y,t);
     if(t===1){flight.phase='dropping';flight.elapsed=0;}
   }else if(flight.phase==='dropping'){
-    if(!flight.released&&point){
+    // Brief visible landing telegraph before the passenger is detached.
+    if(!flight.released&&point&&flight.elapsed>=300){
       flight.released=true;flight.landingPoint={...point};drop=true;
     }
     // Defers a blocked drop, then departs without creating an invalid passenger.
