@@ -1,4 +1,4 @@
-import {clampToDeck,insideDeck,AIRSHIP_WORLD,avoidWheelhouse} from './airship-contract.js';
+import {clampToDeck,insideDeck,AIRSHIP_WORLD,avoidWheelhouse,WHEELHOUSE_FOOTPRINT,wheelhouseSegmentHit} from './airship-contract.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {applyEnemyHit,applyPlayerContact,ENCOUNTER} from './bobrozombi.js';
 import {enemyProjectileHit,enemyFlameVisible} from './enemy-damage.js';
@@ -53,6 +53,7 @@ export function createAirshipCombat(scene,delivery){
      for(let i=1;i<=11;i++){
        const distance=i*tune.range/11;
        const center={x:origin.x+aim.x*distance,y:origin.y+aim.y*distance};
+       if(scene.wheelhouse?.visible&&wheelhouseSegmentHit(last,center))break;
        const wave=Math.sin(now*0.022+i*1.7)*2.4;
        const spread=Math.min(19,distance*Math.tan(tune.halfAngle)*0.45)*factor*(0.95+0.09*Math.sin(now*0.035+i));
        const tip=Math.max(1,spread*(1-distance/tune.range*0.55));
@@ -77,6 +78,34 @@ export function createAirshipCombat(scene,delivery){
        flameParticles.push({object,vx:dir.x*speed,vy:dir.y*speed,age:0,life});
      }
    }
+ function update(aim,held,dt,now){
+  if(stopped)return;
+  updateBursts(bursts,dt);
+  const seconds=Math.min(50,dt)/1000;
+  const cooling=now<(weaponCooldownUntil.get(scene.weapon)??0);
+  const count=cooling?0:firingStep(firing,scene.weapon,Boolean(held&&scene.weapon),now);
+  if(count&&!cooling&&scene.weapon!=='flamethrower'){
+   spawnShot(aim,scene.weapon,now);
+   const tune=COMBAT_TUNING[scene.weapon];
+   weaponCooldownUntil.set(scene.weapon,now+(scene.weapon==='rifle'
+     ?firing.burstShots===0?tune.burstPause:tune.shotInterval:tune.interval));
+  }
+  const activeFlame=scene.weapon==='flamethrower'&&stepPressure(pressure,held,dt);
+  if(activeFlame)flame(aim,now);
+  else stream.clear();
+  for(const particle of flameParticles){
+   particle.age+=dt;particle.object.x+=particle.vx*seconds;particle.object.y+=particle.vy*seconds;
+   if(particle.age>=particle.life)particle.object.destroy();
+   else particle.object.setAlpha(.82*(1-particle.age/particle.life));
+  }
+  for(let i=flameParticles.length-1;i>=0;i--)if(!flameParticles[i].object.active)flameParticles.splice(i,1);
+  for(const shot of bullets){
+   const old={x:shot.object.x,y:shot.object.y};
+   const next={x:old.x+shot.vx*seconds,y:old.y+shot.vy*seconds};
+   let hit=null;
+   if(scene.wheelhouse?.visible&&wheelhouseSegmentHit(old,next,shot.radius)){
+    shot.object.destroy();continue;
+   }
    for(const enemy of delivery.groundEnemies){
     if(enemy.dead||enemy.hp<=0||now<enemy.activationAt)continue;
     const collision=enemyProjectileHit(old,next,enemy,shot.radius,delivery.renderers[enemy.type].damagePoseOf(enemy));
@@ -95,9 +124,18 @@ export function createAirshipCombat(scene,delivery){
     const burning=enemy.ignition&&isBurning(enemy.ignition,now);
     const next=burning?fleeStep(enemy,scene.player,seconds):moveEnemy(enemy,scene.player,seconds,now/1000);
     let position=clampToDeck(next,ENEMY_TYPES[enemy.type].radius+8);
-    if(scene.wheelhouse?.visible)
-     position=clampToDeck(avoidWheelhouse(position,ENEMY_TYPES[enemy.type].radius+8),
-       ENEMY_TYPES[enemy.type].radius+8);
+    if(scene.wheelhouse?.visible){
+     const radius=ENEMY_TYPES[enemy.type].radius+8;
+     const clear=avoidWheelhouse(position,radius);
+     if(Math.hypot(clear.x-position.x,clear.y-position.y)>0.01){
+      const side=enemy.x<WHEELHOUSE_FOOTPRINT.x?-1:
+        enemy.x>WHEELHOUSE_FOOTPRINT.x?1:(enemy.seed%2?-1:1);
+      const step=Math.max(1,Math.hypot(next.x-enemy.x,next.y-enemy.y));
+      position=clampToDeck(avoidWheelhouse({
+        x:enemy.x+side*step,y:enemy.y+(next.y-enemy.y)*.2
+      },radius),radius);
+     }
+    }
     enemy.x=position.x;enemy.y=position.y;
     if(burning)enemy.fleeFacingVector={x:enemy.x-previous.x,y:enemy.y-previous.y};
     else enemy.fleeFacingVector=null;
