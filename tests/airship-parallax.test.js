@@ -39,10 +39,10 @@ test('overscan guarantees both whole image compositions cover viewport in 915x41
 test('moving layers remain independent, and the sky stays completely static',()=>{
   const layers=AIRSHIP_LAYERS.map(l=>({speed:l.speed,tilePositionX:0}));
   scrollCloudLayers(layers,50);
-  assert.deepEqual(layers.map(l=>l.tilePositionX),[0,.25,.6,1.15]);
+  for(let i=0;i<4;i++)assert.ok(Math.abs(layers[i].tilePositionX-[0,.25,.6,1.15][i])<1e-9);
   const old=layers.map(l=>l.tilePositionX);
   scrollCloudLayers(layers,1000);
-  assert.deepEqual(layers.map(l=>l.tilePositionX),old.map((v,i)=>v+AIRSHIP_LAYERS[i].speed*.05));
+  for(let i=0;i<4;i++)assert.ok(Math.abs(layers[i].tilePositionX-(old[i]+AIRSHIP_LAYERS[i].speed*.05))<1e-9);
 });
 test('Phaser adapter allocates at most seven Images, recycles, resizes, and destroys cleanly',()=>{
   let made=0,destroyed=0;
