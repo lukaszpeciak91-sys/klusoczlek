@@ -263,12 +263,26 @@ try {
         await sleep(40);
       }
       assert.equal(await evaluate("window.__game.scene.getScene('Airship').dialogueState.id"),'act2-finale','PR66 Captain finale must follow fades');
-      for(const line of ['Uff udało się nam...','A teraz nie ma co mitrężyć! Kurs na Wulkan Bogdana!']){
-        const state=await evaluate("(()=>{const s=window.__game.scene.getScene('Airship');return {text:s.dialoguePanel.text.text,x:s.dialoguePanel.button.x,y:s.dialoguePanel.button.y}})()");
-        assert.equal(state.text,line,'PR66 exact Captain line');
-        const rect=(await snapshot()).rect;
-        await click(rect.x+state.x,rect.y+state.y);
-        await sleep(240);
+      const lines=['Uff udało się nam...','A teraz nie ma co mitrężyć! Kurs na Wulkan Bogdana!'];
+      for(let index=0;index<lines.length;index++){
+        const state=await evaluate("(()=>{const s=window.__game.scene.getScene('Airship');return {text:s.dialoguePanel.text.text,index:s.dialogueState.index,active:s.dialoguePanel.active,x:s.dialoguePanel.button.x,y:s.dialoguePanel.button.y}})()");
+        assert.equal(state.text,lines[index],'PR66 exact Captain line');
+        assert.equal(state.index,index,'PR66 dialogue index');
+        assert.equal(state.active,true,'PR66 dialogue panel interactive');
+        // Shared dialogue-ui guards taps for 180ms after showing each panel.
+        // Wait for the actual transition rather than assuming a touch always lands.
+        let advanced=false;
+        for(let attempt=0;attempt<3&&!advanced;attempt++){
+          await sleep(220);
+          const rect=(await snapshot()).rect;
+          await click(rect.x+state.x,rect.y+state.y);
+          for(let k=0;k<10;k++){
+            const current=await evaluate("(()=>{const s=window.__game.scene.getScene('Airship');return {index:s.dialogueState.index,id:s.dialogueState.id,final:s.finalResultsPending}})()");
+            if(index===0?current.index===1:current.final===true){advanced=true;break;}
+            await sleep(40);
+          }
+        }
+        assert.equal(advanced,true,'PR66 dialogue tap did not advance panel '+index);
       }
       for(let k=0;k<60;k++){
         if(await evaluate("window.__game.scene.getScene('Airship').resultOverlay.visible"))break;
