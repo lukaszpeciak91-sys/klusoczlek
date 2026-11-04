@@ -1229,7 +1229,7 @@ export class ArenaScene extends Phaser.Scene {
         this.lastFacing=facingOf(actor.x-this.player.x,actor.y-this.player.y,this.lastFacing);
         this.playerVisual.update(this.lastFacing,false,Math.min(50,this.game.loop.delta));
       }
-      if(!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
+      if(this.act1Epilogue!=='captain-arrival'&&!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
         this.endEpisode(this.playerHp<=0?'defeat':'victory');
       }
       return;
