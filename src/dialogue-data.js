@@ -1,7 +1,7 @@
 export const DIALOGUES=Object.freeze({
  'before-wave-1':[
   ['aloes','ALOES','O Jessuuuu… Ale mnie głowa boli… Gdzie ja jestem? Co ja tutaj robię?'],
-  ['bobrozombi','BOBROZOMBI','Matko Boska! To Kłusoczłek! Szybko, bracia, do ataku!'],
+  ['bobrozombi','BOBROZOMBI','Matko Boska! To z pewnością Kłusoczłek! Szybko, bracia, do ataku!'],
   ['aloes','ALOES','To chyba jakaś pomyłka…']
  ],
  'before-first-bocianolak':[
@@ -57,6 +57,10 @@ export const DIALOGUES=Object.freeze({
   ['captain','KAPITAN','Zbliża się komando potwornych lotniarzy!'],
   ['aloes','ALOES','Że co?!'],
   ['captain','KAPITAN','NIE MA CZASU NA WYJAŚNIENIA! BROŃ PAROSTATKU!']
+ ],
+ 'act2-finale':[
+  ['captain','KAPITAN','Uff udało się nam...'],
+  ['captain','KAPITAN','A teraz nie ma co mitrężyć! Kurs na Wulkan Bogdana!']
  ],
  'before-marcin':[
   ['bobrozombi','BOBROZOMBI','Taki jesteś?! Czekaj aż zawołam Marcina'],
