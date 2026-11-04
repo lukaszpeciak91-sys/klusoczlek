@@ -261,7 +261,13 @@ try {
       for(let k=0;k<70;k++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='act1-marcin-last'"))break;await sleep(35);}
       assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'act1-marcin-last');
     }
-    if(id==='act1-marcin')assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"),true);
+    if(id==='act1-marcin'){
+      for(let k=0;k<85;k++){
+        if(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"))break;
+        await sleep(40);
+      }
+      assert.equal(await evaluate("window.__game.scene.getScene('Arena').episode.bossIntroduced"),true,'PR65 Marcin checkpoint did not initialize');
+    }
     // A fresh menu deliberately stops the debug scene; the next checkpoint cannot inherit timers/listeners.
     await evaluate("(()=>{const g=window.__game;g.scene.stop("+JSON.stringify(expectedScene)+");g.scene.start('Menu');return true})()");
   }
