@@ -139,8 +139,7 @@ export class MenuScene extends Phaser.Scene {
         const y=base+index*gap;
         control.background.setPosition(layout.centerX,y).setSize(layout.startWidth,menuHeight).setVisible(!this.debugOpen);
         control.caption.setPosition(layout.centerX,y).setFontSize(Math.max(14,Math.min(24,h*.058))).setVisible(!this.debugOpen);
-        control.background.disableInteractive();
-        if(!this.debugOpen)control.background.setInteractive({useHandCursor:true});
+        control.background.input.enabled=!this.debugOpen;
       }
       const colWidth=Math.min(275,(w-24)/2-6);
       const rowGap=Math.min(57,Math.max(42,h*.145));
@@ -150,13 +149,11 @@ export class MenuScene extends Phaser.Scene {
         const y=firstY+Math.floor(i/2)*rowGap;
         control.background.setPosition(x,y).setSize(colWidth,Math.min(43,rowGap-5)).setVisible(this.debugOpen);
         control.caption.setPosition(x,y).setFontSize(Math.max(10,Math.min(15,w*.018,h*.043))).setVisible(this.debugOpen);
-        control.background.disableInteractive();
-        if(this.debugOpen)control.background.setInteractive({useHandCursor:true});
+        control.background.input.enabled=this.debugOpen;
       });
       back.background.setPosition(w/2,h*.91).setSize(Math.min(170,w*.35),Math.min(37,h*.10)).setVisible(this.debugOpen);
       back.caption.setPosition(w/2,h*.91).setFontSize(Math.max(13,Math.min(18,h*.052))).setVisible(this.debugOpen);
-      back.background.disableInteractive();
-      if(this.debugOpen)back.background.setInteractive({useHandCursor:true});
+      back.background.input.enabled=this.debugOpen;
     };
     resize();
     this.scale.on(Phaser.Scale.Events.RESIZE, resize);
