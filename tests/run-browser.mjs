@@ -113,6 +113,7 @@ try {
     await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   }
   let arenaRun=0;
+  let gliderDemoVerified=false;
   async function clickControl(which){
     if(which==='NOWA GRA')await evaluate("history.replaceState(null,'','?arenaSeed="+[1,41,104729][arenaRun++%3]+"');true");
     const state=await snapshot();
@@ -776,6 +777,40 @@ try {
     assert.equal(ship.act,'act2');assert.equal(ship.hp,handoff.hp);assert.equal(ship.maxHp,handoff.maxHp);
     assert.equal(ship.weapon,handoff.selected);assert.deepEqual(ship.unlocked,handoff.weapons);
     assert.equal(ship.layers,4);assert.equal(ship.dialogue,false);
+    if(!gliderDemoVerified){
+      gliderDemoVerified=true;
+      // One focused real-Phaser Act II delivery, not a new multi-seed matrix.
+      for(let n=0;n<100;n++){
+        if(await evaluate("window.__game.scene.getScene('Airship').gliderDelivery.spawnedCount>0"))break;
+        await sleep(40);
+      }
+      const flying=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery,f=m.flights[0];return {count:m.spawnedCount,phase:f?.phase,pilot:!!f?.pilot?.active,passenger:!!f?.passenger?.active,vehicle:!!f?.visual?.active}})()");
+      assert.equal(flying.count,1,'PR63 first glider must launch');
+      assert.deepEqual([flying.pilot,flying.passenger,flying.vehicle],[true,true,true],'PR63 visible composed pilot/passenger/vehicle');
+      await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
+      await waitFor(v=>v.menu,'PR63 pause glider');
+      const beforePause=await evaluate("(()=>{const f=window.__game.scene.getScene('Airship').gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,x:f.x,y:f.y}})()");
+      await sleep(180);
+      assert.deepEqual(await evaluate("(()=>{const f=window.__game.scene.getScene('Airship').gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,x:f.x,y:f.y}})()"),beforePause,'PR63 paused flight must not advance');
+      await clickControl('WZNÓW');
+      assert.equal(await evaluate("window.__game.scene.isActive('Airship')"),true,'PR63 WZNÓW must resume flight');
+      let done=false;
+      for(let n=0;n<320;n++){
+        done=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery;return m.finishedCount===2&&m.groundEnemies.length===2})()");
+        if(done)break;await sleep(45);
+      }
+      assert.equal(done,true,'PR63 two gliders must deliver exactly one passenger each');
+      const deliveries=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,c=await import('/klusoczlek/src/airship-contract.js');return {spawned:m.spawnedCount,drops:m.dropCount,finished:m.finishedCount,airborne:m.activeAirborneVisuals,descending:m.activeLandingVisuals,ground:m.groundEnemies.map(e=>({id:e.id,type:e.type,valid:c.insideDeck(e),alive:e.sprite.active,visual:!!e.sprite.getData(e.type+'-art')?.active})),rendererVisuals:Object.fromEntries(Object.entries(m.renderers).map(([k,r])=>[k,r.activeVisuals])),art:a.gliderArtStatus}})()");
+      assert.equal(deliveries.spawned,2);assert.equal(deliveries.drops,2);assert.equal(deliveries.finished,2);
+      assert.equal(deliveries.airborne,0,'PR63 stale flying sprites');
+      assert.equal(deliveries.descending,0,'PR63 stale descending sprites');
+      assert.deepEqual(deliveries.ground.map(e=>[e.id,e.type,e.valid,e.alive]),[
+        ['delivery-bobro','bobrozombi',true,true],['delivery-bocian','bocianolak',true,true]]);
+      assert.equal(new Set(deliveries.ground.map(e=>e.id)).size,2,'PR63 duplicate logical enemy');
+      assert.deepEqual(deliveries.rendererVisuals,{bobrozombi:1,bocianolak:1,zubrokryptyda:0},'PR63 renderer-owned orphaned visual');
+      assert.notEqual(deliveries.art,'pending','PR63 optional glider art resolves to PNG or safe fallback');
+      console.log('PASS PR63 composed two gliders, real enemy renderer handoff, landing bounds, no duplicates or orphans, paused flight and missing-art fallback');
+    }
     assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('Airship').physics.world.bounds;return [b.width,b.height]})()"),[960,540],'PR62 Arcade world bounds');
     const shipViewport=(await snapshot()).rect;
     await cdp('Emulation.setDeviceMetricsOverride',{width:568,height:320,deviceScaleFactor:1,mobile:false});
