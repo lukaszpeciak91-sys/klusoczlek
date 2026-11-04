@@ -148,8 +148,13 @@ test('180-second ordinary defense director delivers passengers without starvatio
   }
   assert.ok(started.size>=15,'director must keep delivering over full three-minute fight');
   assert.equal(blocked,0,'ordinary moving-player scenario should find safe alternative landing spots');
-  assert.equal(drops,started.size,'each launched flight must land during sustained ordinary play');
-  assert.equal(activated.size,drops,'every released passenger activates ground combat once');
+  // A flight launched in the last approach window is intentionally cleaned up
+  // by the 180-second victory transition rather than forced to land instantly.
+  const stillCarried=flights.filter(f=>!f.released&&!f.finished).length;
+  const stillDescending=landings.filter(l=>!l.finished).length;
+  assert.equal(started.size-drops,stillCarried,'no passenger may disappear during an active flight');
+  assert.ok(stillCarried<=AIRSHIP_GLIDER_CAP,'only bounded in-flight passengers at victory');
+  assert.equal(drops-activated.size,stillDescending,'no released passenger may silently skip activation');
   assert.ok(maxAirborne>=1&&maxAirborne<=AIRSHIP_GLIDER_CAP);
   assert.ok(maxGroundPending>=1&&maxGroundPending<=AIRSHIP_GROUND_CAP);
 });
