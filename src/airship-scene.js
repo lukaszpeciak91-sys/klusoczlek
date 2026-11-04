@@ -335,7 +335,12 @@ export class AirshipScene extends Phaser.Scene {
     this.resultDetails.setText('POKONANI: '+result.kills+
       '\\nCZAS WALKI: '+formatGameplayClock(result.activeCombatMs)+
       '\\nMENU — WZNÓW / NOWA GRA');
-    this.resultOverlay.setVisible(true);
+    if(outcome==='survived'){
+      // Keep the 0.5 s pixel-death neutralization readable before the opaque result.
+      this.time.delayedCall(520,()=>{
+        if(this.sys.isActive()&&this.defense.state==='survived')this.resultOverlay.setVisible(true);
+      });
+    }else this.resultOverlay.setVisible(true);
     this.menuButton.setVisible(true).setDepth(192);
     this.menuLabel.setVisible(true).setDepth(193);
     return true;
