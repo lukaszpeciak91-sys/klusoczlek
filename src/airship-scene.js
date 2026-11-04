@@ -15,7 +15,7 @@ import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,createCaptainPatrol,advanceCap
 import {playerFrame} from './combat-contract.js';
 import {DIALOGUES,createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
-import {CAPTAIN_VISUAL_SCALE} from './captain-arrival.js';
+import {CAPTAIN_VISUAL_SCALE,createCaptainArrival} from './captain-arrival.js';
 import {createAirshipDefense,AIRSHIP_SURVIVAL_MS,AIRSHIP_GROUND_CAP,tickAirshipDefense,finishAirshipDefense} from './airship-defense.js';
 import {createAirshipCombat} from './airship-combat.js';
 import {updateRunHealth} from './campaign-run.js';
@@ -165,7 +165,19 @@ export class AirshipScene extends Phaser.Scene {
     }else{
       this.captainActor.add(this.add.rectangle(0,-26,38,51,0x456e83));
       this.captainActor.add(this.add.circle(0,-63,16,0xe7b28d));
-      console.warn('[Airship] Captain spritesheet absent, using stable NPC fallback');
+      // DEBUG may enter Act II before Act I has loaded the approved Captain PNG.
+      // Reuse its existing validated eight-direction loader, never a new sheet.
+      const captainLoader=createCaptainArrival(this);
+      void captainLoader.loading.then(()=>{
+        if(!this.sys.isActive()||!this.captainActor?.active||
+            this.captainSprite||!this.textures.exists('npc-captain'))return;
+        for(const fallback of this.captainActor.list.slice(1))fallback.destroy();
+        const height=this.textures.get('npc-captain').source[0].height;
+        this.captainSprite=this.add.sprite(0,-height*CAPTAIN_VISUAL_SCALE/2,
+          'npc-captain',playerFrame(this.openingPhase==='active'?this.captainPatrol.facing:'w'))
+          .setScale(CAPTAIN_VISUAL_SCALE);
+        this.captainActor.add(this.captainSprite);
+      });
     }
     this.act2Bark=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'13px',fontStyle:'bold',color:'#fff1c9',backgroundColor:'#1c2028',padding:{x:5,y:3}})
       .setOrigin(.5,1).setDepth(49).setVisible(false);
