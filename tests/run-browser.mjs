@@ -233,7 +233,7 @@ try {
     ['act2-opening','AKT II — POCZĄTEK','Airship'],
     ['act2-defense','AKT II — OBRONA','Airship'],
     ['act2-last15','AKT II — OSTATNIE 15 S','Airship'],
-    ['act2-results','AKT II — WYNIK OBRONY','Airship'],
+    ['act2-results','AKT II — ZAKOŃCZENIE','Airship'],
   ]){
     await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2&&v.actions[0].label==='NOWA GRA'&&v.actions[1].label==='DEBUG','PR65 checkpoint menu '+id);
     assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG'],'PR65 DEBUG missing');
@@ -256,7 +256,59 @@ try {
     }
     if(id==='act2-defense')assert.equal(check.defense,'active');
     if(id==='act2-last15')assert.ok(check.remaining<=15000&&check.remaining>13000,'PR65 15s clock fixture');
-    if(id==='act2-results')assert.equal(check.defense,'survived');
+    if(id==='act2-results'){
+      assert.equal(check.defense,'survived');
+      for(let k=0;k<110;k++){
+        if(await evaluate("window.__game.scene.getScene('Airship').dialogueState.id==='act2-finale'"))break;
+        await sleep(40);
+      }
+      assert.equal(await evaluate("window.__game.scene.getScene('Airship').dialogueState.id"),'act2-finale','PR66 Captain finale must follow fades');
+      const lines=['Uff udało się nam...','A teraz nie ma co mitrężyć! Kurs na Wulkan Bogdana!'];
+      for(let index=0;index<lines.length;index++){
+        const state=await evaluate("(()=>{const s=window.__game.scene.getScene('Airship');return {text:s.dialoguePanel.text.text,index:s.dialogueState.index,active:s.dialoguePanel.active,x:s.dialoguePanel.button.x,y:s.dialoguePanel.button.y}})()");
+        assert.equal(state.text,lines[index],'PR66 exact Captain line');
+        assert.equal(state.index,index,'PR66 dialogue index');
+        assert.equal(state.active,true,'PR66 dialogue panel interactive');
+        // Shared dialogue-ui guards taps for 180ms after showing each panel.
+        // Wait for the actual transition rather than assuming a touch always lands.
+        let advanced=false;
+        for(let attempt=0;attempt<3&&!advanced;attempt++){
+          await sleep(220);
+          const rect=(await snapshot()).rect;
+          await click(rect.x+state.x,rect.y+state.y);
+          for(let k=0;k<10;k++){
+            const current=await evaluate("(()=>{const s=window.__game.scene.getScene('Airship');return {index:s.dialogueState.index,id:s.dialogueState.id,final:s.finalResultsPending}})()");
+            if(index===0?current.index===1:current.final===true){advanced=true;break;}
+            await sleep(40);
+          }
+        }
+        assert.equal(advanced,true,'PR66 dialogue tap did not advance panel '+index);
+      }
+      for(let k=0;k<60;k++){
+        if(await evaluate("window.__game.scene.getScene('Airship').resultOverlay.visible"))break;
+        await sleep(40);
+      }
+      const final=await evaluate("(()=>{const s=window.__game.scene.getScene('Airship'),r=s.campaignRun;return {visible:s.resultOverlay.visible,label:s.resultLabel.text,completed:r.completedActs.has('act2'),kills:r.stats.kills,time:r.stats.activeCombatMs,x:s.resultsButton.x,y:s.resultsButton.y}})()");
+      assert.equal(final.visible,true,'PR66 final results visible');
+      assert.equal(final.label,'KONIEC AKTU II — PAROSTATEK');
+      assert.equal(final.completed,false,'PR66 only DALEJ completes the act');
+      assert.equal(final.kills,42,'PR66 no provisional double counting');
+      assert.equal(final.time,240000,'PR66 no provisional time double counting');
+      // Results DALEJ intentionally arms 200ms after the fade completes.
+      await sleep(260);
+      const rect=(await snapshot()).rect;
+      await click(rect.x+final.x,rect.y+final.y);
+      for(let k=0;k<80;k++){
+        if(await evaluate("window.__game.scene.isActive('Menu')"))break;
+        await sleep(40);
+      }
+      assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'PR66 returns to Menu');
+      const completed=await evaluate("(()=>{const r=window.__game.registry.get('campaign-run');return {act2:r.completedActs.has('act2'),kills:r.stats.kills,time:r.stats.activeCombatMs,byAct:r.stats.byAct.act2}})()");
+      assert.equal(completed.act2,true,'PR66 narrative completion');
+      assert.equal(completed.kills,42,'PR66 exactly-once total kills');
+      assert.equal(completed.time,420000,'PR66 exactly-once total time');
+      assert.equal(completed.byAct.activeCombatMs,180000);
+    }
     if(id==='act1-ending'){
       for(let k=0;k<70;k++){if(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id==='act1-marcin-last'"))break;await sleep(35);}
       assert.equal(await evaluate("window.__game.scene.getScene('Arena').dialogueState.id"),'act1-marcin-last');
@@ -928,12 +980,13 @@ try {
       // Exercise real update using a deterministic clock offset, not 180 s sleep.
       await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.defense.clock.elapsedMs=180000-40;a.defense.clock.lastNow=performance.now()-120;return true})()");
       await sleep(85);
-      const victory=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,kills:a.defense.kills,artifact:a.campaignRun.artifacts.size,completed:a.campaignRun.completedActs.has('act2'),result:a.campaignRun.stats.byAct.act2,ground:a.gliderDelivery.groundEnemies.filter(e=>!e.dead).length,flights:a.gliderDelivery.activeAirborneVisuals}})()");
+      const victory=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,kills:a.defense.kills,artifact:a.campaignRun.artifacts.size,completed:a.campaignRun.completedActs.has('act2'),result:a.defense.result,provisional:a.campaignRun.stats.byAct.act2,ground:a.gliderDelivery.groundEnemies.filter(e=>!e.dead).length,flights:a.gliderDelivery.activeAirborneVisuals}})()");
       assert.equal(victory.state,'survived');assert.equal(victory.ended,true);
       assert.equal(victory.kills,beforeVictory.kills,'PR64 surviving enemy cleanup cannot grant kills');
       assert.equal(victory.completed,false,'PR64 story act completion still pending');
       assert.equal(victory.ground,0);assert.equal(victory.flights,0);
       assert.equal(victory.result.activeCombatMs,180000,'PR64 clock caps at 180 seconds');
+      assert.equal(victory.provisional,undefined,'PR66 victory must not book provisional campaign stats');
       const duplicate=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.finishDefense('survived')})()");
       assert.equal(duplicate,false,'PR64 one-shot outcome');
     }
@@ -941,8 +994,8 @@ try {
       windowPr64DefeatVerified=true;
       await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.applyDamage(0,{x:a.player.x-3,y:a.player.y});a.defense.clock.elapsedMs=180001;return true})()");
       await sleep(80);
-      const lost=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,completed:a.campaignRun.completedActs.has('act2'),result:a.campaignRun.stats.byAct.act2?.outcome}})()");
-      assert.deepEqual(lost,{state:'defeat',ended:true,completed:false,result:'defeat'},'PR64 defeat must block late victory');
+      const lost=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,completed:a.campaignRun.completedActs.has('act2'),result:a.defense.result?.outcome,booked:Object.hasOwn(a.campaignRun.stats.byAct,'act2')}})()");
+      assert.deepEqual(lost,{state:'defeat',ended:true,completed:false,result:'defeat',booked:false},'PR66 defeat must block late victory without booking completion');
     }
     await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
     await waitFor(v=>v.menu,'PR64 safe Airship MENU');

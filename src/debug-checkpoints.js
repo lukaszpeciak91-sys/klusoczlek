@@ -10,7 +10,7 @@ export const DEBUG_CHECKPOINTS=Object.freeze([
   Object.freeze({id:'act2-opening',actId:'act2',scene:'Airship',label:'AKT II — POCZĄTEK'}),
   Object.freeze({id:'act2-defense',actId:'act2',scene:'Airship',label:'AKT II — OBRONA'}),
   Object.freeze({id:'act2-last15',actId:'act2',scene:'Airship',label:'AKT II — OSTATNIE 15 S'}),
-  Object.freeze({id:'act2-results',actId:'act2',scene:'Airship',label:'AKT II — WYNIK OBRONY'}),
+  Object.freeze({id:'act2-results',actId:'act2',scene:'Airship',label:'AKT II — ZAKOŃCZENIE'}),
 ]);
 export const DEBUG_IDS=new Set(DEBUG_CHECKPOINTS.map(item=>item.id));
 

@@ -1,3 +1,8 @@
+## PR66 — Act II finale and Act I dialogue polish (2026-11-04; pending CI and independent audit)
+- After 180s Act II defense: cancel deliveries and neutralize surviving enemies without kill credit, retain existing 520ms pixel-death window, fade to black 450ms, fade back to existing deck 450ms, play two Captain Marian dialogue panels, fade out 450ms, show Act II results with DALEJ to menu. No Act III routing.
+- Campaign stats now booked once through completeCampaignAct on results confirmation, not at provisional defense stop; zero-HP defeat retains KONIEC GRY and does not complete Act II. PR65 act2-last15 and act2-results route through actual finale; debug ID preserved, result label updated.
+- Act I Bobrozombi opening dialogue now uses 'To z pewnością Kłusoczłek'. No assets or gameplay balance changed. Physical Android verification pending.
+
 # PROGRESS
 
 ## PR50 — combat pacing and visible ordinary entries (2026-11-01; independent audit required)
