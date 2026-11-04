@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers,clampToDeck,avoidWheelhouse} from './airship-contract.js';
+import {createHorizontalParallaxLayer} from './airship-parallax.js';
 import {currentCampaignRun,prepareActStart,updateRunEquipment,completeCampaignAct} from './campaign-run.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl} from './character-visual.js';
@@ -59,11 +60,9 @@ export class AirshipScene extends Phaser.Scene {
         graphics.generateTexture(key,512,256);
         graphics.destroy();
       }
-      const tile=this.add.tileSprite(0,0,this.scale.width,this.scale.height,key)
-        .setOrigin(0).setScrollFactor(0).setDepth(def.depth);
-      tile.speed=def.speed;tile.layerId=def.id;
-      this.layers.push(tile);
-      void this.loadOptional(def.path,'airship-approved-'+def.id,tile);
+      const layer=createHorizontalParallaxLayer(this,def,key);
+      this.layers.push(layer);
+      void this.loadOptional(def.path,'airship-approved-'+def.id,layer);
     }
     const geometry=this.add.graphics().setDepth(0);
     geometry.fillStyle(0x141e25,0.46).fillEllipse(480,289,855,410);
@@ -229,7 +228,7 @@ export class AirshipScene extends Phaser.Scene {
       this.hudLayout=l;
       this.mouseHeld=false;
       this.combat?.stopFire();
-      for(const tile of this.layers)tile.setSize(w,h);
+      for(const layer of this.layers)layer.setSize(w,h);
       this.joystick.reposition(l.joystickX,l.joystickY,l.joystickRadius);
       this.aimJoystick.reposition(l.aimX,l.aimY,l.joystickRadius);
       this.menuButton.setPosition(l.menuX,l.menuY).setSize(l.menuWidth,l.menuHeight);
@@ -252,6 +251,7 @@ export class AirshipScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE,resize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
       this.artAlive=false;this.artAbort.abort();
+      for(const layer of this.layers)layer.destroy();
       this.scale.off(Phaser.Scale.Events.RESIZE,resize);
       this.input.off('pointerdown',touchSwitch);
       this.input.keyboard.off('keydown',onWeaponKey);
@@ -539,6 +539,7 @@ export class AirshipScene extends Phaser.Scene {
       return;
     }
     scrollCloudLayers(this.layers,delta);
+    for(const layer of this.layers)layer.update();
     if(this.openingPhase==='overview'){
       this.openingElapsed+=Math.min(50,delta);
       if(this.openingElapsed>=650){
