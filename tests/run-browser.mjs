@@ -980,12 +980,13 @@ try {
       // Exercise real update using a deterministic clock offset, not 180 s sleep.
       await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.defense.clock.elapsedMs=180000-40;a.defense.clock.lastNow=performance.now()-120;return true})()");
       await sleep(85);
-      const victory=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,kills:a.defense.kills,artifact:a.campaignRun.artifacts.size,completed:a.campaignRun.completedActs.has('act2'),result:a.campaignRun.stats.byAct.act2,ground:a.gliderDelivery.groundEnemies.filter(e=>!e.dead).length,flights:a.gliderDelivery.activeAirborneVisuals}})()");
+      const victory=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,kills:a.defense.kills,artifact:a.campaignRun.artifacts.size,completed:a.campaignRun.completedActs.has('act2'),result:a.defense.result,provisional:a.campaignRun.stats.byAct.act2,ground:a.gliderDelivery.groundEnemies.filter(e=>!e.dead).length,flights:a.gliderDelivery.activeAirborneVisuals}})()");
       assert.equal(victory.state,'survived');assert.equal(victory.ended,true);
       assert.equal(victory.kills,beforeVictory.kills,'PR64 surviving enemy cleanup cannot grant kills');
       assert.equal(victory.completed,false,'PR64 story act completion still pending');
       assert.equal(victory.ground,0);assert.equal(victory.flights,0);
       assert.equal(victory.result.activeCombatMs,180000,'PR64 clock caps at 180 seconds');
+      assert.equal(victory.provisional,undefined,'PR66 victory must not book provisional campaign stats');
       const duplicate=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.finishDefense('survived')})()");
       assert.equal(duplicate,false,'PR64 one-shot outcome');
     }
@@ -993,8 +994,8 @@ try {
       windowPr64DefeatVerified=true;
       await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.applyDamage(0,{x:a.player.x-3,y:a.player.y});a.defense.clock.elapsedMs=180001;return true})()");
       await sleep(80);
-      const lost=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,completed:a.campaignRun.completedActs.has('act2'),result:a.campaignRun.stats.byAct.act2?.outcome}})()");
-      assert.deepEqual(lost,{state:'defeat',ended:true,completed:false,result:'defeat'},'PR64 defeat must block late victory');
+      const lost=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,completed:a.campaignRun.completedActs.has('act2'),result:a.defense.result?.outcome,booked:a.campaignRun.stats.byAct.act2}})()");
+      assert.deepEqual(lost,{state:'defeat',ended:true,completed:false,result:'defeat',booked:undefined},'PR66 defeat must block late victory without booking completion');
     }
     await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
     await waitFor(v=>v.menu,'PR64 safe Airship MENU');
