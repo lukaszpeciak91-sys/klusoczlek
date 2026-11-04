@@ -31,7 +31,15 @@ export function createHorizontalParallaxLayer(scene,def,initialKey){
   const count=moving?2:1;
   const images=Array.from({length:count},()=>scene.add.image(0,0,initialKey)
     .setOrigin(.5).setScrollFactor(0).setDepth(def.depth));
-  let key=initialKey,w=scene.scale.width,h=scene.scale.height,disposed=false;
+  let key=initialKey,w=scene.scale.width,h=scene.scale.height,disposed=false,lastZoom=null;
+  const zoom=()=>Math.max(.1,scene.cameras?.main?.zoom??1);
+  const applyScale=()=>{
+    const source=scene.textures.get(key).getSourceImage();
+    const effectiveZoom=zoom();
+    const scale=backgroundCoverScale(source.width,source.height,w,h,moving)/effectiveZoom;
+    images.forEach(image=>image.setScale(scale));
+    lastZoom=effectiveZoom;
+  };
   const layer={
     layerId:def.id,speed:def.speed,tilePositionX:0,images,
     setTexture(nextKey){
@@ -42,14 +50,13 @@ export function createHorizontalParallaxLayer(scene,def,initialKey){
     },
     setSize(width,height){
       w=width;h=height;
-      const source=scene.textures.get(key).getSourceImage();
-      const scale=backgroundCoverScale(source.width,source.height,w,h,moving);
-      images.forEach(image=>image.setScale(scale).setPosition(w/2,h/2));
+      lastZoom=null;
       this.update();
       return this;
     },
     update(){
       if(disposed)return;
+      if(lastZoom!==zoom())applyScale();
       if(!moving){
         images[0].setPosition(Math.round(w/2),Math.round(h/2)).setAlpha(1);
         return;
@@ -59,7 +66,7 @@ export function createHorizontalParallaxLayer(scene,def,initialKey){
       // Stable alternation avoids a one-frame swap when one composition expires.
       for(let i=0;i<2;i++){
         const state=states[i],image=images[state.composition%2];
-        image.setPosition(Math.round(w/2+state.xOffset),Math.round(h/2))
+        image.setPosition(Math.round(w/2+state.xOffset/zoom()),Math.round(h/2))
           .setAlpha(state.alpha);
       }
     },
