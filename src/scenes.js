@@ -1221,7 +1221,15 @@ export class ArenaScene extends Phaser.Scene {
         if(this.captainArrival.update(this.game.loop.delta)){
           this.act1Epilogue='captain';this.markNarrativeBoundary('act1-captain');
         }
-      }else if(!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
+      }
+      // During the conversation the player faces Marian, even though controls
+      // are locked. Keep the existing actor and camera positions unchanged.
+      if((this.act1Epilogue==='captain'||this.act1Epilogue==='captain-arrival')&&this.captainArrival.actor){
+        const actor=this.captainArrival.actor;
+        this.lastFacing=facingOf(actor.x-this.player.x,actor.y-this.player.y,this.lastFacing);
+        this.playerVisual.update(this.lastFacing,false,Math.min(50,this.game.loop.delta));
+      }
+      if(!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
         this.endEpisode(this.playerHp<=0?'defeat':'victory');
       }
       return;
