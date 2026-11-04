@@ -120,6 +120,7 @@ export class AirshipScene extends Phaser.Scene {
     this.switchLabel=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'11px',color:'#f6e9cc'})
       .setOrigin(.5).setScrollFactor(0).setDepth(67);
     this.syncWeaponHud();
+    this.pressureBar=this.add.graphics().setScrollFactor(0).setDepth(68);
     this.gliderDelivery=createGliderDelivery(this);
     this.combat=createAirshipCombat(this,this.gliderDelivery);
     // Non-combat Captain, visually reused from Act I's already loaded 8-frame sheet.
@@ -197,6 +198,7 @@ export class AirshipScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange',this.onVisibility);
       this.gliderDelivery?.shutdown();
       this.combat?.cleanup();
+      this.pressureBar?.destroy();
       this.deckMask.destroy();this.playerVisual.destroy();this.hpFace.destroy();
     });
     this.resetMovement=()=>{this.joystick.reset();this.aimJoystick.reset();this.input.keyboard.resetKeys();};
@@ -263,6 +265,14 @@ export class AirshipScene extends Phaser.Scene {
     this.combat.stopFire();
     this.scene.pause();this.scene.launch('Menu');this.scene.bringToTop('Menu');
   }
+  renderPressureBar(){
+    const g=this.pressureBar;
+    g.clear();
+    if(this.openingPhase!=='active'||this.weapon!=='flamethrower')return;
+    const l=this.hudLayout,w=l.switchSize,x=l.switchX-w/2,y=l.switchY+l.switchSize/2+5;
+    g.fillStyle(0x382721,0.95).fillRect(x,y,w,4);
+    g.fillStyle(this.combat.pressure.value<20?0x9b3932:0xee903a).fillRect(x,y,w*this.combat.pressure.value/100,4);
+  }
   frameFullShip(){
     const zoom=Math.min(this.scale.width/AIRSHIP_WORLD.width,this.scale.height/AIRSHIP_WORLD.height);
     this.cameras.main.setZoom(Math.min(1,zoom)).centerOn(AIRSHIP_WORLD.start.x,AIRSHIP_WORLD.start.y);
@@ -315,6 +325,7 @@ export class AirshipScene extends Phaser.Scene {
     this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
     this.pickup?.setVisible(false);
     this.objectiveText.setVisible(false);this.defenseKillsText.setVisible(false);
+    this.pressureBar.clear();
     // A provisional assault result, not the narrative completion of Act II.
     const result=this.defense.result;
     this.campaignRun.stats.byAct.act2={...result,provisional:true};
@@ -386,6 +397,7 @@ export class AirshipScene extends Phaser.Scene {
     this.facingMarker.setPosition(point.x,point.y);
     this.playerVisual.update(this.lastFacing,Math.hypot(input.x,input.y)>0.1,delta);
     this.combat.update(aim,Boolean(held&&(aim.x||aim.y)),Math.min(50,delta),this.time.now);
+    this.renderPressureBar();
     this.hpFace.update(delta);
     this.objectiveText.setText('WYTRZYMAJ '+formatGameplayClock(Math.max(0,AIRSHIP_SURVIVAL_MS-this.defense.elapsedMs)));
     this.defenseKillsText.setText('POKONANI '+this.defense.kills);
