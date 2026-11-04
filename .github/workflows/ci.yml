@@ -11,14 +11,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Needed to compare the actual PR base/head, not the synthetic merge commit.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Classify documentation-only PR
+        if: github.event_name == 'pull_request'
+        id: changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Keep the verify job and its required-check name stable. Only a
+          # nonempty diff of exclusively documentation files can skip Chromium.
+          git diff --name-only -z "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/pr-files"
+          docs_only=true
+          changed=0
+          while IFS= read -r -d '' file; do
+            changed=$((changed + 1))
+            case "$file" in
+              README.md|docs/*) ;;
+              *) docs_only=false; break ;;
+            esac
+          done < "$RUNNER_TEMP/pr-files"
+          if [[ "$docs_only" == true && "$changed" -gt 0 ]]; then
+            echo "run_browser=false" >> "$GITHUB_OUTPUT"
+            echo "Documentation-only PR: Chromium skipped; Node tests/build retained."
+          else
+            echo "run_browser=true" >> "$GITHUB_OUTPUT"
+            echo "Source, workflow or mixed PR: full browser regression retained."
+          fi
       - run: npm test
       - run: npm run build
       - run: npm run test:browser
+        if: github.event_name != 'pull_request' || steps.changes.outputs.run_browser != 'false'
       - name: Verify Pages output
         run: test -f dist/index.html
       - uses: actions/upload-artifact@v4
