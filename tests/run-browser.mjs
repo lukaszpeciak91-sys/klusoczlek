@@ -233,7 +233,7 @@ try {
     ['act2-opening','AKT II — POCZĄTEK','Airship'],
     ['act2-defense','AKT II — OBRONA','Airship'],
     ['act2-last15','AKT II — OSTATNIE 15 S','Airship'],
-    ['act2-results','AKT II — WYNIK OBRONY','Airship'],
+    ['act2-results','AKT II — ZAKOŃCZENIE','Airship'],
   ]){
     await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2&&v.actions[0].label==='NOWA GRA'&&v.actions[1].label==='DEBUG','PR65 checkpoint menu '+id);
     assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG'],'PR65 DEBUG missing');
