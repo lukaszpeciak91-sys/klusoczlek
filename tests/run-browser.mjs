@@ -824,9 +824,11 @@ try {
         ['bobrozombi',true,true],['bobrozombi',true,true]]);
       assert.equal(landed.orphanPilots,0,'PR64 no stale glider pilot visuals');
       // Real blunderbuss projectiles traverse the existing collision and kill pipeline.
-      const fired=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),e=a.gliderDelivery.groundEnemies[0];e.activationAt=0;e.x=a.player.x+90;e.y=a.player.y;e.sprite.setPosition(e.x,e.y);a.weapon='blunderbuss';a.combat.stopFire();const before=a.defense.kills;for(let i=0;i<100;i++)a.combat.update({x:1,y:0},true,16,a.time.now+i*16);return {dead:e.dead,kills:a.defense.kills-before,burst:a.combat.bursts.length}})()");
+      const fired=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),enemies=a.gliderDelivery.groundEnemies,e=enemies[0],other=enemies[1];e.activationAt=0;e.x=a.player.x+90;e.y=a.player.y;e.sprite.setPosition(e.x,e.y);other.x=245;other.y=400;other.sprite.setPosition(other.x,other.y);other.activationAt=Infinity;a.weapon='blunderbuss';a.combat.stopFire();const before=a.defense.kills;for(let i=0;i<100;i++)a.combat.update({x:1,y:0},true,16,a.time.now+i*16);const kills=a.defense.kills-before;a.combat.damage(e,1,{x:a.player.x,y:a.player.y},a.time.now+1600);return {dead:e.dead,kills,afterDuplicate:a.defense.kills-before,otherAlive:!other.dead,burst:a.combat.bursts.length}})()");
       assert.equal(fired.dead,true,'PR64 existing blunderbuss projectiles must kill landed passenger');
-      assert.equal(fired.kills,1,'PR64 one grounded enemy cannot award multiple kills');
+      assert.equal(fired.kills,1,'PR64 isolated blunderbuss kill must grant one credit');
+      assert.equal(fired.afterDuplicate,1,'PR64 dead enemy cannot be credited twice');
+      assert.equal(fired.otherAlive,true,'PR64 isolated second enemy must survive');
       assert.ok(fired.burst>0,'PR64 reuse pixel-death visual');
       console.log('PASS PR64 approved 21-line intro, exact shake, guarded timer, encounter-owned gliders, pause and safe drops');
     }else{
