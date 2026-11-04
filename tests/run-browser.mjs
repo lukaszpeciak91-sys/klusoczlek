@@ -172,14 +172,14 @@ try {
     }
   }
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
-  await waitFor(s=>s.menu&&s.actions.length===1&&s.actions[0].label==='NOWA GRA','initial single new game');
+  await waitFor(s=>s.menu&&s.actions.length===2&&s.actions[0].label==='NOWA GRA'&&s.actions[1].label==='DEBUG','initial single new game');
   await evaluate('window.__traceEvents()');
   for(const height of [320,360,375,420]){
     const width=Math.round(height*20/9);
     await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
     await evaluate('window.__game.scale.refresh();true');
     const state=await waitFor(s=>Math.abs(s.rect.height-height)<2,'resize '+height);
-    assert.equal(state.actions.length,1);
+    assert.equal(state.actions.length,2);
     assert.ok(state.actions[0].y+state.actions[0].height/2<=height,'NOWA GRA clipped');
   }
   await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:360,deviceScaleFactor:1,mobile:false});
@@ -378,14 +378,14 @@ try {
 
   for(let i=0;i<20;i++){
     await clickControl('hud');
-    let state=await waitFor(s=>s.menu&&s.arenaPaused&&s.actions.length===2,'Menu two buttons '+i);
-    assert.deepEqual(state.actions.map(a=>a.label),['NOWA GRA','WZNÓW']);
+    let state=await waitFor(s=>s.menu&&s.arenaPaused&&s.actions.length===3,'Menu three buttons '+i);
+    assert.deepEqual(state.actions.map(a=>a.label),['NOWA GRA','DEBUG','WZNÓW']);
     assert.equal(state.menuOverArena,true);
     assert.equal(state.fullscreenVisible,true);
     assert.equal(state.physics,true);
     assert.equal(state.samePlayer,true);
     assert.equal(state.sameCamera,true);
-    assert.ok(state.actions[1].y-state.actions[0].y>state.actions[0].height,'Overlapping menu hitboxes');
+    assert.ok(state.actions[1].y-state.actions[0].y>state.actions[0].height&&state.actions[2].y-state.actions[1].y>state.actions[1].height,'Overlapping menu hitboxes');
     await evaluate('window.dispatchEvent(new Event("blur"));window.dispatchEvent(new Event("focus"));true');
     assert.equal((await snapshot()).arenaPaused,true);
     await clickControl('WZNÓW');
@@ -422,7 +422,7 @@ try {
   assert.equal(desktop.controls.shotAt,null,'Desktop release did not stop firing');
   console.log('PASS real CDP desktop keyboard + mouse held fire and release');
   await clickControl('hud');
-  await waitFor(s=>s.menu&&s.actions.length===2,'Menu before new game');
+  await waitFor(s=>s.menu&&s.actions.length===3,'Menu before new game');
   await clickControl('NOWA GRA');
   const fresh=await waitFor(s=>s.arena&&!s.menu&&!s.arenaPaused,'New game replaces session');
   assert.equal(fresh.samePlayer,false,'NOWA GRA reused existing player');
@@ -478,7 +478,7 @@ try {
   assert.equal((await snapshot()).controls.hp,4,'Invulnerability failed on continuous overlap');
   await waitFor(s=>s.menu&&s.arenaPaused&&s.controls.defeated,'Defeat opens existing Menu');
   const defeat=await snapshot();
-  assert.deepEqual(defeat.actions.map(a=>a.label),['NOWA GRA'],'Defeat exposed resume');
+  assert.deepEqual(defeat.actions.map(a=>a.label),['NOWA GRA','DEBUG'],'Defeat exposed resume');
   await clickControl('NOWA GRA');
   const revived=await waitFor(s=>s.arena&&!s.menu&&!s.controls.defeated,'New game after defeat');
   assert.equal(revived.controls.hp,5);
@@ -487,7 +487,7 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Arena').enemies.slice(0,3).every(e=>e.type==='bobrozombi')"),true,'NEW GAME opening trio changed');
   console.log('PASS real Phaser shots -> enemy death, contact invulnerability, defeat, clean NEW GAME');
   await clickControl('hud');
-  await waitFor(s=>s.menu&&s.actions.length===2,'Menu again after fresh session');
+  await waitFor(s=>s.menu&&s.actions.length===3,'Menu again after fresh session');
   console.log('PASS real Phaser touch: NOWA GRA always, WZNÓW additional, 20 cycles, fresh session, physics and fullscreen visibility');
 
   // Positive path: intercept only the optional PNG URL, generated entirely in memory.
