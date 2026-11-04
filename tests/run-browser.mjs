@@ -994,8 +994,8 @@ try {
       windowPr64DefeatVerified=true;
       await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.applyDamage(0,{x:a.player.x-3,y:a.player.y});a.defense.clock.elapsedMs=180001;return true})()");
       await sleep(80);
-      const lost=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,completed:a.campaignRun.completedActs.has('act2'),result:a.defense.result?.outcome,booked:a.campaignRun.stats.byAct.act2}})()");
-      assert.deepEqual(lost,{state:'defeat',ended:true,completed:false,result:'defeat',booked:undefined},'PR66 defeat must block late victory without booking completion');
+      const lost=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,completed:a.campaignRun.completedActs.has('act2'),result:a.defense.result?.outcome,booked:Object.hasOwn(a.campaignRun.stats.byAct,'act2')}})()");
+      assert.deepEqual(lost,{state:'defeat',ended:true,completed:false,result:'defeat',booked:false},'PR66 defeat must block late victory without booking completion');
     }
     await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
     await waitFor(v=>v.menu,'PR64 safe Airship MENU');
