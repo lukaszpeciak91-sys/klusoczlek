@@ -114,6 +114,7 @@ try {
   }
   let arenaRun=0;
   let gliderDemoVerified=false;
+  let windowPr64VictoryVerified=false;
   async function clickControl(which){
     if(which==='NOWA GRA')await evaluate("history.replaceState(null,'','?arenaSeed="+[1,41,104729][arenaRun++%3]+"');true");
     const state=await snapshot();
@@ -819,8 +820,14 @@ try {
       assert.equal(done,true,'PR64 two encounter-driven gliders must land safely');
       const landed=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,c=await import('/klusoczlek/src/airship-contract.js');return {drops:m.dropCount,ground:m.groundEnemies.filter(e=>!e.dead).map(e=>({type:e.type,inside:c.insideDeck(e),active:e.sprite.active})),orphanPilots:m.renderers.zubrokryptyda.activeVisuals}})()");
       assert.ok(landed.drops>=2);
-      assert.deepEqual(landed.ground.slice(0,2).map(e=>[e.type,e.inside,e.active]),[['bobrozombi',true,true],['bobrozombi',true,true]].map((e,i)=>i===1?['bobrozombi',true,true]:e));
+      assert.deepEqual(landed.ground.slice(0,2).map(e=>[e.type,e.inside,e.active]),[
+        ['bobrozombi',true,true],['bobrozombi',true,true]]);
       assert.equal(landed.orphanPilots,0,'PR64 no stale glider pilot visuals');
+      // Real blunderbuss projectiles traverse the existing collision and kill pipeline.
+      const fired=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),e=a.gliderDelivery.groundEnemies[0];e.activationAt=0;e.x=a.player.x+90;e.y=a.player.y;e.sprite.setPosition(e.x,e.y);a.weapon='blunderbuss';a.combat.stopFire();const before=a.defense.kills;for(let i=0;i<100;i++)a.combat.update({x:1,y:0},true,16,a.time.now+i*16);return {dead:e.dead,kills:a.defense.kills-before,burst:a.combat.bursts.length}})()");
+      assert.equal(fired.dead,true,'PR64 existing blunderbuss projectiles must kill landed passenger');
+      assert.equal(fired.kills,1,'PR64 one grounded enemy cannot award multiple kills');
+      assert.ok(fired.burst>0,'PR64 reuse pixel-death visual');
       console.log('PASS PR64 approved 21-line intro, exact shake, guarded timer, encounter-owned gliders, pause and safe drops');
     }else{
       // Other preexisting Act I regression fixtures do not re-test Act II's entire 21-line script.
@@ -854,8 +861,24 @@ try {
     assert.equal(await evaluate("window.__game.scene.getScene('Airship').layers[3].tilePositionX"),pausedCloud,'PR62 parallax moved while paused');
     await clickControl('WZNÓW');
     assert.equal(await evaluate("window.__game.scene.isActive('Airship')"),true,'PR62 WZNÓW did not resume Airship');
+    if(gliderDemoVerified&&!windowPr64VictoryVerified){
+      windowPr64VictoryVerified=true;
+      const beforeVictory=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {kills:a.defense.kills,completed:a.campaignRun.completedActs.has('act2')}})()");
+      assert.equal(beforeVictory.completed,false,'PR64 unapproved Act II ending must not complete campaign');
+      // Exercise real update using a deterministic clock offset, not 180 s sleep.
+      await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.defense.clock.elapsedMs=180000-40;a.defense.clock.lastNow=performance.now()-120;return true})()");
+      await sleep(85);
+      const victory=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {state:a.defense.state,ended:a.defense.ended,kills:a.defense.kills,artifact:a.campaignRun.artifacts.size,completed:a.campaignRun.completedActs.has('act2'),result:a.campaignRun.stats.byAct.act2,ground:a.gliderDelivery.groundEnemies.filter(e=>!e.dead).length,flights:a.gliderDelivery.activeAirborneVisuals}})()");
+      assert.equal(victory.state,'survived');assert.equal(victory.ended,true);
+      assert.equal(victory.kills,beforeVictory.kills,'PR64 surviving enemy cleanup cannot grant kills');
+      assert.equal(victory.completed,false,'PR64 story act completion still pending');
+      assert.equal(victory.ground,0);assert.equal(victory.flights,0);
+      assert.equal(victory.result.activeCombatMs,180000,'PR64 clock caps at 180 seconds');
+      const duplicate=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.finishDefense('survived')})()");
+      assert.equal(duplicate,false,'PR64 one-shot outcome');
+    }
     await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
-    await waitFor(v=>v.menu,'PR62 development-stage exit to MENU');
+    await waitFor(v=>v.menu,'PR64 safe Airship MENU');
   }
 
   const finaleAtHit=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');const live=a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length;const spawned=a.totalSpawned;const boss=a.boss;if(!boss)throw Error('Marcin missing');boss.hp=0;if(!a.finalizeEnemyDeath(boss)||a.finalizeEnemyDeath(boss))throw Error('Marcin fatal hit was not unique');return {live,spawned,afterSpawns:a.totalSpawned,kills:a.kills,hud:a.killsText.text,final:a.finalResolution,state:a.episode.state,others:a.enemies.filter(e=>!e.dead&&e.type!=='marcin').length,queued:a.reinforcementDue.length+a.escortDue.length,projectiles:a.bossProjectiles.length,bursts:a.deathBursts.length,dialogue:a.dialogueState.id}})()");
