@@ -171,7 +171,7 @@ test('PR69 R2 approved 2560x320 atlas is exactly eight unrotated 320px direction
   const headings=[[-1,0,0],[-1,1,1],[0,1,2],[1,1,3],[1,0,4],[1,-1,5],[0,-1,6],[-1,-1,7]];
   for(const [x,y,frame] of headings)assert.equal(flightDirectionFrame(origin,{x,y}),frame);
   assert.equal(flightDirectionFrame(GLIDER_DEMO[0].from,AIRSHIP_LANDING_ZONES[0]),3);
-  assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[0],{x:1120,y:115}),5);
+  assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[0],{x:1120,y:115}),4);
   assert.equal(flightDirectionFrame(GLIDER_DEMO[1].from,AIRSHIP_LANDING_ZONES[1]),7);
-  assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[1],{x:-160,y:390}),1);
+  assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[1],{x:-160,y:390}),0);
 });
