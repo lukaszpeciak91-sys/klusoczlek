@@ -56,7 +56,9 @@ export const DIALOGUES=Object.freeze({
   ['aloes','ALOES','Co się dzieje?!'],
   ['captain','KAPITAN','Zbliża się komando potwornych lotniarzy!'],
   ['aloes','ALOES','Że co?!'],
-  ['captain','KAPITAN','NIE MA CZASU NA WYJAŚNIENIA! BROŃ PAROSTATKU!']
+  ['captain','KAPITAN','NIE MA CZASU NA WYJAŚNIENIA! BROŃ PAROSTATKU!'],
+  ['bobrozombi','BOBROZOMBI','Haha! Tego się nie spodziewaliście!'],
+  ['bobrozombi','BOBROZOMBI','Bober Wojtek — As przestworzy! ATAAAAK!']
  ],
  'act2-finale':[
   ['captain','KAPITAN','Uff udało się nam...'],
