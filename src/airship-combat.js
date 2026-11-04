@@ -1,4 +1,4 @@
-import {clampToDeck,insideDeck,AIRSHIP_WORLD} from './airship-contract.js';
+import {clampToDeck,insideDeck,AIRSHIP_WORLD,avoidWheelhouse} from './airship-contract.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
 import {applyEnemyHit,applyPlayerContact,ENCOUNTER} from './bobrozombi.js';
 import {enemyProjectileHit,enemyFlameVisible} from './enemy-damage.js';
@@ -94,7 +94,10 @@ export function createAirshipCombat(scene,delivery){
     if(enemy.ignition&&advanceIgnition(enemy.ignition,now)){enemy.burningFx?.destroy();enemy.burningFx=null;}
     const burning=enemy.ignition&&isBurning(enemy.ignition,now);
     const next=burning?fleeStep(enemy,scene.player,seconds):moveEnemy(enemy,scene.player,seconds,now/1000);
-    const position=clampToDeck(next,ENEMY_TYPES[enemy.type].radius+8);
+    let position=clampToDeck(next,ENEMY_TYPES[enemy.type].radius+8);
+    if(scene.wheelhouse?.visible)
+     position=clampToDeck(avoidWheelhouse(position,ENEMY_TYPES[enemy.type].radius+8),
+       ENEMY_TYPES[enemy.type].radius+8);
     enemy.x=position.x;enemy.y=position.y;
     if(burning)enemy.fleeFacingVector={x:enemy.x-previous.x,y:enemy.y-previous.y};
     else enemy.fleeFacingVector=null;
