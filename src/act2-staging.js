@@ -3,7 +3,7 @@ import {facingOf} from './combat-contract.js';
 
 // The Captain is decorative, not a collision participant. All route segments
 // remain in the open aft corridor, below the wheelhouse footprint.
-export const AIRSHIP_CAPTAIN_START=Object.freeze({x:560,y:326});
+export const AIRSHIP_CAPTAIN_START=Object.freeze({x:540,y:326});
 export const AIRSHIP_ALOES_START=Object.freeze({x:432,y:326});
 export const CAPTAIN_PATROL_POINTS=Object.freeze([
   Object.freeze({x:610,y:326}),Object.freeze({x:684,y:342}),
