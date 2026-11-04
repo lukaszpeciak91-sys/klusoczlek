@@ -235,7 +235,7 @@ try {
     ['act2-last15','AKT II — OSTATNIE 15 S','Airship'],
     ['act2-results','AKT II — WYNIK OBRONY','Airship'],
   ]){
-    await waitFor(v=>v.menu&&!v.arena,'PR65 checkpoint menu '+id);
+    await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2&&v.actions[0].label==='NOWA GRA'&&v.actions[1].label==='DEBUG','PR65 checkpoint menu '+id);
     assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG'],'PR65 DEBUG missing');
     await clickControl('DEBUG');
     assert.equal(await evaluate("window.__game.scene.getScene('Menu').debugOpen"),true,'PR65 selector not opened');
