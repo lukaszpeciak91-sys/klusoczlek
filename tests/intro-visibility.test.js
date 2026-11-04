@@ -23,7 +23,7 @@ test('safe on-screen candidate is optional, blocked candidates preserve normal f
 });
 test('only scene 3 changes Wald ek lines, all four dialogues remain',()=>{
  assert.equal(Object.keys(DIALOGUES).length,12);
- assert.equal(DIALOGUES['act2-opening'].length,21);
+ assert.equal(DIALOGUES['act2-opening'].length,23);
  assert.deepEqual([...DIALOGUES['act1-marcin-last'],...DIALOGUES['act1-witness-last'],...DIALOGUES['act1-aloes-last']],DIALOGUES['after-final-enemy']);
  assert.equal(DIALOGUES['before-first-zubrokryptyda'][0][1],'ŻUBROKRYPTYDA');
  assert.equal(DIALOGUES['before-first-zubrokryptyda'][0][2],'Nikt nie będzie bezprawnie mordował naszych przyjaciół!');

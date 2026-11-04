@@ -5,7 +5,7 @@ import {validDialoguePng} from '../src/dialogue-ui.js';
 import {WAVES,WAVE_TIMING,HEALTH_AFTER_WAVES} from '../src/episode.js';
 test('four original and one first-hit boundary dialogues and approved speaker sequence',()=>{
  assert.deepEqual(Object.keys(DIALOGUES),['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy','act1-marcin-last','act1-witness-last','act1-aloes-last','act1-captain','act2-opening','act2-finale','before-marcin','after-first-bocianolak-hit']);
- assert.deepEqual(Object.values(DIALOGUES).map(lines=>lines.length),[3,3,2,3,1,1,1,6,21,2,2,1]);
+ assert.deepEqual(Object.values(DIALOGUES).map(lines=>lines.length),[3,3,2,3,1,1,1,6,23,2,2,1]);
  assert.deepEqual([...DIALOGUES['act1-marcin-last'],...DIALOGUES['act1-witness-last'],...DIALOGUES['act1-aloes-last']],DIALOGUES['after-final-enemy'],'PR54 finale splits existing verbatim lines only');
  const state=createDialogueState();
  for(const [id,lines] of Object.entries(DIALOGUES)){
@@ -59,5 +59,15 @@ test('PR66 captain finale and uncertain Bobrozombi wording are exact',()=>{
  assert.deepEqual(DIALOGUES['act2-finale'],[
   ['captain','KAPITAN','Uff udało się nam...'],
   ['captain','KAPITAN','A teraz nie ma co mitrężyć! Kurs na Wulkan Bogdana!']
+ ]);
+});
+
+test('PR72 Bober Wojtek speaks only after the original Captain command',()=>{
+ const lines=DIALOGUES['act2-opening'];
+ assert.equal(lines.length,23);
+ assert.deepEqual(lines.slice(-3),[
+  ['captain','KAPITAN','NIE MA CZASU NA WYJAŚNIENIA! BROŃ PAROSTATKU!'],
+  ['bobrozombi','BOBROZOMBI','Haha! Tego się nie spodziewaliście!'],
+  ['bobrozombi','BOBROZOMBI','Bober Wojtek — As przestworzy! ATAAAAK!']
  ]);
 });

@@ -24,7 +24,7 @@ import {WAVES,TOTAL_WAVES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity
 import { WEAPONS, cycleUnlockedWeapon, selectUnlockedWeapon, initialPickupPoint, dropPoint, safeEnemySpawn, clearPoint, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
-import { resolvePose } from './combat-contract.js';
+import { resolvePose,facingOf } from './combat-contract.js';
 import { resolveAim, muzzlePoint } from './shooting.js';
 import {COMBAT_TUNING,createFiringState,resetFiring,firingStep,flameTargetVisible,cooldownReady} from './weapon-combat.js';
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
@@ -1223,6 +1223,13 @@ export class ArenaScene extends Phaser.Scene {
         }
       }else if(!this.dialogueLoading&&!this.dialogueState?.id&&!this.finalOutcomeHeld){
         this.endEpisode(this.playerHp<=0?'defeat':'victory');
+      }
+      // During the conversation the player faces Marian, even though controls
+      // are locked. Preserve the original epilogue phase ordering.
+      if((this.act1Epilogue==='captain'||this.act1Epilogue==='captain-arrival')&&this.captainArrival.actor){
+        const actor=this.captainArrival.actor;
+        this.lastFacing=facingOf(actor.x-this.player.x,actor.y-this.player.y,this.lastFacing);
+        this.playerVisual.update(this.lastFacing,false,Math.min(50,this.game.loop.delta));
       }
       return;
     }
