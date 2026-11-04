@@ -261,6 +261,39 @@ try {
     }
     if(id==='act2-defense'){
       assert.equal(check.defense,'active');
+      // PR sky crossfade: capture the *actual* renderer at two landscape sizes,
+      // in normal scrolling and at the transition boundary. No test-only art.
+      for(let n=0;n<90;n++){
+        const ready=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return ['sky','far','mid','near'].every(id=>a.optionalArtStatus['backgrounds/act2-'+(id==='sky'?'sky':'clouds-'+id)+'.png']==='loaded')})()");
+        if(ready)break;
+        await sleep(50);
+      }
+      const beforeSky=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {speeds:a.layers.map(l=>l.speed),counts:a.layers.map(l=>l.images.length),keys:a.layers.map(l=>l.images[0].texture.key)}})()");
+      assert.deepEqual(beforeSky.speeds,[0,5,12,23],'PR sky preserves independent parallax speeds');
+      assert.deepEqual(beforeSky.counts,[1,2,2,2],'PR sky must use seven bounded Image objects, not TileSprites');
+      assert.ok(beforeSky.keys.every((key,i)=>key==='airship-approved-'+['sky','far','mid','near'][i]),'PR sky approved PNG textures loaded');
+      const savedSky=await evaluate("window.__game.scene.getScene('Airship').layers.map(l=>l.tilePositionX)");
+      for(const [width,height] of [[915,412],[568,320]]){
+        await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        await evaluate("window.__game.scale.refresh();true");
+        await sleep(110);
+        for(const [stage,offset] of [['initial',null],['before',.60],['mid',.805],['after',1.01],['cycles',5.805]]){
+          if(offset!==null){
+            await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');for(let i=1;i<4;i++){const shift={far:.08,mid:.34,near:.18}[a.layers[i].layerId];a.layers[i].tilePositionX=(("+offset+")-shift)*200;}for(const layer of a.layers)layer.update();return true})()");
+          }
+          await sleep(70);
+          const state=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),w=a.scale.width,h=a.scale.height;return a.layers.map(l=>({speed:l.speed,count:l.images.length,alpha:l.images.map(o=>o.alpha),covered:l.images.every(o=>o.displayWidth>=w+390&&o.displayHeight>=h),active:l.images.every(o=>o.active),type:l.images.map(o=>o.type)}))})()");
+          assert.deepEqual(state.map(l=>l.count),[1,2,2,2]);
+          assert.ok(state.every(l=>l.active&&l.alpha.every(alpha=>alpha>=0&&alpha<=1)),'PR sky valid alpha and active images');
+          assert.ok(state.slice(1).every(l=>l.covered),'PR sky composition overscan survives horizontal travel');
+          assert.ok(state.every(l=>l.type.every(type=>type==='Image')),'PR sky no TileSprites');
+          const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+          await writeFile('dist/act2-sky-'+width+'x'+height+'-'+stage+'.png',Buffer.from(shot.data,'base64'));
+        }
+      }
+      await cdp('Emulation.setDeviceMetricsOverride',{width:800,height:450,deviceScaleFactor:1,mobile:false});
+      await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.scale.refresh();const saved="+JSON.stringify([0,0,0,0])+";for(let i=0;i<a.layers.length;i++){a.layers[i].tilePositionX=saved[i];a.layers[i].update();}return true})()");
+      await sleep(80);
       for(let n=0;n<60;n++){
         const status=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return [a.optionalArtStatus['arenas/airship-deck.png'],a.optionalArtStatus['obstacles/airship-wheelhouse.png'],a.optionalArtStatus['obstacles/airship-paddlewheel.png']]})()");
         if(status.every(value=>value==='loaded'))break;
