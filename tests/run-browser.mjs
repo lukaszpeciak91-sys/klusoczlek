@@ -952,6 +952,15 @@ try {
       const flying=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery,f=m.flights[0];return {count:m.spawnedCount,pilot:!!f?.pilot?.active,passenger:!!f?.passenger?.active,vehicle:!!f?.visual?.active,type:f?.type}})()");
       assert.equal(flying.count,1);assert.deepEqual([flying.pilot,flying.passenger,flying.vehicle],[false,true,true], 'PR69 exactly one passenger without pilot');
       assert.equal(flying.type,'bobrozombi','PR64 first glider must deliver Bobrozombi');
+      const vehicleArt=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,f=m.flights[0];return {status:a.gliderArtStatus,art:f.visual.getData('vehicleImage').visible,fallback:f.visual.getData('vehicleFallback').visible,texture:f.visual.getData('vehicleImage').texture.key}})()");
+      if(vehicleArt.status==='loaded'){
+        assert.equal(vehicleArt.art,true,'PR69 approved glider PNG should be visible when loaded');
+        assert.equal(vehicleArt.fallback,false,'PR69 no prototype glider over approved PNG');
+        assert.equal(vehicleArt.texture,'airship-hang-glider-v1');
+      }else{
+        assert.equal(vehicleArt.status,'fallback','PR69 unloaded glider must report real asset failure');
+        assert.equal(vehicleArt.fallback,true,'PR69 fallback art must remain visible when PNG is absent');
+      }
       await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
       await waitFor(v=>v.menu,'PR64 pause glider');
       const paused=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,clock:a.defense.elapsedMs,x:f.x,y:f.y}})()");
