@@ -1,4 +1,4 @@
-import {AIRSHIP_LANDING_ZONES,insideDeck} from './airship-contract.js';
+import {AIRSHIP_LANDING_ZONES,insideDeck,WHEELHOUSE_FOOTPRINT,AIRSHIP_WORLD} from './airship-contract.js';
 import {ENEMY_TYPES} from './enemy-types.js';
 
 // Two deliberate demonstrations; no wave or autonomous encounter director.
@@ -9,22 +9,34 @@ export const GLIDER_DEMO=Object.freeze([
 export const GLIDER_PHASES=Object.freeze(['approaching','dropping','departing','finished']);
 export const GLIDER_APPROACH_MS=1800;
 export const GLIDER_DROP_MS=500;
+export const GLIDER_HOLD_MS=9000;
+export const GLIDER_EXPANDED_SEARCH_MS=1600;
 export const GLIDER_DEPART_MS=1900;
 export const LANDING_MS=700;
 export const GLIDER_ART_PATH='vehicles/hang-glider.png';
 export const GLIDER_ART_KEY='airship-hang-glider-v1';
 
-export function landingPosition(zoneId,player,occupied=[],radius=ENEMY_TYPES.bobrozombi.radius){
+export function landingPosition(zoneId,player,occupied=[],radius=ENEMY_TYPES.bobrozombi.radius,expanded=false){
   const preferred=AIRSHIP_LANDING_ZONES.find(z=>z.id===zoneId);
   const zones=preferred?[preferred,...AIRSHIP_LANDING_ZONES.filter(z=>z!==preferred)]:AIRSHIP_LANDING_ZONES;
-  for(const zone of zones){
-    // Deterministic center and symmetric alternative offsets; no random overlaps.
-    for(const [dx,dy] of [[0,0],[32,30],[-32,-30],[38,-30],[-38,30]]){
-      const point={x:zone.x+dx,y:zone.y+dy};
-      if(!insideDeck(point,radius+8)||Math.hypot(point.x-player.x,point.y-player.y)<radius+85)continue;
-      if(occupied.some(other=>Math.hypot(point.x-other.x,point.y-other.y)<radius+other.radius+26))continue;
-      return point;
-    }
+  const candidates=zones.flatMap(zone=>[[0,0],[32,30],[-32,-30],[38,-30],[-38,30]]
+    .map(([dx,dy])=>({x:zone.x+dx,y:zone.y+dy})));
+  // If regular landing slots are blocked, sweep the actual deck after a short hold.
+  // Deterministic order prioritizes the intended landing zone, not a random teleport.
+  if(expanded){
+    const grid=[];
+    for(let y=150;y<=390;y+=48)for(let x=155;x<=805;x+=55)grid.push({x,y});
+    grid.sort((a,b)=>Math.hypot(a.x-(preferred?.x??480),a.y-(preferred?.y??270))-
+       Math.hypot(b.x-(preferred?.x??480),b.y-(preferred?.y??270)));
+    candidates.push(...grid);
+  }
+  const f=WHEELHOUSE_FOOTPRINT;
+  for(const point of candidates){
+    if(!insideDeck(point,radius+8))continue;
+    if(Math.hypot(point.x-player.x,point.y-player.y)<radius+85)continue;
+    if(Math.hypot((point.x-f.x)/(f.rx+radius+8),(point.y-f.y)/(f.ry+radius+8))<1)continue;
+    if(occupied.some(other=>Math.hypot(point.x-other.x,point.y-other.y)<radius+other.radius+26))continue;
+    return point;
   }
   return null;
 }
@@ -32,16 +44,16 @@ export function makeFlight(spec){
   if(!['bobrozombi','bocianolak'].includes(spec.type))throw Error('Unsupported glider passenger');
   const target=AIRSHIP_LANDING_ZONES.find(zone=>zone.id===spec.zoneId);
   if(!target)throw Error('Unknown landing zone');
-  return {id:spec.id,type:spec.type,zoneId:spec.zoneId,from:{...spec.from},exit:{...spec.exit},
+  return {id:spec.id,type:spec.type,zoneId:spec.zoneId,from:{...spec.from},exit:{...spec.exit,x:spec.exit.x>AIRSHIP_WORLD.width/2?AIRSHIP_WORLD.width+160:-160},
     target:{x:target.x,y:target.y},x:spec.from.x,y:spec.from.y,
-    phase:'approaching',elapsed:0,released:false,landed:false,finished:false,landingPoint:null};
+    phase:'approaching',elapsed:0,released:false,landed:false,finished:false,blocked:false,landingPoint:null};
 }
 const mix=(a,b,t)=>a+(b-a)*t;
 export function stepFlight(flight,deltaMs,point=null){
-  if(flight.finished)return {drop:false,finished:false};
+  if(flight.finished)return {drop:false,finished:false,blocked:false};
   const delta=Math.max(0,Math.min(50,deltaMs));
   flight.elapsed+=delta;
-  let drop=false,finished=false;
+  let drop=false,finished=false,blocked=false;
   if(flight.phase==='approaching'){
     const t=Math.min(1,flight.elapsed/GLIDER_APPROACH_MS);
     flight.x=mix(flight.from.x,flight.target.x,t);
@@ -52,9 +64,12 @@ export function stepFlight(flight,deltaMs,point=null){
     if(!flight.released&&point&&flight.elapsed>=300){
       flight.released=true;flight.landingPoint={...point};drop=true;
     }
-    // Defers a blocked drop, then departs without creating an invalid passenger.
-    if(flight.elapsed>=GLIDER_DROP_MS||flight.released){
+    // Never depart carrying an undropped passenger merely because the
+    // telegraph window elapsed. Hold, retry, then report an explicit abort.
+    if(flight.released){
       flight.phase='departing';flight.elapsed=0;
+    }else if(flight.elapsed>=GLIDER_HOLD_MS){
+      flight.phase='departing';flight.elapsed=0;flight.blocked=true;blocked=true;
     }
   }else if(flight.phase==='departing'){
     const t=Math.min(1,flight.elapsed/GLIDER_DEPART_MS);
@@ -62,7 +77,7 @@ export function stepFlight(flight,deltaMs,point=null){
     flight.y=mix(flight.target.y,flight.exit.y,t);
     if(t===1){flight.phase='finished';flight.finished=true;finished=true;}
   }
-  return {drop,finished};
+  return {drop,finished,blocked};
 }
 export function stepLanding(landing,deltaMs){
   if(landing.finished)return false;

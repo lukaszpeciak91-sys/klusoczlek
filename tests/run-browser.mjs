@@ -950,8 +950,17 @@ try {
       await evaluate("window.__game.scene.getScene('Airship').invulnerableUntil=Infinity;true");
       for(let n=0;n<130;n++){if(await evaluate("window.__game.scene.getScene('Airship').gliderDelivery.spawnedCount>0"))break;await sleep(40);}
       const flying=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery,f=m.flights[0];return {count:m.spawnedCount,pilot:!!f?.pilot?.active,passenger:!!f?.passenger?.active,vehicle:!!f?.visual?.active,type:f?.type}})()");
-      assert.equal(flying.count,1);assert.deepEqual([flying.pilot,flying.passenger,flying.vehicle],[true,true,true]);
+      assert.equal(flying.count,1);assert.deepEqual([flying.pilot,flying.passenger,flying.vehicle],[false,true,true], 'PR69 exactly one passenger without pilot');
       assert.equal(flying.type,'bobrozombi','PR64 first glider must deliver Bobrozombi');
+      const vehicleArt=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,f=m.flights[0];return {status:a.gliderArtStatus,art:f.visual.getData('vehicleImage').visible,fallback:f.visual.getData('vehicleFallback').visible,texture:f.visual.getData('vehicleImage').texture.key}})()");
+      if(vehicleArt.status==='loaded'){
+        assert.equal(vehicleArt.art,true,'PR69 approved glider PNG should be visible when loaded');
+        assert.equal(vehicleArt.fallback,false,'PR69 no prototype glider over approved PNG');
+        assert.equal(vehicleArt.texture,'airship-hang-glider-v1');
+      }else{
+        assert.equal(vehicleArt.status,'fallback','PR69 unloaded glider must report real asset failure');
+        assert.equal(vehicleArt.fallback,true,'PR69 fallback art must remain visible when PNG is absent');
+      }
       await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
       await waitFor(v=>v.menu,'PR64 pause glider');
       const paused=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,clock:a.defense.elapsedMs,x:f.x,y:f.y}})()");
@@ -970,11 +979,12 @@ try {
         if(done)break;await sleep(40);
       }
       assert.equal(done,true,'PR64 two encounter-driven gliders must land safely');
-      const landed=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,c=await import('/klusoczlek/src/airship-contract.js');return {drops:m.dropCount,ground:m.groundEnemies.filter(e=>!e.dead).map(e=>({type:e.type,inside:c.insideDeck(e),active:e.sprite.active})),orphanPilots:m.renderers.zubrokryptyda.activeVisuals}})()");
+      const landed=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,c=await import('/klusoczlek/src/airship-contract.js');return {drops:m.dropCount,ground:m.groundEnemies.filter(e=>!e.dead).map(e=>({type:e.type,inside:c.insideDeck(e),active:e.sprite.active})),pilotRendererPresent:Object.hasOwn(m.renderers,'zubrokryptyda'),pending:m.pendingPassengers,activeGliders:m.activeGliders}})()");
       assert.ok(landed.drops>=2);
       assert.deepEqual(landed.ground.slice(0,2).map(e=>[e.type,e.inside,e.active]),[
         ['bobrozombi',true,true],['bobrozombi',true,true]]);
-      assert.equal(landed.orphanPilots,0,'PR64 no stale glider pilot visuals');
+      assert.equal(landed.pilotRendererPresent,false,'PR69 no pilot renderer is created');
+      assert.ok(landed.pending<=2&&landed.activeGliders<=2,'PR69 flight and passenger caps');
       // Real blunderbuss projectiles traverse the existing collision and kill pipeline.
       const fired=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),enemies=a.gliderDelivery.groundEnemies,e=enemies[0],other=enemies[1];e.activationAt=0;e.x=a.player.x+90;e.y=a.player.y;e.sprite.setPosition(e.x,e.y);other.x=245;other.y=400;other.sprite.setPosition(other.x,other.y);other.activationAt=Infinity;a.weapon='blunderbuss';a.combat.stopFire();const before=a.defense.kills;let sawBurst=false;for(let i=0;i<100;i++){a.combat.update({x:1,y:0},true,16,a.time.now+i*16);if(a.combat.bursts.length>0)sawBurst=true;}const kills=a.defense.kills-before;a.combat.damage(e,1,{x:a.player.x,y:a.player.y},a.time.now+1600);return {dead:e.dead,kills,afterDuplicate:a.defense.kills-before,otherAlive:!other.dead,burst:sawBurst}})()");
       assert.equal(fired.dead,true,'PR64 existing blunderbuss projectiles must kill landed passenger');

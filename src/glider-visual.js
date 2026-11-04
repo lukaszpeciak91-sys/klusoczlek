@@ -1,11 +1,17 @@
 import Phaser from 'phaser';
 import {assetUrl} from './character-visual.js';
-import {createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer} from './enemy-visual.js';
+import {createBobrozombiRenderer,createBocianolakRenderer} from './enemy-visual.js';
 import {ENEMY_TYPES} from './enemy-types.js';
-import {GLIDER_ART_KEY,GLIDER_ART_PATH,GLIDER_DEMO,LANDING_MS,
+import {AIRSHIP_GROUND_CAP,AIRSHIP_GLIDER_CAP} from './airship-defense.js';
+import {GLIDER_ART_KEY,GLIDER_ART_PATH,GLIDER_DEMO,LANDING_MS,GLIDER_EXPANDED_SEARCH_MS,
   landingPosition,makeFlight,stepFlight,stepLanding} from './glider-delivery.js';
 
-const WING_DISPLAY=Object.freeze({width:176,height:94});
+const WING_DISPLAY_WIDTH=176;
+function showApprovedWing(scene,art){
+  const source=scene.textures.get(GLIDER_ART_KEY).getSourceImage();
+  const width=source.width||176,height=source.height||94;
+  art.setTexture(GLIDER_ART_KEY).setDisplaySize(WING_DISPLAY_WIDTH,WING_DISPLAY_WIDTH*height/width).setVisible(true);
+}
 function wingFallback(scene){
   const wing=scene.add.graphics();
   wing.fillStyle(0x63513a).fillPoints([
@@ -23,10 +29,9 @@ export function createGliderDelivery(scene,{demo=false}={}){
   const renderers={
     bobrozombi:createBobrozombiRenderer(scene,Phaser),
     bocianolak:createBocianolakRenderer(scene,Phaser),
-    zubrokryptyda:createZubrokryptydaRenderer(scene,Phaser),
   };
   const flights=[],landings=[],groundEnemies=[],started=new Set();
-  let elapsed=0,alive=true,stopped=false,airborneCount=0,dropCount=0;
+  let elapsed=0,alive=true,stopped=false,airborneCount=0,dropCount=0,blockedCount=0;
   const pendingArt=new Set();
   async function loadVehicle(){
     try{
@@ -43,7 +48,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
       for(const visual of pendingArt){
         if(!visual.active)continue;
         const art=visual.getData('vehicleImage'),fallback=visual.getData('vehicleFallback');
-        art.setTexture(GLIDER_ART_KEY).setDisplaySize(WING_DISPLAY.width,WING_DISPLAY.height).setVisible(true);
+        showApprovedWing(scene,art);
         fallback.setVisible(false);
       }
     }catch(error){
@@ -55,6 +60,9 @@ export function createGliderDelivery(scene,{demo=false}={}){
 
   function createAirborne(spec){
     if(!alive||stopped||started.has(spec.id))return null;
+    if(flights.filter(f=>!f.finished).length>=AIRSHIP_GLIDER_CAP)return null;
+    if(groundEnemies.filter(e=>!e.dead).length+landings.filter(l=>!l.finished).length+
+      flights.filter(f=>!f.finished&&!f.released).length>=AIRSHIP_GROUND_CAP)return null;
     const flight=makeFlight(spec);
     const visual=scene.add.container(flight.x,flight.y).setDepth(23);
     const wing=wingFallback(scene);
@@ -63,31 +71,32 @@ export function createGliderDelivery(scene,{demo=false}={}){
     visual.setData('vehicleFallback',wing);
     visual.setData('vehicleImage',approved);
     if(scene.textures.exists(GLIDER_ART_KEY)){
-      approved.setTexture(GLIDER_ART_KEY).setDisplaySize(WING_DISPLAY.width,WING_DISPLAY.height).setVisible(true);
+      showApprovedWing(scene,approved);
       wing.setVisible(false);
     }else pendingArt.add(visual);
     visual.once(Phaser.GameObjects.Events.DESTROY,()=>pendingArt.delete(visual));
-    const pilot=renderers.zubrokryptyda.create(0,0);
-    pilot.setScale(.48).setPosition(0,-21);
+    // Exactly one enemy at its usual world scale, suspended below the bar.
     const passenger=renderers[spec.type].create(0,0);
-    passenger.setScale(.68).setPosition(0,47);
-    visual.add([pilot,passenger]);
-    flight.visual=visual;flight.pilot=pilot;flight.passenger=passenger;flight.telegraph=null;
+    passenger.setPosition(0,58);
+    visual.add(passenger);
+    flight.visual=visual;flight.passenger=passenger;flight.telegraph=null;
     flights.push(flight);started.add(flight.id);airborneCount++;
     return flight;
   }
   function releasePassenger(flight){
     if(!flight.passenger||!flight.landingPoint)return;
     const passenger=flight.passenger;
+    const start={x:flight.visual.x+passenger.x,y:flight.visual.y+passenger.y};
     flight.visual.remove(passenger);
-    // Only a visual exists during descent. Logical ground identity is created once at touchdown.
+    // Only one visual exists during descent. Logical ground identity is created at touchdown.
     const descent=scene.add.container(flight.landingPoint.x,flight.landingPoint.y).setDepth(14);
     scene.add.existing(passenger);
     descent.add(passenger);
-    passenger.setPosition(0,-115).setScale(.68);
+    const startX=start.x-flight.landingPoint.x,startY=start.y-flight.landingPoint.y;
+    passenger.setPosition(startX,startY).setScale(1);
     flight.passenger=null;
     const landing={id:flight.id,type:flight.type,x:flight.landingPoint.x,y:flight.landingPoint.y,
-      radius:ENEMY_TYPES[flight.type].radius,elapsed:0,finished:false,visual:descent,passenger};
+      radius:ENEMY_TYPES[flight.type].radius,elapsed:0,finished:false,visual:descent,passenger,startX,startY};
     landings.push(landing);
     dropCount++;
   }
@@ -103,7 +112,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
     groundEnemies.push(enemy);
   }
   const update=delta=>{
-    if(!alive)return;
+    if(!alive||stopped)return;
     const dt=Math.max(0,Math.min(50,delta));
     elapsed+=dt;
     if(demo)for(const spec of GLIDER_DEMO){
@@ -113,18 +122,28 @@ export function createGliderDelivery(scene,{demo=false}={}){
       if(flight.finished)continue;
       const occupied=[...groundEnemies,...landings.filter(l=>!l.finished)].map(e=>({x:e.x,y:e.y,radius:e.radius??ENEMY_TYPES[e.type].radius}));
       const point=flight.phase==='dropping'&&!flight.released
-        ?landingPosition(flight.zoneId,scene.player,occupied,ENEMY_TYPES[flight.type].radius):null;
-      if(flight.phase==='dropping'&&point&&!flight.released&&!flight.telegraph){
-        flight.telegraph=scene.add.ellipse(point.x,point.y,64,24,0xd8a255,0.18)
-          .setStrokeStyle(3,0xeccb7d,0.9).setDepth(7);
+        ?landingPosition(flight.zoneId,scene.player,occupied,ENEMY_TYPES[flight.type].radius,
+          flight.elapsed>=GLIDER_EXPANDED_SEARCH_MS):null;
+      if(flight.phase==='dropping'&&!flight.released){
+        if(point){
+          if(!flight.telegraph){
+            flight.telegraph=scene.add.ellipse(point.x,point.y,64,24,0xd8a255,0.18)
+              .setStrokeStyle(3,0xeccb7d,0.9).setDepth(7);
+          }else flight.telegraph.setPosition(point.x,point.y);
+        }else if(flight.telegraph){
+          flight.telegraph.destroy();
+          flight.telegraph=null;
+        }
       }
       if(flight.telegraph?.active)flight.telegraph.setAlpha(.45+.35*Math.sin(elapsed/105));
       const event=stepFlight(flight,dt,point);
       if(event.drop){flight.telegraph?.destroy();flight.telegraph=null;releasePassenger(flight);}
-      if(flight.visual?.active){
-        flight.visual.setPosition(flight.x,flight.y);
-        flight.visual.setRotation(Math.sin(elapsed/320)*.018);
+      if(event.blocked){
+        blockedCount++;
+        flight.telegraph?.destroy();flight.telegraph=null;
+        console.warn('[Airship glider] Landing blocked after bounded retries:',flight.id);
       }
+      if(flight.visual?.active)flight.visual.setPosition(flight.x,flight.y);
       if(event.finished){flight.visual?.destroy();flight.visual=null;flight.telegraph?.destroy();flight.telegraph=null;}
     }
     for(const landing of landings){
@@ -132,11 +151,11 @@ export function createGliderDelivery(scene,{demo=false}={}){
       const touchdown=stepLanding(landing,dt);
       if(landing.passenger?.active){
         const t=landing.elapsed/LANDING_MS;
-        landing.passenger.setPosition(0,-115*(1-t)).setScale(.68+.32*t);
+        landing.passenger.setPosition(landing.startX*(1-t),landing.startY*(1-t)).setScale(1);
       }
       if(touchdown)finishLanding(landing);
     }
-    // Ground actors are intentionally inert in PR63: only the existing renderer is updated.
+    // Existing Act II combat adapter owns ground movement, hits and damage.
     for(const enemy of groundEnemies)if(!enemy.dead&&enemy.sprite.active)renderers[enemy.type].update(enemy,scene.player,0,0);
   };
   function stop(){
@@ -155,7 +174,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN,shutdown);
   return {update,shutdown,stop,request:createAirborne,renderers,get flights(){return flights;},get landings(){return landings;},
     get groundEnemies(){return groundEnemies;},get spawnedCount(){return airborneCount;},
-    get dropCount(){return dropCount;},get finishedCount(){return flights.filter(f=>f.finished).length;},
+    get dropCount(){return dropCount;},get blockedCount(){return blockedCount;},get finishedCount(){return flights.filter(f=>f.finished).length;},
     get activeAirborneVisuals(){return flights.filter(f=>f.visual?.active).length;},
     get activeLandingVisuals(){return landings.filter(l=>l.visual?.active).length;},
     get pendingPassengers(){return flights.filter(f=>!f.released&&!f.finished).length+landings.filter(l=>!l.finished).length;},
