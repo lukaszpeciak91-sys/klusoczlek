@@ -6,7 +6,12 @@ import {AIRSHIP_GROUND_CAP,AIRSHIP_GLIDER_CAP} from './airship-defense.js';
 import {GLIDER_ART_KEY,GLIDER_ART_PATH,GLIDER_DEMO,LANDING_MS,GLIDER_EXPANDED_SEARCH_MS,
   landingPosition,makeFlight,stepFlight,stepLanding} from './glider-delivery.js';
 
-const WING_DISPLAY=Object.freeze({width:176,height:94});
+const WING_DISPLAY_WIDTH=176;
+function showApprovedWing(scene,art){
+  const source=scene.textures.get(GLIDER_ART_KEY).getSourceImage();
+  const width=source.width||176,height=source.height||94;
+  art.setTexture(GLIDER_ART_KEY).setDisplaySize(WING_DISPLAY_WIDTH,WING_DISPLAY_WIDTH*height/width).setVisible(true);
+}
 function wingFallback(scene){
   const wing=scene.add.graphics();
   wing.fillStyle(0x63513a).fillPoints([
@@ -43,7 +48,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
       for(const visual of pendingArt){
         if(!visual.active)continue;
         const art=visual.getData('vehicleImage'),fallback=visual.getData('vehicleFallback');
-        art.setTexture(GLIDER_ART_KEY).setDisplaySize(WING_DISPLAY.width,WING_DISPLAY.height).setVisible(true);
+        showApprovedWing(scene,art);
         fallback.setVisible(false);
       }
     }catch(error){
@@ -66,7 +71,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
     visual.setData('vehicleFallback',wing);
     visual.setData('vehicleImage',approved);
     if(scene.textures.exists(GLIDER_ART_KEY)){
-      approved.setTexture(GLIDER_ART_KEY).setDisplaySize(WING_DISPLAY.width,WING_DISPLAY.height).setVisible(true);
+      showApprovedWing(scene,approved);
       wing.setVisible(false);
     }else pendingArt.add(visual);
     visual.once(Phaser.GameObjects.Events.DESTROY,()=>pendingArt.delete(visual));
@@ -81,15 +86,17 @@ export function createGliderDelivery(scene,{demo=false}={}){
   function releasePassenger(flight){
     if(!flight.passenger||!flight.landingPoint)return;
     const passenger=flight.passenger;
+    const start={x:flight.visual.x+passenger.x,y:flight.visual.y+passenger.y};
     flight.visual.remove(passenger);
-    // Only a visual exists during descent. Logical ground identity is created once at touchdown.
+    // Only one visual exists during descent. Logical ground identity is created at touchdown.
     const descent=scene.add.container(flight.landingPoint.x,flight.landingPoint.y).setDepth(14);
     scene.add.existing(passenger);
     descent.add(passenger);
-    passenger.setPosition(0,-100).setScale(1);
+    const startX=start.x-flight.landingPoint.x,startY=start.y-flight.landingPoint.y;
+    passenger.setPosition(startX,startY).setScale(1);
     flight.passenger=null;
     const landing={id:flight.id,type:flight.type,x:flight.landingPoint.x,y:flight.landingPoint.y,
-      radius:ENEMY_TYPES[flight.type].radius,elapsed:0,finished:false,visual:descent,passenger};
+      radius:ENEMY_TYPES[flight.type].radius,elapsed:0,finished:false,visual:descent,passenger,startX,startY};
     landings.push(landing);
     dropCount++;
   }
@@ -137,7 +144,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
       const touchdown=stepLanding(landing,dt);
       if(landing.passenger?.active){
         const t=landing.elapsed/LANDING_MS;
-        landing.passenger.setPosition(0,-100*(1-t)).setScale(1);
+        landing.passenger.setPosition(landing.startX*(1-t),landing.startY*(1-t)).setScale(1);
       }
       if(touchdown)finishLanding(landing);
     }
