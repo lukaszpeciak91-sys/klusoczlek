@@ -185,6 +185,7 @@ export class AirshipScene extends Phaser.Scene {
       this.resultBackground.setSize(w,h);
       this.resultLabel.setPosition(w/2,h*.43).setWordWrapWidth(w-20);
       this.resultDetails.setPosition(w/2,h*.62).setWordWrapWidth(w-20);
+      this.onFocus?.();
     };
     resize();
     this.scale.on(Phaser.Scale.Events.RESIZE,resize);
@@ -349,6 +350,7 @@ export class AirshipScene extends Phaser.Scene {
     const allowed=!document.hidden&&document.hasFocus()&&window.innerWidth>=window.innerHeight&&!this.scene.isPaused();
     if(!allowed){
       advanceGameplayClock(this.defense.clock,0,false);
+      this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
       this.combat.stopFire();
       return;
     }
