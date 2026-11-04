@@ -451,7 +451,9 @@ export class AirshipScene extends Phaser.Scene {
     if(!finishAirshipDefense(this.defense,outcome))return false;
     this.openingPhase='complete';
     this.act2Bark.setVisible(false);
-    this.captainSprite?.setFrame(playerFrame('w'));
+    const facePlayer=facingOf(this.player.x-this.captainActor.x,this.player.y-this.captainActor.y,'w');
+    this.captainSprite?.setFrame(playerFrame(facePlayer));
+    this.playerVisual.update(facingOf(this.captainActor.x-this.player.x,this.captainActor.y-this.player.y,'e'),false,0);
     this.gliderDelivery.stop();
     this.combat.stop({neutralize:outcome==='survived'});
     this.resetMovement();
