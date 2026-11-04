@@ -10,6 +10,7 @@ import {normalizeInput} from './movement.js';
 import {facingOf} from './combat-contract.js';
 import {WEAPONS,cycleUnlockedWeapon} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
+import {createGliderDelivery} from './glider-visual.js';
 
 const DECK_TEXTURE='airship-deck-approved';
 export class AirshipScene extends Phaser.Scene {
@@ -105,6 +106,8 @@ export class AirshipScene extends Phaser.Scene {
     this.switchLabel=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'11px',color:'#f6e9cc'})
       .setOrigin(.5).setScrollFactor(0).setDepth(67);
     this.syncWeaponHud();
+    // Short deterministic glider demonstration: no combat director or damage system.
+    this.gliderDelivery=createGliderDelivery(this);
     const touchSwitch=pointer=>{
       if(pointer.id===this.joystick.pointerId||pointer.id===this.aimJoystick.pointerId)return;
       const l=this.hudLayout;
@@ -189,6 +192,7 @@ export class AirshipScene extends Phaser.Scene {
   update(time,delta){
     if(document.hidden||window.innerWidth<window.innerHeight||this.scene.isPaused())return;
     scrollCloudLayers(this.layers,delta);
+    this.gliderDelivery?.update(delta);
     const key=this.keys;
     const input=normalizeInput(this.joystick.direction.x+Number(key.D.isDown||key.RIGHT.isDown)-Number(key.A.isDown||key.LEFT.isDown),
       this.joystick.direction.y+Number(key.S.isDown||key.DOWN.isDown)-Number(key.W.isDown||key.UP.isDown));
