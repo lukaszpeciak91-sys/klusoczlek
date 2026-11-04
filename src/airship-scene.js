@@ -11,6 +11,15 @@ import {facingOf} from './combat-contract.js';
 import {WEAPONS,cycleUnlockedWeapon} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {createGliderDelivery} from './glider-visual.js';
+import {createDialogueState,beginDialogue} from './dialogue-data.js';
+import {createDialoguePanel} from './dialogue-ui.js';
+import {CAPTAIN_VISUAL_SCALE} from './captain-arrival.js';
+import {createAirshipDefense,AIRSHIP_SURVIVAL_MS,AIRSHIP_GROUND_CAP,tickAirshipDefense,finishAirshipDefense} from './airship-defense.js';
+import {createAirshipCombat} from './airship-combat.js';
+import {updateRunHealth} from './campaign-run.js';
+import {resolveAim} from './shooting.js';
+import {formatGameplayClock,advanceGameplayClock} from './gameplay-clock.js';
+import {updateBursts} from './pixel-death-vfx.js';
 
 const DECK_TEXTURE='airship-deck-approved';
 export class AirshipScene extends Phaser.Scene {
@@ -83,6 +92,11 @@ export class AirshipScene extends Phaser.Scene {
     if(this.weapon&&Object.hasOwn(WEAPONS,this.weapon))void this.playerVisual.setVariant(this.weapon);
     this.playerHp=this.campaignRun.hp;
     this.maxHp=this.campaignRun.maxHp;
+    this.invulnerableUntil=0;
+    this.openingPhase='overview';
+    this.openingElapsed=0;
+    this.shakeTriggered=0;
+    this.defense=createAirshipDefense();
     this.joystick=createJoystick(this,'left');
     this.aimJoystick=createJoystick(this,'right');
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
@@ -106,8 +120,46 @@ export class AirshipScene extends Phaser.Scene {
     this.switchLabel=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'11px',color:'#f6e9cc'})
       .setOrigin(.5).setScrollFactor(0).setDepth(67);
     this.syncWeaponHud();
-    // Short deterministic glider demonstration: no combat director or damage system.
     this.gliderDelivery=createGliderDelivery(this);
+    this.combat=createAirshipCombat(this,this.gliderDelivery);
+    // Non-combat Captain, visually reused from Act I's already loaded 8-frame sheet.
+    this.captainActor=this.add.container(595,208).setDepth(11);
+    this.captainActor.add(this.add.ellipse(0,1,38,10,0x241b16,0.24));
+    if(this.textures.exists('npc-captain')){
+      const height=this.textures.get('npc-captain').source[0].height;
+      this.captainActor.add(this.add.sprite(0,-height*CAPTAIN_VISUAL_SCALE/2,'npc-captain',4).setScale(CAPTAIN_VISUAL_SCALE));
+    }else{
+      this.captainActor.add(this.add.rectangle(0,-26,38,51,0x456e83));
+      this.captainActor.add(this.add.circle(0,-63,16,0xe7b28d));
+      console.warn('[Airship] Captain spritesheet absent, using stable NPC fallback');
+    }
+    this.dialogueState=createDialogueState();
+    this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
+      if(id==='act2-opening')this.startDefense();
+    },state=>{
+      if(state.id==='act2-opening'&&state.index===16&&this.shakeTriggered===0){
+        this.shakeTriggered=1;this.cameras.main.shake(200,0.005);
+      }
+    });
+    this.objectiveText=this.add.text(0,0,'WYTRZYMAJ 03:00',{
+      fontFamily:'monospace',fontSize:'18px',fontStyle:'bold',color:'#ffdd95'
+    }).setOrigin(.5).setScrollFactor(0).setDepth(80).setVisible(false);
+    this.defenseKillsText=this.add.text(0,0,'POKONANI 0',{
+      fontFamily:'monospace',fontSize:'12px',color:'#f4e8cf'
+    }).setOrigin(.5).setScrollFactor(0).setDepth(80).setVisible(false);
+    this.resultOverlay=this.add.container(0,0).setScrollFactor(0).setDepth(175).setVisible(false);
+    this.resultBackground=this.add.rectangle(0,0,1,1,0x11181e,0.96).setOrigin(0);
+    this.resultLabel=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'21px',fontStyle:'bold',color:'#f3ca76',align:'center'}).setOrigin(.5);
+    this.resultDetails=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'14px',color:'#e9d9c2',align:'center'}).setOrigin(.5);
+    this.resultOverlay.add([this.resultBackground,this.resultLabel,this.resultDetails]);
+    this.pickup=null;
+    if(this.weapon===null){
+      this.pickup=this.add.container(563,275).setDepth(12).setVisible(false);
+      this.pickup.add(this.add.circle(0,0,19,0xb49a4e).setStrokeStyle(2,0x392d26));
+      this.pickup.add(this.add.text(0,0,'ϟ',{fontFamily:'monospace',fontSize:'24px',color:'#f5e6b4'}).setOrigin(.5));
+    }
+    this.cameras.main.stopFollow();
+    this.frameFullShip();
     const touchSwitch=pointer=>{
       if(pointer.id===this.joystick.pointerId||pointer.id===this.aimJoystick.pointerId)return;
       const l=this.hudLayout;
@@ -125,7 +177,13 @@ export class AirshipScene extends Phaser.Scene {
       this.hpFace.resize(l);this.hpText.setPosition(l.hpX,l.hpY);
       this.weaponToken.setPosition(l.switchX,l.switchY).setScale(l.switchSize/42);
       this.switchLabel.setPosition(l.switchX,l.switchY-l.switchSize/2-12);
-      this.cameras.main.setZoom(1);
+      if(this.openingPhase==='overview')this.frameFullShip();
+      else if(this.openingPhase!=='zoom')this.cameras.main.setZoom(1);
+      this.objectiveText.setPosition(w/2,Math.max(13,l.menuY-2));
+      this.defenseKillsText.setPosition(w/2,Math.max(30,l.menuY+22));
+      this.resultBackground.setSize(w,h);
+      this.resultLabel.setPosition(w/2,h*.43).setWordWrapWidth(w-20);
+      this.resultDetails.setPosition(w/2,h*.62).setWordWrapWidth(w-20);
     };
     resize();
     this.scale.on(Phaser.Scale.Events.RESIZE,resize);
@@ -137,18 +195,32 @@ export class AirshipScene extends Phaser.Scene {
       window.removeEventListener('blur',this.onBlur);
       window.removeEventListener('focus',this.onFocus);
       document.removeEventListener('visibilitychange',this.onVisibility);
+      this.gliderDelivery?.shutdown();
+      this.combat?.cleanup();
       this.deckMask.destroy();this.playerVisual.destroy();this.hpFace.destroy();
     });
     this.resetMovement=()=>{this.joystick.reset();this.aimJoystick.reset();this.input.keyboard.resetKeys();};
-    this.onBlur=()=>{this.resetMovement();this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);};
-    this.onFocus=()=>{const allowed=!document.hidden&&window.innerWidth>=window.innerHeight&&!this.scene.isPaused();this.joystick.setEnabled(allowed);this.aimJoystick.setEnabled(allowed);};
+    this.onBlur=()=>{
+      advanceGameplayClock(this.defense.clock,0,false);
+      this.resetMovement();this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
+      this.combat.stopFire();
+    };
+    this.onFocus=()=>{
+      const allowed=this.openingPhase==='active'&&!document.hidden&&document.hasFocus()&&
+        window.innerWidth>=window.innerHeight&&!this.scene.isPaused();
+      this.joystick.setEnabled(allowed);this.aimJoystick.setEnabled(allowed);
+      if(!allowed)advanceGameplayClock(this.defense.clock,0,false);
+    };
     this.onVisibility=()=>document.hidden?this.onBlur():this.onFocus();
     window.addEventListener('blur',this.onBlur);
     window.addEventListener('focus',this.onFocus);
     document.addEventListener('visibilitychange',this.onVisibility);
-    this.events.on(Phaser.Scenes.Events.RESUME,()=>{document.getElementById('fullscreen-button').hidden=true;this.onFocus();});
+    this.events.on(Phaser.Scenes.Events.RESUME,()=>{
+      document.getElementById('fullscreen-button').hidden=true;this.onFocus();
+    });
     document.getElementById('fullscreen-button').hidden=true;
     this.onFocus();
+    this.setOpeningHud(false);
     enforceOrientationOnSceneStart(this);
   }
   async loadOptional(path,key,target,deck=false){
@@ -176,7 +248,7 @@ export class AirshipScene extends Phaser.Scene {
     this.switchLabel?.setText(def?.label??'BEZ BRONI');
   }
   cycleWeapon(){
-    if(this.scene.isPaused()||document.hidden)return false;
+    if(this.scene.isPaused()||document.hidden||this.openingPhase!=='active')return false;
     const next=cycleUnlockedWeapon(this.weapon,this.unlockedWeapons);
     if(!next||next===this.weapon)return false;
     this.weapon=next;
@@ -187,6 +259,8 @@ export class AirshipScene extends Phaser.Scene {
   openMenu(){
     if(this.scene.isPaused()||this.scene.isActive('Menu'))return;
     this.resetMovement();this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
+    advanceGameplayClock(this.defense.clock,0,false);
+    this.combat.stopFire();
     this.scene.pause();this.scene.launch('Menu');this.scene.bringToTop('Menu');
   }
   update(time,delta){
