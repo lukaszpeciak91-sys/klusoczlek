@@ -24,7 +24,7 @@ import {WAVES,TOTAL_WAVES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity
 import { WEAPONS, cycleUnlockedWeapon, selectUnlockedWeapon, initialPickupPoint, dropPoint, safeEnemySpawn, clearPoint, pickupCollected, fallbackRewardPoint } from './weapon-progression.js';
 import { createArenaGround } from './arena-ground.js';
 import { createJoystick } from './joystick.js';
-import { resolvePose } from './combat-contract.js';
+import { resolvePose,facingOf } from './combat-contract.js';
 import { resolveAim, muzzlePoint } from './shooting.js';
 import {COMBAT_TUNING,createFiringState,resetFiring,firingStep,flameTargetVisible,cooldownReady} from './weapon-combat.js';
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
