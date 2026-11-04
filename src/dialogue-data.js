@@ -37,7 +37,7 @@ export const DIALOGUES=Object.freeze({
  ],
  'act2-opening':[
   ['aloes','ALOES','Kapitanie, gdzie my właściwie jesteśmy? Co to za magiczna kraina?'],
-  ['captain','KAPITAN','Nie magiczna, a zaczarowana! I nie kraina, tylko cały świat! Zaczarowany Świat!'],
+  ['captain','KAPITAN','Nie magiczna, a zaczarowana! I nie kraina, tylko cały świat! Zaczarowana Świat!'],
   ['aloes','ALOES','I czym są te wszystkie stwory? Skąd się wzięły?'],
   ['captain','KAPITAN','Co?! Nie wiem! Ja na pewno nie miałem z tym nic wspólnego!'],
   ['aloes','ALOES','Ale ja przecież tylko...'],
