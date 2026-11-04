@@ -18,6 +18,16 @@ function showApprovedWing(art,flight){
   art.setTexture(GLIDER_ART_KEY,frameForFlight(flight))
     .setDisplaySize(WING_DISPLAY_WIDTH,WING_DISPLAY_WIDTH).setVisible(true);
 }
+// Enemy renderer stores its selected direction on the container and on its
+// async-attached spritesheet. Keep both in sync with the painted wing frame.
+function syncPassengerFacing(flight){
+  const passenger=flight.passenger;
+  if(!passenger?.active)return;
+  const frame=frameForFlight(flight);
+  passenger.setData(flight.type+'-facing',frame);
+  const art=passenger.getData(flight.type+'-art');
+  if(art?.active&&art.frame.name!==frame)art.setFrame(frame);
+}
 function wingFallback(scene){
   const wing=scene.add.graphics();
   wing.fillStyle(0x63513a).fillPoints([
@@ -94,6 +104,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
     passenger.setPosition(0,58);
     visual.add(passenger);
     flight.visual=visual;flight.passenger=passenger;flight.telegraph=null;
+    syncPassengerFacing(flight);
     flights.push(flight);started.add(flight.id);airborneCount++;
     return flight;
   }
@@ -159,6 +170,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
       }
       if(flight.visual?.active){
         flight.visual.setPosition(flight.x,flight.y);
+        syncPassengerFacing(flight);
         const art=flight.visual.getData('vehicleImage');
         if(art?.visible&&art.texture.key===GLIDER_ART_KEY){
           const frame=frameForFlight(flight);
