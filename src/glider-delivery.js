@@ -78,10 +78,11 @@ export function stepFlight(flight,deltaMs,point=null){
         flight.heading={x:dx,y:dy};
       }
       if(Math.hypot(flight.target.x-flight.x,flight.target.y-flight.y)<1.5){
-        flight.phase='dropping';
-        // If the reserved point is no longer safe, wait or redirect toward
-        // another candidate; do not release above an invalid location.
-        if(point&&flight.landingPoint.x===point.x&&flight.landingPoint.y===point.y&&flight.elapsed>=300){
+        if(flight.phase==='approaching'){
+          flight.phase='dropping';flight.elapsed=0;
+        }else if(point&&flight.landingPoint.x===point.x&&flight.landingPoint.y===point.y&&flight.elapsed>=300){
+          // Preserve a short, visible release beat and never drop above an
+          // occupied location or while the glider is still redirecting.
           flight.released=true;drop=true;flight.departFrom={x:flight.x,y:flight.y};
           flight.phase='departing';flight.elapsed=0;
         }
