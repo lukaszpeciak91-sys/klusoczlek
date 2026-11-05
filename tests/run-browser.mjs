@@ -1002,18 +1002,23 @@ try {
     assert.equal(tap.phase,'complete','PR57 completion not reached '+JSON.stringify(tap));
     const handoff=await evaluate("(()=>{const a=window.__game.scene.getScene('Arena'),r=a.campaignRun;return {act:r.actId,completed:[...r.completedActs],hp:r.hp,maxHp:r.maxHp,selected:r.selectedWeapon,weapons:[...r.unlockedWeapons],kills:r.stats.kills,time:r.stats.activeCombatMs,artifact:r.artifacts.has('marcin-mohawk'),results:r.stats.byAct.act1}})()");
     assert.equal(handoff.act,'act1');assert.deepEqual(handoff.completed,['act1']);
-    assert.equal(handoff.hp,await evaluate("window.__game.scene.getScene('Arena').playerHp"));
+    assert.equal(handoff.hp,handoff.maxHp,'PR79 full heal at the Act I -> II boundary');
     assert.equal(handoff.selected,await evaluate("window.__game.scene.getScene('Arena').weapon"));
     assert.equal(handoff.kills,reward.kills);assert.equal(handoff.time,reward.clock);
     assert.equal(handoff.artifact,true);assert.deepEqual(handoff.results,{kills:reward.kills,activeCombatMs:reward.clock});
     for(let n=0;n<60;n++){if(await evaluate("window.__game.scene.isActive('ActTitle')"))break;await sleep(20);}
     const act2Card=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return {active:g.scene.isActive('ActTitle'),arena:g.scene.isActive('Arena'),label:t.children.list.find(o=>o.text==='AKT II')?.text,title:t.children.list.find(o=>o.text==='W PRZESTWORZACH')?.text}})()");
     assert.deepEqual(act2Card,{active:true,arena:false,label:'AKT II',title:'W PRZESTWORZACH'},'PR62 Act II title must precede Airship');
+    // The real completed Act I commits a genuine Act II entry checkpoint.
+    const persisted=await evaluate("(()=>{const raw=localStorage.getItem('klusoczlek-campaign-v1');if(!raw)return null;const save=JSON.parse(raw);localStorage.setItem('__pr79_browser_act2_fixture',raw);return {act:save.actId,hp:save.hp,maxHp:save.maxHp,artifact:save.artifacts.includes('marcin-mohawk'),completed:save.completedActs.includes('act1'),selected:save.selectedWeapon,weapons:save.unlockedWeapons}})()");
+    assert.ok(persisted&&persisted.act==='act2'&&persisted.hp===persisted.maxHp&&persisted.artifact&&persisted.completed,'PR79 legitimate Act II checkpoint missing');
+    assert.equal(persisted.selected,handoff.selected);
+    assert.deepEqual(persisted.weapons,handoff.weapons);
     for(let n=0;n<100;n++){if(await evaluate("window.__game.scene.isActive('Airship')"))break;await sleep(35);}
     assert.equal(await evaluate("window.__game.scene.isActive('Airship')"),true,'PR62 Airship must start after the title card');
     const shouldTestDefeat=windowPr64VictoryVerified&&!windowPr64DefeatVerified;
     const ship=await evaluate("(()=>{const g=window.__game,a=g.scene.getScene('Airship'),r=a.campaignRun;return {act:r.actId,hp:a.playerHp,maxHp:a.maxHp,weapon:a.weapon,unlocked:[...a.unlockedWeapons],position:{x:a.player.x,y:a.player.y},layers:a.layers.length,dialogue:g.scene.isActive('Arena')}})()");
-    assert.equal(ship.act,'act2');assert.equal(ship.hp,handoff.hp);assert.equal(ship.maxHp,handoff.maxHp);
+    assert.equal(ship.act,'act2');assert.equal(ship.hp,ship.maxHp,'PR79 Act II must start at full health');assert.equal(ship.hp,handoff.maxHp);
     assert.equal(ship.weapon,handoff.selected);assert.deepEqual(ship.unlocked,handoff.weapons);
     assert.equal(ship.layers,4);assert.equal(ship.dialogue,false);
     for(let n=0;n<180;n++){
@@ -2600,7 +2605,41 @@ try {
     await writeFile('dist/pr54-boss-'+seed+'-'+width+'x'+height+'.png',Buffer.from((await cdp('Page.captureScreenshot',{format:'png'})).data,'base64'));
     console.log('PASS PR54 '+seed+' '+width+'x'+height+': 3:59 blocked, offcamera actor blocks at4:12, cleared4:12 herald, real DALEJ, boss lands '+JSON.stringify({summoned,landed}));
   }
-  assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
+  // PR79: actual page reloads, menu WZNÓW behavior, saved Act II restoration
+  // and DEBUG isolation. All saves originate from real gameplay above.
+  await cdp('Emulation.setDeviceMetricsOverride',{width:915,height:412,deviceScaleFactor:1,mobile:false});
+  await evaluate("window.__game.scale.refresh();true");
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('klusoczlek-campaign-v1')).actId"),'act1','PR79 NOWA GRA must replace previous checkpoint');
+  await cdp('Page.reload',{ignoreCache:true});
+  for(let n=0;n<120;n++){
+    if(await evaluate("!!window.__game&&window.__game.scene.isActive('Menu')"))break;
+    await sleep(50);
+  }
+  assert.ok((await snapshot()).actions.some(a=>a.label==='WZNÓW'),'PR79 reload must show saved resume');
+  await clickControl('WZNÓW');
+  for(let n=0;n<110;n++){if(await evaluate("window.__game.scene.isActive('Arena')"))break;await sleep(35);}
+  assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Arena');return a.campaignRun.actId==='act1'&&a.campaignRun.completedActs.size===0&&a.playerHp===a.campaignRun.maxHp})()"),true,'PR79 reload of Act I start');
+  await clickControl('hud');
+  await waitFor(v=>v.menu&&v.arenaPaused,'PR79 in-session MENU');
+  const pausedHp=await evaluate("window.__game.scene.getScene('Arena').playerHp");
+  await clickControl('WZNÓW');
+  assert.equal(await evaluate("window.__game.scene.getScene('Arena').playerHp"),pausedHp,'PR79 MENU WZNÓW must not heal');
+  await evaluate("(()=>{const saved=localStorage.getItem('klusoczlek-campaign-v1');localStorage.setItem('__pr79_act1_fixture',saved);localStorage.setItem('klusoczlek-campaign-v1',localStorage.getItem('__pr79_browser_act2_fixture'));return true})()");
+  // Refresh from the genuine Act II checkpoint recorded by the epilogue.
+  await cdp('Page.reload',{ignoreCache:true});
+  for(let n=0;n<120;n++){if(await evaluate("!!window.__game&&window.__game.scene.isActive('Menu')"))break;await sleep(50);}
+  await clickControl('WZNÓW');
+  for(let n=0;n<110;n++){if(await evaluate("window.__game.scene.isActive('Airship')"))break;await sleep(35);}
+  const restored=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {act:a.campaignRun.actId,hp:a.playerHp,maxHp:a.maxHp,artifact:a.campaignRun.artifacts.has('marcin-mohawk'),completed:a.campaignRun.completedActs.has('act1'),selected:a.weapon,opening:a.openingPhase}})()");
+  assert.ok(restored.act==='act2'&&restored.hp===restored.maxHp&&restored.artifact&&restored.completed,'PR79 restored Act II checkpoint invalid '+JSON.stringify(restored));
+  assert.notEqual(restored.opening,'active','PR79 restored Act II must start with opening, not in combat');
+  await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.playerHp=2;a.openMenu();return true})()");
+  await waitFor(v=>v.menu,'PR79 Act II MENU');
+  await clickControl('WZNÓW');
+  assert.equal(await evaluate("window.__game.scene.getScene('Airship').playerHp"),2,'PR79 in-session WZNÓW must not heal damaged player');
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('klusoczlek-campaign-v1')).hp"),restored.maxHp,'PR79 must not persist midcombat health');
+  console.log('PASS PR79 real Chrome reload: Act I and Act II entry, full health, retained artifact, and in-session pause HP');
+    assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {
   socket?.close();
   chrome?.kill('SIGKILL');
