@@ -306,6 +306,45 @@ try {
         console.log('PR67 paddlewheel visibility diagnostic (no assertion bypass)',JSON.stringify(diagnostic));
       }
       assert.deepEqual(visuals,{deck:true,provisional:false,rails:false,house:true,wheel:true,variant:'rifle'},'PR67 approved deck and integrated PNG assets');
+      // Wheel R1: inspect the real approved PNG and the one rotating Image.
+      const wheelBase=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),w=a.paddlewheel,src=w.texture.getSourceImage();return {status:a.optionalArtStatus['obstacles/airship-paddlewheel.png'],key:w.texture.key,origin:[w.originX,w.originY],pos:[w.x,w.y],size:[w.displayWidth,w.displayHeight],source:[src.width,src.height],angle:w.rotation,active:w.active,depth:w.depth,images:a.children.list.filter(o=>o.texture?.key==='airship-paddlewheel-approved').length}})()");
+      assert.equal(wheelBase.status,'loaded','Wheel R1 approved PNG must load');
+      assert.equal(wheelBase.key,'airship-paddlewheel-approved');
+      assert.deepEqual(wheelBase.origin,[.5,.5],'Wheel R1 center pivot');
+      assert.deepEqual(wheelBase.pos,[863,282],'Wheel R1 stern mounting');
+      assert.equal(wheelBase.images,1,'Wheel R1 exactly one paddlewheel Image');
+      assert.equal(wheelBase.depth,3,'Wheel R1 behind actors but in front of deck');
+      assert.ok(Math.abs(wheelBase.size[0]/wheelBase.size[1]-wheelBase.source[0]/wheelBase.source[1])<.0001,'Wheel R1 aspect ratio must remain natural');
+      await sleep(350);
+      const rotated=await evaluate("window.__game.scene.getScene('Airship').paddlewheel.rotation");
+      const rotationDiff=((rotated-wheelBase.angle)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+      assert.ok(rotationDiff>.025&&rotationDiff<.35,'Wheel R1 must rotate smoothly clockwise in active scene: '+rotationDiff);
+      const screenshotViewport=(await snapshot()).rect;
+      // Frame the *whole ship* so even the narrow Android viewport shows its stern.
+      for(const [width,height] of [[915,412],[568,320]]){
+        await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+        await evaluate("window.__game.scale.refresh();true");
+        // Let Phaser's asynchronous resize event finish before applying the
+        // capture-only full-ship camera; resize normally resets combat zoom to 1.
+        for(let attempt=0;attempt<20;attempt++){
+          const dimensions=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return [a.scale.width,a.scale.height]})()");
+          if(Math.abs(dimensions[0]-width)<2&&Math.abs(dimensions[1]-height)<2)break;
+          await sleep(40);
+        }
+        await sleep(110);
+        await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.cameras.main.stopFollow();a.frameFullShip();return true})()");
+        await sleep(190);
+        const captureState=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),w=a.paddlewheel,c=a.cameras.main;return {visible:w.visible,active:w.active,x:w.x,y:w.y,display:[w.displayWidth,w.displayHeight],origin:[w.originX,w.originY],rotation:w.rotation,zoom:c.zoom,scene:a.openingPhase}})()");
+        assert.equal(captureState.visible,true,'Wheel R1 visible at '+width+'x'+height);
+        assert.deepEqual(captureState.origin,[.5,.5]);
+        assert.ok(Math.abs(captureState.zoom-Math.min(1,width/960,height/540))<.015,'Wheel R1 capture must frame entire ship, not crop narrow landscape');
+        const image=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+        await writeFile('dist/paddlewheel-r1-'+width+'x'+height+'.png',Buffer.from(image.data,'base64'));
+      }
+      await cdp('Emulation.setDeviceMetricsOverride',{width:Math.round(screenshotViewport.width),height:Math.round(screenshotViewport.height),deviceScaleFactor:1,mobile:false});
+      await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.scale.refresh();a.cameras.main.setZoom(1);a.cameras.main.centerOn(a.player.x,a.player.y);a.cameras.main.startFollow(a.player,true,.12,.12);return true})()");
+      await sleep(60);
+
       const bounds=(await snapshot()).rect;
       const mx=bounds.x+450,my=bounds.y+170;
       await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:mx,y:my,button:'none'});
