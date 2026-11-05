@@ -1110,14 +1110,28 @@ try {
       // Keep this bounded integration test alive until both actual landings finish.
       await evaluate("window.__game.scene.getScene('Airship').invulnerableUntil=Infinity;true");
       for(let n=0;n<130;n++){if(await evaluate("window.__game.scene.getScene('Airship').gliderDelivery.spawnedCount>0"))break;await sleep(40);}
-      const flying=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery,f=m.flights[0];return {count:m.spawnedCount,pilot:!!f?.pilot?.active,passenger:!!f?.passenger?.active,vehicle:!!f?.visual?.active,type:f?.type}})()");
-      assert.equal(flying.count,1);assert.deepEqual([flying.pilot,flying.passenger,flying.vehicle],[false,true,true], 'PR69 exactly one passenger without pilot');
-      assert.equal(flying.type,'bobrozombi','PR64 first glider must deliver Bobrozombi');
+      const firstDelivery=await evaluate("(()=>{const m=window.__game.scene.getScene('Airship').gliderDelivery,f=m.flights[0];return {count:m.spawnedCount,type:f?.type,pilot:!!f?.pilot?.active}})()");
+      assert.ok(firstDelivery.count>=1);
+      assert.equal(firstDelivery.type,'bobrozombi','PR64 first glider must deliver Bobrozombi');
+      assert.equal(firstDelivery.pilot,false,'PR69 no separate glider pilot');
+      // The continuous director may already have released the first passenger
+      // by this read. Observe an *actually carrying* flight and freeze its
+      // state to inspect wing/monster alignment without a temporal race.
+      let carrierId=null;
+      for(let n=0;n<320;n++){
+        carrierId=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights.find(f=>f.passenger?.active&&f.visual?.active);if(!f)return null;a.__qaCarrierId=f.id;a.scene.pause();return f.id})()");
+        if(carrierId)break;
+        await sleep(35);
+      }
+      assert.ok(carrierId,'PR69 a carried passenger must become visible during real boarding');
+      const flying=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights.find(f=>f.id===a.__qaCarrierId);return {pilot:!!f?.pilot?.active,passenger:!!f?.passenger?.active,vehicle:!!f?.visual?.active,type:f?.type}})()");
+      assert.deepEqual([flying.pilot,flying.passenger,flying.vehicle],[false,true,true],
+        'PR69 exactly one visible passenger attached under a wing without pilot');
       for(let k=0;k<80;k++){
         if(await evaluate("window.__game.scene.getScene('Airship').gliderArtStatus!=='pending'"))break;
         await sleep(40);
       }
-      const vehicleArt=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,f=m.flights[0],art=f.visual.getData('vehicleImage'),t=a.textures.get('airship-hang-glider-v1'),source=t.getSourceImage();return {status:a.gliderArtStatus,art:art.visible,fallback:f.visual.getData('vehicleFallback').visible,texture:art.texture.key,frame:art.frame.name,cutWidth:art.frame.cutWidth,cutHeight:art.frame.cutHeight,displayWidth:art.displayWidth,displayHeight:art.displayHeight,sourceWidth:source.width,sourceHeight:source.height,frames:[0,1,2,3,4,5,6,7].map(n=>t.has(n))}})()");
+      const vehicleArt=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,f=m.flights.find(f=>f.id===a.__qaCarrierId),art=f.visual.getData('vehicleImage'),t=a.textures.get('airship-hang-glider-v1'),source=t.getSourceImage();return {status:a.gliderArtStatus,art:art.visible,fallback:f.visual.getData('vehicleFallback').visible,texture:art.texture.key,frame:art.frame.name,cutWidth:art.frame.cutWidth,cutHeight:art.frame.cutHeight,displayWidth:art.displayWidth,displayHeight:art.displayHeight,sourceWidth:source.width,sourceHeight:source.height,frames:[0,1,2,3,4,5,6,7].map(n=>t.has(n))}})()");
       assert.equal(vehicleArt.status,'loaded','PR69 R2 approved atlas must load from repository');
       assert.equal(vehicleArt.art,true,'PR69 approved glider PNG should be visible when loaded');
       assert.equal(vehicleArt.fallback,false,'PR69 no prototype glider over approved PNG');
@@ -1126,15 +1140,15 @@ try {
       assert.deepEqual(vehicleArt.frames,Array(8).fill(true),'PR69 R2 all eight frame registrations');
       assert.deepEqual([vehicleArt.cutWidth,vehicleArt.cutHeight],[320,320],'PR69 R2 render one frame, NEVER the full 2560px atlas');
       assert.deepEqual([vehicleArt.displayWidth,vehicleArt.displayHeight],[176,176],'PR69 R2 keep natural square frame ratio');
-      const directionInfo=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0],m=await import('/klusoczlek/src/glider-spritesheet.js');return {expected:m.flightDirectionFrame({x:0,y:0},f.heading),actual:Number(f.visual.getData('vehicleImage').frame.name),point:f.landingPoint,target:f.target,children:f.visual.list.map(x=>x.type),wingIndex:f.visual.list.indexOf(f.visual.getData('vehicleImage')),passengerIndex:f.visual.list.indexOf(f.passenger)}})()");
+      const directionInfo=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights.find(f=>f.id===a.__qaCarrierId),m=await import('/klusoczlek/src/glider-spritesheet.js');return {expected:m.flightDirectionFrame({x:0,y:0},f.heading),actual:Number(f.visual.getData('vehicleImage').frame.name),point:f.landingPoint,target:f.target,children:f.visual.list.map(x=>x.type),wingIndex:f.visual.list.indexOf(f.visual.getData('vehicleImage')),passengerIndex:f.visual.list.indexOf(f.passenger)}})()");
       assert.equal(directionInfo.actual,directionInfo.expected,'PR74 wing must reflect actual approach heading');
       assert.ok(directionInfo.point&&directionInfo.target,'PR74 safe point must be selected before final approach');
       assert.equal(directionInfo.target.x,directionInfo.point.x,'PR74 approach x equals reserved touchdown x');
       assert.ok(directionInfo.wingIndex>directionInfo.passengerIndex,'PR74 wing draws over suspended passenger');
-      const passengerFacing=await evaluate("(()=>{const f=window.__game.scene.getScene('Airship').gliderDelivery.flights[0],p=f.passenger,art=p?.getData(f.type+'-art');return {selected:p?.getData(f.type+'-facing'),spriteFrame:art?.active?Number(art.frame.name):null,wingFrame:Number(f.visual.getData('vehicleImage').frame.name)}})()");
+      const passengerFacing=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights.find(f=>f.id===a.__qaCarrierId),p=f.passenger,art=p?.getData(f.type+'-art');return {selected:p?.getData(f.type+'-facing'),spriteFrame:art?.active?Number(art.frame.name):null,wingFrame:Number(f.visual.getData('vehicleImage').frame.name)}})()");
       assert.equal(passengerFacing.selected,passengerFacing.wingFrame,'PR69 R2 carried monster must face same direction as wing');
       if(passengerFacing.spriteFrame!==null)assert.equal(passengerFacing.spriteFrame,passengerFacing.wingFrame,'PR69 R2 painted monster frame must match wing heading');
-      await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
+      await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.scene.resume();a.openMenu();return true})()");
       await waitFor(v=>v.menu,'PR64 pause glider');
       const paused=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,clock:a.defense.elapsedMs,x:f.x,y:f.y}})()");
       await sleep(170);
