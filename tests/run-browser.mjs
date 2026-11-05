@@ -1037,6 +1037,8 @@ try {
       assert.equal(await evaluate("window.__game.scene.getScene('Airship').openingPhase"),'active','PR64 final DALEJ must start defense');
       assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.playerVisual.requestedVariant===a.weapon})()"),true,'PR72 combat restores equipped appearance after last Wojtek panel');
       assert.equal(await evaluate("window.__game.scene.getScene('Airship').act2Bark.visible"),false,'PR72 barks hidden at combat boundary');
+      // Check the defense clock immediately at start, before waiting several seconds for Captain panic.
+      assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.defense.state==='active'&&a.defense.elapsedMs<500&&a.objectiveText.text.startsWith('WYTRZYMAJ')})()"),true);
       assert.equal(await evaluate("window.__game.scene.getScene('Airship').captainSpeech.visible"),false,'PR76 no panic speech in opening dialogue');
       const captainBefore=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return [a.captainActor.x,a.captainActor.y]})()");
       let captainRunning=false;
@@ -1049,7 +1051,7 @@ try {
       const captainBubble=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {phrases:a.captainSpeechState.spoken,dashes:a.captainPatrol.dashes,safe:a.captainActor.y<=390}})()");
       assert.ok(captainBubble.phrases.length>=1&&captainBubble.dashes>0&&captainBubble.safe,'PR76 panic remains on PR75 safe deck');
 
-      assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.defense.state==='active'&&a.defense.elapsedMs<500&&a.objectiveText.text.startsWith('WYTRZYMAJ')})()"),true);
+
       // Keep this bounded integration test alive until both actual landings finish.
       await evaluate("window.__game.scene.getScene('Airship').invulnerableUntil=Infinity;true");
       for(let n=0;n<130;n++){if(await evaluate("window.__game.scene.getScene('Airship').gliderDelivery.spawnedCount>0"))break;await sleep(40);}
