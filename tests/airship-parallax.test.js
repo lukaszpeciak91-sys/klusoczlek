@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {AIRSHIP_LAYERS,scrollCloudLayers} from '../src/airship-contract.js';
-import {CLOUD_TRAVEL_PX,CLOUD_FADE_START,CLOUD_OVERSCAN_PX,
+import {CLOUD_TRAVEL_PX,CLOUD_FADE_START,CLOUD_OVERSCAN_PX,cloudHorizontalMargins,
   horizontalCloudState,backgroundCoverScale,smoothstep01,createHorizontalParallaxLayer} from '../src/airship-parallax.js';
 
 test('Act II keeps four sky/cloud layers and the approved 0/5/12/23 px/s',()=>{
@@ -29,7 +29,8 @@ test('overscan guarantees both whole image compositions cover viewport in 915x41
   for(const [w,h] of [[915,412],[568,320],[960,540],[320,240]]){
     for(const [sourceW,sourceH] of [[1024,512],[512,256]]){
       const cover=backgroundCoverScale(sourceW,sourceH,w,h,true);
-      assert.ok(sourceW*cover>=w+2*(CLOUD_TRAVEL_PX+CLOUD_OVERSCAN_PX)-1e-7);
+      const margins=cloudHorizontalMargins();
+      assert.ok(sourceW*cover>=w+margins.left+margins.right-1e-7);
       assert.ok(sourceH*cover>=h+2*CLOUD_OVERSCAN_PX-1e-7);
       const staticCover=backgroundCoverScale(sourceW,sourceH,w,h,false);
       assert.ok(sourceW*staticCover>=w-1e-7&&sourceH*staticCover>=h-1e-7);
@@ -80,4 +81,41 @@ test('Phaser adapter allocates at most seven Images, recycles, resizes, and dest
   layers.forEach(l=>l.destroy());
   assert.equal(destroyed,7);
   assert.equal(objects.every(o=>!o.active),true);
+});
+
+test('PR77 cloud image overscan covers viewport whenever its blend alpha is nonzero',()=>{
+ const {left,right}=cloudHorizontalMargins();
+ assert.ok(left>=CLOUD_OVERSCAN_PX&&right>=CLOUD_TRAVEL_PX+CLOUD_OVERSCAN_PX);
+ for(const [width,height] of [[915,412],[568,320],[1280,720],[960,540]]){
+  const scale=backgroundCoverScale(1024,512,width,height,true);
+  const half=1024*scale/2,center=(right-left)/2;
+  for(const layerId of ['far','mid','near']){
+   for(let step=0;step<=3000;step++){
+    const distance=step*.51;
+    for(const state of horizontalCloudState(distance,layerId)){
+     if(state.alpha<1e-8)continue;
+     const leftEdge=width/2+center+state.xOffset-half;
+     const rightEdge=width/2+center+state.xOffset+half;
+     assert.ok(leftEdge<=-CLOUD_OVERSCAN_PX+1.01,
+       layerId+' visible left gap '+width+'x'+height+' at '+distance);
+     assert.ok(rightEdge>=width+CLOUD_OVERSCAN_PX-1.01,
+       layerId+' visible right gap '+width+'x'+height+' at '+distance);
+    }
+   }
+  }
+ }
+});
+test('PR77 fade is shorter but stays continuous at the composition recycle boundary',()=>{
+ assert.ok(CLOUD_FADE_START>.75&&CLOUD_FADE_START<.9);
+ for(const id of ['far','mid','near']){
+  const before=horizontalCloudState(CLOUD_TRAVEL_PX-1e-6,id);
+  const after=horizontalCloudState(CLOUD_TRAVEL_PX+1e-6,id);
+  // Cycle phase offset means state composition indices must not jump more than 1.
+  assert.ok(after[0].composition-before[0].composition<=1);
+  for(let i=0;i<2;i++)assert.ok(before[i].alpha>=0&&before[i].alpha<=1);
+  for(let i=0;i<2;i++)assert.ok(after[i].alpha>=0&&after[i].alpha<=1);
+  // Both compositions still sum to one and keep the same bounded object count.
+  assert.ok(Math.abs(before[0].alpha+before[1].alpha-1)<1e-9);
+  assert.ok(Math.abs(after[0].alpha+after[1].alpha-1)<1e-9);
+ }
 });
