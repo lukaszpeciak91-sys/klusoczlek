@@ -311,7 +311,10 @@ try {
       assert.equal(wheelBase.status,'loaded','Wheel R1 approved PNG must load');
       assert.equal(wheelBase.key,'airship-paddlewheel-approved');
       assert.deepEqual(wheelBase.origin,[.5,.5],'Wheel R1 center pivot');
-      assert.deepEqual(wheelBase.pos,[863,282],'Wheel R1 stern mounting');
+      assert.deepEqual(wheelBase.pos,[879,268],'PR75 refined stern mounting');
+      assert.deepEqual(wheelBase.size,[136,136],'PR75 136px square wheel without stretching');
+      const houseTransform=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),h=a.wheelhouse;return {x:h.x,y:h.y,width:h.displayWidth,height:h.displayHeight,originY:h.originY}})()");
+      assert.deepEqual(houseTransform,{x:480,y:220,width:136,height:194,originY:1},'PR75 wheelhouse remains bottom-anchored');
       assert.equal(wheelBase.images,1,'Wheel R1 exactly one paddlewheel Image');
       assert.equal(wheelBase.depth,3,'Wheel R1 behind actors but in front of deck');
       assert.ok(Math.abs(wheelBase.size[0]/wheelBase.size[1]-wheelBase.source[0]/wheelBase.source[1])<.0001,'Wheel R1 aspect ratio must remain natural');
