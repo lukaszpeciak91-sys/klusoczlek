@@ -17,10 +17,11 @@ test('single approved PNG asset exists, keeps original filename and has valid di
 });
 test('stern mounting center remains partly outside right hull, with origin-centered clearance',()=>{
   const sternX=Math.max(...DECK_POLYGON.map(p=>p.x));
-  assert.equal(PADDLEWHEEL_MOUNT.x,863);
-  assert.equal(PADDLEWHEEL_MOUNT.y,282);
+  assert.equal(PADDLEWHEEL_MOUNT.x,879);
+  assert.equal(PADDLEWHEEL_MOUNT.y,268);
   assert.ok(PADDLEWHEEL_MOUNT.x+PADDLEWHEEL_MOUNT.diameter/2>sternX);
   assert.ok(PADDLEWHEEL_MOUNT.x-PADDLEWHEEL_MOUNT.diameter/2>780);
+  assert.equal(PADDLEWHEEL_MOUNT.diameter,136);
   assert.equal(PADDLEWHEEL_MOUNT.depth,3);
 });
 test('wheel rotates clockwise at exactly 25 degrees/s at independent frame rates',()=>{
