@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import {FIRST_ACT_ID,getAct,sceneForAct} from './campaign.js';
+import {currentCampaignRun} from './campaign-run.js';
+import {writeCampaignCheckpoint} from './campaign-save.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 
 // Short opaque intertitle; the playable Arena is not constructed until completion.
@@ -9,6 +11,11 @@ export class ActTitleScene extends Phaser.Scene {
   create(){
     const act=getAct(this.actId);
     if(!act||!this.nextScene){this.scene.start('Menu');return;}
+    // Commit the next ACT ENTRY before its title animation. Save must remain
+    // independent of scene timing and never include debug fixture progress.
+    if(this.handoff&&this.handoff.actId===this.actId){
+      writeCampaignCheckpoint(currentCampaignRun(this.game),this.actId);
+    }
     this.cameras.main.setBackgroundColor('#000000');
     const w=this.scale.width,h=this.scale.height;
     const background=this.add.rectangle(w/2,h/2,w,h,0x000000).setOrigin(.5);
