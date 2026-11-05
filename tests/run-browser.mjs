@@ -1022,6 +1022,8 @@ try {
       assert.equal(openingStage.requested,'unarmed','PR72 opening uses unarmed appearance');
       assert.ok(openingStage.captain.x>openingStage.player.x+90,'PR72 Captain faces Aloes from right');
       assert.equal(openingStage.captain.frame,4,'PR72 Captain looks west during dialogue');
+      assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return !a.captainSpeech.visible&&a.captainPatrol.dashes===0})()"),true,'PR76 Captain stays quiet and stationary in opening');
+
       for(let i=0;i<expected.length;i++){
         const line=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {index:a.dialogueState.index,id:a.dialogueState.id,text:a.dialoguePanel.text.text,x:a.dialoguePanel.button.x,y:a.dialoguePanel.button.y,shake:a.shakeTriggered,clock:a.defense.elapsedMs,spawned:a.gliderDelivery.spawnedCount}})()");
         assert.equal(line.id,'act2-opening');assert.equal(line.index,i,'PR64 one DALEJ per line');
@@ -1035,7 +1037,21 @@ try {
       assert.equal(await evaluate("window.__game.scene.getScene('Airship').openingPhase"),'active','PR64 final DALEJ must start defense');
       assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.playerVisual.requestedVariant===a.weapon})()"),true,'PR72 combat restores equipped appearance after last Wojtek panel');
       assert.equal(await evaluate("window.__game.scene.getScene('Airship').act2Bark.visible"),false,'PR72 barks hidden at combat boundary');
+      // Check the defense clock immediately at start, before waiting several seconds for Captain panic.
       assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.defense.state==='active'&&a.defense.elapsedMs<500&&a.objectiveText.text.startsWith('WYTRZYMAJ')})()"),true);
+      assert.equal(await evaluate("window.__game.scene.getScene('Airship').captainSpeech.visible"),false,'PR76 no panic speech in opening dialogue');
+      const captainBefore=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return [a.captainActor.x,a.captainActor.y]})()");
+      let captainRunning=false;
+      for(let n=0;n<100;n++){
+        await sleep(35);
+        const change=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {moved:Math.hypot(a.captainActor.x-"+captainBefore[0]+",a.captainActor.y-"+captainBefore[1]+")>10,shouts:a.captainSpeechState.spoken.length}})()");
+        if(change.moved&&change.shouts){captainRunning=true;break;}
+      }
+      assert.equal(captainRunning,true,'PR76 Captain must move and shout during active defense');
+      const captainBubble=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {phrases:a.captainSpeechState.spoken,dashes:a.captainPatrol.dashes,safe:a.captainActor.y<=390}})()");
+      assert.ok(captainBubble.phrases.length>=1&&captainBubble.dashes>0&&captainBubble.safe,'PR76 panic remains on PR75 safe deck');
+
+
       // Keep this bounded integration test alive until both actual landings finish.
       await evaluate("window.__game.scene.getScene('Airship').invulnerableUntil=Infinity;true");
       for(let n=0;n<130;n++){if(await evaluate("window.__game.scene.getScene('Airship').gliderDelivery.spawnedCount>0"))break;await sleep(40);}

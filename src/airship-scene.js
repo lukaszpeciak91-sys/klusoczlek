@@ -13,7 +13,7 @@ import {facingOf} from './combat-contract.js';
 import {WEAPONS,cycleUnlockedWeapon} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {createGliderDelivery} from './glider-visual.js';
-import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,createCaptainPatrol,advanceCaptainPatrol,ACT2_BATTLE_CRIES,ACT2_GROUND_CRIES,eligibleAct2Bark,eligibleAirborneBark} from './act2-staging.js';
+import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,createCaptainPatrol,advanceCaptainPatrol,createCaptainSpeech,stepCaptainSpeech,ACT2_BATTLE_CRIES,ACT2_GROUND_CRIES,eligibleAct2Bark,eligibleAirborneBark} from './act2-staging.js';
 import {playerFrame} from './combat-contract.js';
 import {DIALOGUES,createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
@@ -156,6 +156,7 @@ export class AirshipScene extends Phaser.Scene {
     // Non-combat Captain, visually reused from Act I's already loaded 8-frame sheet.
     this.captainActor=this.add.container(AIRSHIP_CAPTAIN_START.x,AIRSHIP_CAPTAIN_START.y).setDepth(11);
     this.captainPatrol=createCaptainPatrol();
+    this.captainSpeechState=createCaptainSpeech();
     this.captainSprite=null;
     this.captainActor.add(this.add.ellipse(0,1,38,10,0x241b16,0.24));
     if(this.textures.exists('npc-captain')){
@@ -181,6 +182,10 @@ export class AirshipScene extends Phaser.Scene {
     }
     this.act2Bark=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'13px',fontStyle:'bold',color:'#fff1c9',backgroundColor:'#1c2028',padding:{x:5,y:3}})
       .setOrigin(.5,1).setDepth(49).setVisible(false);
+    this.captainSpeech=this.add.text(0,0,'',{
+      fontFamily:'monospace',fontSize:'13px',fontStyle:'bold',
+      color:'#fff1c9',backgroundColor:'#1c2028',padding:{x:5,y:3}
+    }).setOrigin(.5,1).setDepth(48).setVisible(false);
     this.barkElapsed=0;this.barkUntil=0;this.barkOrdinal=0;
     this.barkAirOrdinal=0;this.barkGroundOrdinal=0;
     this.barkNextAir=1850;this.barkNextGround=6400;this.barkOwner=null;
@@ -263,6 +268,7 @@ export class AirshipScene extends Phaser.Scene {
       window.removeEventListener('blur',this.onBlur);
       window.removeEventListener('focus',this.onFocus);
       document.removeEventListener('visibilitychange',this.onVisibility);
+      this.captainSpeech?.destroy();
       this.gliderDelivery?.shutdown();
       this.combat?.cleanup();
       this.pressureBar?.destroy();this.resultsButton?.destroy();this.resultsButtonText?.destroy();
@@ -274,6 +280,7 @@ export class AirshipScene extends Phaser.Scene {
       this.combat.stopFire();
     };
     this.onBlur=()=>{
+      this.captainSpeech?.setVisible(false);
       this.focusSuspended=true;
       advanceGameplayClock(this.defense.clock,0,false);
       this.resetMovement();this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
@@ -357,6 +364,7 @@ export class AirshipScene extends Phaser.Scene {
   }
   openMenu(){
     if(this.scene.isPaused()||this.scene.isActive('Menu'))return;
+    this.captainSpeech?.setVisible(false);
     this.resetMovement();this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
     advanceGameplayClock(this.defense.clock,0,false);
     this.combat.stopFire();
@@ -432,12 +440,27 @@ export class AirshipScene extends Phaser.Scene {
     return true;
   }
   updateCaptainDefense(delta){
-    const result=advanceCaptainPatrol(this.captainPatrol,this.captainActor,delta);
+    // Cosmetic NPC only: never enters enemy physics/caps, landing or combat.
+    const nearby=this.gliderDelivery.groundEnemies.filter(e=>!e.dead&&e.hp>0);
+    const result=advanceCaptainPatrol(this.captainPatrol,this.captainActor,delta,nearby);
     this.captainActor.setPosition(result.x,result.y);
     if(this.captainSprite?.active){
       this.captainSprite.setFrame(playerFrame(result.facing));
       const baseline=-this.captainSprite.frame.height*CAPTAIN_VISUAL_SCALE/2;
-      this.captainSprite.setY(baseline-(result.moving?Math.abs(Math.sin(this.captainPatrol.travel/8))*1.8:0));
+      this.captainSprite.setY(baseline-(result.moving?Math.abs(Math.sin(this.captainPatrol.travel/7))*2:0));
+    }
+    // One independent bubble. Yield visibility to enemy barks rather than
+    // changing the existing airborne/ground speech systems.
+    const phrase=stepCaptainSpeech(this.captainSpeechState,delta);
+    const enemySpeaking=this.act2Bark.visible;
+    const view=this.cameras.main.worldView;
+    const visible=this.openingPhase==='active'&&!!phrase&&!enemySpeaking&&
+      this.captainActor.x>view.x+100&&this.captainActor.x<view.right-100&&
+      this.captainActor.y>view.y+90&&this.captainActor.y<view.bottom-30;
+    this.captainSpeech.setVisible(visible);
+    if(visible){
+      this.captainSpeech.setText(phrase)
+        .setPosition(this.captainActor.x,this.captainActor.y-91);
     }
   }
   updateAct2Barks(delta){
@@ -490,6 +513,8 @@ export class AirshipScene extends Phaser.Scene {
     if(outcome==='survived'&&this.playerHp<=0)outcome='defeat';
     if(!finishAirshipDefense(this.defense,outcome))return false;
     this.openingPhase='complete';
+    this.captainSpeech?.setVisible(false);
+    stepCaptainSpeech(this.captainSpeechState,0,false);
     this.act2Bark.setVisible(false);
     const facePlayer=facingOf(this.player.x-this.captainActor.x,this.player.y-this.captainActor.y,'w');
     this.captainSprite?.setFrame(playerFrame(facePlayer));
@@ -564,6 +589,7 @@ export class AirshipScene extends Phaser.Scene {
       advanceGameplayClock(this.defense.clock,0,false);
       this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
       this.combat.stopFire();
+      this.captainSpeech?.setVisible(false);
       return;
     }
     // Scene pause and focus/portrait guard above suspend wheel rotation.
@@ -605,6 +631,8 @@ export class AirshipScene extends Phaser.Scene {
     this.gliderDelivery.update(delta);
     this.updateCaptainDefense(delta);
     this.updateAct2Barks(delta);
+    // Enemy speech wins when it starts on the same frame as Captain panic.
+    if(this.act2Bark.visible)this.captainSpeech.setVisible(false);
     const key=this.keys;
     const input=normalizeInput(this.joystick.direction.x+Number(key.D.isDown||key.RIGHT.isDown)-Number(key.A.isDown||key.LEFT.isDown),
       this.joystick.direction.y+Number(key.S.isDown||key.DOWN.isDown)-Number(key.W.isDown||key.UP.isDown));
