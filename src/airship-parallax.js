@@ -1,7 +1,8 @@
 // Horizontal adaptation of Justimania's two-composition/smoothstep background.
 // Both images cover the viewport throughout travel; they are never tiled or joined.
 export const CLOUD_TRAVEL_PX=200;
-export const CLOUD_FADE_START=0.61;
+// Narrow the overlap: displaced duplicate clouds were visible for 39% of each cycle.
+export const CLOUD_FADE_START=0.82;
 export const CLOUD_OVERSCAN_PX=24;
 const PHASE_OFFSETS=Object.freeze({far:0.08,mid:0.34,near:0.18});
 
@@ -19,11 +20,16 @@ export function horizontalCloudState(distance,layerId){
     {composition:cycle+1,alpha:blend,xOffset:(1-progress)*CLOUD_TRAVEL_PX},
   ];
 }
+// A cloud image is visible while outgoing (-travel..0), or while incoming
+// (+(1-fadeStart)*travel..0). Do not allocate margins every frame.
+const CLOUD_MARGINS=Object.freeze({
+  left:(1-CLOUD_FADE_START)*CLOUD_TRAVEL_PX+CLOUD_OVERSCAN_PX,
+  right:CLOUD_TRAVEL_PX+CLOUD_OVERSCAN_PX,
+});
+export function cloudHorizontalMargins(){return CLOUD_MARGINS;}
 export function backgroundCoverScale(sourceWidth,sourceHeight,viewportWidth,viewportHeight,moving){
-  // Unlike a bare TileSprite, every horizontally moving image has enough overscan
-  // for its *entire* travel, including the incoming image at its rightmost point.
-  const extra=moving?2*(CLOUD_TRAVEL_PX+CLOUD_OVERSCAN_PX):0;
-  return Math.max((viewportWidth+extra)/sourceWidth,
+  const margins=moving?cloudHorizontalMargins():{left:0,right:0};
+  return Math.max((viewportWidth+margins.left+margins.right)/sourceWidth,
     (viewportHeight+2*CLOUD_OVERSCAN_PX)/sourceHeight);
 }
 export function createHorizontalParallaxLayer(scene,def,initialKey){
@@ -32,6 +38,7 @@ export function createHorizontalParallaxLayer(scene,def,initialKey){
   const images=Array.from({length:count},()=>scene.add.image(0,0,initialKey)
     .setOrigin(.5).setScrollFactor(0).setDepth(def.depth));
   let key=initialKey,w=scene.scale.width,h=scene.scale.height,disposed=false,lastZoom=null;
+  const centerBias=moving?(CLOUD_MARGINS.right-CLOUD_MARGINS.left)/2:0;
   const zoom=()=>Math.max(.1,scene.cameras?.main?.zoom??1);
   const applyScale=()=>{
     const source=scene.textures.get(key).getSourceImage();
@@ -66,7 +73,7 @@ export function createHorizontalParallaxLayer(scene,def,initialKey){
       // Stable alternation avoids a one-frame swap when one composition expires.
       for(let i=0;i<2;i++){
         const state=states[i],image=images[state.composition%2];
-        image.setPosition(Math.round(w/2+state.xOffset/zoom()),Math.round(h/2))
+        image.setPosition(Math.round(w/2+(centerBias+state.xOffset)/zoom()),Math.round(h/2))
           .setAlpha(state.alpha);
       }
     },
