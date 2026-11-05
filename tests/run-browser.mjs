@@ -278,18 +278,30 @@ try {
         await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
         await evaluate("window.__game.scale.refresh();true");
         await sleep(110);
-        for(const [stage,offset] of [['initial',null],['before',.60],['mid',.805],['after',1.01],['cycles',5.805]]){
+        for(const [stage,offset] of [['initial',null],['before',.79],['mid',.91],['after',1.01],['cycles',5.91]]){
           if(offset!==null){
             await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');for(let i=1;i<4;i++){const shift={far:.08,mid:.34,near:.18}[a.layers[i].layerId];a.layers[i].tilePositionX=(("+offset+")-shift)*200;}for(const layer of a.layers)layer.update();return true})()");
           }
           await sleep(70);
-          const state=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),w=a.scale.width,h=a.scale.height;return a.layers.map(l=>({speed:l.speed,count:l.images.length,alpha:l.images.map(o=>o.alpha),covered:l.images.every(o=>o.displayWidth>=w+390&&o.displayHeight>=h),active:l.images.every(o=>o.active),type:l.images.map(o=>o.type)}))})()");
+          const state=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),w=a.scale.width,h=a.scale.height;return a.layers.map(l=>({speed:l.speed,count:l.images.length,alpha:l.images.map(o=>o.alpha),covered:l.images.every(o=>o.alpha<1e-7||(o.x-o.displayWidth/2<=-20&&o.x+o.displayWidth/2>=w+20&&o.displayHeight>=h)),active:l.images.every(o=>o.active),type:l.images.map(o=>o.type)}))})()");
           assert.deepEqual(state.map(l=>l.count),[1,2,2,2]);
           assert.ok(state.every(l=>l.active&&l.alpha.every(alpha=>alpha>=0&&alpha<=1)),'PR sky valid alpha and active images');
           assert.ok(state.slice(1).every(l=>l.covered),'PR sky composition overscan survives horizontal travel');
           assert.ok(state.every(l=>l.type.every(type=>type==='Image')),'PR sky no TileSprites');
           const shot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
           await writeFile('dist/act2-sky-'+width+'x'+height+'-'+stage+'.png',Buffer.from(shot.data,'base64'));
+          if(stage==='mid'){
+            // Renderer-only diagnostics. Hide ship, HUD, actors and every cloud
+            // except the selected layer; restore all visibility before gameplay.
+            const masks=[['sky-only',[]],['far-only',[1]],['mid-only',[2]],['near-only',[3]],['all',[1,2,3]]];
+            for(const [mode,enabled] of masks){
+              await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.__qaVisibility??=a.children.list.map(o=>[o,o.visible]);for(const [obj] of a.__qaVisibility)obj.setVisible(false);for(const i of [0,..."+JSON.stringify(enabled)+"])for(const img of a.layers[i].images)img.setVisible(true);return true})()");
+              await sleep(35);
+              const layerShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+              await writeFile('dist/pr77-'+width+'x'+height+'-'+mode+'.png',Buffer.from(layerShot.data,'base64'));
+            }
+            await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');for(const [obj,visible] of a.__qaVisibility)obj.setVisible(visible);a.__qaVisibility=null;return true})()");
+          }
         }
       }
       await cdp('Emulation.setDeviceMetricsOverride',{width:Math.round(originalSkyViewport.width),height:Math.round(originalSkyViewport.height),deviceScaleFactor:1,mobile:false});
