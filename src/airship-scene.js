@@ -13,7 +13,7 @@ import {facingOf} from './combat-contract.js';
 import {WEAPONS,cycleUnlockedWeapon} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {createGliderDelivery} from './glider-visual.js';
-import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,createCaptainPatrol,advanceCaptainPatrol,ACT2_BATTLE_CRIES,eligibleAct2Bark} from './act2-staging.js';
+import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,createCaptainPatrol,advanceCaptainPatrol,ACT2_BATTLE_CRIES,ACT2_GROUND_CRIES,eligibleAct2Bark,eligibleAirborneBark} from './act2-staging.js';
 import {playerFrame} from './combat-contract.js';
 import {DIALOGUES,createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
@@ -182,6 +182,8 @@ export class AirshipScene extends Phaser.Scene {
     this.act2Bark=this.add.text(0,0,'',{fontFamily:'monospace',fontSize:'13px',fontStyle:'bold',color:'#fff1c9',backgroundColor:'#1c2028',padding:{x:5,y:3}})
       .setOrigin(.5,1).setDepth(49).setVisible(false);
     this.barkElapsed=0;this.barkUntil=0;this.barkOrdinal=0;
+    this.barkAirOrdinal=0;this.barkGroundOrdinal=0;
+    this.barkNextAir=1850;this.barkNextGround=6400;this.barkOwner=null;
     this.dialogueState=createDialogueState();
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
       if(id==='act2-opening')this.startDefense();
@@ -440,17 +442,40 @@ export class AirshipScene extends Phaser.Scene {
   }
   updateAct2Barks(delta){
     this.barkElapsed+=Math.max(0,Math.min(50,delta));
-    if(this.barkUntil&&this.barkElapsed>=this.barkUntil){
-      this.act2Bark.setVisible(false);this.barkUntil=0;
+    const owner=this.barkOwner;
+    if(this.barkUntil&&this.barkElapsed<this.barkUntil){
+      if(owner?.kind==='air'&&eligibleAirborneBark(owner.speaker,this.cameras.main.worldView)){
+        this.act2Bark.setPosition(owner.speaker.x,owner.speaker.y-104);
+      }else if(owner?.kind==='ground'&&eligibleAct2Bark(owner.speaker,this.cameras.main.worldView)){
+        this.act2Bark.setPosition(owner.speaker.x,owner.speaker.y-56);
+      }else this.barkUntil=0;
     }
-    if(this.barkUntil||this.barkElapsed<6500+this.barkOrdinal*8500)return;
-    // A single non-interactive in-world bubble; no global Act I bark changes.
-    const speakers=this.gliderDelivery.groundEnemies.filter(e=>eligibleAct2Bark(e,this.cameras.main.worldView));
-    if(!speakers.length)return;
-    const speaker=speakers[this.barkOrdinal%speakers.length];
-    this.act2Bark.setText(ACT2_BATTLE_CRIES[this.barkOrdinal%ACT2_BATTLE_CRIES.length])
-      .setPosition(speaker.x,speaker.y-56).setVisible(true);
-    this.barkUntil=this.barkElapsed+1350;this.barkOrdinal++;
+    if(!this.barkUntil||this.barkElapsed>=this.barkUntil){
+      this.act2Bark.setVisible(false);this.barkOwner=null;this.barkUntil=0;
+    }
+    if(this.barkUntil)return; // One visible bubble at most, including across categories.
+    const view=this.cameras.main.worldView;
+    if(this.barkElapsed>=this.barkNextAir){
+      const airborne=this.gliderDelivery.flights.filter(f=>eligibleAirborneBark(f,view));
+      if(airborne.length){
+        const speaker=airborne[this.barkAirOrdinal%airborne.length];
+        this.act2Bark.setText(ACT2_BATTLE_CRIES[this.barkAirOrdinal%ACT2_BATTLE_CRIES.length])
+          .setPosition(speaker.x,speaker.y-104).setVisible(true);
+        this.barkOwner={speaker,kind:'air'};this.barkUntil=this.barkElapsed+1250;
+        this.barkAirOrdinal++;this.barkNextAir=this.barkElapsed+6500;
+        return;
+      }
+    }
+    if(this.barkElapsed>=this.barkNextGround){
+      const ground=this.gliderDelivery.groundEnemies.filter(e=>eligibleAct2Bark(e,view));
+      if(ground.length){
+        const speaker=ground[this.barkGroundOrdinal%ground.length];
+        this.act2Bark.setText(ACT2_GROUND_CRIES[this.barkGroundOrdinal%ACT2_GROUND_CRIES.length])
+          .setPosition(speaker.x,speaker.y-56).setVisible(true);
+        this.barkOwner={speaker,kind:'ground'};this.barkUntil=this.barkElapsed+1400;
+        this.barkGroundOrdinal++;this.barkNextGround=this.barkElapsed+5200;
+      }
+    }
   }
   applyDamage(next,source=null){
     if(this.defense.ended)return;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {GLIDER_DEMO,GLIDER_ART_PATH,GLIDER_ART_KEY,GLIDER_PHASES,
-  LANDING_MS,GLIDER_HOLD_MS,GLIDER_EXPANDED_SEARCH_MS,landingPosition,makeFlight,stepFlight,stepLanding} from '../src/glider-delivery.js';
+  LANDING_MS,GLIDER_HOLD_MS,GLIDER_EXPANDED_SEARCH_MS,GLIDER_SUSPENSION_HEIGHT,landingPosition,landingPointSafe,makeFlight,stepFlight,stepLanding} from '../src/glider-delivery.js';
 import {AIRSHIP_WORLD,insideDeck,AIRSHIP_LANDING_ZONES,WHEELHOUSE_FOOTPRINT} from '../src/airship-contract.js';
 import {BOBROZOMBI_ASSET,BOCIANOLAK_ASSET,ZUBROKRYPTYDA_ASSET} from '../src/enemy-visual.js';
 import {GLIDER_FRAME_SIZE,GLIDER_SHEET_WIDTH,GLIDER_SHEET_HEIGHT,GLIDER_DIRECTION_ORDER,flightDirectionFrame} from '../src/glider-spritesheet.js';
@@ -19,11 +19,11 @@ test('airborne gliders compose existing approved enemy sprite identities and opt
 });
 test('one passenger drop at most; flight departs and reaches cleaned finished state',()=>{
   for(const spec of GLIDER_DEMO){
-    const flight=makeFlight(spec),landings=[];
+    const point=landingPosition(spec.zoneId,AIRSHIP_WORLD.start,[]);
+    const flight=makeFlight(spec,point),landings=[];
     let drops=0,finished=0,phases=new Set(),landing=null;
     for(let n=0;n<130;n++){
       phases.add(flight.phase);
-      const point=flight.phase==='dropping'?landingPosition(flight.zoneId,AIRSHIP_WORLD.start,[]):null;
       const event=stepFlight(flight,50,point);
       if(event.drop){drops++;landing={id:flight.id,type:flight.type,elapsed:0,finished:false};landings.push(landing);}
       if(event.finished)finished++;
@@ -55,12 +55,12 @@ test('landing never overlaps player, existing ground passengers or rail margins'
   assert.equal(forbidden,null,'blocked gliders must not release passenger into unsafe placement');
 });
 test('blocked landing holds attached passenger, retries, then drops once when clear',()=>{
-  const f=makeFlight(GLIDER_DEMO[0]);
-  for(let i=0;i<110;i++)stepFlight(f,50,null);
+  const safe=landingPosition(GLIDER_DEMO[0].zoneId,AIRSHIP_WORLD.start,[]);
+  const f=makeFlight(GLIDER_DEMO[0],safe);
+  for(let i=0;i<65;i++)stepFlight(f,50,null);
   assert.equal(f.phase,'dropping');
   assert.equal(f.released,false);
   assert.equal(f.finished,false);
-  const safe=landingPosition(f.zoneId,AIRSHIP_WORLD.start,[]);
   const result=stepFlight(f,50,safe);
   assert.equal(result.drop,true);
   assert.equal(f.released,true);
@@ -126,8 +126,8 @@ test('180-second ordinary defense director delivers passengers without starvatio
       if(flight.finished)continue;
       const occupied=[...ground,...landings.filter(l=>!l.finished)].map(e=>({x:e.x,y:e.y,radius:e.radius}));
       const radius=ENEMY_TYPES[flight.type].radius;
-      const point=flight.phase==='dropping'&&!flight.released
-        ?landingPosition(flight.zoneId,player,occupied,radius,flight.elapsed>=GLIDER_EXPANDED_SEARCH_MS):null;
+      const point=!flight.released&&flight.phase!=='departing'
+        ?landingPosition(flight.zoneId,player,occupied,radius,flight.age>=GLIDER_EXPANDED_SEARCH_MS):null;
       const event=stepFlight(flight,50,point);
       if(event.blocked)blocked++;
       if(event.drop){
@@ -172,6 +172,45 @@ test('PR69 R2 approved 2560x320 atlas is exactly eight unrotated 320px direction
   for(const [x,y,frame] of headings)assert.equal(flightDirectionFrame(origin,{x,y}),frame);
   assert.equal(flightDirectionFrame(GLIDER_DEMO[0].from,AIRSHIP_LANDING_ZONES[0]),1);
   assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[0],{x:1120,y:115}),0);
-  assert.equal(flightDirectionFrame(GLIDER_DEMO[1].from,AIRSHIP_LANDING_ZONES[1]),5);
+  assert.equal(flightDirectionFrame(GLIDER_DEMO[1].from,AIRSHIP_LANDING_ZONES[1]),4);
   assert.equal(flightDirectionFrame(AIRSHIP_LANDING_ZONES[1],{x:-160,y:390}),4);
+});
+
+test('PR74 initial approach reserves a point and releases exactly vertically above that coordinate',()=>{
+ const point={x:320,y:306},f=makeFlight(GLIDER_DEMO[0],point);
+ assert.deepEqual(f.landingPoint,point);
+ assert.deepEqual(f.target,{x:point.x,y:point.y-GLIDER_SUSPENSION_HEIGHT});
+ let dropped=false;
+ for(let i=0;i<120;i++){
+  const event=stepFlight(f,50,point);
+  if(event.drop){
+   assert.ok(Math.abs(f.x-point.x)<1.5&&Math.abs(f.y-(point.y-GLIDER_SUSPENSION_HEIGHT))<1.5);
+   dropped=true;break;
+  }
+ }
+ assert.equal(dropped,true,'must release from directly overhead, never from zone centre');
+ assert.equal(f.released,true);
+ assert.ok(point.x<800,'target away from the stern wheel');
+});
+test('PR74 dynamic target diversion never teleports the flying unit and never drops on an unsafe point',()=>{
+ const first={x:320,y:306},second={x:638,y:305},f=makeFlight(GLIDER_DEMO[0],first);
+ for(let i=0;i<12;i++)stepFlight(f,50,first);
+ let before={x:f.x,y:f.y},releases=0;
+ for(let i=0;i<180;i++){
+  const event=stepFlight(f,50,second);
+  assert.ok(Math.hypot(f.x-before.x,f.y-before.y)<=265*.05+1e-6,'must steer continuously');
+  if(event.drop){releases++;assert.deepEqual(f.landingPoint,second);break;}
+  before={x:f.x,y:f.y};
+ }
+ assert.equal(releases,1);
+});
+test('PR74 central targets revalidate player and other landing occupants',()=>{
+ const player={x:480,y:300},radius=21;
+ const point=landingPosition('port-aft',player,[],radius);
+ assert.ok(point&&landingPointSafe(point,player,[],radius));
+ assert.ok(point.x>200&&point.x<750&&point.y>210&&point.y<400);
+ assert.equal(landingPointSafe(point,{x:point.x,y:point.y},[],radius),false);
+ assert.equal(landingPointSafe(point,player,[{...point,radius}],radius),false);
+ const alternative=landingPosition('port-aft',player,[{...point,radius}],radius);
+ assert.ok(alternative&&!Object.is(alternative,point));
 });
