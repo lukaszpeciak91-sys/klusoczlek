@@ -50,6 +50,11 @@ export function tickAirshipDefense(defense,now,{active,ground,airborne,pending})
  if(!active)return null;
  const elapsed=defense.elapsedMs;
  if(elapsed>=AIRSHIP_SURVIVAL_MS)return {outcome:'survived'};
+ // Clear-deck relief: bring the next group forward modestly, but never
+ // create another group during active/pending threats or launch a burst.
+ if(ground+pending===0&&defense.groups.length===0&&defense.deliveryOrdinal>0){
+  defense.nextGroupMs=Math.min(defense.nextGroupMs,elapsed+1100);
+ }
  planGroup(defense,elapsed);
  if(elapsed<defense.nextDeliveryMs||!defense.groups.length)return null;
  // 'pending' is the sum of passengers still on occupied gliders and
