@@ -362,6 +362,7 @@ try {
         for(const [label,px,py,cx,cy] of [
           ['bottom-rail',480,329,540,326],
           ['wheelhouse',570,250,540,326],
+          ['roof-behind',480,118,540,326],
           ['captain-contact',506,326,540,326]
         ]){
           await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.player.setPosition("+px+","+py+");a.player.body.reset("+px+","+py+");a.captainActor.setPosition("+cx+","+cy+");return true})()");
@@ -369,6 +370,8 @@ try {
           const geometryState=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),c=await import('/klusoczlek/src/airship-contract.js');return {player:[a.player.x,a.player.y],inside:c.insideDeck(a.player,25,c.AIRSHIP_PLAYER_LOWER_MARGIN),feet:[a.captainActor.x,a.captainActor.y],footprint:c.WHEELHOUSE_FOOTPRINT}})()");
           assert.equal(geometryState.inside,true,'final deck geometry screenshot player must be inside');
           assert.deepEqual([geometryState.footprint.rx,geometryState.footprint.ry],[62,28]);
+          const roofDepth=await evaluate("window.__game.scene.getScene('Airship').wheelhouse.depth");
+          assert.equal(roofDepth,label==='roof-behind'?13:9,'solid roof should obscure players only when behind wheelhouse');
           const geometryShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
           await writeFile('dist/act2-final-'+width+'x'+height+'-'+label+'.png',Buffer.from(geometryShot.data,'base64'));
         }
