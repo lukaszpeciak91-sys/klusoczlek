@@ -64,3 +64,21 @@ test('wheelhouse footing blocks actors, not the full tall sprite',()=>{
     assert.deepEqual(avoidWheelhouse(zone,45),{x:zone.x,y:zone.y});
   assert.deepEqual(avoidWheelhouse(AIRSHIP_WORLD.start,radius),AIRSHIP_WORLD.start);
 });
+
+test('PR75 shared lower railing limit constrains player, enemies and landing footprints',()=>{
+  const lowerEdge=Math.max(...DECK_POLYGON.map(p=>p.y));
+  assert.equal(lowerEdge,430);
+  assert.ok(insideDeck({x:480,y:405},25),'Aloes may reach the last safe playable line');
+  assert.equal(insideDeck({x:480,y:406},25),false,'player cannot cross lower edge');
+  for(const [label,radius] of [['bobrozombi',21],['bocianolak',18]]){
+    const margin=radius+8;
+    const projected=clampToDeck({x:480,y:500},margin);
+    assert.ok(projected.y<=lowerEdge-margin+1e-6,label);
+    assert.ok(insideDeck(projected,margin),label);
+  }
+  for(const zone of AIRSHIP_LANDING_ZONES){
+    assert.ok(insideDeck(zone,45),'preferred glider landing remains clear of tightened boundary');
+  }
+  assert.equal(insideDeck({x:480,y:445},0),false,'outside deck even before actor padding');
+  assert.equal(insideDeck({x:480,y:300},25),true,'central dodge space unchanged');
+});

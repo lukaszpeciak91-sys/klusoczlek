@@ -1,6 +1,6 @@
 // Act II's approved stern wheel is a single centered Image, not an animation atlas.
 // Keep the existing hull mounting point and preserve the source PNG's aspect ratio.
-export const PADDLEWHEEL_MOUNT=Object.freeze({x:863,y:282,diameter:112,depth:3});
+export const PADDLEWHEEL_MOUNT=Object.freeze({x:879,y:268,diameter:136,depth:3});
 export const PADDLEWHEEL_DEGREES_PER_SECOND=25;
 export const PADDLEWHEEL_RADIANS_PER_SECOND=PADDLEWHEEL_DEGREES_PER_SECOND*Math.PI/180;
 
