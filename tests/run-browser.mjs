@@ -2612,7 +2612,7 @@ try {
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('klusoczlek-campaign-v1')).actId"),'act1','PR79 NOWA GRA must replace previous checkpoint');
   await cdp('Page.reload',{ignoreCache:true});
   for(let n=0;n<120;n++){
-    if(await evaluate("!!window.__game&&window.__game.scene.isActive('Menu')"))break;
+    try{if(await evaluate("!!window.__game&&window.__game.scene.isActive('Menu')"))break;}catch{}
     await sleep(50);
   }
   assert.ok((await snapshot()).actions.some(a=>a.label==='WZNÓW'),'PR79 reload must show saved resume');
@@ -2627,7 +2627,7 @@ try {
   await evaluate("(()=>{const saved=localStorage.getItem('klusoczlek-campaign-v1');localStorage.setItem('__pr79_act1_fixture',saved);localStorage.setItem('klusoczlek-campaign-v1',localStorage.getItem('__pr79_browser_act2_fixture'));return true})()");
   // Refresh from the genuine Act II checkpoint recorded by the epilogue.
   await cdp('Page.reload',{ignoreCache:true});
-  for(let n=0;n<120;n++){if(await evaluate("!!window.__game&&window.__game.scene.isActive('Menu')"))break;await sleep(50);}
+  for(let n=0;n<120;n++){try{if(await evaluate("!!window.__game&&window.__game.scene.isActive('Menu')"))break;}catch{}await sleep(50);}
   await clickControl('WZNÓW');
   for(let n=0;n<110;n++){if(await evaluate("window.__game.scene.isActive('Airship')"))break;await sleep(35);}
   const restored=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {act:a.campaignRun.actId,hp:a.playerHp,maxHp:a.maxHp,artifact:a.campaignRun.artifacts.has('marcin-mohawk'),completed:a.campaignRun.completedActs.has('act1'),selected:a.weapon,opening:a.openingPhase}})()");
@@ -2654,7 +2654,7 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Airship').debugCheckpoint"),'act2-defense');
   assert.equal(await evaluate("localStorage.getItem('klusoczlek-campaign-v1')"),genuineSave,'PR79 DEBUG wrote into legitimate checkpoint');
   await cdp('Page.reload',{ignoreCache:true});
-  for(let n=0;n<120;n++){if(await evaluate("!!window.__game&&window.__game.scene.isActive('Menu')"))break;await sleep(50);}
+  for(let n=0;n<120;n++){try{if(await evaluate("!!window.__game&&window.__game.scene.isActive('Menu')"))break;}catch{}await sleep(50);}
   await clickControl('WZNÓW');
   for(let n=0;n<110;n++){if(await evaluate("window.__game.scene.isActive('Airship')"))break;await sleep(35);}
   assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.debugCheckpoint===null&&a.campaignRun.completedActs.has('act1')&&a.playerHp===a.maxHp})()"),true,'PR79 DEBUG checkpoint contaminated restored Act II opening');
