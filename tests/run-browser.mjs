@@ -383,11 +383,18 @@ try {
       const mx=bounds.x+450,my=bounds.y+170;
       await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:mx,y:my,button:'none'});
       await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:mx,y:my,button:'left',buttons:1,clickCount:1});
-      await sleep(300);
+      // A shot may now hit the enlarged solid wheelhouse before 300ms;
+      // sample active projectiles during the hold instead of requiring one
+      // to survive exactly until the final polling instant.
+      let sawRifleProjectile=false;
+      for(let k=0;k<15;k++){
+        await sleep(20);
+        if(await evaluate("window.__game.scene.getScene('Airship').combat.bulletCount>0"))sawRifleProjectile=true;
+      }
       const rifle=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {held:a.mouseHeld,aim:a.mouseAim.x,bullets:a.combat.bulletCount}})()");
       assert.equal(rifle.held,true,'PR67 mouse-held fire not captured');
       assert.ok(rifle.aim>0,'PR67 camera-correct mouse aim missing');
-      assert.ok(rifle.bullets>0,'PR67 rifle not firing while mouse held');
+      assert.ok(sawRifleProjectile,'PR67 rifle must actually spawn a visible projectile while held');
       await cdp('Input.dispatchMouseEvent',{type:'mouseReleased',x:mx,y:my,button:'left',buttons:0,clickCount:1});
       await sleep(45);
       assert.equal(await evaluate("window.__game.scene.getScene('Airship').mouseHeld"),false,'PR67 mouse release stuck');
