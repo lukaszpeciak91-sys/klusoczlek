@@ -1,5 +1,7 @@
 import {createCampaignRun,MARCIN_MOHAWK_ID,snapshotCampaignRun} from './campaign-run.js';
 import {FIRST_ACT_ID,getAct,sceneForAct} from './campaign.js';
+import {ENCOUNTER} from './bobrozombi.js';
+import {WEAPON_ORDER} from './weapon-progression.js';
 
 // Only stable act-entry checkpoints are persisted. The active scene and combat
 // state are intentionally never serialized.
@@ -14,14 +16,16 @@ function parseCheckpoint(raw){
   if(!raw||typeof raw!=='object'||Array.isArray(raw)||raw.version!==CAMPAIGN_SAVE_VERSION)return null;
   const act=getAct(raw.actId);
   if(!act||!sceneForAct(raw.actId)||!['act1','act2'].includes(act.id))return null;
-  if(!validInteger(raw.maxHp,100)||raw.maxHp<1||raw.hp!==raw.maxHp)return null;
+  if(raw.maxHp!==ENCOUNTER.playerMaxHp||raw.hp!==raw.maxHp)return null;
   const lists=['unlockedWeapons','artifacts','completedActs','upgrades'];
   if(!lists.every(key=>validList(raw[key])))return null;
   const owned=new Set(raw.unlockedWeapons),completed=new Set(raw.completedActs),artifacts=new Set(raw.artifacts);
-  if(!owned.has('blunderbuss'))return null;
+  if(!owned.has('blunderbuss')||[...owned].some(id=>!WEAPON_ORDER.includes(id)))return null;
+  if(raw.upgrades.length!==0)return null; // No implemented upgrade rewards in the playable acts.
   if(raw.selectedWeapon!==null&&(!owned.has(raw.selectedWeapon)||typeof raw.selectedWeapon!=='string'))return null;
   if(raw.actId==='act1'&&(completed.size||artifacts.size||raw.unlockedWeapons.length!==1||raw.selectedWeapon!==null))return null;
-  if(raw.actId==='act2'&&(!completed.has(FIRST_ACT_ID)||completed.size!==1||!artifacts.has(MARCIN_MOHAWK_ID)))return null;
+  if(raw.actId==='act2'&&(!completed.has(FIRST_ACT_ID)||completed.size!==1||
+    !artifacts.has(MARCIN_MOHAWK_ID)||artifacts.size!==1))return null;
   const s=raw.stats;
   if(!s||typeof s!=='object'||Array.isArray(s)||!validInteger(s.kills)||!validNumber(s.activeCombatMs)||
     !s.byAct||typeof s.byAct!=='object'||Array.isArray(s.byAct))return null;
