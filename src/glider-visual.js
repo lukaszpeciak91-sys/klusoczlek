@@ -84,7 +84,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
     if(!alive||stopped||started.has(spec.id))return null;
     if(flights.filter(f=>!f.finished).length>=AIRSHIP_GLIDER_CAP)return null;
     if(groundEnemies.filter(e=>!e.dead).length+landings.filter(l=>!l.finished).length+
-      flights.filter(f=>!f.finished&&!f.released).length>=AIRSHIP_GROUND_CAP)return null;
+      flights.filter(f=>!f.finished&&!f.released&&!f.blocked).length>=AIRSHIP_GROUND_CAP)return null;
     const occupied=[...groundEnemies.filter(e=>!e.dead),...landings.filter(l=>!l.finished),
       ...flights.filter(f=>!f.finished&&!f.released&&f.landingPoint).map(f=>({...f.landingPoint,radius:ENEMY_TYPES[f.type].radius}))];
     const safe=landingPosition(spec.zoneId,scene.player,occupied,ENEMY_TYPES[spec.type].radius);
@@ -218,6 +218,6 @@ export function createGliderDelivery(scene,{demo=false}={}){
     get dropCount(){return dropCount;},get blockedCount(){return blockedCount;},get finishedCount(){return flights.filter(f=>f.finished).length;},
     get activeAirborneVisuals(){return flights.filter(f=>f.visual?.active).length;},
     get activeLandingVisuals(){return landings.filter(l=>l.visual?.active).length;},
-    get pendingPassengers(){return flights.filter(f=>!f.released&&!f.finished).length+landings.filter(l=>!l.finished).length;},
+    get pendingPassengers(){return flights.filter(f=>!f.released&&!f.finished&&!f.blocked).length+landings.filter(l=>!l.finished).length;},
     get activeGliders(){return flights.filter(f=>!f.finished).length;}};
 }
