@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers,clampToDeck,avoidWheelhouse} from './airship-contract.js';
+import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers,clampToDeck,stepAroundWheelhouse} from './airship-contract.js';
 import {createHorizontalParallaxLayer} from './airship-parallax.js';
 import {PADDLEWHEEL_MOUNT,paddlewheelDisplaySize,advancePaddlewheelAngle} from './airship-paddlewheel.js';
 import {currentCampaignRun,prepareActStart,updateRunEquipment,completeCampaignAct} from './campaign-run.js';
@@ -13,7 +13,7 @@ import {facingOf} from './combat-contract.js';
 import {WEAPONS,cycleUnlockedWeapon} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {createGliderDelivery} from './glider-visual.js';
-import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,createCaptainPatrol,advanceCaptainPatrol,createCaptainSpeech,stepCaptainSpeech,ACT2_BATTLE_CRIES,ACT2_GROUND_CRIES,eligibleAct2Bark,eligibleAirborneBark} from './act2-staging.js';
+import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,createCaptainPatrol,advanceCaptainPatrol,resolveCaptainFeet,createCaptainSpeech,stepCaptainSpeech,ACT2_BATTLE_CRIES,ACT2_GROUND_CRIES,eligibleAct2Bark,eligibleAirborneBark} from './act2-staging.js';
 import {playerFrame} from './combat-contract.js';
 import {DIALOGUES,createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
@@ -325,7 +325,7 @@ export class AirshipScene extends Phaser.Scene {
         target.setDisplaySize(tex.width*fit,tex.height*fit).setVisible(true);
         this.deckVisual.setVisible(false);this.rails.setVisible(false);
       }else if(kind==='wheelhouse'){
-        target.setDisplaySize(136,194).setVisible(true);
+        target.setDisplaySize(150,214).setVisible(true);
       }else if(kind==='paddlewheel'){
         const source=this.textures.get(key).getSourceImage();
         const size=paddlewheelDisplaySize(source.width,source.height);
@@ -637,7 +637,10 @@ export class AirshipScene extends Phaser.Scene {
     const input=normalizeInput(this.joystick.direction.x+Number(key.D.isDown||key.RIGHT.isDown)-Number(key.A.isDown||key.LEFT.isDown),
       this.joystick.direction.y+Number(key.S.isDown||key.DOWN.isDown)-Number(key.W.isDown||key.UP.isDown));
     let point=stepDeckPosition(this.player,input,delta);
-    if(this.wheelhouse.visible)point=clampToDeck(avoidWheelhouse(point),25);
+    // Segment-based wall collision prevents crossing the solid building.
+    if(this.wheelhouse.visible)point=stepAroundWheelhouse(this.player,point);
+    // Marian's small feet-only collision never enters the enemy physics path.
+    point=resolveCaptainFeet(this.player,point,this.captainActor);
     this.player.setPosition(point.x,point.y);
     this.player.body.reset(point.x,point.y);
     if(this.pickup?.active&&Math.hypot(point.x-this.pickup.x,point.y-this.pickup.y)<42){
