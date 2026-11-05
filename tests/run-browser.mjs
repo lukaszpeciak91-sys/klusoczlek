@@ -2638,7 +2638,27 @@ try {
   await clickControl('WZNÓW');
   assert.equal(await evaluate("window.__game.scene.getScene('Airship').playerHp"),2,'PR79 in-session WZNÓW must not heal damaged player');
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('klusoczlek-campaign-v1')).hp"),restored.maxHp,'PR79 must not persist midcombat health');
-  console.log('PASS PR79 real Chrome reload: Act I and Act II entry, full health, retained artifact, and in-session pause HP');
+  // DEBUG must never overwrite the saved legitimate Act II checkpoint.
+  const genuineSave=await evaluate("localStorage.getItem('klusoczlek-campaign-v1')");
+  await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
+  await waitFor(v=>v.menu,'PR79 DEBUG isolation MENU');
+  await clickControl('DEBUG');
+  const debugTarget=await evaluate("(()=>{const menu=window.__game.scene.getScene('Menu');const t=menu.children.list.find(o=>o.type==='Text'&&o.visible&&o.text==='AKT II — OBRONA');if(!t)return null;const b=menu.input._list.find(o=>o.input&&o.visible&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1);return b?{x:b.x,y:b.y}:null})()");
+  assert.ok(debugTarget,'PR79 DEBUG defense entry missing');
+  const debugRect=(await snapshot()).rect;
+  await click(debugRect.x+debugTarget.x,debugRect.y+debugTarget.y);
+  for(let n=0;n<100;n++){
+    if(await evaluate("window.__game.scene.isActive('Airship')&&window.__game.scene.getScene('Airship').debugCheckpoint==='act2-defense'"))break;
+    await sleep(40);
+  }
+  assert.equal(await evaluate("window.__game.scene.getScene('Airship').debugCheckpoint"),'act2-defense');
+  assert.equal(await evaluate("localStorage.getItem('klusoczlek-campaign-v1')"),genuineSave,'PR79 DEBUG wrote into legitimate checkpoint');
+  await cdp('Page.reload',{ignoreCache:true});
+  for(let n=0;n<120;n++){if(await evaluate("!!window.__game&&window.__game.scene.isActive('Menu')"))break;await sleep(50);}
+  await clickControl('WZNÓW');
+  for(let n=0;n<110;n++){if(await evaluate("window.__game.scene.isActive('Airship')"))break;await sleep(35);}
+  assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.debugCheckpoint===null&&a.campaignRun.completedActs.has('act1')&&a.playerHp===a.maxHp})()"),true,'PR79 DEBUG checkpoint contaminated restored Act II opening');
+  console.log('PASS PR79 real Chrome reload: Act I/II, health, artifact, in-session pause and DEBUG isolation');
     assert.deepEqual(uncaught,[],'Uncaught browser exceptions');
 } finally {
   socket?.close();
