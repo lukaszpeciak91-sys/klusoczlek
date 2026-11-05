@@ -31,8 +31,8 @@ export function avoidWheelhouse(point,radius=PLAYER_RADIUS){
 }
 
 export const AIRSHIP_LANDING_ZONES=Object.freeze([
-  Object.freeze({id:'port-aft',x:240,y:270,radius:45}),
-  Object.freeze({id:'starboard-fore',x:730,y:270,radius:45}),
+  Object.freeze({id:'port-aft',x:320,y:306,radius:45}),
+  Object.freeze({id:'starboard-fore',x:638,y:305,radius:45}),
 ]);
 export const AIRSHIP_LAYERS=Object.freeze([
   Object.freeze({id:'sky',path:'backgrounds/act2-sky.png',speed:0,depth:-40}),
