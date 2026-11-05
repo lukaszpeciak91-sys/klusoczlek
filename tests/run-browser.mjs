@@ -326,7 +326,7 @@ try {
       assert.deepEqual(wheelBase.pos,[879,268],'PR75 refined stern mounting');
       assert.deepEqual(wheelBase.size,[136,136],'PR75 136px square wheel without stretching');
       const houseTransform=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),h=a.wheelhouse;return {x:h.x,y:h.y,width:h.displayWidth,height:h.displayHeight,originY:h.originY}})()");
-      assert.deepEqual(houseTransform,{x:480,y:220,width:136,height:194,originY:1},'PR75 wheelhouse remains bottom-anchored');
+      assert.deepEqual(houseTransform,{x:480,y:220,width:150,height:214,originY:1},'final wheelhouse 150×214 remains bottom-anchored');
       assert.equal(wheelBase.images,1,'Wheel R1 exactly one paddlewheel Image');
       assert.equal(wheelBase.depth,3,'Wheel R1 behind actors but in front of deck');
       assert.ok(Math.abs(wheelBase.size[0]/wheelBase.size[1]-wheelBase.source[0]/wheelBase.source[1])<.0001,'Wheel R1 aspect ratio must remain natural');
@@ -355,6 +355,24 @@ try {
         assert.ok(Math.abs(captureState.zoom-Math.min(1,width/960,height/540))<.015,'Wheel R1 capture must frame entire ship, not crop narrow landscape');
         const image=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
         await writeFile('dist/paddlewheel-r1-'+width+'x'+height+'.png',Buffer.from(image.data,'base64'));
+        // Geometry-only visual evidence in the actual Phaser scene, with the
+        // approved sprites and deck. Restore every position after each shot.
+        const savedPositions=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {p:[a.player.x,a.player.y],c:[a.captainActor.x,a.captainActor.y]}})()");
+        for(const [label,px,py,cx,cy] of [
+          ['bottom-rail',480,383,540,326],
+          ['wheelhouse',570,250,540,326],
+          ['captain-contact',506,326,540,326]
+        ]){
+          await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.player.setPosition("+px+","+py+");a.player.body.reset("+px+","+py+");a.captainActor.setPosition("+cx+","+cy+");return true})()");
+          await sleep(90);
+          const geometryState=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),c=await import('/klusoczlek/src/airship-contract.js');return {player:[a.player.x,a.player.y],inside:c.insideDeck(a.player,25),feet:[a.captainActor.x,a.captainActor.y],footprint:c.WHEELHOUSE_FOOTPRINT}})()");
+          assert.equal(geometryState.inside,true,'final deck geometry screenshot player must be inside');
+          assert.deepEqual([geometryState.footprint.rx,geometryState.footprint.ry],[62,28]);
+          const geometryShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+          await writeFile('dist/act2-final-'+width+'x'+height+'-'+label+'.png',Buffer.from(geometryShot.data,'base64'));
+        }
+        await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),p="+JSON.stringify(savedPositions.p)+",c="+JSON.stringify(savedPositions.c)+";a.player.setPosition(p[0],p[1]);a.player.body.reset(p[0],p[1]);a.captainActor.setPosition(c[0],c[1]);return true})()");
+
       }
       await cdp('Emulation.setDeviceMetricsOverride',{width:Math.round(screenshotViewport.width),height:Math.round(screenshotViewport.height),deviceScaleFactor:1,mobile:false});
       await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.scale.refresh();a.cameras.main.setZoom(1);a.cameras.main.centerOn(a.player.x,a.player.y);a.cameras.main.startFollow(a.player,true,.12,.12);return true})()");
