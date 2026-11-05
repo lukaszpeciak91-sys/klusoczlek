@@ -1,5 +1,6 @@
 import {insideDeck,WHEELHOUSE_FOOTPRINT} from './airship-contract.js';
 import {facingOf} from './combat-contract.js';
+import {BARK_PHRASES,EXTRA_BARKS} from './ambient-barks.js';
 
 // The Captain is decorative, not a collision participant. All route segments
 // remain in the open aft corridor, below the wheelhouse footprint.
@@ -40,6 +41,13 @@ export function advanceCaptainPatrol(state,position,deltaMs){
   return {...point,facing:state.facing,moving:true};
 }
 export const ACT2_BATTLE_CRIES=Object.freeze(['BANZAI!!!','Do abordażu!']);
+export const ACT2_GROUND_CRIES=Object.freeze([...BARK_PHRASES,...EXTRA_BARKS]);
+export function eligibleAirborneBark(flight,view){
+  return !!flight&&flight.phase==='approaching'&&!flight.released&&!flight.blocked&&
+    !!flight.passenger?.active&&!!flight.visual?.active&&
+    flight.x>=view.x+65&&flight.x<=view.right-65&&
+    flight.y>=view.y+90&&flight.y<=view.bottom-50;
+}
 export function eligibleAct2Bark(enemy,view){
   return !!enemy&&!enemy.dead&&enemy.hp>0&&enemy.sprite?.active&&
     enemy.x>=view.x+70&&enemy.x<=view.right-70&&
