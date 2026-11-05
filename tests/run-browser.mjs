@@ -366,6 +366,11 @@ try {
           ['captain-contact',506,326,540,326]
         ]){
           await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.player.setPosition("+px+","+py+");a.player.body.reset("+px+","+py+");a.captainActor.setPosition("+cx+","+cy+");return true})()");
+          // Give Phaser one live update to calculate roof occlusion, then
+          // freeze the encounter during screenshot capture. The boarding
+          // director must not defeat the player while QA is taking pictures.
+          await sleep(45);
+          await evaluate("window.__game.scene.getScene('Airship').scene.pause();true");
           await sleep(90);
           const geometryState=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),c=await import('/klusoczlek/src/airship-contract.js');return {player:[a.player.x,a.player.y],inside:c.insideDeck(a.player,25,c.AIRSHIP_PLAYER_LOWER_MARGIN),feet:[a.captainActor.x,a.captainActor.y],footprint:c.WHEELHOUSE_FOOTPRINT}})()");
           assert.equal(geometryState.inside,true,'final deck geometry screenshot player must be inside');
@@ -374,6 +379,7 @@ try {
           assert.equal(roofDepth,label==='roof-behind'?13:9,'solid roof should obscure players only when behind wheelhouse');
           const geometryShot=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
           await writeFile('dist/act2-final-'+width+'x'+height+'-'+label+'.png',Buffer.from(geometryShot.data,'base64'));
+          await evaluate("window.__game.scene.getScene('Airship').scene.resume();true");
         }
         await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),p="+JSON.stringify(savedPositions.p)+",c="+JSON.stringify(savedPositions.c)+";a.player.setPosition(p[0],p[1]);a.player.body.reset(p[0],p[1]);a.captainActor.setPosition(c[0],c[1]);return true})()");
 
@@ -381,6 +387,8 @@ try {
       await cdp('Emulation.setDeviceMetricsOverride',{width:Math.round(screenshotViewport.width),height:Math.round(screenshotViewport.height),deviceScaleFactor:1,mobile:false});
       await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.scale.refresh();a.cameras.main.setZoom(1);a.cameras.main.centerOn(a.player.x,a.player.y);a.cameras.main.startFollow(a.player,true,.12,.12);return true})()");
       await sleep(60);
+      assert.equal(await evaluate("window.__game.scene.getScene('Airship').defense.state"),'active',
+        'PR80 screenshots must not consume the survival game or trigger defeat');
 
       const bounds=(await snapshot()).rect;
       // Aim along open central deck, not through the enlarged wheelhouse.
