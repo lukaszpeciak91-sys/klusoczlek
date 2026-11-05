@@ -383,7 +383,8 @@ try {
       await sleep(60);
 
       const bounds=(await snapshot()).rect;
-      const mx=bounds.x+450,my=bounds.y+170;
+      // Aim along open central deck, not through the enlarged wheelhouse.
+      const mx=bounds.x+Math.min(bounds.width-80,550),my=bounds.y+Math.round(bounds.height/2);
       await cdp('Input.dispatchMouseEvent',{type:'mouseMoved',x:mx,y:my,button:'none'});
       await cdp('Input.dispatchMouseEvent',{type:'mousePressed',x:mx,y:my,button:'left',buttons:1,clickCount:1});
       // A shot may now hit the enlarged solid wheelhouse before 300ms;
