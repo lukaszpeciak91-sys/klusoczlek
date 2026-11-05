@@ -323,12 +323,21 @@ try {
       // Frame the *whole ship* so even the narrow Android viewport shows its stern.
       for(const [width,height] of [[915,412],[568,320]]){
         await cdp('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
-        await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.scale.refresh();a.cameras.main.stopFollow();a.frameFullShip();return true})()");
+        await evaluate("window.__game.scale.refresh();true");
+        // Let Phaser's asynchronous resize event finish before applying the
+        // capture-only full-ship camera; resize normally resets combat zoom to 1.
+        for(let attempt=0;attempt<20;attempt++){
+          const dimensions=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return [a.scale.width,a.scale.height]})()");
+          if(Math.abs(dimensions[0]-width)<2&&Math.abs(dimensions[1]-height)<2)break;
+          await sleep(40);
+        }
+        await sleep(110);
+        await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.cameras.main.stopFollow();a.frameFullShip();return true})()");
         await sleep(190);
         const captureState=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),w=a.paddlewheel,c=a.cameras.main;return {visible:w.visible,active:w.active,x:w.x,y:w.y,display:[w.displayWidth,w.displayHeight],origin:[w.originX,w.originY],rotation:w.rotation,zoom:c.zoom,scene:a.openingPhase}})()");
         assert.equal(captureState.visible,true,'Wheel R1 visible at '+width+'x'+height);
         assert.deepEqual(captureState.origin,[.5,.5]);
-        assert.ok(captureState.zoom>0&&captureState.zoom<=1);
+        assert.ok(Math.abs(captureState.zoom-Math.min(1,width/960,height/540))<.015,'Wheel R1 capture must frame entire ship, not crop narrow landscape');
         const image=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
         await writeFile('dist/paddlewheel-r1-'+width+'x'+height+'.png',Buffer.from(image.data,'base64'));
       }
