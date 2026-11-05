@@ -3,12 +3,12 @@ import {PLAYER_RADIUS,PLAYER_SPEED} from './movement.js';
 // Provisional logical world dimensions, NOT final PNG dimensions.
 export const AIRSHIP_WORLD=Object.freeze({width:960,height:540,start:Object.freeze({x:480,y:270})});
 export const DECK_POLYGON=Object.freeze([
-  [142,78],[818,78],[882,140],[882,400],[818,430],[142,430],[78,400],[78,140],
+  [142,78],[818,78],[882,140],[882,392],[818,408],[142,408],[78,392],[78,140],
 ].map(([x,y])=>Object.freeze({x,y})));
 export const DECK_MARGIN=PLAYER_RADIUS+8;
 // The wheelhouse's solid footing is much smaller than its tall transparent PNG.
 // Coordinates describe the base resting on the deck, not the image's bounding box.
-export const WHEELHOUSE_FOOTPRINT=Object.freeze({x:480,y:194,rx:57,ry:25});
+export const WHEELHOUSE_FOOTPRINT=Object.freeze({x:480,y:194,rx:62,ry:28});
 export function wheelhouseSegmentHit(from,to,margin=0){
   const f=WHEELHOUSE_FOOTPRINT,a=f.rx+margin,b=f.ry+margin;
   const sx=(from.x-f.x)/a,sy=(from.y-f.y)/b;
@@ -28,6 +28,24 @@ export function avoidWheelhouse(point,radius=PLAYER_RADIUS){
   if(distance>=1)return {x:point.x,y:point.y};
   if(distance<1e-6){dx=0;dy=b;return {x:x,y:y+dy};}
   return {x:x+dx/distance,y:y+dy/distance};
+}
+
+// A movement segment must never pass through the building's solid footing.
+// Preserve the legal previous position and slide along a clear axis rather
+// than projecting the player to the opposite side of the ellipse.
+export function stepAroundWheelhouse(from,to,radius=PLAYER_RADIUS){
+  const margin=radius+7;
+  const current=clampToDeck(from,radius+8);
+  const desired=clampToDeck(to,radius+8);
+  if(!wheelhouseSegmentHit(current,desired,margin))return desired;
+  const sideways=clampToDeck({x:desired.x,y:current.y},radius+8);
+  const vertical=clampToDeck({x:current.x,y:desired.y},radius+8);
+  const first=Math.abs(desired.x-current.x)>=Math.abs(desired.y-current.y)?sideways:vertical;
+  const second=first===sideways?vertical:sideways;
+  for(const candidate of [first,second]){
+    if(!wheelhouseSegmentHit(current,candidate,margin))return candidate;
+  }
+  return current;
 }
 
 export const AIRSHIP_LANDING_ZONES=Object.freeze([
