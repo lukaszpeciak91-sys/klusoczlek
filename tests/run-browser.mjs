@@ -301,6 +301,10 @@ try {
         await sleep(50);
       }
       const visuals=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return {deck:a.deckArt.visible,provisional:a.deckVisual.visible,rails:a.rails.visible,house:a.wheelhouse.visible,wheel:a.paddlewheel.visible,variant:a.playerVisual.appliedVariant}})()");
+      if(!visuals.wheel){
+        const diagnostic=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),p='obstacles/airship-paddlewheel.png';return {status:a.optionalArtStatus[p]??'pending',textureExists:a.textures.exists('airship-paddlewheel-approved'),artAlive:a.artAlive,wheelActive:a.paddlewheel.active,wheelVisible:a.paddlewheel.visible}})()");
+        console.log('PR67 paddlewheel visibility diagnostic (no assertion bypass)',JSON.stringify(diagnostic));
+      }
       assert.deepEqual(visuals,{deck:true,provisional:false,rails:false,house:true,wheel:true,variant:'rifle'},'PR67 approved deck and integrated PNG assets');
       const bounds=(await snapshot()).rect;
       const mx=bounds.x+450,my=bounds.y+170;
