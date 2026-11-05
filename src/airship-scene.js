@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers,clampToDeck,stepAroundWheelhouse} from './airship-contract.js';
+import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers,clampToDeck,stepAroundWheelhouse,WHEELHOUSE_FOOTPRINT} from './airship-contract.js';
 import {createHorizontalParallaxLayer} from './airship-parallax.js';
 import {PADDLEWHEEL_MOUNT,paddlewheelDisplaySize,advancePaddlewheelAngle} from './airship-paddlewheel.js';
 import {currentCampaignRun,prepareActStart,updateRunEquipment,completeCampaignAct} from './campaign-run.js';
@@ -643,6 +643,10 @@ export class AirshipScene extends Phaser.Scene {
     point=resolveCaptainFeet(this.player,point,this.captainActor);
     this.player.setPosition(point.x,point.y);
     this.player.body.reset(point.x,point.y);
+    // Roof must occlude Aloes when he walks behind the building, but not
+    // when he passes in front of its solid footing.
+    const houseDepth=point.y<WHEELHOUSE_FOOTPRINT.y+WHEELHOUSE_FOOTPRINT.ry?13:9;
+    if(this.wheelhouse.depth!==houseDepth)this.wheelhouse.setDepth(houseDepth);
     if(this.pickup?.active&&Math.hypot(point.x-this.pickup.x,point.y-this.pickup.y)<42){
       this.pickup.destroy();this.pickup=null;
       this.weapon='blunderbuss';this.unlockedWeapons.add('blunderbuss');
