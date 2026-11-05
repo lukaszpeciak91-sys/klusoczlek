@@ -1052,7 +1052,11 @@ try {
       assert.deepEqual(vehicleArt.frames,Array(8).fill(true),'PR69 R2 all eight frame registrations');
       assert.deepEqual([vehicleArt.cutWidth,vehicleArt.cutHeight],[320,320],'PR69 R2 render one frame, NEVER the full 2560px atlas');
       assert.deepEqual([vehicleArt.displayWidth,vehicleArt.displayHeight],[176,176],'PR69 R2 keep natural square frame ratio');
-      assert.equal(Number(vehicleArt.frame),1,'PR69 R2 approaching SE glider frame');
+      const directionInfo=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0],m=await import('/klusoczlek/src/glider-spritesheet.js');return {expected:m.flightDirectionFrame({x:0,y:0},f.heading),actual:Number(f.visual.getData('vehicleImage').frame.name),point:f.landingPoint,target:f.target,children:f.visual.list.map(x=>x.type),wingIndex:f.visual.list.indexOf(f.visual.getData('vehicleImage')),passengerIndex:f.visual.list.indexOf(f.passenger)}})()");
+      assert.equal(directionInfo.actual,directionInfo.expected,'PR74 wing must reflect actual approach heading');
+      assert.ok(directionInfo.point&&directionInfo.target,'PR74 safe point must be selected before final approach');
+      assert.equal(directionInfo.target.x,directionInfo.point.x,'PR74 approach x equals reserved touchdown x');
+      assert.ok(directionInfo.wingIndex>directionInfo.passengerIndex,'PR74 wing draws over suspended passenger');
       const passengerFacing=await evaluate("(()=>{const f=window.__game.scene.getScene('Airship').gliderDelivery.flights[0],p=f.passenger,art=p?.getData(f.type+'-art');return {selected:p?.getData(f.type+'-facing'),spriteFrame:art?.active?Number(art.frame.name):null,wingFrame:Number(f.visual.getData('vehicleImage').frame.name)}})()");
       assert.equal(passengerFacing.selected,passengerFacing.wingFrame,'PR69 R2 carried monster must face same direction as wing');
       if(passengerFacing.spriteFrame!==null)assert.equal(passengerFacing.spriteFrame,passengerFacing.wingFrame,'PR69 R2 painted monster frame must match wing heading');
@@ -1076,6 +1080,9 @@ try {
       assert.equal(done,true,'PR64 two encounter-driven gliders must land safely');
       const landed=await evaluate("(async()=>{const a=window.__game.scene.getScene('Airship'),m=a.gliderDelivery,c=await import('/klusoczlek/src/airship-contract.js');return {drops:m.dropCount,ground:m.groundEnemies.filter(e=>!e.dead).map(e=>({type:e.type,inside:c.insideDeck(e),active:e.sprite.active})),pilotRendererPresent:Object.hasOwn(m.renderers,'zubrokryptyda'),pending:m.pendingPassengers,activeGliders:m.activeGliders}})()");
       assert.ok(landed.drops>=2);
+      const flightLandingAudit=await evaluate("(()=>{const f=window.__game.scene.getScene('Airship').gliderDelivery.flights;return f.slice(0,2).map(x=>({released:x.released,blocked:x.blocked,point:x.landingPoint,departure:x.departFrom,finished:x.finished}))})()");
+      assert.ok(flightLandingAudit.every(f=>f.released&&!f.blocked&&f.finished&&f.departure&&f.point),'PR74 flights must release above reserved deck locations and depart empty');
+      assert.ok(flightLandingAudit.every(f=>Math.abs(f.departure.x-f.point.x)<1.5),'PR74 no lateral drop displacement');
       assert.deepEqual(landed.ground.slice(0,2).map(e=>[e.type,e.inside,e.active]),[
         ['bobrozombi',true,true],['bobrozombi',true,true]]);
       assert.equal(landed.pilotRendererPresent,false,'PR69 no pilot renderer is created');
