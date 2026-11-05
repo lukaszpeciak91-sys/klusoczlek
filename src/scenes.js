@@ -14,6 +14,7 @@ import {createDialoguePanel} from './dialogue-ui.js';
 import {createAct1Panels} from './act1-epilogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
 import {FIRST_ACT_ID,completionDestination} from './campaign.js';
+import {readCampaignCheckpoint,writeCampaignCheckpoint} from './campaign-save.js';
 import {beginCampaignRun,currentCampaignRun,updateRunHealth,updateRunEquipment,awardRunArtifact,completeCampaignAct,nextActHandoff,MARCIN_MOHAWK_ID} from './campaign-run.js';
 import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
@@ -79,6 +80,7 @@ export class MenuScene extends Phaser.Scene {
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
     const sessionKey=this.scene.isPaused('Airship')?'Airship':'Arena';
     const hasSession = this.scene.isPaused(sessionKey);
+    const savedCheckpoint=readCampaignCheckpoint();
     const terminal = hasSession && sessionKey==='Arena' && this.scene.get('Arena').episode?.ended;
     const defeated = terminal && this.scene.get('Arena').episode.state==='defeat';
     const victorious=terminal&&!defeated;
@@ -88,20 +90,37 @@ export class MenuScene extends Phaser.Scene {
       if (!allowed()) return;
       this.navigating = true;
       if (hasSession) this.scene.stop(sessionKey);
-      beginCampaignRun(this.game);
+      const run=beginCampaignRun(this.game);
+      writeCampaignCheckpoint(run,FIRST_ACT_ID);
       this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
     });
     const debug = button(this, initial.centerX, 0, initial.startWidth, 44, 'DEBUG', () => {
       if(!allowed())return;
       this.debugOpen=true;resize();
     });
-    const resume = hasSession && !terminal ? button(this, initial.centerX, 0, initial.startWidth, 44, 'WZNÓW', () => {
+    const resume = ((hasSession&&!terminal)||savedCheckpoint) ? button(this, initial.centerX, 0, initial.startWidth, 44, 'WZNÓW', () => {
       if (!allowed()) return;
       this.navigating = true;
-      const activeSession = this.scene.get(sessionKey);
-      activeSession.resetMovement();
-      this.scene.resume(sessionKey);
-      this.scene.stop();
+      if(hasSession&&!terminal){
+        const activeSession=this.scene.get(sessionKey);
+        activeSession.resetMovement();
+        this.scene.resume(sessionKey);
+        this.scene.stop();
+        return;
+      }
+      // Reload resumes at the saved ACT ENTRY, never at a fabricated DEBUG checkpoint.
+      const run=readCampaignCheckpoint();
+      if(!run){this.navigating=false;return;}
+      let handoff=null;
+      if(run.actId!=='act1'){
+        const actId=run.actId;
+        run.actId='act1';
+        handoff=nextActHandoff(run,new Set(Object.keys(this.scene.manager.keys)));
+        if(!handoff||handoff.actId!==actId){this.navigating=false;return;}
+      }
+      if(hasSession)this.scene.stop(sessionKey);
+      this.game.registry.set('campaign-run',run);
+      this.scene.start('ActTitle',{actId:handoff?.actId??FIRST_ACT_ID,handoff});
     }) : null;
     this.debugOpen=false;
     const choices=DEBUG_CHECKPOINTS.map(checkpoint=>({
@@ -114,7 +133,8 @@ export class MenuScene extends Phaser.Scene {
         this.cameras.main.once('camerafadeoutcomplete',()=>{
           if(!this.sys.isActive())return;
           if(hasSession)this.scene.stop(sessionKey);
-          this.game.registry.set('campaign-run',fixture.run);
+          fixture.run.isDebugRun=true; // Never persist developer fixtures as campaign saves.
+        this.game.registry.set('campaign-run',fixture.run);
           this.scene.start(checkpoint.scene,{debugCheckpoint:checkpoint.id,handoff:fixture.handoff});
         });
         this.cameras.main.fadeOut(240,0,0,0);
@@ -450,6 +470,10 @@ export class ArenaScene extends Phaser.Scene {
         kills:this.kills,activeCombatMs:this.elapsedGameplayMs,
       });
       const next=nextActHandoff(this.campaignRun,new Set(Object.keys(this.scene.manager.keys)));
+      if(next){
+        updateRunHealth(this.campaignRun,this.campaignRun.maxHp);
+        next.hp=this.campaignRun.hp; // Keep the handoff snapshot in sync with healed run state.
+      }
       this.releaseFinalOutcome();
       if(next){this.scene.start('ActTitle',{actId:next.actId,handoff:next});return;}
       this.endEpisode('victory');
