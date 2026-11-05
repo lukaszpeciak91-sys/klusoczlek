@@ -470,7 +470,10 @@ export class ArenaScene extends Phaser.Scene {
         kills:this.kills,activeCombatMs:this.elapsedGameplayMs,
       });
       const next=nextActHandoff(this.campaignRun,new Set(Object.keys(this.scene.manager.keys)));
-      if(next)updateRunHealth(this.campaignRun,this.campaignRun.maxHp);
+      if(next){
+        updateRunHealth(this.campaignRun,this.campaignRun.maxHp);
+        next.hp=this.campaignRun.hp; // Keep the handoff snapshot in sync with healed run state.
+      }
       this.releaseFinalOutcome();
       if(next){this.scene.start('ActTitle',{actId:next.actId,handoff:next});return;}
       this.endEpisode('victory');
