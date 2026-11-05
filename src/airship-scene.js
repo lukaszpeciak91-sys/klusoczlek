@@ -631,6 +631,8 @@ export class AirshipScene extends Phaser.Scene {
     this.gliderDelivery.update(delta);
     this.updateCaptainDefense(delta);
     this.updateAct2Barks(delta);
+    // Enemy speech wins when it starts on the same frame as Captain panic.
+    if(this.act2Bark.visible)this.captainSpeech.setVisible(false);
     const key=this.keys;
     const input=normalizeInput(this.joystick.direction.x+Number(key.D.isDown||key.RIGHT.isDown)-Number(key.A.isDown||key.LEFT.isDown),
       this.joystick.direction.y+Number(key.S.isDown||key.DOWN.isDown)-Number(key.W.isDown||key.UP.isDown));
