@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers,clampToDeck,avoidWheelhouse} from './airship-contract.js';
 import {createHorizontalParallaxLayer} from './airship-parallax.js';
+import {PADDLEWHEEL_MOUNT,paddlewheelDisplaySize,advancePaddlewheelAngle} from './airship-paddlewheel.js';
 import {currentCampaignRun,prepareActStart,updateRunEquipment,completeCampaignAct} from './campaign-run.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl} from './character-visual.js';
@@ -84,9 +85,9 @@ export class AirshipScene extends Phaser.Scene {
     this.wheelhouse=this.add.image(480,218,'airship-fallback-sky')
       .setOrigin(.5,1).setDepth(9).setVisible(false);
     void this.loadOptional('obstacles/airship-wheelhouse.png','airship-wheelhouse-approved',this.wheelhouse,'wheelhouse');
-    // The perspective wheel stays static: rotating the entire PNG is incorrect.
-    this.paddlewheel=this.add.image(863,282,'airship-fallback-sky')
-      .setOrigin(.5,.5).setDepth(3).setVisible(false);
+    // Approved symmetric wheel: one Image rotating about its hub.
+    this.paddlewheel=this.add.image(PADDLEWHEEL_MOUNT.x,PADDLEWHEEL_MOUNT.y,'airship-fallback-sky')
+      .setOrigin(.5,.5).setDepth(PADDLEWHEEL_MOUNT.depth).setVisible(false);
     void this.loadOptional('obstacles/airship-paddlewheel.png','airship-paddlewheel-approved',this.paddlewheel,'paddlewheel');
     this.player=createPlayer(this,AIRSHIP_ALOES_START.x,AIRSHIP_ALOES_START.y);
     this.player.body.setVelocity(0,0);
@@ -317,7 +318,9 @@ export class AirshipScene extends Phaser.Scene {
       }else if(kind==='wheelhouse'){
         target.setDisplaySize(120,174).setVisible(true);
       }else if(kind==='paddlewheel'){
-        target.setDisplaySize(100,153).setVisible(true);
+        const source=this.textures.get(key).getSourceImage();
+        const size=paddlewheelDisplaySize(source.width,source.height);
+        target.setOrigin(.5,.5).setDisplaySize(size.width,size.height).setVisible(true);
       }
       this.optionalArtStatus[path]='loaded';
     }catch(error){
@@ -537,6 +540,11 @@ export class AirshipScene extends Phaser.Scene {
       this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
       this.combat.stopFire();
       return;
+    }
+    // Scene pause and focus/portrait guard above suspend wheel rotation.
+    // The wheel reuses its existing Image and never allocates frames.
+    if(this.paddlewheel?.active&&this.paddlewheel.visible){
+      this.paddlewheel.rotation=advancePaddlewheelAngle(this.paddlewheel.rotation,delta);
     }
     scrollCloudLayers(this.layers,delta);
     for(const layer of this.layers)layer.update();
