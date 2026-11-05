@@ -326,7 +326,8 @@ try {
       assert.deepEqual(wheelBase.pos,[879,268],'PR75 refined stern mounting');
       assert.deepEqual(wheelBase.size,[136,136],'PR75 136px square wheel without stretching');
       const houseTransform=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),h=a.wheelhouse;return {x:h.x,y:h.y,width:h.displayWidth,height:h.displayHeight,originY:h.originY}})()");
-      assert.deepEqual(houseTransform,{x:480,y:220,width:150,height:214,originY:1},'final wheelhouse 150×214 remains bottom-anchored');
+      assert.deepEqual([houseTransform.x,houseTransform.y,houseTransform.originY],[480,220,1],'final wheelhouse remains bottom-anchored');
+      assert.ok(Math.abs(houseTransform.width-150)<.01&&Math.abs(houseTransform.height-214)<.01,'final wheelhouse 150×214px, allowing Phaser float precision');
       assert.equal(wheelBase.images,1,'Wheel R1 exactly one paddlewheel Image');
       assert.equal(wheelBase.depth,3,'Wheel R1 behind actors but in front of deck');
       assert.ok(Math.abs(wheelBase.size[0]/wheelBase.size[1]-wheelBase.source[0]/wheelBase.source[1])<.0001,'Wheel R1 aspect ratio must remain natural');
