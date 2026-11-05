@@ -4,15 +4,14 @@ import {createBobrozombiRenderer,createBocianolakRenderer} from './enemy-visual.
 import {ENEMY_TYPES} from './enemy-types.js';
 import {AIRSHIP_GROUND_CAP,AIRSHIP_GLIDER_CAP} from './airship-defense.js';
 import {GLIDER_ART_KEY,GLIDER_ART_PATH,GLIDER_DEMO,LANDING_MS,GLIDER_EXPANDED_SEARCH_MS,
-  landingPosition,makeFlight,stepFlight,stepLanding} from './glider-delivery.js';
+  landingPosition,landingPointSafe,makeFlight,stepFlight,stepLanding} from './glider-delivery.js';
 
 import {GLIDER_FRAME_SIZE,GLIDER_SHEET_WIDTH,GLIDER_SHEET_HEIGHT,flightDirectionFrame} from './glider-spritesheet.js';
 
 const WING_DISPLAY_WIDTH=176;
 function frameForFlight(flight){
-  return flight.phase==='departing'
-    ?flightDirectionFrame(flight.target,flight.exit)
-    :flightDirectionFrame(flight.from,flight.target);
+  const direction=flight.heading??{x:1,y:0};
+  return flightDirectionFrame({x:0,y:0},direction);
 }
 function showApprovedWing(art,flight){
   art.setTexture(GLIDER_ART_KEY,frameForFlight(flight))
@@ -86,11 +85,17 @@ export function createGliderDelivery(scene,{demo=false}={}){
     if(flights.filter(f=>!f.finished).length>=AIRSHIP_GLIDER_CAP)return null;
     if(groundEnemies.filter(e=>!e.dead).length+landings.filter(l=>!l.finished).length+
       flights.filter(f=>!f.finished&&!f.released).length>=AIRSHIP_GROUND_CAP)return null;
-    const flight=makeFlight(spec);
+    const occupied=[...groundEnemies.filter(e=>!e.dead),...landings.filter(l=>!l.finished),
+      ...flights.filter(f=>!f.finished&&!f.released&&f.landingPoint).map(f=>({...f.landingPoint,radius:ENEMY_TYPES[f.type].radius}))];
+    const safe=landingPosition(spec.zoneId,scene.player,occupied,ENEMY_TYPES[spec.type].radius);
+    const flight=makeFlight(spec,safe);
     const visual=scene.add.container(flight.x,flight.y).setDepth(23);
+    // Child order is significant: passenger first, wing OVER it.
+    const passenger=renderers[spec.type].create(0,0);
+    passenger.setPosition(0,58);
     const wing=wingFallback(scene);
-    const approved=scene.add.sprite(0,-15,'airship-fallback-sky').setVisible(false);
-    visual.add([wing,approved]);
+    const approved=scene.add.sprite(0,-20,'airship-fallback-sky').setVisible(false);
+    visual.add([passenger,wing,approved]);
     visual.setData('vehicleFallback',wing);
     visual.setData('vehicleImage',approved);
     visual.setData('flight',flight);
@@ -99,10 +104,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
       wing.setVisible(false);
     }else pendingArt.add(visual);
     visual.once(Phaser.GameObjects.Events.DESTROY,()=>pendingArt.delete(visual));
-    // Exactly one enemy at its usual world scale, suspended below the bar.
-    const passenger=renderers[spec.type].create(0,0);
-    passenger.setPosition(0,58);
-    visual.add(passenger);
+    // Same passenger scale and directional sprite as its ground counterpart.
     flight.visual=visual;flight.passenger=passenger;flight.telegraph=null;
     syncPassengerFacing(flight);
     flights.push(flight);started.add(flight.id);airborneCount++;
@@ -115,10 +117,9 @@ export function createGliderDelivery(scene,{demo=false}={}){
     flight.visual.remove(passenger);
     // Only one visual exists during descent. Logical ground identity is created at touchdown.
     const descent=scene.add.container(flight.landingPoint.x,flight.landingPoint.y).setDepth(14);
-    scene.add.existing(passenger);
     descent.add(passenger);
     const startX=start.x-flight.landingPoint.x,startY=start.y-flight.landingPoint.y;
-    passenger.setPosition(startX,startY).setScale(1);
+    passenger.setPosition(startX,startY);
     flight.passenger=null;
     const landing={id:flight.id,type:flight.type,x:flight.landingPoint.x,y:flight.landingPoint.y,
       radius:ENEMY_TYPES[flight.type].radius,elapsed:0,finished:false,visual:descent,passenger,startX,startY};
@@ -145,11 +146,18 @@ export function createGliderDelivery(scene,{demo=false}={}){
     }
     for(const flight of flights){
       if(flight.finished)continue;
-      const occupied=[...groundEnemies,...landings.filter(l=>!l.finished)].map(e=>({x:e.x,y:e.y,radius:e.radius??ENEMY_TYPES[e.type].radius}));
-      const point=flight.phase==='dropping'&&!flight.released
-        ?landingPosition(flight.zoneId,scene.player,occupied,ENEMY_TYPES[flight.type].radius,
-          flight.elapsed>=GLIDER_EXPANDED_SEARCH_MS):null;
-      if(flight.phase==='dropping'&&!flight.released){
+      const occupied=[...groundEnemies.filter(e=>!e.dead),...landings.filter(l=>!l.finished),
+        ...flights.filter(f=>f!==flight&&!f.finished&&!f.released&&f.landingPoint)
+          .map(f=>({...f.landingPoint,radius:ENEMY_TYPES[f.type].radius}))]
+        .map(e=>({x:e.x,y:e.y,radius:e.radius??ENEMY_TYPES[e.type].radius}));
+      const radius=ENEMY_TYPES[flight.type].radius;
+      const point=!flight.released&&flight.phase!=='departing'
+        ?(landingPointSafe(flight.landingPoint,scene.player,occupied,radius)
+          ?flight.landingPoint
+          :landingPosition(flight.zoneId,scene.player,occupied,radius,
+            flight.age>=GLIDER_EXPANDED_SEARCH_MS))
+        :null;
+      if(!flight.released&&flight.phase!=='departing'){
         if(point){
           if(!flight.telegraph){
             flight.telegraph=scene.add.ellipse(point.x,point.y,64,24,0xd8a255,0.18)
@@ -184,7 +192,7 @@ export function createGliderDelivery(scene,{demo=false}={}){
       const touchdown=stepLanding(landing,dt);
       if(landing.passenger?.active){
         const t=landing.elapsed/LANDING_MS;
-        landing.passenger.setPosition(landing.startX*(1-t),landing.startY*(1-t)).setScale(1);
+        landing.passenger.setPosition(landing.startX*(1-t),landing.startY*(1-t));
       }
       if(touchdown)finishLanding(landing);
     }
