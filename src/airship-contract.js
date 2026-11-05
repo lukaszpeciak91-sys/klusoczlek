@@ -3,12 +3,12 @@ import {PLAYER_RADIUS,PLAYER_SPEED} from './movement.js';
 // Provisional logical world dimensions, NOT final PNG dimensions.
 export const AIRSHIP_WORLD=Object.freeze({width:960,height:540,start:Object.freeze({x:480,y:270})});
 export const DECK_POLYGON=Object.freeze([
-  [142,78],[818,78],[882,140],[882,400],[818,462],[142,462],[78,400],[78,140],
+  [142,78],[818,78],[882,140],[882,400],[818,430],[142,430],[78,400],[78,140],
 ].map(([x,y])=>Object.freeze({x,y})));
 export const DECK_MARGIN=PLAYER_RADIUS+8;
 // The wheelhouse's solid footing is much smaller than its tall transparent PNG.
 // Coordinates describe the base resting on the deck, not the image's bounding box.
-export const WHEELHOUSE_FOOTPRINT=Object.freeze({x:480,y:194,rx:51,ry:23});
+export const WHEELHOUSE_FOOTPRINT=Object.freeze({x:480,y:194,rx:57,ry:25});
 export function wheelhouseSegmentHit(from,to,margin=0){
   const f=WHEELHOUSE_FOOTPRINT,a=f.rx+margin,b=f.ry+margin;
   const sx=(from.x-f.x)/a,sy=(from.y-f.y)/b;
