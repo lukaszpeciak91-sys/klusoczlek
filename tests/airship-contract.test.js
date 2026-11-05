@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {AIRSHIP_WORLD,DECK_POLYGON,DECK_MARGIN,AIRSHIP_LAYERS,AIRSHIP_LANDING_ZONES,
-  insideDeck,clampToDeck,stepDeckPosition,scrollCloudLayers,avoidWheelhouse,WHEELHOUSE_FOOTPRINT} from '../src/airship-contract.js';
+  insideDeck,clampToDeck,stepDeckPosition,scrollCloudLayers,avoidWheelhouse,stepAroundWheelhouse,wheelhouseSegmentHit,WHEELHOUSE_FOOTPRINT} from '../src/airship-contract.js';
 import {createCampaignRun,completeCampaignAct,nextActHandoff,prepareActStart} from '../src/campaign-run.js';
 
 test('provisional beveled deck contains spawn but excludes sky and rail edges',()=>{
@@ -67,9 +67,9 @@ test('wheelhouse footing blocks actors, not the full tall sprite',()=>{
 
 test('PR75 shared lower railing limit constrains player, enemies and landing footprints',()=>{
   const lowerEdge=Math.max(...DECK_POLYGON.map(p=>p.y));
-  assert.equal(lowerEdge,430);
-  assert.ok(insideDeck({x:480,y:405},25),'Aloes may reach the last safe playable line');
-  assert.equal(insideDeck({x:480,y:406},25),false,'player cannot cross lower edge');
+  assert.equal(lowerEdge,408);
+  assert.ok(insideDeck({x:480,y:383},25),'Aloes may reach the last safe playable line');
+  assert.equal(insideDeck({x:480,y:384},25),false,'player cannot cross lower edge');
   for(const [label,radius] of [['bobrozombi',21],['bocianolak',18]]){
     const margin=radius+8;
     const projected=clampToDeck({x:480,y:500},margin);
@@ -81,4 +81,49 @@ test('PR75 shared lower railing limit constrains player, enemies and landing foo
   }
   assert.equal(insideDeck({x:480,y:445},0),false,'outside deck even before actor padding');
   assert.equal(insideDeck({x:480,y:300},25),true,'central dodge space unchanged');
+});
+
+test('final deck: eight input directions and both lower diagonals preserve player visual footprint',()=>{
+  // Source character frames are 64px, displayed at 1.30x about the player.
+  // At maximum y=383, the entire 83.2px-tall sprite remains above y=425.
+  const spriteHalfHeight=64*1.30/2,visibleLowerRail=426;
+  for(const start of [{x:480,y:350},{x:220,y:355},{x:740,y:355}]){
+    for(let i=0;i<8;i++){
+      let p={...start};
+      const a=i*Math.PI/4,dir={x:Math.cos(a),y:Math.sin(a)};
+      for(let n=0;n<90;n++){
+        p=stepDeckPosition(p,dir,50);
+        assert.ok(insideDeck(p,25),'direction '+i+' '+JSON.stringify(p));
+      }
+      if(p.y>375)assert.ok(p.y+spriteHalfHeight<=visibleLowerRail+1e-6);
+    }
+  }
+  for(const point of [{x:92,y:396},{x:868,y:396}]){
+    const projected=clampToDeck(point,25);
+    assert.ok(insideDeck(projected,25));
+    assert.ok(projected.y<=383);
+  }
+});
+test('final wheelhouse: all approach segments reject entry and side tunneling',()=>{
+  const f=WHEELHOUSE_FOOTPRINT;
+  assert.deepEqual([f.rx,f.ry],[62,28]);
+  for(const [from,to] of [
+    [{x:480,y:330},{x:480,y:125}],
+    [{x:480,y:95},{x:480,y:310}],
+    [{x:310,y:194},{x:650,y:194}],
+    [{x:650,y:194},{x:310,y:194}],
+    [{x:380,y:290},{x:580,y:125}],
+  ]){
+    assert.equal(wheelhouseSegmentHit(from,to,24),true);
+    let p={...from};
+    const dx=to.x-from.x,dy=to.y-from.y;
+    for(let n=1;n<=120;n++){
+      const proposal={x:from.x+dx*n/120,y:from.y+dy*n/120};
+      const next=stepAroundWheelhouse(p,proposal,17);
+      assert.equal(wheelhouseSegmentHit(p,next,24),false,
+        'wall crossing '+JSON.stringify({from,to,p,next}));
+      assert.ok(insideDeck(next,25));
+      p=next;
+    }
+  }
 });
