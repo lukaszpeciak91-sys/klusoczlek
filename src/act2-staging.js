@@ -1,4 +1,4 @@
-import {insideDeck,clampToDeck,stepAroundWheelhouse,WHEELHOUSE_FOOTPRINT} from './airship-contract.js';
+import {insideDeck,clampToDeck,stepAroundWheelhouse,AIRSHIP_PLAYER_LOWER_MARGIN,WHEELHOUSE_FOOTPRINT} from './airship-contract.js';
 import {PLAYER_RADIUS} from './movement.js';
 import {facingOf} from './combat-contract.js';
 import {BARK_PHRASES,EXTRA_BARKS} from './ambient-barks.js';
@@ -13,9 +13,9 @@ export const CAPTAIN_PANIC_PHRASES=Object.freeze([
   'AAAAAA!','Zrób coś!','Wszyscy tu zginiemy!','Pruj z karabinku!','Jezu, Jezu, Jezuuuuuuu!'
 ]);
 export const CAPTAIN_PATROL_POINTS=Object.freeze([
-  {x:270,y:330},{x:360,y:292},{x:460,y:352},{x:585,y:308},
-  {x:690,y:350},{x:690,y:285},{x:590,y:361},{x:390,y:363},
-  {x:250,y:290},{x:540,y:326},{x:720,y:358},{x:310,y:361}
+  {x:270,y:320},{x:360,y:292},{x:460,y:315},{x:585,y:308},
+  {x:690,y:317},{x:690,y:285},{x:590,y:320},{x:390,y:318},
+  {x:250,y:290},{x:540,y:326},{x:720,y:317},{x:310,y:319}
 ].map(p=>Object.freeze(p)));
 export function captainPointSafe(point){
   const f=WHEELHOUSE_FOOTPRINT;
@@ -96,7 +96,7 @@ export function resolveCaptainFeet(from,desired,captain,radius=PLAYER_RADIUS){
     const theta=angle+offset;
     const trial={x:captain.x+Math.cos(theta)*minDistance,
       y:captain.y+Math.sin(theta)*minDistance};
-    if(!insideDeck(trial,radius+8))continue;
+    if(!insideDeck(trial,radius+8,AIRSHIP_PLAYER_LOWER_MARGIN))continue;
     const moved=stepAroundWheelhouse(from,trial,radius);
     if(Math.hypot(moved.x-captain.x,moved.y-captain.y)<minDistance-0.05)continue;
     const cost=Math.hypot(moved.x-safe.x,moved.y-safe.y);
@@ -105,7 +105,7 @@ export function resolveCaptainFeet(from,desired,captain,radius=PLAYER_RADIUS){
   if(best)return best;
   // If the deck pinches between objects, don't displace the player through
   // solid geometry; holding the last legal point is safer than a teleport.
-  return clampToDeck(from,radius+8);
+  return clampToDeck(from,radius+8,AIRSHIP_PLAYER_LOWER_MARGIN);
 }
 
 export function createCaptainSpeech(seed=76420){
