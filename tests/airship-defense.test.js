@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue} from '../src/dialogue-data.js';
 import {createAirshipDefense,currentDefensePhase,nextDeliverySpec,tickAirshipDefense,
- AIRSHIP_SURVIVAL_MS,AIRSHIP_GROUND_CAP,AIRSHIP_GLIDER_CAP,finishAirshipDefense} from '../src/airship-defense.js';
+ AIRSHIP_SURVIVAL_MS,AIRSHIP_PHASES,AIRSHIP_GROUND_CAP,AIRSHIP_GLIDER_CAP,finishAirshipDefense} from '../src/airship-defense.js';
 import {COMBAT_TUNING} from '../src/weapon-combat.js';
 import {ENCOUNTER} from '../src/bobrozombi.js';
 import {landingPosition} from '../src/glider-delivery.js';
@@ -50,17 +50,20 @@ test('three-minute active clock only moves while combat is active',()=>{
  assert.equal(finishAirshipDefense(d,'survived'),false);
  assert.equal(d.result.activeCombatMs,1500);
 });
-test('phase pressure grows, but ground and aircraft caps gate scheduling',()=>{
- assert.equal(currentDefensePhase(0),0);
- assert.equal(currentDefensePhase(60000),1);
- assert.equal(currentDefensePhase(120000),2);
- assert.deepEqual([0,1,2,3,4,5].map(i=>nextDeliverySpec(i).type),
- ['bobrozombi','bobrozombi','bocianolak','bobrozombi','bobrozombi','bocianolak']);
+test('group configuration grows across three phases and backpressure gates departures',()=>{
+ assert.deepEqual([0,59999,60000,119999,120000,179999,180000].map(currentDefensePhase),[0,0,1,1,2,2,-1]);
+ assert.deepEqual(AIRSHIP_PHASES.map(p=>p.groupMin),[2,3,4]);
+ assert.deepEqual(AIRSHIP_PHASES.map(p=>p.groupMax),[3,4,5]);
+ assert.ok(AIRSHIP_PHASES[0].launchMs>AIRSHIP_PHASES[1].launchMs&&
+    AIRSHIP_PHASES[1].launchMs>AIRSHIP_PHASES[2].launchMs);
+ assert.ok(AIRSHIP_PHASES[0].groupMs>AIRSHIP_PHASES[1].groupMs&&
+    AIRSHIP_PHASES[1].groupMs>AIRSHIP_PHASES[2].groupMs);
  const d=createAirshipDefense();d.state='active';d.clock.elapsedMs=123000;
  assert.equal(tickAirshipDefense(d,1000,{active:true,ground:AIRSHIP_GROUND_CAP,airborne:0,pending:0}),null);
  assert.equal(tickAirshipDefense(d,1100,{active:true,ground:0,airborne:AIRSHIP_GLIDER_CAP,pending:0}),null);
  const result=tickAirshipDefense(d,1200,{active:true,ground:3,airborne:1,pending:1});
  assert.equal(result.delivery.type,'bobrozombi');
+ assert.equal(result.delivery.groupId,0);
  assert.ok(d.nextDeliveryMs>123000);
 });
 test('victory at 180 s is one-shot and cannot supersede defeat',()=>{
