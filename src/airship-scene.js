@@ -82,7 +82,7 @@ export class AirshipScene extends Phaser.Scene {
     // The fallback rail object must exist before a cached texture can hide it.
     void this.loadOptional('arenas/airship-deck.png',DECK_TEXTURE,this.deckArt,'deck');
     // Tall building and wheel are art sprites; the roof is not a collision box.
-    this.wheelhouse=this.add.image(480,218,'airship-fallback-sky')
+    this.wheelhouse=this.add.image(480,220,'airship-fallback-sky')
       .setOrigin(.5,1).setDepth(9).setVisible(false);
     void this.loadOptional('obstacles/airship-wheelhouse.png','airship-wheelhouse-approved',this.wheelhouse,'wheelhouse');
     // Approved symmetric wheel: one Image rotating about its hub.
@@ -318,7 +318,7 @@ export class AirshipScene extends Phaser.Scene {
         target.setDisplaySize(tex.width*fit,tex.height*fit).setVisible(true);
         this.deckVisual.setVisible(false);this.rails.setVisible(false);
       }else if(kind==='wheelhouse'){
-        target.setDisplaySize(120,174).setVisible(true);
+        target.setDisplaySize(136,194).setVisible(true);
       }else if(kind==='paddlewheel'){
         const source=this.textures.get(key).getSourceImage();
         const size=paddlewheelDisplaySize(source.width,source.height);
