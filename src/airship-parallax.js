@@ -20,13 +20,13 @@ export function horizontalCloudState(distance,layerId){
     {composition:cycle+1,alpha:blend,xOffset:(1-progress)*CLOUD_TRAVEL_PX},
   ];
 }
-export function cloudHorizontalMargins(){
-  // A cloud image is visible only while outgoing (-travel..0), or while
-  // incoming (+(1-fadeStart)*travel..0). These unequal limits let us retain
-  // full coverage without enlarging the art for two *invisible* extremes.
-  return {left:(1-CLOUD_FADE_START)*CLOUD_TRAVEL_PX+CLOUD_OVERSCAN_PX,
-    right:CLOUD_TRAVEL_PX+CLOUD_OVERSCAN_PX};
-}
+// A cloud image is visible while outgoing (-travel..0), or while incoming
+// (+(1-fadeStart)*travel..0). Do not allocate margins every frame.
+const CLOUD_MARGINS=Object.freeze({
+  left:(1-CLOUD_FADE_START)*CLOUD_TRAVEL_PX+CLOUD_OVERSCAN_PX,
+  right:CLOUD_TRAVEL_PX+CLOUD_OVERSCAN_PX,
+});
+export function cloudHorizontalMargins(){return CLOUD_MARGINS;}
 export function backgroundCoverScale(sourceWidth,sourceHeight,viewportWidth,viewportHeight,moving){
   const margins=moving?cloudHorizontalMargins():{left:0,right:0};
   return Math.max((viewportWidth+margins.left+margins.right)/sourceWidth,
@@ -38,6 +38,7 @@ export function createHorizontalParallaxLayer(scene,def,initialKey){
   const images=Array.from({length:count},()=>scene.add.image(0,0,initialKey)
     .setOrigin(.5).setScrollFactor(0).setDepth(def.depth));
   let key=initialKey,w=scene.scale.width,h=scene.scale.height,disposed=false,lastZoom=null;
+  const centerBias=moving?(CLOUD_MARGINS.right-CLOUD_MARGINS.left)/2:0;
   const zoom=()=>Math.max(.1,scene.cameras?.main?.zoom??1);
   const applyScale=()=>{
     const source=scene.textures.get(key).getSourceImage();
@@ -72,8 +73,6 @@ export function createHorizontalParallaxLayer(scene,def,initialKey){
       // Stable alternation avoids a one-frame swap when one composition expires.
       for(let i=0;i<2;i++){
         const state=states[i],image=images[state.composition%2];
-        const margins=cloudHorizontalMargins();
-        const centerBias=(margins.right-margins.left)/2;
         image.setPosition(Math.round(w/2+(centerBias+state.xOffset)/zoom()),Math.round(h/2))
           .setAlpha(state.alpha);
       }
