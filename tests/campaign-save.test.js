@@ -81,6 +81,8 @@ test('PR79 rejects fabricated progress, invalid equipment, corrupted stats and u
   const variations=[
     {version:999},{actId:'act3'},{actId:'no-such-act'},{hp:4},{maxHp:0},
     {completedActs:[]},{completedActs:['act1','act2']},{artifacts:[]},
+    {artifacts:['marcin-mohawk','fake-artifact']},{upgrades:['fake-upgrade']},
+    {unlockedWeapons:['blunderbuss','laser']},{maxHp:100,hp:100},
     {selectedWeapon:'flamethrower'},{unlockedWeapons:['rifle']},
     {unlockedWeapons:['blunderbuss','blunderbuss']},{unlockedWeapons:'blunderbuss'},
     {stats:{...original.stats,kills:original.stats.kills+1}},
