@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 import {ARENA,PLAYER_SPEED,PLAYER_RADIUS,normalizeInput} from './movement.js';
 import {createPlayer} from './player.js';
-import {createPlayerVisual} from './character-visual.js';
+import {createPlayerVisual,assetUrl} from './character-visual.js';
 import {createJoystick} from './joystick.js';
 import {currentCampaignRun,prepareActStart} from './campaign-run.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
-import {volcanoStep,VOLCANO_START,VOLCANO_ASSETS} from './volcano-contract.js';
+import {arenaHudLayout} from './ui-layout.js';
+import {volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing} from './volcano-contract.js';
 
-// Act III foundation only: authored temporary geometry, no enemies or final art assumptions.
+// Scene owns only two persistent world layers. Missing production art is safe.
 export class VolcanoScene extends Phaser.Scene {
   constructor(){super('Volcano');}
   init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
@@ -16,62 +17,161 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.run.actId!=='act3'&&!prepareActStart(this.run,this.handoff,new Set(Object.keys(this.scene.manager.keys)))){
       this.scene.start('Menu');return;
     }
+    this.disposed=false;
+    this.pendingLoads=new Set();
     this.cameras.main.setBackgroundColor('#220b08');
     this.physics.world.setBounds(0,0,ARENA.width,ARENA.height);
     this.cameras.main.setBounds(0,0,ARENA.width,ARENA.height);
-    // A procedural, clearly temporary lava surface. No asset is required to boot.
-    const lava=this.add.graphics().setDepth(-20);
-    lava.fillStyle(0x6e1b0b).fillRect(0,0,ARENA.width,ARENA.height);
-    for(let y=0;y<ARENA.height;y+=56){
-      lava.lineStyle(3,0xc54b16,.5);
-      lava.beginPath();
-      for(let x=0;x<=ARENA.width;x+=48){
-        const wave=Math.sin(x*.012+y*.027)*13;
-        if(x===0)lava.moveTo(x,y+wave);else lava.lineTo(x,y+wave);
+
+    // Fallback is generated once per scene, never once per frame.
+    const fallbackKey='volcano-lava-fallback';
+    if(!this.textures.exists(fallbackKey)){
+      const g=this.make.graphics({x:0,y:0},false);
+      g.fillStyle(0x721c0c).fillRect(0,0,512,512);
+      for(let y=0;y<512;y+=64){
+        g.lineStyle(6,0xf0771c,.8);
+        g.beginPath();
+        for(let x=0;x<=512;x+=16){
+          const v=y+Math.sin(x*Math.PI*2/128)*9;
+          if(x===0)g.moveTo(x,v);else g.lineTo(x,v);
+        }
+        g.strokePath();
       }
-      lava.strokePath();
+      g.generateTexture(fallbackKey,512,512);g.destroy();
     }
-    const floor=this.add.graphics().setDepth(-10);
-    floor.fillStyle(0x4b3b32);
-    // Temporary walkable rock mass with an inset notch; geometry is authoritative.
-    floor.fillRoundedRect(155,120,1490,960,45);
-    floor.fillStyle(0x655247);
-    floor.fillRoundedRect(188,150,1424,900,35);
-    floor.lineStyle(7,0x251b1a);
-    floor.strokeRoundedRect(155,120,1490,960,45);
+    this.lava=this.add.tileSprite(0,0,ARENA.width,ARENA.height,fallbackKey)
+      .setOrigin(0).setDepth(VOLCANO_DEPTH.lava);
+    this.lava.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    this.terrain=this.add.graphics().setDepth(VOLCANO_DEPTH.terrain);
+    this.terrain.fillStyle(0x4b3b32).fillRoundedRect(155,120,1490,960,45);
+    this.terrain.fillStyle(0x655247).fillRoundedRect(188,150,1424,900,35);
+    this.terrain.lineStyle(7,0x251b1a).strokeRoundedRect(155,120,1490,960,45);
+    this.terrainImage=this.add.image(0,0,fallbackKey).setOrigin(0).setVisible(false)
+      .setDepth(VOLCANO_DEPTH.terrain);
+
     this.player=createPlayer(this,VOLCANO_START.x,VOLCANO_START.y);
+    // The collision marker is hidden by createPlayerVisual after its sprite loads.
     this.playerVisual=createPlayerVisual(this,this.player,this.player,Phaser);
+    this.facing='s';
     this.cameras.main.startFollow(this.player,true,.12,.12);
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
     this.joystick=createJoystick(this,'left');
     this.aimJoystick=createJoystick(this,'right');
-    this.facing='s';
     this.hud=this.add.text(16,16,'AKT III — PRZYTULNE M4 W CENTRUM WULKANU\nFUNDAMENT / TEREN TYMCZASOWY',{
       fontFamily:'monospace',fontSize:'16px',color:'#ffe4ba',
       backgroundColor:'#21130c',padding:{x:9,y:7}
-    }).setScrollFactor(0).setDepth(100);
-    const menu=this.add.text(16,90,'MENU',{fontFamily:'monospace',fontSize:'22px',color:'#ffffff',backgroundColor:'#372218',padding:{x:12,y:7}})
-      .setScrollFactor(0).setDepth(101).setInteractive();
-    menu.on('pointerdown',()=>{this.resetMovement();this.scene.pause();this.scene.launch('Menu');});
-    const resize=()=>{this.hud.setPosition(16,16);menu.setPosition(16,90);};
+    }).setScrollFactor(0).setDepth(VOLCANO_DEPTH.hud);
+    this.menuButton=this.add.text(16,90,'MENU',{
+      fontFamily:'monospace',fontSize:'22px',color:'#ffffff',
+      backgroundColor:'#372218',padding:{x:12,y:7}
+    }).setScrollFactor(0).setDepth(VOLCANO_DEPTH.hud+1).setInteractive();
+    this.menuButton.on('pointerdown',()=>this.openMenu());
+
+    const resize=()=>{
+      const layout=arenaHudLayout(this.scale.height,this.scale.width);
+      this.joystick.reposition(layout.joystickX,layout.joystickY,layout.joystickRadius);
+      this.aimJoystick.reposition(layout.aimX,layout.aimY,layout.joystickRadius);
+      this.hud.setPosition(16,16);this.menuButton.setPosition(16,90);
+      this.syncControls();
+    };
+    const resume=()=>this.syncControls();
+    const pause=()=>this.resetMovement();
+    const focus=()=>this.syncControls();
     this.scale.on(Phaser.Scale.Events.RESIZE,resize);
+    this.events.on(Phaser.Scenes.Events.RESUME,resume);
+    this.events.on(Phaser.Scenes.Events.PAUSE,pause);
+    window.addEventListener('focus',focus);
+    window.addEventListener('blur',pause);
+    document.addEventListener('visibilitychange',focus);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
+      this.disposed=true;
+      for(const controller of this.pendingLoads)controller.abort();
+      this.pendingLoads.clear();
       this.scale.off(Phaser.Scale.Events.RESIZE,resize);
+      this.events.off(Phaser.Scenes.Events.RESUME,resume);
+      this.events.off(Phaser.Scenes.Events.PAUSE,pause);
+      window.removeEventListener('focus',focus);
+      window.removeEventListener('blur',pause);
+      document.removeEventListener('visibilitychange',focus);
       this.playerVisual.destroy();
     });
+    resize();
     enforceOrientationOnSceneStart(this);
+    this.syncControls();
+    void this.loadOptionalVolcano('lava');
+    void this.loadOptionalVolcano('terrain');
   }
-  resetMovement(){this.joystick?.setEnabled(false);this.aimJoystick?.setEnabled(false);}
-  update(_time,delta){
-    if(document.hidden||!document.hasFocus()||window.innerWidth<window.innerHeight){
-      this.resetMovement();return;
+  async loadOptionalVolcano(kind){
+    const def=VOLCANO_ASSETS[kind],controller=new AbortController();
+    this.pendingLoads.add(controller);
+    let objectUrl=null;
+    try{
+      const response=await fetch(assetUrl(import.meta.env.BASE_URL,def.path),
+        {cache:'no-cache',signal:controller.signal});
+      if(!response.ok)throw Error('HTTP '+response.status);
+      const bytes=new Uint8Array(await response.arrayBuffer());
+      if(!validVolcanoPng(bytes,def))throw Error('invalid PNG IHDR');
+      objectUrl=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
+      const image=new Image();
+      await new Promise((resolve,reject)=>{
+        image.onload=resolve;image.onerror=()=>reject(Error('PNG decode failed'));
+        image.src=objectUrl;
+      });
+      if(image.naturalWidth!==def.width||image.naturalHeight!==def.height)
+        throw Error('decoded image size mismatch');
+      if(this.disposed||controller.signal.aborted)return;
+      const key='volcano-production-'+kind;
+      if(!this.textures.exists(key))this.textures.addImage(key,image);
+      if(kind==='lava'){
+        const previous=this.lava.tilePositionY;
+        this.lava.setTexture(key).setSize(ARENA.width,ARENA.height);
+        this.lava.tilePositionY=previous;
+        this.lava.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+      }else{
+        this.terrainImage.setTexture(key).setPosition(0,0).setOrigin(0).setDisplaySize(ARENA.width,ARENA.height).setVisible(true);
+        this.terrain.setVisible(false);
+      }
+    }catch(error){
+      if(!controller.signal.aborted&&!this.disposed)
+        console.info('[Volcano] procedural fallback for '+kind+': '+error.message);
+    }finally{
+      if(objectUrl)URL.revokeObjectURL(objectUrl);
+      this.pendingLoads.delete(controller);
     }
+  }
+  controlsAllowed(){
+    return volcanoControlsAllowed({
+      hidden:document.hidden,focused:document.hasFocus(),
+      landscape:window.innerWidth>=window.innerHeight,
+      paused:this.scene.isPaused()
+    });
+  }
+  syncControls(){
+    const enabled=this.controlsAllowed();
+    if(this.joystick.enabled!==enabled)this.joystick.setEnabled(enabled);
+    if(this.aimJoystick.enabled!==enabled)this.aimJoystick.setEnabled(enabled);
+  }
+  resetMovement(){
+    this.joystick?.setEnabled(false);
+    this.aimJoystick?.setEnabled(false);
+  }
+  openMenu(){
+    if(!this.controlsAllowed())return;
+    this.resetMovement();
+    this.scene.pause();
+    this.scene.launch('Menu');
+  }
+  update(_time,delta){
+    this.syncControls();
+    if(!this.controlsAllowed())return;
+    this.lava.tilePositionY=advanceVolcanoLava(this.lava.tilePositionY,delta);
     const k=this.keys;
-    const input=normalizeInput(this.joystick.direction.x+Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),
+    const input=normalizeInput(
+      this.joystick.direction.x+Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),
       this.joystick.direction.y+Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown));
-    const next=volcanoStep(this.player,input,Math.min(delta,50),PLAYER_SPEED,PLAYER_RADIUS);
+    const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
-    if(input.x||input.y)this.facing=Math.abs(input.x)>Math.abs(input.y)?(input.x>0?'e':'w'):(input.y>0?'s':'n');
-    this.playerVisual.update(this.facing,Boolean(input.x||input.y),delta);
+    this.facing=volcanoFacing(input,this.facing);
+    this.playerVisual.update(this.facing,Boolean(input.x||input.y),Math.min(delta,50));
   }
 }
