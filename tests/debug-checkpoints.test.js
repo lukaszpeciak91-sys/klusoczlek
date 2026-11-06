@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import {DEBUG_CHECKPOINTS,DEBUG_IDS,createDebugFixture} from '../src/debug-checkpoints.js';
 import {createCampaignRun,createCampaignRun as fresh,prepareActStart,MARCIN_MOHAWK_ID} from '../src/campaign-run.js';
 
-test('eight stable debug destinations cover only implemented acts',()=>{
+test('debug destinations cover implemented Acts I–III',()=>{
  assert.deepEqual(DEBUG_CHECKPOINTS.map(x=>x.id),[
   'act1-opening','act1-marcin','act1-ending','act1-results',
-  'act2-opening','act2-defense','act2-last15','act2-results']);
- assert.equal(DEBUG_IDS.size,8);
- assert.ok(DEBUG_CHECKPOINTS.every(x=>['Arena','Airship'].includes(x.scene)));
- assert.equal(createDebugFixture('act3-opening'),null);
+  'act2-opening','act2-defense','act2-last15','act2-results',
+  'act3-opening']);
+ assert.equal(DEBUG_IDS.size,DEBUG_CHECKPOINTS.length);
+ assert.ok(DEBUG_CHECKPOINTS.every(x=>['Arena','Airship','Volcano'].includes(x.scene)));
+ assert.equal(createDebugFixture('act3-opening')?.handoff.scene,'Volcano');
 });
 test('each debug selection creates an independent valid in-memory campaign',()=>{
  const a=createDebugFixture('act1-opening'),b=createDebugFixture('act1-opening');

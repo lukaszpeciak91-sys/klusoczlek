@@ -11,6 +11,7 @@ export const DEBUG_CHECKPOINTS=Object.freeze([
   Object.freeze({id:'act2-defense',actId:'act2',scene:'Airship',label:'AKT II — OBRONA'}),
   Object.freeze({id:'act2-last15',actId:'act2',scene:'Airship',label:'AKT II — OSTATNIE 15 S'}),
   Object.freeze({id:'act2-results',actId:'act2',scene:'Airship',label:'AKT II — ZAKOŃCZENIE'}),
+  Object.freeze({id:'act3-opening',actId:'act3',scene:'Volcano',label:'AKT III — POCZĄTEK'}),
 ]);
 export const DEBUG_IDS=new Set(DEBUG_CHECKPOINTS.map(item=>item.id));
 
@@ -34,6 +35,12 @@ export function createDebugFixture(id){
   run.selectedWeapon='rifle';
   run.stats.byAct.act1={kills:42,activeCombatMs:240000};
   run.stats.kills=42;run.stats.activeCombatMs=240000;
-  const handoff=nextActHandoff(run,new Set(['Arena','Airship']));
+  if(checkpoint.actId==='act3'){
+    run.completedActs.add('act2');
+    run.stats.byAct.act2={kills:0,activeCombatMs:180000};
+    run.stats.activeCombatMs+=180000;
+    run.actId='act2';
+  }
+  const handoff=nextActHandoff(run,new Set(['Arena','Airship','Volcano']));
   return handoff?{checkpoint,run,handoff}:null;
 }
