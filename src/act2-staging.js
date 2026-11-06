@@ -1,8 +1,9 @@
-import {insideDeck,WHEELHOUSE_FOOTPRINT} from './airship-contract.js';
+import {insideDeck,clampToDeck,stepAroundWheelhouse,AIRSHIP_PLAYER_LOWER_MARGIN,WHEELHOUSE_FOOTPRINT} from './airship-contract.js';
+import {PLAYER_RADIUS} from './movement.js';
 import {facingOf} from './combat-contract.js';
 import {BARK_PHRASES,EXTRA_BARKS} from './ambient-barks.js';
 
-// The Captain is decorative, not a collision participant. All route segments
+// Captain panic remains cosmetic for enemies and projectiles. Only Aloes sees a compact feet obstacle. All route segments
 // remain in the open aft corridor, below the wheelhouse footprint.
 export const AIRSHIP_CAPTAIN_START=Object.freeze({x:540,y:326});
 export const AIRSHIP_ALOES_START=Object.freeze({x:432,y:326});
@@ -12,9 +13,9 @@ export const CAPTAIN_PANIC_PHRASES=Object.freeze([
   'AAAAAA!','Zrób coś!','Wszyscy tu zginiemy!','Pruj z karabinku!','Jezu, Jezu, Jezuuuuuuu!'
 ]);
 export const CAPTAIN_PATROL_POINTS=Object.freeze([
-  {x:270,y:330},{x:360,y:292},{x:460,y:352},{x:585,y:308},
-  {x:690,y:350},{x:690,y:285},{x:590,y:367},{x:390,y:375},
-  {x:250,y:290},{x:540,y:326},{x:720,y:375},{x:310,y:365}
+  {x:270,y:320},{x:360,y:292},{x:460,y:315},{x:585,y:308},
+  {x:690,y:317},{x:690,y:285},{x:590,y:320},{x:390,y:318},
+  {x:250,y:290},{x:540,y:326},{x:720,y:317},{x:310,y:319}
 ].map(p=>Object.freeze(p)));
 export function captainPointSafe(point){
   const f=WHEELHOUSE_FOOTPRINT;
@@ -75,6 +76,38 @@ export function advanceCaptainPatrol(state,position,deltaMs,enemies=[]){
   state.lastVector={x:dx/length,y:dy/length};state.moving=true;
   return {...point,facing:state.facing,moving:true};
 }
+// Only player movement is resolved against Captain Marian's feet; the NPC
+// never joins combat physics and cannot push Aloes past the railing/wheelhouse.
+export const CAPTAIN_FEET_RADIUS=14;
+export function resolveCaptainFeet(from,desired,captain,radius=PLAYER_RADIUS){
+  const minDistance=radius+CAPTAIN_FEET_RADIUS+3;
+  const safe=stepAroundWheelhouse(from,desired,radius);
+  let dx=safe.x-captain.x,dy=safe.y-captain.y;
+  const distance=Math.hypot(dx,dy);
+  if(distance>=minDistance)return safe;
+  if(distance<1e-6){dx=from.x-captain.x;dy=from.y-captain.y;}
+  if(Math.hypot(dx,dy)<1e-6){dx=0;dy=-1;}
+  const angle=Math.atan2(dy,dx);
+  // The first candidate stays on the natural separation axis; nearby angular
+  // alternatives make rail and wheelhouse corners non-trapping.
+  const deviations=[0,Math.PI/4,-Math.PI/4,Math.PI/2,-Math.PI/2,3*Math.PI/4,-3*Math.PI/4,Math.PI];
+  let best=null,bestCost=Infinity;
+  for(const offset of deviations){
+    const theta=angle+offset;
+    const trial={x:captain.x+Math.cos(theta)*minDistance,
+      y:captain.y+Math.sin(theta)*minDistance};
+    if(!insideDeck(trial,radius+8,AIRSHIP_PLAYER_LOWER_MARGIN))continue;
+    const moved=stepAroundWheelhouse(from,trial,radius);
+    if(Math.hypot(moved.x-captain.x,moved.y-captain.y)<minDistance-0.05)continue;
+    const cost=Math.hypot(moved.x-safe.x,moved.y-safe.y);
+    if(cost<bestCost){best=moved;bestCost=cost;}
+  }
+  if(best)return best;
+  // If the deck pinches between objects, don't displace the player through
+  // solid geometry; holding the last legal point is safer than a teleport.
+  return clampToDeck(from,radius+8,AIRSHIP_PLAYER_LOWER_MARGIN);
+}
+
 export function createCaptainSpeech(seed=76420){
   return {seed:seed>>>0,elapsed:0,nextAt:2200,lastPhrase:-1,spoken:[],visibleUntil:0,phrase:null};
 }

@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,CAPTAIN_PATROL_POINTS,CAPTAIN_PANIC_SPEED,CAPTAIN_PANIC_PHRASES,createCaptainPatrol,advanceCaptainPatrol,captainPointSafe,createCaptainSpeech,stepCaptainSpeech,eligibleAct2Bark,eligibleAirborneBark,ACT2_BATTLE_CRIES,ACT2_GROUND_CRIES} from '../src/act2-staging.js';
+import {AIRSHIP_CAPTAIN_START,AIRSHIP_ALOES_START,CAPTAIN_PATROL_POINTS,CAPTAIN_PANIC_SPEED,CAPTAIN_PANIC_PHRASES,createCaptainPatrol,advanceCaptainPatrol,captainPointSafe,CAPTAIN_FEET_RADIUS,resolveCaptainFeet,createCaptainSpeech,stepCaptainSpeech,eligibleAct2Bark,eligibleAirborneBark,ACT2_BATTLE_CRIES,ACT2_GROUND_CRIES} from '../src/act2-staging.js';
 import {BARK_PHRASES,EXTRA_BARKS} from '../src/ambient-barks.js';
 import {facingOf,playerFrame} from '../src/combat-contract.js';
+import {insideDeck,AIRSHIP_PLAYER_LOWER_MARGIN,WHEELHOUSE_FOOTPRINT,wheelhouseSegmentHit} from '../src/airship-contract.js';
 
 test('PR72 Act II opening stages Aloes and Captain safely face-to-face',()=>{
   assert.ok(captainPointSafe(AIRSHIP_CAPTAIN_START));
@@ -97,4 +98,31 @@ test('PR76 all five exact panic phrases occur, without immediate repeats, with b
  assert.equal(stepCaptainSpeech(speech,0,false),null);
  assert.equal(speech.spoken.length,oldCount);
  assert.equal(speech.elapsed,elapsed,'pause must not accumulate time');
+});
+
+test('final Act II Captain collision is feet-only and separates without entering walls or railings',()=>{
+ assert.equal(CAPTAIN_FEET_RADIUS,14);
+ const captain={x:540,y:326},minimum=17+CAPTAIN_FEET_RADIUS+3;
+ for(const initial of [{x:495,y:326},{x:585,y:326},{x:540,y:280},{x:540,y:329}]){
+  let player={...initial};
+  for(let i=0;i<75;i++){
+   const toward={x:player.x+(captain.x-player.x)*.15,y:player.y+(captain.y-player.y)*.15};
+   const next=resolveCaptainFeet(player,toward,captain);
+   assert.ok(insideDeck(next,25,AIRSHIP_PLAYER_LOWER_MARGIN));
+   assert.ok(Math.hypot(next.x-captain.x,next.y-captain.y)>=minimum-.1);
+   assert.equal(wheelhouseSegmentHit(player,next,24),false);
+   player=next;
+  }
+ }
+});
+test('final Act II Captain at lower railing cannot force Aloes off deck',()=>{
+ for(const captain of [{x:390,y:318},{x:720,y:317},{x:300,y:319}]){
+  assert.ok(captainPointSafe(captain));
+  let player={x:captain.x,y:captain.y-45};
+  for(let i=0;i<100;i++){
+   const next=resolveCaptainFeet(player,{x:captain.x,y:captain.y+12},captain);
+   assert.ok(insideDeck(next,25));
+   player=next;
+  }
+ }
 });
