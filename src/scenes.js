@@ -96,7 +96,7 @@ export class MenuScene extends Phaser.Scene {
     });
     const debug = button(this, initial.centerX, 0, initial.startWidth, 44, 'DEBUG', () => {
       if(!allowed())return;
-      this.debugOpen=true;resize();
+      debugScroll=0;this.debugOpen=true;resize();
     });
     const resume = ((hasSession&&!terminal)||savedCheckpoint) ? button(this, initial.centerX, 0, initial.startWidth, 44, 'WZNÓW', () => {
       if (!allowed()) return;
@@ -123,10 +123,12 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ActTitle',{actId:handoff?.actId??FIRST_ACT_ID,handoff});
     }) : null;
     this.debugOpen=false;
+    let debugScroll=0,debugMaxScroll=0,debugViewportTop=0,debugViewportBottom=0;
+    let debugDrag=null,debugSuppressUntil=0;
     const choices=DEBUG_CHECKPOINTS.map(checkpoint=>({
       checkpoint,
       control:button(this,initial.centerX,0,160,34,checkpoint.label,()=>{
-        if(!allowed()||!this.debugOpen)return;
+        if(!allowed()||!this.debugOpen||this.game.loop.time<debugSuppressUntil)return;
         const fixture=createDebugFixture(checkpoint.id);
         if(!fixture)return;
         this.navigating=true;
@@ -164,21 +166,63 @@ export class MenuScene extends Phaser.Scene {
       }
       const colWidth=Math.min(275,(w-24)/2-6);
       const rowGap=Math.min(57,Math.max(42,h*.145));
-      const firstY=h*.26;
+      const itemHeight=Math.min(43,rowGap-5);
+      debugViewportTop=Math.max(h*.19,title.y+title.height/2+12);
+      debugViewportBottom=h*.91-Math.min(37,h*.10)/2-12;
+      const viewportHeight=Math.max(0,debugViewportBottom-debugViewportTop);
+      const contentHeight=Math.ceil(choices.length/2)*rowGap-(rowGap-itemHeight);
+      debugMaxScroll=Math.max(0,contentHeight-viewportHeight);
+      debugScroll=Math.max(0,Math.min(debugMaxScroll,debugScroll));
       choices.forEach(({control},i)=>{
         const x=w/2+(i%2===0?-1:1)*(colWidth/2+3);
-        const y=firstY+Math.floor(i/2)*rowGap;
-        control.background.setPosition(x,y).setSize(colWidth,Math.min(43,rowGap-5)).setVisible(this.debugOpen);
-        control.caption.setPosition(x,y).setFontSize(Math.max(10,Math.min(15,w*.018,h*.043))).setVisible(this.debugOpen);
-        control.background.input.enabled=this.debugOpen;
+        const y=debugViewportTop+itemHeight/2+Math.floor(i/2)*rowGap-debugScroll;
+        const visible=this.debugOpen&&y-itemHeight/2>=debugViewportTop-0.5&&y+itemHeight/2<=debugViewportBottom+0.5;
+        control.background.setPosition(x,y).setSize(colWidth,itemHeight).setVisible(visible);
+        control.caption.setPosition(x,y).setFontSize(Math.max(10,Math.min(15,w*.018,h*.043))).setVisible(visible);
+        control.background.input.enabled=visible;
       });
       back.background.setPosition(w/2,h*.91).setSize(Math.min(170,w*.35),Math.min(37,h*.10)).setVisible(this.debugOpen);
       back.caption.setPosition(w/2,h*.91).setFontSize(Math.max(13,Math.min(18,h*.052))).setVisible(this.debugOpen);
       back.background.input.enabled=this.debugOpen;
     };
+    // Scroll only the checkpoint viewport. Phaser input coordinates are screen-local.
+    const inDebugList=pointer=>this.debugOpen&&pointer.y>=debugViewportTop&&pointer.y<=debugViewportBottom;
+    const pointerDown=pointer=>{
+      if(!inDebugList(pointer))return;
+      debugDrag={id:pointer.id,y:pointer.y,startY:pointer.y,scroll:debugScroll,moved:false};
+    };
+    const pointerMove=pointer=>{
+      if(!debugDrag||pointer.id!==debugDrag.id)return;
+      const delta=pointer.y-debugDrag.startY;
+      if(Math.abs(delta)>7)debugDrag.moved=true;
+      if(!debugDrag.moved)return;
+      debugSuppressUntil=this.game.loop.time+350;
+      debugScroll=Math.max(0,Math.min(debugMaxScroll,debugDrag.scroll-delta));
+      resize();
+    };
+    const pointerUp=pointer=>{
+      if(!debugDrag||pointer.id!==debugDrag.id)return;
+      if(debugDrag.moved)debugSuppressUntil=this.game.loop.time+350;
+      debugDrag=null;
+    };
+    const wheel=(pointer,_objects,_dx,dy)=>{
+      if(!inDebugList(pointer))return;
+      debugScroll=Math.max(0,Math.min(debugMaxScroll,debugScroll+dy));
+      resize();
+    };
+    this.input.on('pointerdown',pointerDown);
+    this.input.on('pointermove',pointerMove);
+    this.input.on('pointerup',pointerUp);
+    this.input.on('pointerupoutside',pointerUp);
+    this.input.on('wheel',wheel);
     resize();
     this.scale.on(Phaser.Scale.Events.RESIZE, resize);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, resize));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off(Phaser.Scale.Events.RESIZE, resize);
+      this.input.off('pointerdown',pointerDown);this.input.off('pointermove',pointerMove);
+      this.input.off('pointerup',pointerUp);this.input.off('pointerupoutside',pointerUp);
+      this.input.off('wheel',wheel);
+    });
     const fullscreenButton = document.getElementById('fullscreen-button');
     fullscreenButton.hidden = false;
     this.events.once('shutdown', () => { fullscreenButton.hidden = true; });
