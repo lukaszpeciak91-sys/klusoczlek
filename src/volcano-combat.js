@@ -112,7 +112,8 @@ export function createVolcanoCombat(scene){
    enemy.bark.setPosition(p.x,p.y-55).setVisible(now-enemy.barkAt<1100&&enemy.bark.visible);
    if(Math.hypot(p.x-scene.player.x,p.y-scene.player.y)<enemy.radius+18&&now-enemy.contactAt>1100){
     enemy.contactAt=now;
-    scene.run.hp=applyPlayerContact(scene.run.hp,1);
+    const contact=applyPlayerContact({hp:scene.run.hp,invulnerableUntil:scene.playerInvulnerableUntil??0},now);
+    scene.run.hp=contact.hp;scene.playerInvulnerableUntil=contact.invulnerableUntil;
    }
   }
   if(enemies.every(e=>e.dead)&&stage<groups.length-1){
