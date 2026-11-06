@@ -6,6 +6,7 @@ import {createJoystick} from './joystick.js';
 import {currentCampaignRun,prepareActStart} from './campaign-run.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {arenaHudLayout} from './ui-layout.js';
+import {createHpFaceHud} from './hp-face-hud.js';
 import {volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing} from './volcano-contract.js';
 
 // Scene owns only two persistent world layers. Missing production art is safe.
@@ -57,21 +58,31 @@ export class VolcanoScene extends Phaser.Scene {
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
     this.joystick=createJoystick(this,'left');
     this.aimJoystick=createJoystick(this,'right');
-    this.hud=this.add.text(16,16,'AKT III — PRZYTULNE M4 W CENTRUM WULKANU\nFUNDAMENT / TEREN TYMCZASOWY',{
-      fontFamily:'monospace',fontSize:'16px',color:'#ffe4ba',
-      backgroundColor:'#21130c',padding:{x:9,y:7}
-    }).setScrollFactor(0).setDepth(VOLCANO_DEPTH.hud);
-    this.menuButton=this.add.text(16,90,'MENU',{
-      fontFamily:'monospace',fontSize:'22px',color:'#ffffff',
-      backgroundColor:'#372218',padding:{x:12,y:7}
-    }).setScrollFactor(0).setDepth(VOLCANO_DEPTH.hud+1).setInteractive();
+    this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
+    this.menuButton=this.add.rectangle(0,0,80,38,0x2b3324,0.95)
+      .setStrokeStyle(2,0xb9a16b).setScrollFactor(0).setDepth(60)
+      .setInteractive({useHandCursor:true});
+    this.menuLabel=this.add.text(0,0,'MENU',{
+      fontFamily:'monospace',fontSize:'17px',color:'#e8d6a5'
+    }).setOrigin(.5).setScrollFactor(0).setDepth(61);
     this.menuButton.on('pointerdown',()=>this.openMenu());
-
+    this.hpFace=createHpFaceHud(this,Phaser);
+    this.hpFace.setHp(this.run.hp);
+    this.hpText=this.add.text(0,0,'HP '+this.run.hp+'/'+this.run.maxHp,{
+      fontFamily:'monospace',fontSize:'13px',color:'#f3e8d1'
+    }).setOrigin(.5,0).setScrollFactor(0).setDepth(81);
+    // The fullscreen DOM button is not part of active Act III gameplay HUD.
+    this.fullscreenButton=document.getElementById('fullscreen-button');
+    this.fullscreenPreviousHidden=this.fullscreenButton?.hidden??false;
+    if(this.fullscreenButton)this.fullscreenButton.hidden=true;
     const resize=()=>{
       const layout=arenaHudLayout(this.scale.height,this.scale.width);
       this.joystick.reposition(layout.joystickX,layout.joystickY,layout.joystickRadius);
       this.aimJoystick.reposition(layout.aimX,layout.aimY,layout.joystickRadius);
-      this.hud.setPosition(16,16);this.menuButton.setPosition(16,90);
+      this.hudLayout=layout;
+      this.menuButton.setPosition(layout.menuX,layout.menuY).setSize(layout.menuWidth,layout.menuHeight);
+      this.menuLabel.setPosition(layout.menuX,layout.menuY).setFontSize(layout.menuFont);
+      this.hpFace.resize(layout);this.hpText.setPosition(layout.hpX,layout.hpY);
       this.syncControls();
     };
     const resume=()=>this.syncControls();
@@ -93,7 +104,8 @@ export class VolcanoScene extends Phaser.Scene {
       window.removeEventListener('focus',focus);
       window.removeEventListener('blur',pause);
       document.removeEventListener('visibilitychange',focus);
-      this.playerVisual.destroy();
+      if(this.fullscreenButton)this.fullscreenButton.hidden=this.fullscreenPreviousHidden;
+      this.playerVisual.destroy();this.hpFace.destroy();
     });
     resize();
     enforceOrientationOnSceneStart(this);
@@ -154,6 +166,7 @@ export class VolcanoScene extends Phaser.Scene {
   resetMovement(){
     this.joystick?.setEnabled(false);
     this.aimJoystick?.setEnabled(false);
+    this.input.keyboard?.resetKeys();
   }
   openMenu(){
     if(!this.controlsAllowed())return;
@@ -173,5 +186,8 @@ export class VolcanoScene extends Phaser.Scene {
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
     this.facing=volcanoFacing(input,this.facing);
     this.playerVisual.update(this.facing,Boolean(input.x||input.y),Math.min(delta,50));
+    this.hpFace.setHp(this.run.hp);
+    this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
+    this.hpFace.update(delta);
   }
 }
