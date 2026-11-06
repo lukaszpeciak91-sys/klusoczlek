@@ -32,14 +32,65 @@ export function volcanoFacing(input,previous='s'){
   const directions=['e','se','s','sw','w','nw','n','ne'];
   return directions[(Math.round(a/(Math.PI/4))+8)%8];
 }
-// Temporary rectangle; never infer final walkability from terrain alpha.
-export const VOLCANO_TEMP_BOUNDS=Object.freeze({left:190,top:155,right:1610,bottom:1045});
-export function volcanoStep(position,input,deltaMs,speed,radius){
+// Collision is sourced exclusively from the decoded terrain alpha channel.
+// The mask is built once at image load; no per-frame canvas reads.
+export const VOLCANO_ALPHA_THRESHOLD=32;
+export const VOLCANO_COLLISION_CLEARANCE=2;
+export function createVolcanoWalkability(imageData,width=ARENA.width,height=ARENA.height,threshold=VOLCANO_ALPHA_THRESHOLD){
+  if(width!==ARENA.width||height!==ARENA.height||imageData.length!==width*height*4)
+    throw new Error('Volcano collision: invalid terrain pixel dimensions');
+  const pixels=new Uint8Array(width*height);
+  for(let i=0;i<pixels.length;i++)pixels[i]=imageData[i*4+3]>=threshold?1:0;
+  return Object.freeze({width,height,pixels,threshold});
+}
+export function volcanoFootprintAllowed(mask,x,y,radius,clearance=VOLCANO_COLLISION_CLEARANCE){
+  if(!mask||!Number.isFinite(x)||!Number.isFinite(y)||!Number.isFinite(radius))return false;
+  const r=Math.max(0,radius+clearance);
+  if(x-r<0||y-r<0||x+r>=mask.width||y+r>=mask.height)return false;
+  const samples=Math.max(12,Math.ceil(2*Math.PI*r/3));
+  const valid=(px,py)=>mask.pixels[Math.floor(py)*mask.width+Math.floor(px)]===1;
+  if(!valid(x,y))return false;
+  // Sample the full footprint, not only its center or circumference.
+  for(let ring=1;ring<=Math.ceil(r/3);ring++){
+    const rr=Math.min(r,ring*3);
+    const count=Math.max(8,Math.ceil(samples*rr/r));
+    for(let i=0;i<count;i++){
+      const angle=i*2*Math.PI/count;
+      if(!valid(x+Math.cos(angle)*rr,y+Math.sin(angle)*rr))return false;
+    }
+  }
+  return true;
+}
+export function volcanoStep(position,input,deltaMs,speed,radius,mask){
+  if(!mask)return {x:position.x,y:position.y};
   const dt=Math.max(0,Math.min(50,Number.isFinite(deltaMs)?deltaMs:0))/1000;
-  const b=VOLCANO_TEMP_BOUNDS;
-  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
-  return {
-    x:clamp(position.x+input.x*speed*dt,Math.max(radius,b.left),Math.min(ARENA.width-radius,b.right)),
-    y:clamp(position.y+input.y*speed*dt,Math.max(radius,b.top),Math.min(ARENA.height-radius,b.bottom)),
-  };
+  const dx=(Number.isFinite(input.x)?input.x:0)*speed*dt;
+  const dy=(Number.isFinite(input.y)?input.y:0)*speed*dt;
+  // 3px swept substeps stop tunnelling, including during fast enemy lunges.
+  const steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/3));
+  let x=position.x,y=position.y;
+  if(!volcanoFootprintAllowed(mask,x,y,radius))return {x,y};
+  for(let i=0;i<steps;i++){
+    const nx=x+dx/steps,ny=y+dy/steps;
+    if(volcanoFootprintAllowed(mask,nx,ny,radius)){x=nx;y=ny;}
+    else {
+      if(volcanoFootprintAllowed(mask,nx,y,radius))x=nx;
+      if(volcanoFootprintAllowed(mask,x,ny,radius))y=ny;
+    }
+  }
+  return {x,y};
+}
+export function nearestVolcanoSpawn(mask,x,y,radius,minimumDistance=0,avoid=null,maxSearch=240){
+  if(!mask)return null;
+  const safe=(px,py)=>volcanoFootprintAllowed(mask,px,py,radius)&&
+    (!avoid||Math.hypot(px-avoid.x,py-avoid.y)>=minimumDistance);
+  if(safe(x,y))return {x,y};
+  for(let r=4;r<=maxSearch;r+=4){
+    const count=Math.max(16,Math.ceil(2*Math.PI*r/5));
+    for(let i=0;i<count;i++){
+      const angle=2*Math.PI*i/count,px=Math.round(x+Math.cos(angle)*r),py=Math.round(y+Math.sin(angle)*r);
+      if(safe(px,py))return {x:px,y:py};
+    }
+  }
+  return null;
 }
