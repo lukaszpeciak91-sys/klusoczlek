@@ -2706,7 +2706,17 @@ try {
   assert.equal(await evaluate("window.__game.scene.getScene('Airship').debugCheckpoint"),'act2-defense');
   assert.equal(await evaluate("localStorage.getItem('klusoczlek-campaign-v1')"),genuineSave,'PR79 DEBUG wrote into legitimate checkpoint');
   await cdp('Page.reload',{ignoreCache:true});
-  for(let n=0;n<120;n++){try{if(await evaluate("!!window.__game&&window.__game.scene.isActive('Menu')"))break;}catch{}await sleep(50);}
+  // Phaser may mark Menu active before its controls are registered in the
+  // QA snapshot. Wait for the actual saved-game button, not just scene state.
+  for(let n=0;n<120;n++){
+    try{
+      const state=await snapshot();
+      if(state?.menu&&state.actions?.some(a=>a.label==='WZNÓW'))break;
+    }catch{} // DevTools execution context is replaced during reload.
+    await sleep(50);
+  }
+  assert.ok((await snapshot()).actions.some(a=>a.label==='WZNÓW'),
+    'PR79 saved WZNÓW control must be ready before touch after DEBUG reload');
   await clickControl('WZNÓW');
   for(let n=0;n<110;n++){if(await evaluate("window.__game.scene.isActive('Airship')"))break;await sleep(35);}
   assert.equal(await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');return a.debugCheckpoint===null&&a.campaignRun.completedActs.has('act1')&&a.playerHp===a.maxHp})()"),true,'PR79 DEBUG checkpoint contaminated restored Act II opening');
