@@ -4,6 +4,13 @@ import {WEAPON_ORDER} from './weapon-progression.js';
 
 export const CAMPAIGN_RUN_KEY='campaign-run';
 export const MARCIN_MOHAWK_ID='marcin-mohawk';
+export const WATER_FLAMETHROWER_ID='water-flamethrower';
+export function grantWaterFlamethrower(run){
+ if(!(run?.unlockedWeapons instanceof Set))return false;
+ const had=run.unlockedWeapons.has(WATER_FLAMETHROWER_ID);
+ run.unlockedWeapons.add(WATER_FLAMETHROWER_ID);
+ return !had;
+}
 const STARTING_WEAPON_ID=WEAPON_ORDER[0];
 
 // Game registry owns this volatile run across Phaser scene shutdown/restart.
