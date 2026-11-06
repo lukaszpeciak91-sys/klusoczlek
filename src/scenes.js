@@ -78,7 +78,7 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.background);
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
-    const sessionKey=this.scene.isPaused('Airship')?'Airship':'Arena';
+    const sessionKey=this.scene.isPaused('Volcano')?'Volcano':this.scene.isPaused('Airship')?'Airship':'Arena';
     const hasSession = this.scene.isPaused(sessionKey);
     const savedCheckpoint=readCampaignCheckpoint();
     const terminal = hasSession && sessionKey==='Arena' && this.scene.get('Arena').episode?.ended;
