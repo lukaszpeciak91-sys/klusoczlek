@@ -3,7 +3,10 @@ import {ARENA,PLAYER_SPEED,PLAYER_RADIUS,normalizeInput} from './movement.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl} from './character-visual.js';
 import {createJoystick} from './joystick.js';
-import {currentCampaignRun,prepareActStart} from './campaign-run.js';
+import {currentCampaignRun,prepareActStart,grantWaterFlamethrower} from './campaign-run.js';
+import {createDialogueState,beginDialogue} from './dialogue-data.js';
+import {createDialoguePanel} from './dialogue-ui.js';
+import {createCaptainArrival} from './captain-arrival.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {arenaHudLayout} from './ui-layout.js';
 import {createHpFaceHud} from './hp-face-hud.js';
@@ -19,6 +22,9 @@ export class VolcanoScene extends Phaser.Scene {
       this.scene.start('Menu');return;
     }
     this.disposed=false;
+    this.openingComplete=false;
+    this.dialogueState=createDialogueState();
+    this.obstacles=[];
     this.pendingLoads=new Set();
     this.cameras.main.setBackgroundColor('#220b08');
     this.physics.world.setBounds(0,0,ARENA.width,ARENA.height);
@@ -54,6 +60,14 @@ export class VolcanoScene extends Phaser.Scene {
     // The collision marker is hidden by createPlayerVisual after its sprite loads.
     this.playerVisual=createPlayerVisual(this,this.player,this.player,Phaser);
     this.facing='s';
+    this.captainArrival=createCaptainArrival(this);
+    this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
+      if(id==='act3-opening'){
+        this.openingComplete=true;
+        this.resetMovement();
+        this.syncControls();
+      }
+    });
     this.cameras.main.startFollow(this.player,true,.12,.12);
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
     this.joystick=createJoystick(this,'left');
@@ -110,6 +124,17 @@ export class VolcanoScene extends Phaser.Scene {
     resize();
     enforceOrientationOnSceneStart(this);
     this.syncControls();
+    // Reuse the campaign title card before entering this scene. The world fades
+    // in with the Captain and existing dialogue UI; exploration stays locked.
+    this.cameras.main.fadeIn(400,0,0,0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_IN_COMPLETE,()=>{
+      if(this.disposed)return;
+      this.captainArrival.start();
+      if(beginDialogue(this.dialogueState,'act3-opening')){
+        grantWaterFlamethrower(this.run);
+        this.dialoguePanel.show(this.dialogueState);
+      }
+    });
     void this.loadOptionalVolcano('lava');
     void this.loadOptionalVolcano('terrain');
   }
@@ -159,7 +184,7 @@ export class VolcanoScene extends Phaser.Scene {
     });
   }
   syncControls(){
-    const enabled=this.controlsAllowed();
+    const enabled=this.controlsAllowed()&&this.openingComplete;
     if(this.joystick.enabled!==enabled)this.joystick.setEnabled(enabled);
     if(this.aimJoystick.enabled!==enabled)this.aimJoystick.setEnabled(enabled);
   }
@@ -169,14 +194,17 @@ export class VolcanoScene extends Phaser.Scene {
     this.input.keyboard?.resetKeys();
   }
   openMenu(){
-    if(!this.controlsAllowed())return;
+    if(this.scene.isPaused()||this.scene.isActive('Menu')||!this.controlsAllowed())return;
     this.resetMovement();
     this.scene.pause();
     this.scene.launch('Menu');
+    this.scene.bringToTop('Menu');
   }
   update(_time,delta){
     this.syncControls();
     if(!this.controlsAllowed())return;
+    this.captainArrival.update(delta);
+    if(!this.openingComplete){this.resetMovement();return;}
     this.lava.tilePositionY=advanceVolcanoLava(this.lava.tilePositionY,delta);
     const k=this.keys;
     const input=normalizeInput(

@@ -1,6 +1,6 @@
 import {ARENA} from './movement.js';
 
-export const VOLCANO_START=Object.freeze({x:900,y:600});
+export const VOLCANO_START=Object.freeze({x:300,y:1000});
 export const VOLCANO_LAVA_SPEED=24; // world pixels/second, down-positive
 export const VOLCANO_DEPTH=Object.freeze({lava:-20,terrain:-10,player:11,controls:50,hud:100});
 export const VOLCANO_ASSETS=Object.freeze({

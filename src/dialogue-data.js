@@ -1,4 +1,10 @@
 export const DIALOGUES=Object.freeze({
+ 'act3-opening':[
+  ['captain','KAPITAN MARIAN','Oto jesteśmy! Weź to, przyda ci się!'],
+  ['captain','KAPITAN MARIAN','Roi się tu od lawostworków!'],
+  ['aloes','ALOES','Lawostworków?'],
+  ['captain','KAPITAN MARIAN','Tak, lawostworków! A teraz prędko po kolejny artefakt!']
+ ],
  'before-wave-1':[
   ['aloes','ALOES','O Jessuuuu… Ale mnie głowa boli… Gdzie ja jestem? Co ja tutaj robię?'],
   ['bobrozombi','BOBROZOMBI','Matko Boska! To z pewnością Kłusoczłek! Szybko, bracia, do ataku!'],
