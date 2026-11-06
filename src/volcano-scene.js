@@ -26,7 +26,7 @@ export class VolcanoScene extends Phaser.Scene {
     // Fallback is generated once per scene, never once per frame.
     const fallbackKey='volcano-lava-fallback';
     if(!this.textures.exists(fallbackKey)){
-      const g=this.make.graphics({x:0,y:0},false);
+      const g=this.add.graphics().setVisible(false);
       g.fillStyle(0x721c0c).fillRect(0,0,512,512);
       for(let y=0;y<512;y+=64){
         g.lineStyle(6,0xf0771c,.8);
