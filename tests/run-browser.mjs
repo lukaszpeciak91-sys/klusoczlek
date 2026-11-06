@@ -1148,7 +1148,16 @@ try {
       const passengerFacing=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights.find(f=>f.id===a.__qaCarrierId),p=f.passenger,art=p?.getData(f.type+'-art');return {selected:p?.getData(f.type+'-facing'),spriteFrame:art?.active?Number(art.frame.name):null,wingFrame:Number(f.visual.getData('vehicleImage').frame.name)}})()");
       assert.equal(passengerFacing.selected,passengerFacing.wingFrame,'PR69 R2 carried monster must face same direction as wing');
       if(passengerFacing.spriteFrame!==null)assert.equal(passengerFacing.spriteFrame,passengerFacing.wingFrame,'PR69 R2 painted monster frame must match wing heading');
-      await evaluate("(()=>{const a=window.__game.scene.getScene('Airship');a.scene.resume();a.openMenu();return true})()");
+      // Phaser scene transitions are processed by the SceneManager; resuming and
+      // opening MENU in the same evaluation can leave Airship still paused.
+      await evaluate("window.__game.scene.getScene('Airship').scene.resume();true");
+      for(let n=0;n<80;n++){
+        if(await evaluate("window.__game.scene.isActive('Airship')"))break;
+        await sleep(25);
+      }
+      assert.equal(await evaluate("window.__game.scene.isActive('Airship')"),true,
+        'PR64 carrier inspection must resume Airship before reopening MENU');
+      await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
       await waitFor(v=>v.menu,'PR64 pause glider');
       const paused=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),f=a.gliderDelivery.flights[0];return {phase:f.phase,elapsed:f.elapsed,clock:a.defense.elapsedMs,x:f.x,y:f.y}})()");
       await sleep(170);
