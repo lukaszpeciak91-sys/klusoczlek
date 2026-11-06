@@ -6,7 +6,7 @@ test('five stable acts with exact approved Polish title cards',()=>{
   assert.deepEqual(CAMPAIGN_ACTS.map(({label,title})=>[label,title]),[
     ['AKT I','POBUDKA'],
     ['AKT II','W PRZESTWORZACH'],
-    ['AKT III','PRZYTULNE M4 W WULKANIE'],
+    ['AKT III','PRZYTULNE M4 W CENTRUM WULKANU'],
     ['AKT IV','ROWER BŁAŻEJA'],
     ['AKT V','TOŻSAMOŚĆ MARIANA'],
   ]);
@@ -23,8 +23,11 @@ test('unimplemented acts cannot route to unregistered gameplay scenes',()=>{
   assert.equal(nextAvailableAct('act1')?.id,'act2');
   assert.equal(completionDestination('act1'),'Airship');
   assert.equal(sceneForAct('act2'),'Airship');
-  assert.equal(nextAvailableAct('act2'),null);
-  assert.equal(sceneForAct('act3'),null);
+  assert.equal(nextAvailableAct('act2')?.id,'act3');
+  assert.equal(sceneForAct('act3'),'Volcano');
+  assert.equal(nextAvailableAct('act3'),null);
+  assert.equal(sceneForAct('act4'),null);
+  assert.equal(sceneForAct('act5'),null);
   assert.equal(sceneForAct('unknown'),null);
 });
 test('future asset contracts describe paths but require no PNG binaries',()=>{
