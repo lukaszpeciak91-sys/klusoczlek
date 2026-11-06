@@ -135,7 +135,8 @@ export class MenuScene extends Phaser.Scene {
           if(hasSession)this.scene.stop(sessionKey);
           fixture.run.isDebugRun=true; // Never persist developer fixtures as campaign saves.
         this.game.registry.set('campaign-run',fixture.run);
-          this.scene.start(checkpoint.scene,{debugCheckpoint:checkpoint.id,handoff:fixture.handoff});
+          if(checkpoint.id==='act3-opening')this.scene.start('ActTitle',{actId:'act3',handoff:fixture.handoff,debugCheckpoint:checkpoint.id});
+          else this.scene.start(checkpoint.scene,{debugCheckpoint:checkpoint.id,handoff:fixture.handoff});
         });
         this.cameras.main.fadeOut(240,0,0,0);
       })
