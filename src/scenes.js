@@ -60,13 +60,13 @@ function label(scene, x, y, value, size = 28) {
   }).setOrigin(0.5);
 }
 
-function button(scene, x, y, width, height, value, onClick) {
+function button(scene, x, y, width, height, value, onClick, event='pointerdown') {
   const background = scene.add.rectangle(x, y, width, height, COLORS.panel)
     .setStrokeStyle(3, COLORS.border).setInteractive({ useHandCursor: true });
   const caption = label(scene, x, y, value);
   background.on('pointerover', () => background.setFillStyle(0x344255));
   background.on('pointerout', () => background.setFillStyle(COLORS.panel));
-  background.on('pointerdown', onClick);
+  background.on(event, onClick);
   return { background, caption };
 }
 
@@ -141,7 +141,7 @@ export class MenuScene extends Phaser.Scene {
           else this.scene.start(checkpoint.scene,{debugCheckpoint:checkpoint.id,handoff:fixture.handoff});
         });
         this.cameras.main.fadeOut(240,0,0,0);
-      })
+      },'pointerup')
     }));
     const back=button(this,initial.centerX,0,150,35,'WRÓĆ',()=>{
       if(!allowed())return;
