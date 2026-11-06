@@ -2,7 +2,7 @@ import {applyEnemyHit,applyPlayerContact} from './bobrozombi.js';
 import {inFlameCone,cooldownReady,COMBAT_TUNING,createFiringState,firingStep,resetFiring} from './weapon-combat.js';
 import {facingOf,playerFrame} from './combat-contract.js';
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
-import {volcanoStep} from './volcano-contract.js';
+import {volcanoStep,nearestVolcanoSpawn} from './volcano-contract.js';
 
 export const LAVA_TYPES=Object.freeze({
  'lawostworek-1':Object.freeze({hp:3,speed:115,radius:17,frame:96,width:768,height:96,color:0xffa51f}),
@@ -13,7 +13,7 @@ export function lavaDamage(weapon,amount){return weapon==='water-flamethrower'?a
 export function createLavaEnemy(type,x,y,index=0){
  const def=LAVA_TYPES[type];return {type,x,y,hp:def.hp,dead:false,radius:def.radius,index,hitAt:-Infinity,barkAt:-Infinity,contactAt:-Infinity,lungeAt:0,headingAt:0,headingOffset:0};
 }
-export function lavaEnemyStep(enemy,player,dt,now=0){
+export function lavaEnemyStep(enemy,player,dt,now=0,mask=null){
  const def=LAVA_TYPES[enemy.type],dx=player.x-enemy.x,dy=player.y-enemy.y,d=Math.hypot(dx,dy);
  if(d<enemy.radius+18)return {x:enemy.x,y:enemy.y};
  const elapsed=Math.max(0,Math.min(50,dt));
@@ -32,7 +32,7 @@ export function lavaEnemyStep(enemy,player,dt,now=0){
   }
   if(now<(enemy.lungeUntil??0))speed*=1.38;
  }
- return volcanoStep(enemy,{x:vx,y:vy},elapsed,speed,enemy.radius);
+ return volcanoStep(enemy,{x:vx,y:vy},elapsed,speed,enemy.radius,mask);
 }
 export function createVolcanoCombat(scene){
  const enemies=[],shots=[],pressure=createPressure(),waterCooldowns=new Map(),stream=scene.add.graphics().setDepth(13);
@@ -72,8 +72,11 @@ export function createVolcanoCombat(scene){
   // Conservative first-platform candidates near the approved entrance.
   const positions=[{x:340,y:845},{x:415,y:900},{x:260,y:820},{x:445,y:830}];
   group.forEach((type,i)=>{
-   const point=positions[i%positions.length],enemy=createLavaEnemy(type,point.x,point.y,stage*10+i);
    const def=LAVA_TYPES[type];
+   const preferred=positions[i%positions.length];
+   const point=nearestVolcanoSpawn(scene.walkability,preferred.x,preferred.y,def.radius,85,scene.player,400);
+   if(!point){console.error('[Volcano] no valid spawn for '+type);return;}
+   const enemy=createLavaEnemy(type,point.x,point.y,stage*10+i);
    enemy.sprite=scene.add.sprite(point.x,point.y,sprites[type],sprites[type]===type?2:0).setDepth(12);
    enemy.sprite.setDisplaySize(def.frame*.7,def.frame*.7);
    enemy.facing='s';
@@ -127,7 +130,7 @@ export function createVolcanoCombat(scene){
   }
   for(const enemy of enemies){
    if(enemy.dead)continue;
-   const p=lavaEnemyStep(enemy,scene.player,dt,now);
+   const p=lavaEnemyStep(enemy,scene.player,dt,now,scene.walkability);
    const dx=p.x-enemy.x,dy=p.y-enemy.y;
    enemy.x=p.x;enemy.y=p.y;enemy.sprite.setPosition(p.x,p.y);
    if(Math.hypot(dx,dy)>.01){enemy.facing=facingOf(dx,dy,enemy.facing);if(sprites[enemy.type]===enemy.type)enemy.sprite.setFrame(playerFrame(enemy.facing));}
