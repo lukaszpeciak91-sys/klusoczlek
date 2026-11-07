@@ -1,5 +1,5 @@
 import {assetUrl} from './character-visual.js';
-import {nearestVolcanoSpawn} from './volcano-contract.js';
+import {nearestVolcanoSpawn,volcanoFootprintAllowed} from './volcano-contract.js';
 
 // White X in the approved 1536x1024 overview: about (284,205).
 // Convert to the existing 1800x1200 world, without changing terrain art.
@@ -14,8 +14,40 @@ const SHEETS=Object.freeze({
 export function fairyTrigger(player,position=FAIRY_MARK,radius=FAIRY_TRIGGER_RADIUS){
  return Math.hypot(player.x-position.x,player.y-position.y)<=radius;
 }
+// A bounded connected-component search prevents crossing lava into another island.
+export function findFairyIslandSpawn(mask,mark=FAIRY_MARK,radius=14,maxDistance=180){
+ if(!mask)return null;
+ const w=mask.width,h=mask.height,seedX=Math.round(mark.x),seedY=Math.round(mark.y);
+ const validCenter=(x,y)=>x>=0&&y>=0&&x<w&&y<h&&mask.pixels[y*w+x]===1;
+ if(!validCenter(seedX,seedY))return null;
+ if(volcanoFootprintAllowed(mask,seedX,seedY,radius))return {x:seedX,y:seedY};
+ const queue=[[seedX,seedY]],seen=new Set([seedY*w+seedX]);
+ let best=null,bestDistance=Infinity;
+ for(let i=0;i<queue.length;i++){
+  const [x,y]=queue[i],distance=Math.hypot(x-mark.x,y-mark.y);
+  if(distance>maxDistance)continue;
+  if(distance<bestDistance&&volcanoFootprintAllowed(mask,x,y,radius)){
+   best={x,y};bestDistance=distance;
+  }
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   const nx=x+dx,ny=y+dy,id=ny*w+nx;
+   if(!validCenter(nx,ny)||seen.has(id)||Math.hypot(nx-mark.x,ny-mark.y)>maxDistance)continue;
+   seen.add(id);queue.push([nx,ny]);
+  }
+ }
+ return best;
+}
+export function createNpcReadiness(){
+ let state='pending',movement=false,started=false;
+ return {
+  requestMovement(){movement=true;return this.consume();},
+  resolve(ready){state=ready?'ready':'failed';return this.consume();},
+  consume(){if(started||!movement||state==='pending')return null;started=true;return state;},
+  get state(){return state;},get started(){return started;}
+ };
+}
 export function createVolcanoNpcs(scene,Phaser){
- let disposed=false,lawos=[],fairy=null,departing=false,departed=false;
+ let disposed=false,placing=null,lawos=[],fairy=null,departing=false,departed=false,lawosReady=false;
  const actors=[];
  async function load(key){
   const def=SHEETS[key],texture='volcano-npc-'+key;
@@ -50,8 +82,12 @@ export function createVolcanoNpcs(scene,Phaser){
    return {actor,sprite,position};
   }).catch(error=>{if(!disposed)console.warn('[Volcano NPC] '+key+': '+error.message);return null;});
  }
- async function place(){
-  if(disposed||!scene.walkability)return;
+ function place(){
+  if(placing)return placing;
+  placing=placeOnce();return placing;
+ }
+ async function placeOnce(){
+  if(disposed||!scene.walkability)return false;
   const mask=scene.walkability,p=scene.player;
   const spots=[{x:p.x+92,y:p.y-78},{x:p.x+150,y:p.y-76}];
   const results=await Promise.all([
@@ -61,18 +97,22 @@ export function createVolcanoNpcs(scene,Phaser){
    }),
    (()=>{
     // Keep the fairy on the marked upper-left platform; never relocate far away.
-    const at=nearestVolcanoSpawn(mask,FAIRY_MARK.x,FAIRY_MARK.y,14,0,null,50);
+    const at=findFairyIslandSpawn(mask);
+    if(!at)console.warn('[Volcano NPC] Świnia-Wróżka: no valid spawn on marked upper-left island at (333,240)');
     return at?spawn('swinia-wrozka',at):Promise.resolve(null);
    })()
   ]);
-  if(disposed)return;
+  if(disposed)return false;
   lawos=results.slice(0,2).filter(Boolean);
+  lawosReady=lawos.length===2&&lawos.every(n=>n.actor.active&&n.sprite.active&&n.actor.visible);
+  if(!lawosReady)console.warn('[Volcano NPC] Lawostworki unavailable: skipping dialogue safely');
   fairy=results[2];
   if(fairy){
    fairy.actor.setVisible(true);
    fairy.idle=scene.tweens.add({targets:fairy.sprite,y:-5,rotation:.035,scaleX:SHEETS['swinia-wrozka'].scale*1.025,
     scaleY:SHEETS['swinia-wrozka'].scale*1.025,duration:900,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
   }
+  return lawosReady;
  }
  function finishLawos(){
   for(const npc of lawos)npc.actor.destroy();
@@ -90,9 +130,9 @@ export function createVolcanoNpcs(scene,Phaser){
  }
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
   disposed=true;
-  for(const actor of actors)if(actor.active)actor.destroy();
+  for(const actor of actors){scene.tweens.killTweensOf(actor);for(const child of actor.list)scene.tweens.killTweensOf(child);if(actor.active)actor.destroy();}
   lawos=[];fairy=null;
  });
- return {place,finishLawos,departFairy,get fairy(){return fairy;},get lawos(){return lawos;},
+ return {place,finishLawos,departFairy,get lawosReady(){return lawosReady;},get fairy(){return fairy;},get lawos(){return lawos;},
   get departed(){return departed;},get departing(){return departing;}};
 }
