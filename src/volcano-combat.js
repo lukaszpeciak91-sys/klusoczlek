@@ -5,6 +5,7 @@ import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressur
 import {volcanoStep,nearestVolcanoSpawn} from './volcano-contract.js';
 import {BOBROZOMBI_ASSET,BOBROZOMBI_VISUAL_SCALE} from './enemy-visual.js';
 import {muzzlePoint} from './shooting.js';
+import {createIgnitionState,igniteEnemy,advanceIgnition,isBurning} from './enemy-panic.js';
 import {createContinuousWeaponState,continuousDamageAllowed,drawContinuousStream,emitContinuousParticle,updateContinuousParticles} from './continuous-weapon.js';
 
 export const LAVA_TYPES=Object.freeze({
@@ -14,10 +15,10 @@ export const LAVA_TYPES=Object.freeze({
 export const LAVA_BARKS=Object.freeze(['Łaskocze!','I co mi zrobisz?!','Ale groźny!','HA! HA! HA!','Spróbuj wodą, geniuszu!']);
 export function lavaDamage(weapon,amount){return continuousDamageAllowed(weapon,'lawostworek-1')?amount:0;}
 export function createLavaEnemy(type,x,y,index=0){
- const def=LAVA_TYPES[type];return {type,x,y,hp:def.hp,dead:false,radius:def.radius,index,hitAt:-Infinity,barkAt:-Infinity,contactAt:-Infinity,panicUntil:0,lungeAt:0,headingAt:0,headingOffset:0};
+ const def=LAVA_TYPES[type];return {type,x,y,hp:def.hp,dead:false,radius:def.radius,index,hitAt:-Infinity,barkAt:-Infinity,contactAt:-Infinity,ignition:createIgnitionState(),lungeAt:0,headingAt:0,headingOffset:0};
 }
 export function lavaEnemyStep(enemy,player,dt,now=0,mask=null){
- const def=LAVA_TYPES[enemy.type],fleeing=now<(enemy.panicUntil??0);
+ const def=LAVA_TYPES[enemy.type],fleeing=isBurning(enemy.ignition,now);
  const dx=(player.x-enemy.x)*(fleeing?-1:1),dy=(player.y-enemy.y)*(fleeing?-1:1),d=Math.hypot(dx,dy);
  if(!fleeing&&d<enemy.radius+18)return {x:enemy.x,y:enemy.y};
  if(d<.001)return {x:enemy.x,y:enemy.y};
@@ -104,7 +105,7 @@ export function createVolcanoCombat(scene){
    }
    return;
   }
-  if(weapon==='water-flamethrower')enemy.panicUntil=Math.max(enemy.panicUntil,now+1250);
+  if(weapon==='water-flamethrower')igniteEnemy(enemy.ignition,enemy.type,now);
   enemy.hp=applyEnemyHit(enemy.hp,damage);
   if(enemy.hp<=0){enemy.dead=true;enemy.sprite.destroy();enemy.bark.destroy();}
  }
@@ -144,6 +145,7 @@ export function createVolcanoCombat(scene){
   }
   for(const enemy of enemies){
    if(enemy.dead)continue;
+   advanceIgnition(enemy.ignition,now);
    const p=lavaEnemyStep(enemy,scene.player,dt,now,scene.walkability);
    const dx=p.x-enemy.x,dy=p.y-enemy.y;
    enemy.x=p.x;enemy.y=p.y;enemy.sprite.setPosition(p.x,p.y);
