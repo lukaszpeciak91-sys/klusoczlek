@@ -12,6 +12,7 @@ import {arenaHudLayout} from './ui-layout.js';
 import {createHpFaceHud} from './hp-face-hud.js';
 import {WEAPONS,availableWeapons,cycleUnlockedWeapon} from './weapon-progression.js';
 import {resolveAim} from './shooting.js';
+import {facingOf} from './combat-contract.js';
 import {createVolcanoCombat} from './volcano-combat.js';
 import {volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing,createVolcanoWalkability,nearestVolcanoSpawn} from './volcano-contract.js';
 
@@ -90,7 +91,7 @@ export class VolcanoScene extends Phaser.Scene {
       this.combat.stopFire();
       this.weapon=cycleUnlockedWeapon(this.weapon,this.run.unlockedWeapons,'act3');
       this.run.selectedWeapon=this.weapon;
-      this.weaponLabel.setText(WEAPONS[this.weapon]?.symbol??'—');
+      this.refreshWeaponHud();
       void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'flamethrower':this.weapon);
     };
     // Match the existing Act I/II weapon token, including its fixed 42px
@@ -100,6 +101,8 @@ export class VolcanoScene extends Phaser.Scene {
     this.weaponLabel=this.add.text(0,0,WEAPONS[this.weapon]?.symbol??'—',
       {fontFamily:'monospace',fontSize:'21px',fontStyle:'bold',color:'#ffffff'}).setOrigin(.5);
     this.weaponToken.add([this.weaponBody,this.weaponLabel]);
+    this.pressureBar=this.add.graphics().setScrollFactor(0).setDepth(67);
+    this.refreshWeaponHud();
     const touchSwitch=pointer=>{
       if(pointer.id===this.joystick.pointerId||pointer.id===this.aimJoystick.pointerId)return;
       const l=this.hudLayout;
@@ -133,6 +136,7 @@ export class VolcanoScene extends Phaser.Scene {
       this.aimJoystick.reposition(layout.aimX,layout.aimY,layout.joystickRadius);
       this.hudLayout=layout;
       this.weaponToken.setPosition(layout.switchX,layout.switchY).setScale(layout.switchSize/42);
+      this.renderPressureBar();
       this.menuButton.setPosition(layout.menuX,layout.menuY).setSize(layout.menuWidth,layout.menuHeight);
       this.menuLabel.setPosition(layout.menuX,layout.menuY).setFontSize(layout.menuFont);
       this.hpFace.resize(layout);this.hpText.setPosition(layout.hpX,layout.hpY);
@@ -158,7 +162,7 @@ export class VolcanoScene extends Phaser.Scene {
       window.removeEventListener('blur',pause);
       document.removeEventListener('visibilitychange',focus);
       if(this.fullscreenButton)this.fullscreenButton.hidden=this.fullscreenPreviousHidden;
-      this.playerVisual.destroy();this.hpFace.destroy();
+      this.pressureBar.destroy();this.playerVisual.destroy();this.hpFace.destroy();
     });
     resize();
     enforceOrientationOnSceneStart(this);
@@ -229,6 +233,22 @@ export class VolcanoScene extends Phaser.Scene {
       this.pendingLoads.delete(controller);
     }
   }
+  refreshWeaponHud(){
+    const selected=WEAPONS[this.weapon];
+    this.weaponLabel.setText(selected?.symbol??'—');
+    this.weaponBody.setFillStyle(selected?.color??0x6b6153,0.92);
+    this.renderPressureBar();
+  }
+  renderPressureBar(){
+    const g=this.pressureBar;
+    if(!g||!this.hudLayout)return;
+    g.clear();
+    if(this.weapon!=='water-flamethrower'&&this.weapon!=='flamethrower')return;
+    const l=this.hudLayout,w=l.switchSize,x=l.switchX-w/2,y=l.switchY+w/2+5;
+    const value=this.combat?.pressure.value??100;
+    g.fillStyle(0x382721,0.95).fillRect(x,y,w,4);
+    g.fillStyle(value<20?0x9b3932:0xee903a).fillRect(x,y,w*value/100,4);
+  }
   controlsAllowed(){
     return volcanoControlsAllowed({
       hidden:document.hidden,focused:document.hasFocus(),
@@ -287,10 +307,13 @@ export class VolcanoScene extends Phaser.Scene {
       this.joystick.direction.y+Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown));
     const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
-    this.facing=volcanoFacing(input,this.facing);
-    this.playerVisual.update(this.facing,Boolean(input.x||input.y),Math.min(delta,50));
     const aim=resolveAim(this.aimJoystick.direction.x,this.aimJoystick.direction.y);
+    // Like Acts I/II, the weapon sheet follows the right stick while firing;
+    // movement controls only locomotion, never the direction of the muzzle.
+    this.facing=(aim.x||aim.y)?facingOf(aim.x,aim.y,this.facing):volcanoFacing(input,this.facing);
+    this.playerVisual.update(this.facing,Boolean(input.x||input.y),Math.min(delta,50));
     this.combat.update(delta,this.time.now,aim,this.aimJoystick.held,this.weapon);
+    this.renderPressureBar();
     if(this.run.hp<=0){this.lockDeath();return;}
     this.hpFace.setHp(this.run.hp);
     this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
