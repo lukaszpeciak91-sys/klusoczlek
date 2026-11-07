@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue} from '../src/dialogue-data.js';
-import {APARTMENT,MARLENA_BARKS,BOGDAN_HP,apartmentReached,bossPhase,bossAttackFor,bossFan,bossBeamPoint,BOSS_TELEGRAPH_MS,BOSS_BEAM_MS} from '../src/volcano-bogdan.js';
+import {APARTMENT,MARLENA_BARKS,BOGDAN_HP,apartmentReached,bossPhase,bossAttackFor,bossFan,bossBeamPoint,findMarlenaRoute,marlenaOffscreen,BOSS_TELEGRAPH_MS,BOSS_BEAM_MS} from '../src/volcano-bogdan.js';
 
 test('approved apartment dialogue exactly five panels',()=>{
  assert.deepEqual(DIALOGUES['act3-apartment-argument'],[
@@ -57,4 +57,25 @@ test('beam stops at blocked terrain',()=>{
  for(let y=30;y<170;y++)for(let x=30;x<110;x++)pixels[y*width+x]=1;
  const p=bossBeamPoint({x:50,y:90},0,130,{width,height,pixels});
  assert.ok(p.x>50&&p.x<110);
+});
+
+test('Marlena routes around blocked terrain without crossing lava',()=>{
+ const width=240,height=180,pixels=new Uint8Array(width*height).fill(1);
+ for(let y=0;y<125;y++)for(let x=105;x<130;x++)pixels[y*width+x]=0;
+ const mask={width,height,pixels};
+ const route=findMarlenaRoute(mask,{x:40,y:45},{x:195,y:45},{radius:7,cell:8});
+ assert.ok(route?.length>5);
+ assert.ok(route.some(p=>p.y>125),'route uses opening below wall');
+ for(const p of route)assert.ok(pixels[Math.floor(p.y)*width+Math.floor(p.x)]===1);
+});
+test('Marlena blocked route returns null, never authorizes teleport',()=>{
+ const width=180,height=160,pixels=new Uint8Array(width*height).fill(1);
+ for(let y=0;y<height;y++)for(let x=83;x<98;x++)pixels[y*width+x]=0;
+ assert.equal(findMarlenaRoute({width,height,pixels},{x:30,y:80},{x:140,y:80},{radius:7,cell:8}),null);
+});
+test('Marlena cannot be removed inside the current camera view',()=>{
+ const camera={worldView:{x:100,y:100,right:500,bottom:400}};
+ assert.equal(marlenaOffscreen({x:250,y:250},camera),false);
+ assert.equal(marlenaOffscreen({x:550,y:250},camera),false);
+ assert.equal(marlenaOffscreen({x:620,y:250},camera),true);
 });
