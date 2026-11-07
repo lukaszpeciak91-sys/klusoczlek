@@ -28,6 +28,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.openingComplete=false;
     this.walkability=null;
     this.combatPending=false;
+    this.defeated=false;
     this.dialogueState=createDialogueState();
     this.obstacles=[];
     this.pendingLoads=new Set();
@@ -81,6 +82,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.aimJoystick=createJoystick(this,'right');
     this.weapon=availableWeapons(this.run.unlockedWeapons,'act3').includes(this.run.selectedWeapon)?this.run.selectedWeapon:'water-flamethrower';
     this.run.selectedWeapon=this.weapon;
+    void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'flamethrower':this.weapon);
     this.playerInvulnerableUntil=0;
     this.combat=createVolcanoCombat(this);
     const switchWeapon=()=>{
@@ -89,7 +91,7 @@ export class VolcanoScene extends Phaser.Scene {
       this.weapon=cycleUnlockedWeapon(this.weapon,this.run.unlockedWeapons,'act3');
       this.run.selectedWeapon=this.weapon;
       this.weaponLabel.setText(WEAPONS[this.weapon]?.symbol??'—');
-      void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'unarmed':this.weapon);
+      void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'flamethrower':this.weapon);
     };
     this.weaponButton=this.add.circle(0,0,22,0x303b2b).setStrokeStyle(2,0xb9a16b).setScrollFactor(0).setDepth(66).setInteractive();
     this.weaponLabel=this.add.text(0,0,WEAPONS[this.weapon]?.symbol??'—',{fontFamily:'monospace',fontSize:'22px',color:'#b9f5ff'}).setOrigin(.5).setScrollFactor(0).setDepth(67);
@@ -225,7 +227,7 @@ export class VolcanoScene extends Phaser.Scene {
     });
   }
   syncControls(){
-    const enabled=this.controlsAllowed()&&this.openingComplete&&Boolean(this.walkability);
+    const enabled=!this.defeated&&this.run.hp>0&&this.controlsAllowed()&&this.openingComplete&&Boolean(this.walkability);
     if(this.joystick.enabled!==enabled)this.joystick.setEnabled(enabled);
     if(this.aimJoystick.enabled!==enabled)this.aimJoystick.setEnabled(enabled);
   }
@@ -235,6 +237,15 @@ export class VolcanoScene extends Phaser.Scene {
     this.input.keyboard?.resetKeys();
     this.combat?.stopFire();
   }
+  lockDeath(){
+    if(this.defeated)return;
+    this.defeated=true;
+    this.resetMovement();
+    this.player.body.setVelocity(0,0);
+    this.player.body.setAcceleration(0,0);
+    this.hpFace.setHp(0);
+    this.hpText.setText('HP 0/'+this.run.maxHp);
+  }
   openMenu(){
     if(this.scene.isPaused()||this.scene.isActive('Menu')||!this.controlsAllowed())return;
     this.resetMovement();
@@ -243,8 +254,9 @@ export class VolcanoScene extends Phaser.Scene {
     this.scene.bringToTop('Menu');
   }
   update(_time,delta){
+    if(this.run.hp<=0){this.lockDeath();return;}
     this.syncControls();
-    if(!this.controlsAllowed())return;
+    if(!this.controlsAllowed()||this.defeated)return;
     this.captainArrival.update(delta);
     if(!this.openingComplete||!this.walkability){this.resetMovement();return;}
     this.lava.tilePositionY=advanceVolcanoLava(this.lava.tilePositionY,delta);
@@ -258,6 +270,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.playerVisual.update(this.facing,Boolean(input.x||input.y),Math.min(delta,50));
     const aim=resolveAim(this.aimJoystick.direction.x,this.aimJoystick.direction.y);
     this.combat.update(delta,this.time.now,aim,this.aimJoystick.held,this.weapon);
+    if(this.run.hp<=0){this.lockDeath();return;}
     this.hpFace.setHp(this.run.hp);
     this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
     this.hpFace.update(delta);
