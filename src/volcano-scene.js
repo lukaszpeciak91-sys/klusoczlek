@@ -376,7 +376,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.escapeClock.setVisible(true);this.escapeClock.setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
     const start=nearestVolcanoSpawn(this.walkability,VOLCANO_START.x,VOLCANO_START.y,PLAYER_RADIUS,0,null,160);
     const route=start&&findMarlenaRoute(this.walkability,this.player,start,{radius:PLAYER_RADIUS,cell:12,maxNodes:24000});
-    if(!start||!route){console.warn('[Volcano Finale] extraction route unavailable');return;}
+    if(!start||!route){console.warn('[Volcano Finale] extraction route unavailable; escape remains retryable');return;}
     this.extractionPoint=start;
     this.spawnExtractionCaptain();
     this.syncControls();
@@ -408,7 +408,7 @@ export class VolcanoScene extends Phaser.Scene {
       const alive=this.escapeEnemies.filter(e=>e.active);
       if(alive.length<5){
         const p=nearestVolcanoSpawn(this.walkability,this.player.x+180,this.player.y+110,24,0,[{x:this.player.x,y:this.player.y,radius:110}],90);
-        if(p){const e=this.add.circle(p.x,p.y,18,0xf27c18).setDepth(12);this.escapeEnemies.push(e);}
+        if(p)this.combat.spawnEscapeEnemy(p,this.escapeSpawned%4===0?'lawostworek-2':'lawostworek-1');
       }
     }
     if(Math.floor(this.finale.remaining/1000)%9===0&&this.finale.remaining%9000<delta){
@@ -419,12 +419,12 @@ export class VolcanoScene extends Phaser.Scene {
   escapeFailed(){
     if(this.finale.state==='ESCAPE_ACTIVE')this.finale.fail();
     if(this.finale.state!=='ESCAPE_RETRY')return;
-    this.resetMovement();this.escapeClock.setVisible(false);this.retryRoot.setVisible(true);
+    this.resetMovement();this.combat.stopFire();this.escapeClock.setVisible(false);this.retryRoot.setVisible(true);
   }
   retryEscape(){
     if(!this.finale.retry()||!this.escapeCheckpoint)return;
     this.retryRoot.setVisible(false);
-    this.escapeEnemies.forEach(e=>e.destroy());this.escapeEnemies=[];this.escapeSpawned=0;this.escapeSpawnAt=0;
+    this.combat.clearEscapeEnemies();this.escapeEnemies=[];this.escapeSpawned=0;this.escapeSpawnAt=0;
     this.run.hp=Math.max(1,Math.min(this.run.maxHp,this.escapeCheckpoint.hp));
     this.playerInvulnerableUntil=this.time.now+1400;
     this.player.setPosition(this.escapeCheckpoint.x,this.escapeCheckpoint.y);this.player.body.reset(this.player.x,this.player.y);
