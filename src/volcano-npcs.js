@@ -1,4 +1,3 @@
-import Phaser from 'phaser';
 import {assetUrl} from './character-visual.js';
 import {nearestVolcanoSpawn} from './volcano-contract.js';
 
@@ -15,7 +14,7 @@ const SHEETS=Object.freeze({
 export function fairyTrigger(player,position=FAIRY_MARK,radius=FAIRY_TRIGGER_RADIUS){
  return Math.hypot(player.x-position.x,player.y-position.y)<=radius;
 }
-export function createVolcanoNpcs(scene){
+export function createVolcanoNpcs(scene,Phaser){
  let disposed=false,lawos=[],fairy=null,departing=false,departed=false;
  const actors=[];
  async function load(key){
