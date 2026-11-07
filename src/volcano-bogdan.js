@@ -148,6 +148,15 @@ export function createBogdanEncounter(scene,Phaser){
   const delta=Math.min(50,dt),phase=bossPhase(hp),p=scene.player;
   graphics.clear();
   bossLabel.setPosition(bogdan.x,bogdan.y-120).setText('BOGDAN '+hp+'/'+BOGDAN_HP);
+  for(let i=projectiles.length-1;i>=0;i--){
+   const shot=projectiles[i];shot.age+=delta;
+   const nx=shot.x+shot.vx*delta/1000,ny=shot.y+shot.vy*delta/1000;
+   if(shot.age>2600||!volcanoFootprintAllowed(scene.walkability,nx,ny,6,0)){projectiles.splice(i,1);continue;}
+   shot.x=nx;shot.y=ny;
+   graphics.fillStyle(0xff6a19).fillCircle(shot.x,shot.y,9);
+   graphics.fillStyle(0xffe16b).fillCircle(shot.x,shot.y,4);
+   if(Math.hypot(p.x-shot.x,p.y-shot.y)<22){hurtPlayer(now);projectiles.splice(i,1);}
+  }
   attack.remaining-=delta;
   if(attack.mode==='recovery'){
    if(attack.remaining>0)return;
@@ -158,7 +167,7 @@ export function createBogdanEncounter(scene,Phaser){
    const a=attack.angle;
    if(attack.type==='beam'){
     const end=bossBeamPoint(bogdan,a,540,scene.walkability);
-    graphics.lineStyle(8,0xff5620,.7).lineBetween(bogdan.x,bogdan.y-24,end.x,end.y-24);
+    graphics.lineStyle(8,0xff5620,.7).lineBetween(bogdan.x,bogdan.y,end.x,end.y);
    }else{
     graphics.lineStyle(3,0xffb039,.75).strokeCircle(bogdan.x,bogdan.y,35);
    }
@@ -190,15 +199,7 @@ export function createBogdanEncounter(scene,Phaser){
     else attack={mode:'recovery',remaining:phase===2?650:1100};
    }
   }
-  for(let i=projectiles.length-1;i>=0;i--){
-   const shot=projectiles[i];shot.age+=delta;
-   const nx=shot.x+shot.vx*delta/1000,ny=shot.y+shot.vy*delta/1000;
-   if(shot.age>2600||!volcanoFootprintAllowed(scene.walkability,nx,ny,6,0)){projectiles.splice(i,1);continue;}
-   shot.x=nx;shot.y=ny;
-   graphics.fillStyle(0xff6a19).fillCircle(shot.x,shot.y,9);
-   graphics.fillStyle(0xffe16b).fillCircle(shot.x,shot.y,4);
-   if(Math.hypot(p.x-shot.x,p.y-shot.y)<22){hurtPlayer(now);projectiles.splice(i,1);}
-  }
+
  }
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
   disposed=true;departureTick=null;projectiles.length=0;graphics.destroy();bossLabel.destroy();bark.destroy();
