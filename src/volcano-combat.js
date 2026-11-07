@@ -2,7 +2,7 @@ import {applyEnemyHit,applyPlayerContact} from './bobrozombi.js';
 import {inFlameCone,cooldownReady,COMBAT_TUNING,createFiringState,firingStep,resetFiring} from './weapon-combat.js';
 import {facingOf,playerFrame} from './combat-contract.js';
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
-import {volcanoStep} from './volcano-contract.js';
+import {volcanoStep,volcanoFootprintAllowed} from './volcano-contract.js';
 import {VOLCANO_ZONES,findZoneSpawn,createPlatformProgression,zoneForPosition} from './volcano-platforms.js';
 import {BOBROZOMBI_ASSET,BOBROZOMBI_VISUAL_SCALE} from './enemy-visual.js';
 import {muzzlePoint} from './shooting.js';
@@ -97,6 +97,22 @@ export function createVolcanoCombat(scene){
    return true;
   });
  }
+ function spawnEscapeEnemy(point,type='lawostworek-1'){
+  if(!active||!scene.walkability||!point)return false;
+  const def=LAVA_TYPES[type],living=enemies.filter(e=>!e.dead).length;
+  if(living>=6||!volcanoFootprintAllowed(scene.walkability,point.x,point.y,def.radius))return false;
+  if(Math.hypot(point.x-scene.player.x,point.y-scene.player.y)<105)return false;
+  const enemy=createLavaEnemy(type,point.x,point.y,100+enemies.length);
+  enemy.zoneId=null;
+  enemy.sprite=scene.add.sprite(point.x,point.y,sprites[type],sprites[type]===type?2:0).setDepth(12);
+  enemy.sprite.setDisplaySize(enemyDisplaySize(type),enemyDisplaySize(type));
+  enemy.facing='s';
+  enemy.bark=scene.add.text(point.x,point.y-55,'',{fontFamily:'monospace',fontSize:'14px',color:'#fff4cf',stroke:'#241018',strokeThickness:4}).setOrigin(.5).setDepth(21).setVisible(false);
+  enemies.push(enemy);return true;
+ }
+ function clearEscapeEnemies(){
+  for(const enemy of enemies)if(enemy.zoneId===null&&!enemy.dead){enemy.dead=true;enemy.sprite.destroy();enemy.bark.destroy();}
+ }
  function hit(enemy,weapon,amount,now){
   if(enemy.dead)return;
   const damage=lavaDamage(weapon,amount);
@@ -109,7 +125,7 @@ export function createVolcanoCombat(scene){
   }
   if(weapon==='water-flamethrower')igniteEnemy(enemy.ignition,enemy.type,now);
   enemy.hp=applyEnemyHit(enemy.hp,damage);
-  if(enemy.hp<=0){enemy.dead=true;enemy.sprite.destroy();enemy.bark.destroy();progression.defeated(enemy.zoneId);}
+  if(enemy.hp<=0){enemy.dead=true;enemy.sprite.destroy();enemy.bark.destroy();if(enemy.zoneId)progression.defeated(enemy.zoneId);}
  }
  function stopFire(){waterState.stop();fireState.stop();resetFiring(firing);stream.clear();for(const state of [waterState,fireState]){for(const p of state.particles)p.object.destroy();state.particles.length=0;state.emissionAt=null;}for(const shot of shots)shot.sprite.destroy();shots.length=0;}
  function start(){if(active)return;active=true;activateZone('entrance');}
@@ -169,5 +185,5 @@ export function createVolcanoCombat(scene){
 
  }
  scene.events.once('shutdown',()=>{stopFire();stream.destroy();for(const e of enemies){e.sprite?.destroy();e.bark?.destroy();}});
- return {start,update,stopFire,activateZone,get fairyZoneCleared(){return progression.fairyReveal;},get zoneProgress(){return progression;},get enemies(){return enemies;},get pressure(){return scene.weapon==='flamethrower'?firePressure:pressure;}};
+ return {start,update,stopFire,activateZone,spawnEscapeEnemy,clearEscapeEnemies,get fairyZoneCleared(){return progression.fairyReveal;},get zoneProgress(){return progression;},get enemies(){return enemies;},get pressure(){return scene.weapon==='flamethrower'?firePressure:pressure;}};
 }
