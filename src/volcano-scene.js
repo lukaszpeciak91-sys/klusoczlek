@@ -395,7 +395,6 @@ export class VolcanoScene extends Phaser.Scene {
   updateEscape(delta){
     if(this.finale.tick(delta)){this.escapeFailed();return;}
     this.escapeClock.setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
-    if(this.escapeBurst&&!this.escapeBurst.done)this.escapeBurst.update(delta);
     if(this.extractionPoint&&Math.hypot(this.player.x-this.extractionPoint.x,this.player.y-this.extractionPoint.y)<72){
       if(this.finale.advance('ESCAPE_ACTIVE')){
         this.escapeClock.setVisible(false);this.resetMovement();
@@ -521,19 +520,20 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.lawosReadiness.started&&!this.lawosStarted){
       this.resetMovement();return;
     }
+    if(!['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(this.finale.state)){this.resetMovement();return;}
     const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
-    if(!this.boss.argumentStarted&&apartmentReached(this.player)){
+    if(this.finale.state==='BOGDAN_ACTIVE'&&!this.boss.argumentStarted&&apartmentReached(this.player)){
       this.apartmentPending=true;
       if(this.tryApartmentEncounter())return;
     }
-    if(this.boss.leftApartment&&!this.bogdanDialogueStarted&&this.boss.bogdan&&
+    if(this.finale.state==='BOGDAN_ACTIVE'&&this.boss.leftApartment&&!this.bogdanDialogueStarted&&this.boss.bogdan&&
        Math.hypot(this.player.x-this.boss.bogdan.x,this.player.y-this.boss.bogdan.y)<155){
       if(this.boss.beginConfrontation()&&beginDialogue(this.dialogueState,'act3-bogdan-confrontation')){
         this.bogdanDialogueStarted=true;this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
       }
     }
-    if(this.lawosComplete&&this.combat.fairyZoneCleared&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
+    if(this.finale.state==='BOGDAN_ACTIVE'&&this.lawosComplete&&this.combat.fairyZoneCleared&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
       this.fairyStarted=true;
       if(beginDialogue(this.dialogueState,'act3-swinia-wrozka')){
         this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
@@ -550,7 +550,8 @@ export class VolcanoScene extends Phaser.Scene {
     this.boss.update(delta,this.time.now);
     if(this.boss.consumeDefeat()&&this.finale.advance('BOGDAN_ACTIVE'))this.startBogdanFinale();
     if(this.finale.state==='ESCAPE_ACTIVE')this.updateEscape(delta);
-    if(this.combat.fairyZoneCleared&&!this.fairyRevealRequested&&!this.defeated){
+    if(this.escapeBurst&&!this.escapeBurst.done)this.escapeBurst.update(delta);
+    if(this.finale.state==='BOGDAN_ACTIVE'&&this.combat.fairyZoneCleared&&!this.fairyRevealRequested&&!this.defeated){
       this.fairyRevealRequested=true;
       void this.npcs.revealFairy().then(ready=>{
         if(!this.disposed&&!ready)console.warn('[Volcano] fairy zone cleared, but NPC artwork or spawn is unavailable');
