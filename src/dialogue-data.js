@@ -1,4 +1,18 @@
 export const DIALOGUES=Object.freeze({
+ 'act3-apartment-argument':[
+  ['marlena','MARLENA','Bogdan! Wszystkie normalne Bocianołaki mieszkają w lesie! Albo chociaż w chlewie! A ty musiałeś przyżydzić i zamieszkać w wulkanie!'],
+  ['bogdan','BOGDAN','Marlena, ale zobacz, jaka okolica! Szkoła blisko, przychodnia blisko...'],
+  ['marlena','MARLENA','Śmierdzi siarką, lawa płynie pod oknami, a te lawostworki wyją po nocach!'],
+  ['bogdan','BOGDAN','NO NIE ZNIOSĘ JUŻ TEGO ZRZĘDZENIA! SAMA CHCIAŁAŚ MIESZKAĆ W CENTRUM!'],
+  ['marlena','MARLENA','ALE NIE WULKANU! WRACAM DO MAMY!']
+ ],
+ 'act3-bogdan-confrontation':[
+  ['aloes','ALOES','Przepraszam, szukam rogu myśliwskiego. Podobno pan taki posiada.'],
+  ['bogdan','BOGDAN','Rogu?! Aaa, tego lejka do lewatywy?'],
+  ['aloes','ALOES','Do... czego?!'],
+  ['bogdan','BOGDAN','Słuchaj no! Mam dzisiaj wyjątkowo parszywy dzień! A ty w ogóle co robisz w moim domu?!'],
+  ['bogdan','BOGDAN','ZARAZ CI ZROBIĘ ZA POMOCĄ TEGO LEJKA LEWATYWĘ Z LAWY!']
+ ],
  'act3-lawostworki':[
   ['lawostworek-1','LAWOSTWOREK 1','Ja już mam dosyć tych dzikich lokatorów! Wchodzą bez pytania, rozbijają się po całym wulkanie!'],
   ['lawostworek-2','LAWOSTWOREK 2','A widziałeś ceny najmu? Za dwa pokoje przy kraterze chcą trzy tysiące! Bez czynszu!'],
