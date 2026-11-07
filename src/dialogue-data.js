@@ -1,4 +1,19 @@
 export const DIALOGUES=Object.freeze({
+ 'act3-lawostworki':[
+  ['lawostworek-1','LAWOSTWOREK 1','Ja już mam dosyć tych dzikich lokatorów! Wchodzą bez pytania, rozbijają się po całym wulkanie!'],
+  ['lawostworek-2','LAWOSTWOREK 2','A widziałeś ceny najmu? Za dwa pokoje przy kraterze chcą trzy tysiące! Bez czynszu!'],
+  ['lawostworek-1','LAWOSTWOREK 1','Ale oni nawet nie płacą!'],
+  ['lawostworek-2','LAWOSTWOREK 2','To akurat rozumiem.'],
+  ['lawostworek-1','LAWOSTWOREK 1','Czekaj... A ten tam to kto?!'],
+  ['lawostworek-2','LAWOSTWOREK 2','NASTĘPNY?!'],
+  ['aloes','ALOES','Ja tylko przechodzę!'],
+  ['lawostworek-1','LAWOSTWOREK 1','BEZ KAUCJI NIE WEJDZIESZ!']
+ ],
+ 'act3-swinia-wrozka':[
+  ['aloes','ALOES','Co tu robisz, świnio?'],
+  ['swinia-wrozka','ŚWINIA-WRÓŻKA','Nie jestem żadną świnią, tylko magiczną wróżką!'],
+  ['swinia-wrozka','ŚWINIA-WRÓŻKA','To, że się człowiek roztył, to jeszcze nie powód, żeby go wyzywać!']
+ ],
  'act3-opening':[
   ['captain','KAPITAN MARIAN','Oto jesteśmy! Weź to, przyda ci się!'],
   ['captain','KAPITAN MARIAN','Roi się tu od lawostworków!'],
