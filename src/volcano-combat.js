@@ -49,7 +49,18 @@ export function createVolcanoCombat(scene){
  const firing=createFiringState(),firePressure=fireState.pressure,flameCooldowns=fireState.cooldowns;
  const sprites={};
  // Match Act I Bobrozombi's 96px frame at its approved 0.75 visual scale.
- const enemyDisplaySize=type=>type==='lawostworek-1'?100:116;
+ const visualSizes={'lawostworek-1':72,'lawostworek-2':84};
+ const enemyDisplaySize=type=>visualSizes[type];
+ // Measure occupied alpha pixels in each approved sheet, not transparent margins.
+ const visibleHeight=(image,frame)=>{
+  const canvas=document.createElement('canvas');canvas.width=frame;canvas.height=frame;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!ctx)return frame;
+  ctx.drawImage(image,2*frame,0,frame,frame,0,0,frame,frame);
+  const rgba=ctx.getImageData(0,0,frame,frame).data;let top=frame,bottom=-1;
+  for(let y=0;y<frame;y++)for(let x=0;x<frame;x++)if(rgba[(y*frame+x)*4+3]>=32){top=Math.min(top,y);bottom=Math.max(bottom,y);}
+  return bottom<top?frame:bottom-top+1;
+ };
  for(const type of Object.keys(LAVA_TYPES)){
   const def=LAVA_TYPES[type],key='volcano-'+type;
   const g=scene.make.graphics({x:0,y:0});
@@ -72,6 +83,7 @@ export function createVolcanoCombat(scene){
      if(!scene.sys.isActive())return;
      if(!scene.textures.exists(type))scene.textures.addSpriteSheet(type,img,{frameWidth:def.frame,frameHeight:def.frame});
      sprites[type]=type;
+     visualSizes[type]=Math.min(def.frame*1.7,Math.max(def.frame*.65,(type==='lawostworek-1'?70:81)*def.frame/visibleHeight(img,def.frame)));
      for(const e of enemies)if(e.type===type&&!e.dead){e.sprite.setTexture(type,playerFrame(e.facing??'s'));e.sprite.setDisplaySize(enemyDisplaySize(type),enemyDisplaySize(type));}
     }finally{URL.revokeObjectURL(url);}
    }catch(error){console.warn('[Volcano] enemy placeholder '+type+': '+error.message);}
