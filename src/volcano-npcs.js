@@ -1,9 +1,10 @@
 import {assetUrl} from './character-visual.js';
 import {nearestVolcanoSpawn,volcanoFootprintAllowed} from './volcano-contract.js';
 
-// White X in the approved 1536x1024 overview: about (284,205).
-// Convert to the existing 1800x1200 world, without changing terrain art.
-export const FAIRY_MARK=Object.freeze({x:333,y:240});
+// Deterministic mid-route waypoints from the Act III entrance toward the apartment.
+// Each candidate must be on the same connected walkable component as Aloes.
+export const FAIRY_ROUTE_MARKS=Object.freeze([{x:780,y:820},{x:900,y:710},{x:1050,y:620},{x:680,y:900}].map(p=>Object.freeze(p)));
+export const FAIRY_MARK=FAIRY_ROUTE_MARKS[0];
 export const FAIRY_TRIGGER_RADIUS=112;
 export const FAIRY_DEPARTURE_MS=1300;
 // The tenants dialogue, not the optional island combat zone, unlocks the fairy.
@@ -52,6 +53,18 @@ export function findFairyIslandSpawn(mask,mark=FAIRY_MARK,radius=14,maxDistance=
  }
  return best;
 }
+// Validate the entire player route, not just a non-lava spawn pixel.
+export function findFairyRouteSpawn(mask,player,routeFinder,{radius=17}={}){
+ if(!mask||!player||typeof routeFinder!=='function')return null;
+ for(const mark of FAIRY_ROUTE_MARKS){
+  const point=nearestVolcanoSpawn(mask,mark.x,mark.y,radius,0,null,90);
+  if(!point||!volcanoFootprintAllowed(mask,point.x,point.y,radius))continue;
+  if(Math.hypot(point.x-1400,point.y-225)<450||Math.hypot(point.x-1500,point.y-235)<450)continue;
+  const route=routeFinder(mask,player,point,{radius,cell:12,maxNodes:22000});
+  if(route?.length&&route.every(p=>volcanoFootprintAllowed(mask,p.x,p.y,radius)))return point;
+ }
+ return null;
+}
 export function createNpcReadiness(){
  let state='pending',movement=false,started=false;
  return {
@@ -62,7 +75,7 @@ export function createNpcReadiness(){
  };
 }
 export function createVolcanoNpcs(scene,Phaser){
- let disposed=false,placing=null,fairyLoading=null,lawos=[],fairy=null,departing=false,departed=false,lawosReady=false;
+ let disposed=false,placing=null,fairyLoading=null,lawos=[],fairy=null,departing=false,departed=false,lawosReady=false,fairyFallback=false,fairyPosition=null;
  const actors=[];
  async function load(key){
   const def=SHEETS[key],texture='volcano-npc-'+key;
@@ -115,14 +128,26 @@ export function createVolcanoNpcs(scene,Phaser){
   if(!lawosReady)console.warn('[Volcano NPC] Lawostworki unavailable: skipping dialogue safely');
   return lawosReady;
  }
- function revealFairy(){
+ function revealFairy(routeFinder){
   if(disposed||departed||fairy)return Promise.resolve(Boolean(fairy));
   if(fairyLoading)return fairyLoading;
   fairyLoading=(async()=>{
-   const at=findFairyIslandSpawn(scene.walkability);
-   if(!at){console.warn('[Volcano NPC] fairy reveal unavailable on marked island (333,240)');return false;}
+   const at=findFairyRouteSpawn(scene.walkability,scene.player,routeFinder);
+   if(!at){console.error('[Volcano NPC] no reachable safe fairy position on apartment route');return false;}
+   fairyPosition=at;
    const npc=await spawn('swinia-wrozka',at);
-   if(disposed||!npc)return false;
+   if(disposed)return false;
+   if(!npc){
+    // The approved dialogue remains reachable even when the world spritesheet fails.
+    fairyFallback=true;
+    const actor=scene.add.container(at.x,at.y).setDepth(12);
+    const marker=scene.add.circle(0,-30,24,0xf1c7dd).setStrokeStyle(3,0x502d49);
+    const label=scene.add.text(0,-70,'ŚWINIA-WRÓŻKA',{fontFamily:'monospace',fontSize:'14px',color:'#fff4cf',stroke:'#241018',strokeThickness:4}).setOrigin(.5);
+    actor.add([marker,label]);actors.push(actor);
+    fairy={actor,sprite:marker,position:at};
+    console.warn('[Volcano NPC] fairy spritesheet unavailable: existing dialogue fallback enabled');
+    return true;
+   }
    fairy=npc;
    fairy.actor.setVisible(true);
    fairy.idle=scene.tweens.add({targets:fairy.sprite,y:-5,rotation:.035,
@@ -140,7 +165,7 @@ export function createVolcanoNpcs(scene,Phaser){
   if(!fairy||departing||departed)return false;
   departing=true;
   fairy.idle?.stop();
-  fairy.sprite.setY(0).setRotation(0).setScale(SHEETS['swinia-wrozka'].scale);
+  if(!fairyFallback)fairy.sprite.setY(0).setRotation(0).setScale(SHEETS['swinia-wrozka'].scale);
   scene.tweens.add({targets:fairy.actor,y:fairy.actor.y-180,scale:.75,alpha:0,
    duration:FAIRY_DEPARTURE_MS,ease:'Cubic.easeIn',
    onComplete:()=>{fairy?.actor.destroy();fairy=null;departing=false;departed=true;}});
@@ -152,5 +177,5 @@ export function createVolcanoNpcs(scene,Phaser){
   lawos=[];fairy=null;
  });
  return {place,revealFairy,finishLawos,departFairy,get lawosReady(){return lawosReady;},get fairy(){return fairy;},get lawos(){return lawos;},
-  get departed(){return departed;},get departing(){return departing;}};
+  get departed(){return departed;},get departing(){return departing;},get fairyPosition(){return fairyPosition;},get fairyFallback(){return fairyFallback;}};
 }
