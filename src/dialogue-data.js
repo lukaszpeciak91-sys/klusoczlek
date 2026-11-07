@@ -1,4 +1,14 @@
 export const DIALOGUES=Object.freeze({
+ 'act3-bogdan-final':[
+  ['bogdan','BOGDAN','GŁUPCZE! Przez ciebie przypadkiem WŁĄCZYŁEM główny zawór lawy!'],
+  ['bogdan','BOGDAN','Powiedz Marlenie... Niech ją piekło pochłonie... Bleee... *zdechł*']
+ ],
+ 'act3-eruption-warning':[['aloes','ALOES','O kurczę! Wulkan zaraz wybuchnie!']],
+ 'act3-captain-extraction':[
+  ['captain','KAPITAN MARIAN','Masz róg?!'],
+  ['aloes','ALOES','Tak!'],
+  ['captain','KAPITAN MARIAN','Cudownie! Wynośmy się stąd!']
+ ],
  'act3-apartment-argument':[
   ['marlena','MARLENA','Bogdan! Wszystkie normalne Bocianołaki mieszkają w lesie! Albo chociaż w chlewie! A ty musiałeś przyżydzić i zamieszkać w wulkanie!'],
   ['bogdan','BOGDAN','Marlena, ale zobacz, jaka okolica! Szkoła blisko, przychodnia blisko...'],
