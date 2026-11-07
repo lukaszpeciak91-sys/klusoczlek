@@ -239,8 +239,22 @@ try {
     assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG'],'PR65 DEBUG missing');
     await clickControl('DEBUG');
     assert.equal(await evaluate("window.__game.scene.getScene('Menu').debugOpen"),true,'PR65 selector not opened');
-    const target=await evaluate("(()=>{const menu=window.__game.scene.getScene('Menu');const t=menu.children.list.find(o=>o.type==='Text'&&o.visible&&o.text==="+JSON.stringify(label)+");if(!t)return null;const box=menu.input._list.find(o=>o.input&&o.visible&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1);return box?{x:box.x,y:box.y,width:box.width,height:box.height}:null})()");
-    assert.ok(target,'PR65 visible checkpoint missing '+id);
+    assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'DEBUG opening launched checkpoint');
+    const checkpointGeometry=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');const t=m.children.list.find(o=>o.type==='Text'&&o.visible&&o.text==="+JSON.stringify(label)+");if(!t)return null;const b=m.children.list.find(o=>o.type==='Rectangle'&&o.visible&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1&&o.width>200);return b?{x:b.x,y:b.y,width:b.width,height:b.height,interactive:!!b.input?.enabled}:null})()");
+    let target=await checkpointGeometry();
+    for(let scroll=0;!target&&scroll<24;scroll++){
+      const rect=(await snapshot()).rect;
+      const start={x:rect.x+rect.width/2,y:rect.y+rect.height*.70,id:1};
+      await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[start]});
+      for(let step=1;step<=8;step++){
+        await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...start,y:start.y-rect.height*.40*step/8}]});
+      }
+      await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'scroll launched checkpoint '+id);
+      target=await checkpointGeometry();
+    }
+    assert.ok(target,'PR65 visible checkpoint missing after scrolling '+id);
+    assert.equal(target.interactive,false,'DEBUG checkpoints must use independent gestures');
     assert.ok(target.x-target.width/2>=0&&target.x+target.width/2<=800,'PR65 checkpoint clipped');
     const rect=(await snapshot()).rect;
     await click(rect.x+target.x,rect.y+target.y);
@@ -471,10 +485,10 @@ try {
       const rect=(await snapshot()).rect;
       await click(rect.x+final.x,rect.y+final.y);
       for(let k=0;k<80;k++){
-        if(await evaluate("window.__game.scene.isActive('Menu')"))break;
+        if(await evaluate("window.__game.scene.isActive('ActTitle')"))break;
         await sleep(40);
       }
-      assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'PR66 returns to Menu');
+      assert.equal(await evaluate("window.__game.scene.isActive('ActTitle')"),true,'PR66 advances to Act III title');
       const completed=await evaluate("(()=>{const r=window.__game.registry.get('campaign-run');return {act2:r.completedActs.has('act2'),kills:r.stats.kills,time:r.stats.activeCombatMs,byAct:r.stats.byAct.act2}})()");
       assert.equal(completed.act2,true,'PR66 narrative completion');
       assert.equal(completed.kills,42,'PR66 exactly-once total kills');
