@@ -154,7 +154,7 @@ export function createVolcanoNpcs(scene,Phaser){
     scaleX:SHEETS['swinia-wrozka'].scale*1.025,
     scaleY:SHEETS['swinia-wrozka'].scale*1.025,duration:900,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
    return true;
-  })();
+  })().then(ready=>{if(!ready)fairyLoading=null;return ready;},error=>{fairyLoading=null;throw error;});
   return fairyLoading;
  }
  function finishLawos(){
