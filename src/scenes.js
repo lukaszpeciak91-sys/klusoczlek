@@ -94,9 +94,12 @@ export class MenuScene extends Phaser.Scene {
       writeCampaignCheckpoint(run,FIRST_ACT_ID);
       this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
     });
-    const debug = button(this, initial.centerX, 0, initial.startWidth, 44, 'DEBUG', () => {
+    const debug = button(this, initial.centerX, 0, initial.startWidth, 44, 'DEBUG', pointer => {
       if(!allowed()||this.debugOpen)return;
-      debugScroll=0;this.debugOpen=true;debugGesture=null;debugPointer=null;resize();
+      // Object pointerdown fires before the scene-wide pointerdown. Hold the
+      // opening pointer until its release; it must never arm a checkpoint.
+      debugOpeningPointer=pointer.id;
+      debugScroll=0;this.debugOpen=true;debugGesture=null;resize();
     });
     const resume = ((hasSession&&!terminal)||savedCheckpoint) ? button(this, initial.centerX, 0, initial.startWidth, 44, 'WZNÓW', () => {
       if (!allowed()) return;
@@ -124,7 +127,7 @@ export class MenuScene extends Phaser.Scene {
     }) : null;
     this.debugOpen=false;
     let debugScroll=0,debugMaxScroll=0,debugViewportTop=0,debugViewportBottom=0;
-    let debugGesture=null,debugPointer=null;
+    let debugGesture=null,debugOpeningPointer=null;
     const choices=DEBUG_CHECKPOINTS.map(checkpoint=>({
       checkpoint,
       control:button(this,initial.centerX,0,160,34,checkpoint.label,()=>{})
@@ -146,7 +149,7 @@ export class MenuScene extends Phaser.Scene {
     };
     const back=button(this,initial.centerX,0,150,35,'WRÓĆ',()=>{
       if(!allowed())return;
-      this.debugOpen=false;debugGesture=null;resize();
+      this.debugOpen=false;debugGesture=null;debugOpeningPointer=null;resize();
     });
     const resize = () => {
       const layout = menuLayout(this.scale.width, this.scale.height);
@@ -193,7 +196,7 @@ export class MenuScene extends Phaser.Scene {
       Math.abs(pointer.x-control.background.x)<=control.background.width/2&&
       Math.abs(pointer.y-control.background.y)<=control.background.height/2);
     const pointerDown=pointer=>{
-      if(!inDebugList(pointer)||debugGesture)return;
+      if(debugOpeningPointer!==null||!inDebugList(pointer)||debugGesture)return;
       debugGesture={id:pointer.id,startY:pointer.y,startX:pointer.x,scroll:debugScroll,moved:false,
         choice:choiceAt(pointer)};
     };
@@ -206,13 +209,18 @@ export class MenuScene extends Phaser.Scene {
       resize();
     };
     const pointerUp=pointer=>{
+      if(pointer.id===debugOpeningPointer){
+        debugOpeningPointer=null;
+        debugGesture=null;
+        return;
+      }
       const g=debugGesture;
       if(!g||pointer.id!==g.id)return;
       debugGesture=null;
       if(g.moved||!inDebugList(pointer)||!g.choice||choiceAt(pointer)!==g.choice)return;
       activateCheckpoint(g.choice.checkpoint);
     };
-    const pointerCancel=()=>{debugGesture=null;};
+    const pointerCancel=()=>{debugGesture=null;debugOpeningPointer=null;};
     const wheel=(pointer,_objects,_dx,dy)=>{
       if(!inDebugList(pointer))return;
       debugGesture=null;
