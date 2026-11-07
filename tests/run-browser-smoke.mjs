@@ -43,6 +43,15 @@ try{
  const tapMenu=async label=>{const g=await geometry();const b=g.buttons.find(b=>b.text===label);assert.ok(b,'Missing '+label+' '+JSON.stringify(g));await touch(g.rect.x+b.x,g.rect.y+b.y);};
  await wait("window.__game?.scene.isActive('Menu')",'menu boot');
  const menu=await geometry();assert.ok(menu.buttons.some(b=>b.text==='NOWA GRA')&&menu.buttons.some(b=>b.text==='DEBUG'),'menu buttons');
+ await tapMenu('NOWA GRA');
+ await wait("window.__game.scene.isActive('ActTitle')",'NOWA GRA -> Act I title',3000);
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'saved menu reload');
+ assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'),'WZNÓW available with saved campaign');
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('ActTitle')",'WZNÓW restores Act I title',3000);
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'menu before DEBUG');
  await tapMenu('DEBUG');
  assert.equal((await geometry()).debug,true,'DEBUG opens');
  await sleep(330);
@@ -88,13 +97,10 @@ try{
  assert.equal(after.time,before.time+before.result.activeCombatMs,'time accumulated once');
  await wait("window.__game.scene.isActive('Volcano')",'Act III title -> Volcano',6000);
  assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),false,'no unexpected Menu');
- // The title card saved a genuine Act III entry checkpoint. Reload to check WZNÓW.
+ // DEBUG fixtures are intentionally not persisted as campaign saves.
  await cdp('Page.reload',{ignoreCache:true});
- await wait("window.__game?.scene.isActive('Menu')",'saved menu reload');
- const saved=await geometry();assert.ok(saved.buttons.some(b=>b.text==='WZNÓW'),'saved WZNÓW exists');
- await tapMenu('WZNÓW');
- await wait("window.__game.scene.isActive('ActTitle')",'WZNÓW title');
- await wait("window.__game.scene.isActive('Volcano')",'WZNÓW gameplay',6000);
+ await wait("window.__game?.scene.isActive('Menu')",'saved menu after DEBUG');
+ assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'),'real saved WZNÓW survives DEBUG');
  assert.deepEqual(exceptions,[],'uncaught Chromium exceptions');
  console.log('PASS FAST real Chromium: menu, DEBUG touch/scroll/checkpoint, Act II -> title -> Volcano, handoff invariants, saved WZNÓW');
  console.log('FAST runtime ms',Date.now()-started);
