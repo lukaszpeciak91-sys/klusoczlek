@@ -107,7 +107,7 @@ export class VolcanoScene extends Phaser.Scene {
       }else if(id==='act3-bogdan-final'){
         if(this.finale.advance('FINAL_DIALOGUE'))this.showHornReward();
       }else if(id==='act3-eruption-warning'){
-        if(this.finale.advance('ALOES_WARNING'))this.startEscape();
+        this.startEscape();
       }else if(id==='act3-captain-extraction'){
         if(this.finale.advance('CAPTAIN_EXTRACTION'))this.completeActThree();
       }else if(id==='act3-swinia-wrozka'){
@@ -206,7 +206,7 @@ export class VolcanoScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange',focus);
       if(this.fullscreenButton)this.fullscreenButton.hidden=this.fullscreenPreviousHidden;
       this.pressureBar.destroy();this.playerVisual.destroy();this.hpFace.destroy();
-      this.escapeBurst?.destroy();this.escapeEnemies.forEach(e=>e.destroy());this.extractionActor?.destroy();
+      this.escapeBurst?.destroy();this.extractionActor?.destroy();
     });
     resize();
     enforceOrientationOnSceneStart(this);
@@ -371,14 +371,33 @@ export class VolcanoScene extends Phaser.Scene {
       if(this.finale.advance('BOGDAN_EXPLOSION')&&beginDialogue(this.dialogueState,'act3-eruption-warning'))this.dialoguePanel.show(this.dialogueState);
     });
   }
+  findExtractionPoint(){
+    if(!this.walkability)return null;
+    const mask=this.walkability,from={x:this.player.x,y:this.player.y};
+    // All candidates are in the established lower-left exit area.
+    // Require actual connected walkability from the current boss position.
+    const candidates=[VOLCANO_START,{x:350,y:970},{x:405,y:1010},{x:280,y:930},{x:460,y:1040},{x:220,y:1020}];
+    for(const target of candidates){
+      const point=nearestVolcanoSpawn(mask,target.x,target.y,PLAYER_RADIUS,0,null,45);
+      if(!point||Math.hypot(point.x-from.x,point.y-from.y)<180)continue;
+      const route=findMarlenaRoute(mask,from,point,{radius:PLAYER_RADIUS,cell:10,maxNodes:26000});
+      if(route?.length&&route.every(p=>volcanoFootprintAllowed(mask,p.x,p.y,PLAYER_RADIUS)))return point;
+    }
+    return null;
+  }
   startEscape(){
+    if(this.disposed||this.finale.state!=='ALOES_WARNING')return;
+    const point=this.findExtractionPoint();
+    if(!point){
+      console.error('[Volcano Finale] no verified reachable extraction; countdown not started');
+      this.retryRoot.setVisible(true);this.resetMovement();return;
+    }
+    this.extractionPoint=point;
     this.escapeCheckpoint={x:this.player.x,y:this.player.y,hp:Math.max(1,this.run.hp)};
-    this.escapeClock.setVisible(true);this.escapeClock.setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
-    const start=nearestVolcanoSpawn(this.walkability,VOLCANO_START.x,VOLCANO_START.y,PLAYER_RADIUS,0,null,160);
-    const route=start&&findMarlenaRoute(this.walkability,this.player,start,{radius:PLAYER_RADIUS,cell:12,maxNodes:24000});
-    if(!start||!route){console.warn('[Volcano Finale] extraction route unavailable; escape remains retryable');return;}
-    this.extractionPoint=start;
-    this.spawnExtractionCaptain();
+    if(!this.finale.advance('ALOES_WARNING'))return;
+    this.escapeSpawnAt=this.time.now+4500;
+    this.escapeClock.setVisible(true).setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
+    void this.spawnExtractionCaptain();
     this.syncControls();
   }
   async spawnExtractionCaptain(){
@@ -397,7 +416,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.escapeClock.setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
     if(this.extractionPoint&&Math.hypot(this.player.x-this.extractionPoint.x,this.player.y-this.extractionPoint.y)<72){
       if(this.finale.advance('ESCAPE_ACTIVE')){
-        this.escapeClock.setVisible(false);this.resetMovement();
+        this.escapeClock.setVisible(false);this.resetMovement();this.combat.clearEscapeEnemies();
         if(beginDialogue(this.dialogueState,'act3-captain-extraction'))this.dialoguePanel.show(this.dialogueState);
       }
       return;
@@ -405,8 +424,8 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.time.now>=this.escapeSpawnAt&&this.escapeSpawned<12){
       this.escapeSpawnAt=this.time.now+Math.max(2800,5500-this.escapeSpawned*170);
       this.escapeSpawned++;
-      const alive=this.escapeEnemies.filter(e=>e.active);
-      if(alive.length<5){
+      const alive=this.combat.enemies.filter(e=>!e.dead);
+      if(alive.length<6){
         const p=nearestVolcanoSpawn(this.walkability,this.player.x+180,this.player.y+110,24,0,[{x:this.player.x,y:this.player.y,radius:110}],90);
         if(p)this.combat.spawnEscapeEnemy(p,this.escapeSpawned%4===0?'lawostworek-2':'lawostworek-1');
       }
@@ -419,20 +438,23 @@ export class VolcanoScene extends Phaser.Scene {
   escapeFailed(){
     if(this.finale.state==='ESCAPE_ACTIVE')this.finale.fail();
     if(this.finale.state!=='ESCAPE_RETRY')return;
-    this.resetMovement();this.combat.stopFire();this.escapeClock.setVisible(false);this.retryRoot.setVisible(true);
+    this.resetMovement();this.combat.clearTransientShots();this.combat.clearEscapeEnemies();this.escapeClock.setVisible(false);this.retryRoot.setVisible(true);
   }
   retryEscape(){
+    if(this.finale.state==='ALOES_WARNING'){this.retryRoot.setVisible(false);this.startEscape();return;}
     if(!this.finale.retry()||!this.escapeCheckpoint)return;
     this.retryRoot.setVisible(false);
-    this.combat.clearEscapeEnemies();this.escapeEnemies=[];this.escapeSpawned=0;this.escapeSpawnAt=0;
-    this.run.hp=Math.max(1,Math.min(this.run.maxHp,this.escapeCheckpoint.hp));
+    this.combat.clearEscapeEnemies();this.escapeSpawned=0;this.escapeSpawnAt=this.time.now+4500;
+    this.run.hp=Math.max(2,Math.min(this.run.maxHp,this.escapeCheckpoint.hp));
     this.playerInvulnerableUntil=this.time.now+1400;
     this.player.setPosition(this.escapeCheckpoint.x,this.escapeCheckpoint.y);this.player.body.reset(this.player.x,this.player.y);
-    this.escapeClock.setVisible(true);this.syncControls();
+    this.escapeClock.setVisible(true).setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
+    this.hpFace.setHp(this.run.hp);this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
+    this.syncControls();
   }
   completeActThree(){
     if(this.disposed||this.finale.state!=='ACT_III_COMPLETE')return;
-    this.resetMovement();this.escapeClock.setVisible(false);
+    this.resetMovement();this.combat.clearEscapeEnemies();this.escapeClock.setVisible(false);
     completeCampaignAct(this.run,'act3',{hp:this.run.hp,maxHp:this.run.maxHp,unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,kills:0,activeCombatMs:0});
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{if(!this.disposed)this.scene.start('Menu');});
     this.cameras.main.fadeOut(550,0,0,0);
