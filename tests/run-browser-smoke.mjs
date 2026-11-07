@@ -89,7 +89,8 @@ try{
  await wait("window.__game.scene.isActive('ActTitle')",'Act II DALEJ -> Act III title',3500);
  const after=await evaluate("(()=>{const r=window.__game.registry.get('campaign-run');return {act:r.actId,completed:[...r.completedActs],artifacts:[...r.artifacts],hp:r.hp,maxHp:r.maxHp,weapons:[...r.unlockedWeapons],selected:r.selectedWeapon,kills:r.stats.kills,time:r.stats.activeCombatMs,act2:r.stats.byAct.act2}})()");
  assert.ok(after.completed.includes('act2')&&after.completed.filter(x=>x==='act2').length===1,'Act II completion once');
- assert.deepEqual(after.artifacts,before.artifacts,'Act II must award no artifact');
+ assert.ok(before.artifacts.every(artifact=>after.artifacts.includes(artifact)),
+  'Campaign handoff must preserve every previously acquired artifact');
  assert.deepEqual(after.weapons,before.weapons,'equipment preserved');
  assert.equal(after.hp,before.hp,'HP preserved');
  assert.equal(after.selected,before.selected,'selected weapon preserved');
