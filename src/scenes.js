@@ -81,8 +81,8 @@ export class MenuScene extends Phaser.Scene {
     const sessionKey=this.scene.isPaused('Volcano')?'Volcano':this.scene.isPaused('Airship')?'Airship':'Arena';
     const hasSession = this.scene.isPaused(sessionKey);
     const savedCheckpoint=readCampaignCheckpoint();
-    const terminal = hasSession && sessionKey==='Arena' && this.scene.get('Arena').episode?.ended;
-    const defeated = terminal && this.scene.get('Arena').episode.state==='defeat';
+    const terminal = hasSession && (sessionKey==='Arena' && this.scene.get('Arena').episode?.ended || sessionKey==='Volcano' && this.scene.get('Volcano').defeated);
+    const defeated = terminal && (sessionKey==='Volcano'||this.scene.get('Arena').episode.state==='defeat');
     const victorious=terminal&&!defeated;
     const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
     const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
@@ -94,9 +94,9 @@ export class MenuScene extends Phaser.Scene {
       writeCampaignCheckpoint(run,FIRST_ACT_ID);
       this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
     });
-    const debug = button(this, initial.centerX, 0, initial.startWidth, 44, 'DEBUG', () => {
+    const debug = button(this, initial.centerX, 0, initial.startWidth, 44, 'DEBUG', pointer => {
       if(!allowed()||this.debugOpen)return;
-      debugScroll=0;this.debugOpen=true;debugGesture=null;debugPointer=null;resize();
+      debugOpeningPointer=pointer.id;debugScroll=0;this.debugOpen=true;debugGesture=null;resize();
     });
     const resume = ((hasSession&&!terminal)||savedCheckpoint) ? button(this, initial.centerX, 0, initial.startWidth, 44, 'WZNÓW', () => {
       if (!allowed()) return;
@@ -124,7 +124,7 @@ export class MenuScene extends Phaser.Scene {
     }) : null;
     this.debugOpen=false;
     let debugScroll=0,debugMaxScroll=0,debugViewportTop=0,debugViewportBottom=0;
-    let debugGesture=null,debugPointer=null;
+    let debugGesture=null,debugOpeningPointer=null;
     const choices=DEBUG_CHECKPOINTS.map(checkpoint=>({
       checkpoint,
       control:button(this,initial.centerX,0,160,34,checkpoint.label,()=>{})
@@ -146,7 +146,7 @@ export class MenuScene extends Phaser.Scene {
     };
     const back=button(this,initial.centerX,0,150,35,'WRÓĆ',()=>{
       if(!allowed())return;
-      this.debugOpen=false;debugGesture=null;resize();
+      this.debugOpen=false;debugGesture=null;debugOpeningPointer=null;resize();
     });
     const resize = () => {
       const layout = menuLayout(this.scale.width, this.scale.height);
@@ -177,7 +177,7 @@ export class MenuScene extends Phaser.Scene {
       debugScroll=Math.max(0,Math.min(debugMaxScroll,debugScroll));
       choices.forEach(({control},i)=>{
         const x=w/2,y=debugViewportTop+itemHeight/2+i*rowGap-debugScroll;
-        const visible=this.debugOpen&&y-itemHeight/2>=debugViewportTop&&y+itemHeight/2<=debugViewportBottom;
+        const visible=this.debugOpen&&y-itemHeight/2>=debugViewportTop-0.5&&y+itemHeight/2<=debugViewportBottom+0.5;
         control.background.setPosition(x,y).setSize(buttonWidth,itemHeight).setVisible(visible);
         control.caption.setPosition(x,y).setFontSize(Math.max(11,Math.min(18,buttonWidth/(Math.max(20,control.caption.text.length)*.65),h*.047))).setVisible(visible);
         // Selection is handled by a complete pointer gesture, never Phaser's
@@ -193,7 +193,7 @@ export class MenuScene extends Phaser.Scene {
       Math.abs(pointer.x-control.background.x)<=control.background.width/2&&
       Math.abs(pointer.y-control.background.y)<=control.background.height/2);
     const pointerDown=pointer=>{
-      if(!inDebugList(pointer)||debugGesture)return;
+      if(debugOpeningPointer!==null||!inDebugList(pointer)||debugGesture)return;
       debugGesture={id:pointer.id,startY:pointer.y,startX:pointer.x,scroll:debugScroll,moved:false,
         choice:choiceAt(pointer)};
     };
@@ -206,13 +206,14 @@ export class MenuScene extends Phaser.Scene {
       resize();
     };
     const pointerUp=pointer=>{
+      if(pointer.id===debugOpeningPointer){debugOpeningPointer=null;debugGesture=null;return;}
       const g=debugGesture;
       if(!g||pointer.id!==g.id)return;
       debugGesture=null;
       if(g.moved||!inDebugList(pointer)||!g.choice||choiceAt(pointer)!==g.choice)return;
       activateCheckpoint(g.choice.checkpoint);
     };
-    const pointerCancel=()=>{debugGesture=null;};
+    const pointerCancel=()=>{debugGesture=null;debugOpeningPointer=null;};
     const wheel=(pointer,_objects,_dx,dy)=>{
       if(!inDebugList(pointer))return;
       debugGesture=null;
@@ -238,7 +239,7 @@ export class MenuScene extends Phaser.Scene {
     fullscreenButton.hidden = false;
     this.events.once('shutdown', () => { fullscreenButton.hidden = true; });
     if(defeated){
-      const arena=this.scene.get('Arena');
+      const arena=this.scene.get(sessionKey);
       const at=arena.defeatVisualAt||{x:this.scale.width/2,y:this.scale.height/2};
       this.terminalBurst=createPixelBurst(this,'aloes',at.x,at.y,7);
       this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.terminalBurst?.destroy());

@@ -2741,8 +2741,32 @@ try {
   await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
   await waitFor(v=>v.menu,'PR79 DEBUG isolation MENU');
   await clickControl('DEBUG');
-  const debugTarget=await evaluate("(()=>{const menu=window.__game.scene.getScene('Menu');const t=menu.children.list.find(o=>o.type==='Text'&&o.visible&&o.text==='AKT II — OBRONA');if(!t)return null;const b=menu.input._list.find(o=>o.input&&o.visible&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1);return b?{x:b.x,y:b.y}:null})()");
-  assert.ok(debugTarget,'PR79 DEBUG defense entry missing');
+  // The defense checkpoint is below the fold on the saved-game menu.
+  // Use real touch swipes, as in PR65, rather than assuming it is initially visible.
+  const defenseGeometry=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');const t=m.children.list.find(o=>o.type==='Text'&&o.text==='AKT II — OBRONA');if(!t)return null;const b=m.children.list.find(o=>o!==t&&o.geom&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1&&o.width>200);return b?{x:b.x,y:b.y,visible:!!(t.visible&&b.visible)}:null})()");
+  let debugTarget=await defenseGeometry();
+  assert.ok(debugTarget,'PR79 DEBUG defense checkpoint objects missing');
+  for(let scroll=0;!debugTarget.visible&&scroll<24;scroll++){
+    const visibleRows=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return m.children.list.filter(o=>o.type==='Text'&&o.visible&&o.text.includes('AKT ')).map(o=>o.y).sort((a,b)=>a-b)})()");
+    assert.ok(visibleRows.length,'PR79 DEBUG has no visible checkpoint rows');
+    const direction=debugTarget.y<visibleRows[0]?'down':debugTarget.y>visibleRows.at(-1)?'up':null;
+    assert.ok(direction,'PR79 DEBUG checkpoint hidden within visible row range '+JSON.stringify(debugTarget));
+    const rect=(await snapshot()).rect;
+    const x=rect.x+rect.width/2;
+    const fromY=rect.y+rect.height*(direction==='down'?.32:.70);
+    const toY=rect.y+rect.height*(direction==='down'?.70:.32);
+    await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y:fromY,id:1}]});
+    for(let step=1;step<=8;step++){
+      await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:fromY+(toY-fromY)*step/8,id:1}]});
+    }
+    await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'PR79 scroll launched checkpoint');
+    const next=await defenseGeometry();
+    assert.ok(next,'PR79 DEBUG checkpoint disappeared during scroll');
+    assert.ok(Math.abs(next.y-debugTarget.y)>1||next.visible,'PR79 DEBUG scroll made no progress');
+    debugTarget=next;
+  }
+  assert.ok(debugTarget.visible,'PR79 DEBUG defense entry not visible after scrolling');
   const debugRect=(await snapshot()).rect;
   await click(debugRect.x+debugTarget.x,debugRect.y+debugTarget.y);
   for(let n=0;n<100;n++){

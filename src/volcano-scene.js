@@ -28,6 +28,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.openingComplete=false;
     this.walkability=null;
     this.combatPending=false;
+    this.defeated=false;
     this.dialogueState=createDialogueState();
     this.obstacles=[];
     this.pendingLoads=new Set();
@@ -81,6 +82,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.aimJoystick=createJoystick(this,'right');
     this.weapon=availableWeapons(this.run.unlockedWeapons,'act3').includes(this.run.selectedWeapon)?this.run.selectedWeapon:'water-flamethrower';
     this.run.selectedWeapon=this.weapon;
+    void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'flamethrower':this.weapon);
     this.playerInvulnerableUntil=0;
     this.combat=createVolcanoCombat(this);
     const switchWeapon=()=>{
@@ -89,11 +91,22 @@ export class VolcanoScene extends Phaser.Scene {
       this.weapon=cycleUnlockedWeapon(this.weapon,this.run.unlockedWeapons,'act3');
       this.run.selectedWeapon=this.weapon;
       this.weaponLabel.setText(WEAPONS[this.weapon]?.symbol??'—');
-      void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'unarmed':this.weapon);
+      void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'flamethrower':this.weapon);
     };
-    this.weaponButton=this.add.circle(0,0,22,0x303b2b).setStrokeStyle(2,0xb9a16b).setScrollFactor(0).setDepth(66).setInteractive();
-    this.weaponLabel=this.add.text(0,0,WEAPONS[this.weapon]?.symbol??'—',{fontFamily:'monospace',fontSize:'22px',color:'#b9f5ff'}).setOrigin(.5).setScrollFactor(0).setDepth(67);
-    this.weaponButton.on('pointerdown',switchWeapon);
+    // Match the existing Act I/II weapon token, including its fixed 42px
+    // visual footprint and layout-driven touch target left of the aim stick.
+    this.weaponToken=this.add.container(0,0).setScrollFactor(0).setDepth(66);
+    this.weaponBody=this.add.circle(0,0,21,0x303b2b,0.92).setStrokeStyle(2,0xb9a16b);
+    this.weaponLabel=this.add.text(0,0,WEAPONS[this.weapon]?.symbol??'—',
+      {fontFamily:'monospace',fontSize:'21px',fontStyle:'bold',color:'#ffffff'}).setOrigin(.5);
+    this.weaponToken.add([this.weaponBody,this.weaponLabel]);
+    const touchSwitch=pointer=>{
+      if(pointer.id===this.joystick.pointerId||pointer.id===this.aimJoystick.pointerId)return;
+      const l=this.hudLayout;
+      if(Math.hypot(pointer.x-l.switchX,pointer.y-l.switchY)<=l.switchSize/2)switchWeapon();
+    };
+    this.input.on('pointerdown',touchSwitch);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.input.off('pointerdown',touchSwitch));
     const weaponKey=e=>{if(e.code==='KeyQ'&&!e.repeat)switchWeapon();};
     this.input.keyboard.on('keydown',weaponKey);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.input.keyboard.off('keydown',weaponKey));
@@ -119,8 +132,7 @@ export class VolcanoScene extends Phaser.Scene {
       this.joystick.reposition(layout.joystickX,layout.joystickY,layout.joystickRadius);
       this.aimJoystick.reposition(layout.aimX,layout.aimY,layout.joystickRadius);
       this.hudLayout=layout;
-      this.weaponButton.setPosition(layout.switchX,layout.switchY).setRadius(layout.switchSize/2);
-      this.weaponLabel.setPosition(layout.switchX,layout.switchY);
+      this.weaponToken.setPosition(layout.switchX,layout.switchY).setScale(layout.switchSize/42);
       this.menuButton.setPosition(layout.menuX,layout.menuY).setSize(layout.menuWidth,layout.menuHeight);
       this.menuLabel.setPosition(layout.menuX,layout.menuY).setFontSize(layout.menuFont);
       this.hpFace.resize(layout);this.hpText.setPosition(layout.hpX,layout.hpY);
@@ -225,7 +237,7 @@ export class VolcanoScene extends Phaser.Scene {
     });
   }
   syncControls(){
-    const enabled=this.controlsAllowed()&&this.openingComplete&&Boolean(this.walkability);
+    const enabled=!this.defeated&&this.run.hp>0&&this.controlsAllowed()&&this.openingComplete&&Boolean(this.walkability);
     if(this.joystick.enabled!==enabled)this.joystick.setEnabled(enabled);
     if(this.aimJoystick.enabled!==enabled)this.aimJoystick.setEnabled(enabled);
   }
@@ -235,6 +247,26 @@ export class VolcanoScene extends Phaser.Scene {
     this.input.keyboard?.resetKeys();
     this.combat?.stopFire();
   }
+  lockDeath(){
+    if(this.defeated)return;
+    this.defeated=true;
+    this.resetMovement();
+    this.player.body.setVelocity(0,0);
+    this.player.body.setAcceleration(0,0);
+    this.hpFace.setHp(0);
+    this.hpText.setText('HP 0/'+this.run.maxHp);
+    // Match Act I: capture the screen-space death location, hide Aloes,
+    // freeze combat, then show the existing Menu defeat title and pixel burst.
+    const camera=this.cameras.main;
+    const screen=camera.getWorldPoint(0,0),zoom=camera.zoom;
+    this.defeatVisualAt={x:(this.player.x-screen.x)*zoom,y:(this.player.y-screen.y)*zoom};
+    this.playerVisual.sprite?.setVisible(false);
+    this.player.setVisible(false);
+    this.physics.world.pause();
+    this.scene.pause();
+    this.scene.launch('Menu');
+    this.scene.bringToTop('Menu');
+  }
   openMenu(){
     if(this.scene.isPaused()||this.scene.isActive('Menu')||!this.controlsAllowed())return;
     this.resetMovement();
@@ -243,8 +275,9 @@ export class VolcanoScene extends Phaser.Scene {
     this.scene.bringToTop('Menu');
   }
   update(_time,delta){
+    if(this.run.hp<=0){this.lockDeath();return;}
     this.syncControls();
-    if(!this.controlsAllowed())return;
+    if(!this.controlsAllowed()||this.defeated)return;
     this.captainArrival.update(delta);
     if(!this.openingComplete||!this.walkability){this.resetMovement();return;}
     this.lava.tilePositionY=advanceVolcanoLava(this.lava.tilePositionY,delta);
@@ -258,6 +291,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.playerVisual.update(this.facing,Boolean(input.x||input.y),Math.min(delta,50));
     const aim=resolveAim(this.aimJoystick.direction.x,this.aimJoystick.direction.y);
     this.combat.update(delta,this.time.now,aim,this.aimJoystick.held,this.weapon);
+    if(this.run.hp<=0){this.lockDeath();return;}
     this.hpFace.setHp(this.run.hp);
     this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
     this.hpFace.update(delta);
