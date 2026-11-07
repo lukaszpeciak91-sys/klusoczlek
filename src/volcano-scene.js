@@ -101,7 +101,7 @@ export class VolcanoScene extends Phaser.Scene {
     void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'flamethrower':this.weapon);
     this.playerInvulnerableUntil=0;
     this.combat=createVolcanoCombat(this);
-    this.npcs=createVolcanoNpcs(this);
+    this.npcs=createVolcanoNpcs(this,Phaser);
     const switchWeapon=()=>{
       if(!this.openingComplete||!this.controlsAllowed())return;
       this.combat.stopFire();
