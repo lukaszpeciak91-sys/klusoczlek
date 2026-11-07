@@ -15,6 +15,7 @@ import {resolveAim} from './shooting.js';
 import {facingOf} from './combat-contract.js';
 import {createVolcanoCombat} from './volcano-combat.js';
 import {createVolcanoNpcs,fairyTrigger,createNpcReadiness} from './volcano-npcs.js';
+import {createBogdanEncounter,apartmentReached} from './volcano-bogdan.js';
 import {volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing,createVolcanoWalkability,nearestVolcanoSpawn} from './volcano-contract.js';
 
 // Scene owns only two persistent world layers. Missing production art is safe.
@@ -36,6 +37,9 @@ export class VolcanoScene extends Phaser.Scene {
     this.fairyRevealRequested=false;
     this.fairyStarted=false;
     this.fairyComplete=false;
+    this.apartmentPending=false;
+    this.apartmentComplete=false;
+    this.bogdanDialogueStarted=false;
     this.defeated=false;
     this.dialogueState=createDialogueState();
     this.obstacles=[];
@@ -88,6 +92,13 @@ export class VolcanoScene extends Phaser.Scene {
         else this.combatPending=true;
         this.resetMovement();
         this.syncControls();
+      }else if(id==='act3-apartment-argument'){
+        this.apartmentComplete=true;
+        this.boss.depart();
+        this.resetMovement();this.syncControls();
+      }else if(id==='act3-bogdan-confrontation'){
+        this.boss.activate();
+        this.resetMovement();this.syncControls();
       }else if(id==='act3-swinia-wrozka'){
         this.fairyComplete=true;
         this.npcs.departFairy();
@@ -105,6 +116,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.playerInvulnerableUntil=0;
     this.combat=createVolcanoCombat(this);
     this.npcs=createVolcanoNpcs(this,Phaser);
+    this.boss=createBogdanEncounter(this,Phaser);
     const switchWeapon=()=>{
       if(!this.openingComplete||!this.controlsAllowed())return;
       this.combat.stopFire();
@@ -240,6 +252,11 @@ export class VolcanoScene extends Phaser.Scene {
         this.walkability=mask;
         this.player.setPosition(playerStart.x,playerStart.y);
         this.player.body.reset(playerStart.x,playerStart.y);
+        void this.boss.prepare().then(ready=>{
+          if(this.disposed||this.defeated)return;
+          if(!ready)console.warn('[Volcano Boss] apartment encounter unavailable');
+          else if(this.apartmentPending)this.tryApartmentEncounter();
+        });
         void this.npcs.place().then(ready=>{
           if(this.disposed||this.defeated||this.run.hp<=0)return;
           this.resolveLawosReadiness(ready);
@@ -282,6 +299,14 @@ export class VolcanoScene extends Phaser.Scene {
     this.combat.start();
     this.resetMovement();
     this.syncControls();
+  }
+  tryApartmentEncounter(){
+    if(!this.openingComplete||!this.lawosComplete||this.dialogueState.id||this.defeated||!this.boss.ready)return false;
+    if(!this.boss.beginArgument())return false;
+    if(beginDialogue(this.dialogueState,'act3-apartment-argument')){
+      this.resetMovement();this.dialoguePanel.show(this.dialogueState);return true;
+    }
+    return false;
   }
   refreshWeaponHud(){
     const selected=WEAPONS[this.weapon];
@@ -368,6 +393,16 @@ export class VolcanoScene extends Phaser.Scene {
     }
     const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
+    if(!this.boss.argumentStarted&&apartmentReached(this.player)){
+      this.apartmentPending=true;
+      if(this.tryApartmentEncounter())return;
+    }
+    if(this.boss.departed&&!this.bogdanDialogueStarted&&this.boss.bogdan&&
+       Math.hypot(this.player.x-this.boss.bogdan.x,this.player.y-this.boss.bogdan.y)<155){
+      if(this.boss.beginConfrontation()&&beginDialogue(this.dialogueState,'act3-bogdan-confrontation')){
+        this.bogdanDialogueStarted=true;this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
+      }
+    }
     if(this.lawosComplete&&this.combat.fairyZoneCleared&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
       this.fairyStarted=true;
       if(beginDialogue(this.dialogueState,'act3-swinia-wrozka')){
@@ -380,6 +415,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.facing=(aim.x||aim.y)?facingOf(aim.x,aim.y,this.facing):volcanoFacing(input,this.facing);
     this.playerVisual.update(this.facing,Boolean(input.x||input.y),Math.min(delta,50));
     this.combat.update(delta,this.time.now,aim,this.aimJoystick.held,this.weapon);
+    this.boss.update(delta,this.time.now);
     if(this.combat.fairyZoneCleared&&!this.fairyRevealRequested&&!this.defeated){
       this.fairyRevealRequested=true;
       void this.npcs.revealFairy().then(ready=>{
