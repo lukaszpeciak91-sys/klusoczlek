@@ -324,7 +324,7 @@ export class VolcanoScene extends Phaser.Scene {
   createFinaleUi(){
     const w=()=>this.scale.width,h=()=>this.scale.height;
     this.escapeClock=this.add.text(w()/2,20,'',{fontFamily:'monospace',fontSize:'23px',fontStyle:'bold',color:'#ffe7a4',stroke:'#220a07',strokeThickness:5}).setOrigin(.5,0).setScrollFactor(0).setDepth(100).setVisible(false);
-    this.finaleShade=this.add.rectangle(0,0,w(),h(),0x080609,.68).setOrigin(0).setScrollFactor(0).setDepth(110).setVisible(false);
+    this.finaleShade=this.add.rectangle(0,0,w(),h(),0x080609,.68).setOrigin(0).setScrollFactor(0).setDepth(105).setVisible(false);
     this.rewardRoot=this.add.container(0,0).setScrollFactor(0).setDepth(210).setVisible(false);
     const bg=this.add.rectangle(0,0,w(),h(),0x101417,.96).setOrigin(0);
     const title=this.add.text(w()/2,h()*.23,'ZDOBYŁEŚ ARTEFAKT',{fontFamily:'monospace',fontSize:'23px',fontStyle:'bold',color:'#f2d18c'}).setOrigin(.5);
