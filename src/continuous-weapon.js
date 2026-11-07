@@ -43,7 +43,7 @@ export function drawContinuousStream(graphics,origin,aim,now,weapon,blocked=()=>
    const d=((i*37+now*.14)%tune.range),w=Math.sin(now*.019+i*2.1)*Math.min(12,d*.075);
    const x=origin.x+aim.x*d+normal.x*w,y=origin.y+aim.y*d+normal.y*w;
    if(blocked(origin,{x,y}))continue;
-   graphics.fillStyle(i%3===0?0xd9fbff:0x4ac9f5,.84).fillEllipse(x,y,3.5+i%3,7+i%4);
+   graphics.fillStyle(i%3===0?0xd9fbff:0x4ac9f5,.84).fillCircle(x,y,2.5+i%2);
   }
  }
  graphics.fillStyle(palette.tip,.96).fillCircle(origin.x,origin.y,5);
