@@ -255,6 +255,17 @@ export class VolcanoScene extends Phaser.Scene {
     this.player.body.setAcceleration(0,0);
     this.hpFace.setHp(0);
     this.hpText.setText('HP 0/'+this.run.maxHp);
+    // Match Act I: capture the screen-space death location, hide Aloes,
+    // freeze combat, then show the existing Menu defeat title and pixel burst.
+    const camera=this.cameras.main;
+    const screen=camera.getWorldPoint(0,0),zoom=camera.zoom;
+    this.defeatVisualAt={x:(this.player.x-screen.x)*zoom,y:(this.player.y-screen.y)*zoom};
+    this.playerVisual.sprite?.setVisible(false);
+    this.player.setVisible(false);
+    this.physics.world.pause();
+    this.scene.pause();
+    this.scene.launch('Menu');
+    this.scene.bringToTop('Menu');
   }
   openMenu(){
     if(this.scene.isPaused()||this.scene.isActive('Menu')||!this.controlsAllowed())return;
