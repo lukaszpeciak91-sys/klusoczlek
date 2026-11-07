@@ -3,22 +3,26 @@ import {inFlameCone,cooldownReady,COMBAT_TUNING,createFiringState,firingStep,res
 import {facingOf,playerFrame} from './combat-contract.js';
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
 import {volcanoStep,nearestVolcanoSpawn} from './volcano-contract.js';
+import {BOBROZOMBI_ASSET,BOBROZOMBI_VISUAL_SCALE} from './enemy-visual.js';
+import {muzzlePoint} from './shooting.js';
 
 export const LAVA_TYPES=Object.freeze({
- 'lawostworek-1':Object.freeze({hp:3,speed:115,radius:19,frame:96,width:768,height:96,color:0xffa51f}),
- 'lawostworek-2':Object.freeze({hp:9,speed:48,radius:30,frame:128,width:1024,height:128,color:0xe0441b})
+ 'lawostworek-1':Object.freeze({hp:3,speed:115,radius:21,frame:96,width:768,height:96,color:0xffa51f}),
+ 'lawostworek-2':Object.freeze({hp:9,speed:48,radius:25,frame:128,width:1024,height:128,color:0xe0441b})
 });
 export const LAVA_BARKS=Object.freeze(['Łaskocze!','I co mi zrobisz?!','Ale groźny!','HA! HA! HA!','Spróbuj wodą, geniuszu!']);
 export function lavaDamage(weapon,amount){return weapon==='water-flamethrower'?amount:0;}
 export function createLavaEnemy(type,x,y,index=0){
- const def=LAVA_TYPES[type];return {type,x,y,hp:def.hp,dead:false,radius:def.radius,index,hitAt:-Infinity,barkAt:-Infinity,contactAt:-Infinity,lungeAt:0,headingAt:0,headingOffset:0};
+ const def=LAVA_TYPES[type];return {type,x,y,hp:def.hp,dead:false,radius:def.radius,index,hitAt:-Infinity,barkAt:-Infinity,contactAt:-Infinity,panicUntil:0,lungeAt:0,headingAt:0,headingOffset:0};
 }
 export function lavaEnemyStep(enemy,player,dt,now=0,mask=null){
- const def=LAVA_TYPES[enemy.type],dx=player.x-enemy.x,dy=player.y-enemy.y,d=Math.hypot(dx,dy);
- if(d<enemy.radius+18)return {x:enemy.x,y:enemy.y};
+ const def=LAVA_TYPES[enemy.type],fleeing=now<(enemy.panicUntil??0);
+ const dx=(player.x-enemy.x)*(fleeing?-1:1),dy=(player.y-enemy.y)*(fleeing?-1:1),d=Math.hypot(dx,dy);
+ if(!fleeing&&d<enemy.radius+18)return {x:enemy.x,y:enemy.y};
+ if(d<.001)return {x:enemy.x,y:enemy.y};
  const elapsed=Math.max(0,Math.min(50,dt));
- let vx=dx/d,vy=dy/d,speed=def.speed;
- if(enemy.type==='lawostworek-1'){
+ let vx=dx/d,vy=dy/d,speed=def.speed*(fleeing?1.45:1);
+ if(enemy.type==='lawostworek-1'&&!fleeing){
   // Change heading at discrete intervals, never every animation frame.
   if(now>=enemy.headingAt){
    enemy.headingAt=now+650+(enemy.index%3)*130;
@@ -40,7 +44,10 @@ export function createVolcanoCombat(scene){
  const firing=createFiringState(),firePressure=createPressure(),flameCooldowns=new Map();
  const groups=[['lawostworek-1','lawostworek-1'],['lawostworek-1','lawostworek-1','lawostworek-2'],['lawostworek-1','lawostworek-1','lawostworek-2','lawostworek-2']];
  const sprites={};
- const enemyDisplaySize=type=>LAVA_TYPES[type].frame*(type==='lawostworek-1'?.88:.91);
+ // Match Act I Bobrozombi's 96px frame at its approved 0.75 visual scale.
+ const enemyDisplaySize=type=>type==='lawostworek-1'
+  ?BOBROZOMBI_ASSET.frameWidth*BOBROZOMBI_VISUAL_SCALE
+  :BOBROZOMBI_ASSET.frameWidth*BOBROZOMBI_VISUAL_SCALE*1.16;
  for(const type of Object.keys(LAVA_TYPES)){
   const def=LAVA_TYPES[type],key='volcano-'+type;
   const g=scene.make.graphics({x:0,y:0});
@@ -95,6 +102,7 @@ export function createVolcanoCombat(scene){
    }
    return;
   }
+  if(weapon==='water-flamethrower')enemy.panicUntil=Math.max(enemy.panicUntil,now+1250);
   enemy.hp=applyEnemyHit(enemy.hp,damage);
   if(enemy.hp<=0){enemy.dead=true;enemy.sprite.destroy();enemy.bark.destroy();}
  }
@@ -110,7 +118,7 @@ export function createVolcanoCombat(scene){
   if(!fire)stepPressure(firePressure,false,dt);
   stream.clear();
   if((flowing||flaming)&&Math.hypot(aim.x,aim.y)>.5){
-   const origin={x:scene.player.x+aim.x*24,y:scene.player.y+aim.y*24};
+   const origin=muzzlePoint(scene.player.x,scene.player.y,aim);
    const tune=COMBAT_TUNING.flamethrower;
    if(water){
     // Bounded, lightweight spray with irregular edges and droplets.
@@ -138,7 +146,7 @@ export function createVolcanoCombat(scene){
   }
   const count=firingStep(firing,weapon,held&&Math.hypot(aim.x,aim.y)>.5,now);
   if(count){
-   const tune=COMBAT_TUNING[weapon],origin={x:scene.player.x+aim.x*24,y:scene.player.y+aim.y*24};
+   const tune=COMBAT_TUNING[weapon],origin=muzzlePoint(scene.player.x,scene.player.y,aim);
    const sprite=scene.add.circle(origin.x,origin.y,tune.radius,tune.color).setDepth(14);
    shots.push({sprite,x:origin.x,y:origin.y,vx:aim.x*tune.speed,vy:aim.y*tune.speed,weapon,age:0});
    if(weapon==='rifle')scene.playerVisual.recoil();
