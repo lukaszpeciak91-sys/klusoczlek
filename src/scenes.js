@@ -180,7 +180,7 @@ export class MenuScene extends Phaser.Scene {
       debugScroll=Math.max(0,Math.min(debugMaxScroll,debugScroll));
       choices.forEach(({control},i)=>{
         const x=w/2,y=debugViewportTop+itemHeight/2+i*rowGap-debugScroll;
-        const visible=this.debugOpen&&y-itemHeight/2>=debugViewportTop&&y+itemHeight/2<=debugViewportBottom;
+        const visible=this.debugOpen&&y-itemHeight/2>=debugViewportTop-0.5&&y+itemHeight/2<=debugViewportBottom+0.5;
         control.background.setPosition(x,y).setSize(buttonWidth,itemHeight).setVisible(visible);
         control.caption.setPosition(x,y).setFontSize(Math.max(11,Math.min(18,buttonWidth/(Math.max(20,control.caption.text.length)*.65),h*.047))).setVisible(visible);
         // Selection is handled by a complete pointer gesture, never Phaser's
