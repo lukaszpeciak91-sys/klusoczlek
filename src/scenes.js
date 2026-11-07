@@ -81,8 +81,8 @@ export class MenuScene extends Phaser.Scene {
     const sessionKey=this.scene.isPaused('Volcano')?'Volcano':this.scene.isPaused('Airship')?'Airship':'Arena';
     const hasSession = this.scene.isPaused(sessionKey);
     const savedCheckpoint=readCampaignCheckpoint();
-    const terminal = hasSession && sessionKey==='Arena' && this.scene.get('Arena').episode?.ended;
-    const defeated = terminal && this.scene.get('Arena').episode.state==='defeat';
+    const terminal = hasSession && (sessionKey==='Arena' && this.scene.get('Arena').episode?.ended || sessionKey==='Volcano' && this.scene.get('Volcano').defeated);
+    const defeated = terminal && (sessionKey==='Volcano'||this.scene.get('Arena').episode.state==='defeat');
     const victorious=terminal&&!defeated;
     const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
     const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
@@ -239,7 +239,7 @@ export class MenuScene extends Phaser.Scene {
     fullscreenButton.hidden = false;
     this.events.once('shutdown', () => { fullscreenButton.hidden = true; });
     if(defeated){
-      const arena=this.scene.get('Arena');
+      const arena=this.scene.get(sessionKey);
       const at=arena.defeatVisualAt||{x:this.scale.width/2,y:this.scale.height/2};
       this.terminalBurst=createPixelBurst(this,'aloes',at.x,at.y,7);
       this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.terminalBurst?.destroy());
