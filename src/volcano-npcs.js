@@ -4,7 +4,8 @@ import {nearestVolcanoSpawn,volcanoFootprintAllowed} from './volcano-contract.js
 // Deterministic mid-route waypoints from the Act III entrance toward the apartment.
 // Each candidate must be on the same connected walkable component as Aloes.
 export const FAIRY_ROUTE_MARKS=Object.freeze([{x:780,y:820},{x:900,y:710},{x:1050,y:620},{x:680,y:900}].map(p=>Object.freeze(p)));
-export const FAIRY_MARK=FAIRY_ROUTE_MARKS[0];
+// Keep the historical island marker for legacy zone data; encounter now uses route marks.
+export const FAIRY_MARK=Object.freeze({x:333,y:240});
 export const FAIRY_TRIGGER_RADIUS=112;
 export const FAIRY_DEPARTURE_MS=1300;
 // The tenants dialogue, not the optional island combat zone, unlocks the fairy.
