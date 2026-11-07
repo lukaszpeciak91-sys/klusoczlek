@@ -5,8 +5,8 @@ import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressur
 import {volcanoStep,nearestVolcanoSpawn} from './volcano-contract.js';
 
 export const LAVA_TYPES=Object.freeze({
- 'lawostworek-1':Object.freeze({hp:3,speed:115,radius:17,frame:96,width:768,height:96,color:0xffa51f}),
- 'lawostworek-2':Object.freeze({hp:9,speed:48,radius:27,frame:128,width:1024,height:128,color:0xe0441b})
+ 'lawostworek-1':Object.freeze({hp:3,speed:115,radius:19,frame:96,width:768,height:96,color:0xffa51f}),
+ 'lawostworek-2':Object.freeze({hp:9,speed:48,radius:30,frame:128,width:1024,height:128,color:0xe0441b})
 });
 export const LAVA_BARKS=Object.freeze(['Łaskocze!','I co mi zrobisz?!','Ale groźny!','HA! HA! HA!','Spróbuj wodą, geniuszu!']);
 export function lavaDamage(weapon,amount){return weapon==='water-flamethrower'?amount:0;}
@@ -40,6 +40,7 @@ export function createVolcanoCombat(scene){
  const firing=createFiringState(),firePressure=createPressure(),flameCooldowns=new Map();
  const groups=[['lawostworek-1','lawostworek-1'],['lawostworek-1','lawostworek-1','lawostworek-2'],['lawostworek-1','lawostworek-1','lawostworek-2','lawostworek-2']];
  const sprites={};
+ const enemyDisplaySize=type=>LAVA_TYPES[type].frame*(type==='lawostworek-1'?.88:.91);
  for(const type of Object.keys(LAVA_TYPES)){
   const def=LAVA_TYPES[type],key='volcano-'+type;
   const g=scene.make.graphics({x:0,y:0});
@@ -62,7 +63,7 @@ export function createVolcanoCombat(scene){
      if(!scene.sys.isActive())return;
      if(!scene.textures.exists(type))scene.textures.addSpriteSheet(type,img,{frameWidth:def.frame,frameHeight:def.frame});
      sprites[type]=type;
-     for(const e of enemies)if(e.type===type&&!e.dead){e.sprite.setTexture(type,playerFrame(e.facing??'s'));e.sprite.setDisplaySize(def.frame*.7,def.frame*.7);}
+     for(const e of enemies)if(e.type===type&&!e.dead){e.sprite.setTexture(type,playerFrame(e.facing??'s'));e.sprite.setDisplaySize(enemyDisplaySize(type),enemyDisplaySize(type));}
     }finally{URL.revokeObjectURL(url);}
    }catch(error){console.warn('[Volcano] enemy placeholder '+type+': '+error.message);}
   })();
@@ -78,7 +79,7 @@ export function createVolcanoCombat(scene){
    if(!point){console.error('[Volcano] no valid spawn for '+type);return;}
    const enemy=createLavaEnemy(type,point.x,point.y,stage*10+i);
    enemy.sprite=scene.add.sprite(point.x,point.y,sprites[type],sprites[type]===type?2:0).setDepth(12);
-   enemy.sprite.setDisplaySize(def.frame*.7,def.frame*.7);
+   enemy.sprite.setDisplaySize(enemyDisplaySize(type),enemyDisplaySize(type));
    enemy.facing='s';
    enemy.bark=scene.add.text(point.x,point.y-55,'',{fontFamily:'monospace',fontSize:'14px',color:'#fff4cf',stroke:'#241018',strokeThickness:4}).setOrigin(.5).setDepth(21).setVisible(false);
    enemies.push(enemy);
@@ -100,7 +101,7 @@ export function createVolcanoCombat(scene){
  function stopFire(){cancelPressureTrigger(pressure);cancelPressureTrigger(firePressure);resetFiring(firing);stream.clear();for(const shot of shots)shot.sprite.destroy();shots.length=0;}
  function start(){if(active)return;active=true;stage=0;spawnGroup();}
  function update(dt,now,aim,held,weapon){
-  if(!active)return;
+  if(!active||scene.defeated||scene.run.hp<=0){stopFire();return;}
   const sec=Math.min(50,dt)/1000;
   const water=weapon==='water-flamethrower',fire=weapon==='flamethrower';
   const flowing=water&&stepPressure(pressure,held,dt);
@@ -111,8 +112,28 @@ export function createVolcanoCombat(scene){
   if((flowing||flaming)&&Math.hypot(aim.x,aim.y)>.5){
    const origin={x:scene.player.x+aim.x*24,y:scene.player.y+aim.y*24};
    const tune=COMBAT_TUNING.flamethrower;
-   stream.lineStyle(15,water?0x18aeea:0xe7441b,.72).lineBetween(origin.x,origin.y,origin.x+aim.x*tune.range,origin.y+aim.y*tune.range);
-   stream.lineStyle(6,water?0xa7f6ff:0xffed96,.9).lineBetween(origin.x,origin.y,origin.x+aim.x*tune.range,origin.y+aim.y*tune.range);
+   if(water){
+    // Bounded, lightweight spray with irregular edges and droplets.
+    const nx=-aim.y,ny=aim.x,steps=9;
+    for(let i=0;i<steps;i++){
+     const a=i/steps,b=(i+1)/steps;
+     const w1=Math.sin(now*.018+i*2.7)*6*a+Math.cos(now*.011+i*4.1)*3*a;
+     const w2=Math.sin(now*.018+(i+1)*2.7)*6*b+Math.cos(now*.011+(i+1)*4.1)*3*b;
+     const x1=origin.x+aim.x*tune.range*a+nx*w1,y1=origin.y+aim.y*tune.range*a+ny*w1;
+     const x2=origin.x+aim.x*tune.range*b+nx*w2,y2=origin.y+aim.y*tune.range*b+ny*w2;
+     stream.lineStyle(18+14*b,0x1b9bd5,.36).lineBetween(x1,y1,x2,y2);
+     stream.lineStyle(8+7*b,0x8ee9ff,.55).lineBetween(x1,y1,x2,y2);
+     for(let j=0;j<2;j++){
+      const side=Math.sin(now*.009+i*7+j*13)*(3+11*b);
+      const d=tune.range*(a+(j+.35)/2/steps);
+      stream.fillStyle(j?0xbaf6ff:0x37b9ec,.48);
+      stream.fillCircle(origin.x+aim.x*d+nx*side,origin.y+aim.y*d+ny*side,2+3*b);
+     }
+    }
+   }else{
+    stream.lineStyle(15,0xe7441b,.72).lineBetween(origin.x,origin.y,origin.x+aim.x*tune.range,origin.y+aim.y*tune.range);
+    stream.lineStyle(6,0xffed96,.9).lineBetween(origin.x,origin.y,origin.x+aim.x*tune.range,origin.y+aim.y*tune.range);
+   }
    for(const enemy of enemies)if(!enemy.dead&&inFlameCone(origin,aim,enemy,tune.range,tune.halfAngle,enemy.radius)&&cooldownReady(water?waterCooldowns:flameCooldowns,enemy,now,tune.damageInterval))hit(enemy,weapon,tune.damage,now);
   }
   const count=firingStep(firing,weapon,held&&Math.hypot(aim.x,aim.y)>.5,now);
@@ -139,6 +160,7 @@ export function createVolcanoCombat(scene){
     enemy.contactAt=now;
     const contact=applyPlayerContact({hp:scene.run.hp,invulnerableUntil:scene.playerInvulnerableUntil??0},now);
     scene.run.hp=contact.hp;scene.playerInvulnerableUntil=contact.invulnerableUntil;
+    if(scene.run.hp<=0){scene.lockDeath();break;}
    }
   }
   if(enemies.every(e=>e.dead)&&stage<groups.length-1){
