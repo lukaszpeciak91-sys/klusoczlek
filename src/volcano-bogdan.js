@@ -79,7 +79,7 @@ export function marlenaOffscreen(actor,camera,margin=90){
 }
 export function createBogdanEncounter(scene,Phaser){
  let disposed=false,ready=false,failed=false,started=false,argumentDone=false,departing=false,
-  departed=false,confrontation=false,active=false,defeated=false,attackIndex=0,attack=null,
+  departed=false,leftApartment=false,confrontation=false,active=false,defeated=false,attackIndex=0,attack=null,
   hp=BOGDAN_HP,lastHit=-Infinity,projectiles=[],actors=[],marlena=null,bogdan=null,defeatPending=false;
  const graphics=scene.add.graphics().setDepth(17);
  const bossLabel=scene.add.text(0,0,'',{fontFamily:'monospace',fontSize:'16px',color:'#ffce85',
@@ -152,6 +152,8 @@ export function createBogdanEncounter(scene,Phaser){
    if(disposed||!departing||!marlena?.active)return;
    elapsed+=dt;
    if(elapsed>=1250&&barkIndex===1)showBark();
+   // Story gate is independent of eventual offscreen removal and pathfinding.
+   if(elapsed>=2600&&barkIndex===2)leftApartment=true;
    if(elapsed>=2550)bark.setVisible(false);
    if(!route||index>=route.length){
     if(marlenaOffscreen(marlena,scene.cameras.main)){
@@ -177,7 +179,7 @@ export function createBogdanEncounter(scene,Phaser){
   return true;
  }
  function beginConfrontation(){
-  if(!departed||!ready||confrontation||scene.defeated||scene.dialogueState.id)return false;
+  if(!leftApartment||!ready||confrontation||scene.defeated||scene.dialogueState.id)return false;
   confrontation=true;return true;
  }
  function activate(){
@@ -195,6 +197,7 @@ export function createBogdanEncounter(scene,Phaser){
   }
   return true;
  }
+ function removeDefeatedSprite(){if(!defeated||!bogdan?.active)return false;bogdan.destroy();bogdan=null;bossLabel.setVisible(false);return true;}
  function consumeDefeat(){if(!defeatPending)return false;defeatPending=false;return true;}
  function hurtPlayer(now){
   if(scene.dialogueState.id||scene.defeated||scene.run.hp<=0)return;
@@ -266,8 +269,8 @@ export function createBogdanEncounter(scene,Phaser){
   disposed=true;departureTick=null;projectiles.length=0;graphics.destroy();bossLabel.destroy();bark.destroy();
   for(const actor of actors)if(actor.active)actor.destroy();
  });
- return {prepare,beginArgument,depart,beginConfrontation,activate,damage,update,consumeDefeat,
+ return {prepare,beginArgument,depart,beginConfrontation,activate,damage,update,consumeDefeat,removeDefeatedSprite,
   get ready(){return ready;},get failed(){return failed;},get argumentStarted(){return started;},
-  get departed(){return departed;},get active(){return active;},get defeated(){return defeated;},
+  get leftApartment(){return leftApartment;},get departed(){return departed;},get active(){return active;},get defeated(){return defeated;},
   get hp(){return hp;},get hostileProjectileCount(){return projectiles.length;},get defeatPending(){return defeatPending;},get bogdan(){return bogdan;},get marlena(){return marlena;}};
 }
