@@ -38,7 +38,8 @@ test('dialogue state prevents concurrent encounters and completes once',()=>{
  assert.equal(advanceDialogue(state),'act3-swinia-wrozka');
 });
 test('fairy now prefers the apartment travel corridor, not the former island',()=>{
- assert.deepEqual(FAIRY_MARK,{x:780,y:820});
+ assert.deepEqual(FAIRY_MARK,{x:333,y:240});
+ assert.deepEqual(FAIRY_ROUTE_MARKS[0],{x:780,y:820});
  assert.equal(FAIRY_ROUTE_MARKS.length,4);
  assert.equal(FAIRY_DEPARTURE_MS,1300);
  assert.equal(fairyTrigger(VOLCANO_START),false);
