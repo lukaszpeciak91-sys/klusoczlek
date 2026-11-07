@@ -8,7 +8,7 @@ import {readFileSync} from 'node:fs';
 
 test('Act III has precisely four approved dialogue panels',()=>{
  assert.deepEqual(DIALOGUES['act3-opening'],[
- ['captain','KAPITAN MARIAN','Oto jesteśmy! Weź to, przyda ci się!'],
+ ['captain','KAPITAN MARIAN','Masz to! To miotacz wody! Przyda Ci się!'],
  ['captain','KAPITAN MARIAN','Roi się tu od lawostworków!'],
  ['aloes','ALOES','Lawostworków?'],
  ['captain','KAPITAN MARIAN','Tak, lawostworków! A teraz prędko po kolejny artefakt!']
