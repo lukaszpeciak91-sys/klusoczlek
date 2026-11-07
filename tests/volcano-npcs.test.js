@@ -6,14 +6,14 @@ import {VOLCANO_START} from '../src/volcano-contract.js';
 
 test('Act III tenants dialogue has the approved exact sequence',()=>{
  assert.deepEqual(DIALOGUES['act3-lawostworki'],[
-  ['lawostworek-1','LAWOSTWOREK 1','Ja już mam dosyć tych dzikich lokatorów! Wchodzą bez pytania, rozbijają się po całym wulkanie!'],
-  ['lawostworek-2','LAWOSTWOREK 2','A widziałeś ceny najmu? Za dwa pokoje przy kraterze chcą trzy tysiące! Bez czynszu!'],
-  ['lawostworek-1','LAWOSTWOREK 1','Ale oni nawet nie płacą!'],
-  ['lawostworek-2','LAWOSTWOREK 2','To akurat rozumiem.'],
-  ['lawostworek-1','LAWOSTWOREK 1','Czekaj... A ten tam to kto?!'],
-  ['lawostworek-2','LAWOSTWOREK 2','NASTĘPNY?!'],
+  ['lawostworek-1','KRZYŚ','Ja już mam dosyć tych dzikich lokatorów! Wchodzą bez pytania, rozbijają się po całym wulkanie!'],
+  ['lawostworek-2','ANDRZEJEK','A widziałeś ceny najmu? Za dwa pokoje przy kraterze chcą trzy tysiące! Bez czynszu!'],
+  ['lawostworek-1','KRZYŚ','Ale oni nawet nie płacą!'],
+  ['lawostworek-2','ANDRZEJEK','To akurat rozumiem.'],
+  ['lawostworek-1','KRZYŚ','Czekaj... A ten tam to kto?!'],
+  ['lawostworek-2','ANDRZEJEK','NASTĘPNY?!'],
   ['aloes','ALOES','Ja tylko przechodzę!'],
-  ['lawostworek-1','LAWOSTWOREK 1','BEZ KAUCJI NIE WEJDZIESZ!']
+  ['lawostworek-1','KRZYŚ','BEZ KAUCJI NIE WEJDZIESZ!']
  ]);
 });
 test('fairy has exactly three approved panels, distinct from Marlena',()=>{
