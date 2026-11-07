@@ -18,7 +18,7 @@ test('alpha terrain blocks lava, diagonal crossings and tunnelling, including la
  const mask=createVolcanoWalkability(rgba,width,height);
  assert.equal(volcanoFootprintAllowed(mask,500,500,17),true);
  assert.equal(volcanoFootprintAllowed(mask,820,500,17),false);
- assert.equal(volcanoFootprintAllowed(mask,810,600,27),false);
+ assert.equal(volcanoFootprintAllowed(mask,810,500,27),false);
  assert.equal(volcanoFootprintAllowed(null,500,500,17),false);
  const blocked=volcanoStep({x:760,y:400},{x:1,y:0},100000,10000,17,mask);
  assert.ok(blocked.x<800-17);
