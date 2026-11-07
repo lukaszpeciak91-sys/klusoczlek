@@ -95,7 +95,7 @@ export function createVolcanoCombat(scene){
    const def=LAVA_TYPES[type],preferred=zone.spawns[i];
    const avoid=[{x:scene.player.x,y:scene.player.y,radius:17},
     ...enemies.filter(e=>!e.dead).map(e=>({x:e.x,y:e.y,radius:e.radius}))];
-   const point=findZoneSpawn(scene.walkability,zone,preferred,def.radius,avoid);
+   const point=findZoneSpawn(scene.walkability,zone,preferred,def.radius,avoid,zone.id==='fairy'?260:105);
    if(!point){console.error('[Volcano] '+id+': no valid same-zone spawn for '+type+' #'+i);return false;}
    const enemy=createLavaEnemy(type,point.x,point.y,VOLCANO_ZONES.indexOf(zone)*10+i);
    enemy.zoneId=id;
