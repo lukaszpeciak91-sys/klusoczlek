@@ -37,6 +37,15 @@ export function drawContinuousStream(graphics,origin,aim,now,weapon,blocked=()=>
    last=center;
   }
  }
+ if(weapon==='water-flamethrower'){
+  // Flowing droplets and thin cyan streaks distinguish water from flame.
+  for(let i=1;i<=9;i++){
+   const d=((i*37+now*.14)%tune.range),w=Math.sin(now*.019+i*2.1)*Math.min(12,d*.075);
+   const x=origin.x+aim.x*d+normal.x*w,y=origin.y+aim.y*d+normal.y*w;
+   if(blocked(origin,{x,y}))continue;
+   graphics.fillStyle(i%3===0?0xd9fbff:0x4ac9f5,.84).fillEllipse(x,y,3.5+i%3,7+i%4);
+  }
+ }
  graphics.fillStyle(palette.tip,.96).fillCircle(origin.x,origin.y,5);
 }
 export function emitContinuousParticle(scene,state,origin,aim,now,weapon,blocked=()=>false){
