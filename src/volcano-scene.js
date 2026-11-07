@@ -93,9 +93,20 @@ export class VolcanoScene extends Phaser.Scene {
       this.weaponLabel.setText(WEAPONS[this.weapon]?.symbol??'—');
       void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'flamethrower':this.weapon);
     };
-    this.weaponButton=this.add.circle(0,0,22,0x303b2b).setStrokeStyle(2,0xb9a16b).setScrollFactor(0).setDepth(66).setInteractive();
-    this.weaponLabel=this.add.text(0,0,WEAPONS[this.weapon]?.symbol??'—',{fontFamily:'monospace',fontSize:'22px',color:'#b9f5ff'}).setOrigin(.5).setScrollFactor(0).setDepth(67);
-    this.weaponButton.on('pointerdown',switchWeapon);
+    // Match the existing Act I/II weapon token, including its fixed 42px
+    // visual footprint and layout-driven touch target left of the aim stick.
+    this.weaponToken=this.add.container(0,0).setScrollFactor(0).setDepth(66);
+    this.weaponBody=this.add.circle(0,0,21,0x303b2b,0.92).setStrokeStyle(2,0xb9a16b);
+    this.weaponLabel=this.add.text(0,0,WEAPONS[this.weapon]?.symbol??'—',
+      {fontFamily:'monospace',fontSize:'21px',fontStyle:'bold',color:'#ffffff'}).setOrigin(.5);
+    this.weaponToken.add([this.weaponBody,this.weaponLabel]);
+    const touchSwitch=pointer=>{
+      if(pointer.id===this.joystick.pointerId||pointer.id===this.aimJoystick.pointerId)return;
+      const l=this.hudLayout;
+      if(Math.hypot(pointer.x-l.switchX,pointer.y-l.switchY)<=l.switchSize/2)switchWeapon();
+    };
+    this.input.on('pointerdown',touchSwitch);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.input.off('pointerdown',touchSwitch));
     const weaponKey=e=>{if(e.code==='KeyQ'&&!e.repeat)switchWeapon();};
     this.input.keyboard.on('keydown',weaponKey);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.input.keyboard.off('keydown',weaponKey));
@@ -121,8 +132,7 @@ export class VolcanoScene extends Phaser.Scene {
       this.joystick.reposition(layout.joystickX,layout.joystickY,layout.joystickRadius);
       this.aimJoystick.reposition(layout.aimX,layout.aimY,layout.joystickRadius);
       this.hudLayout=layout;
-      this.weaponButton.setPosition(layout.switchX,layout.switchY).setRadius(layout.switchSize/2);
-      this.weaponLabel.setPosition(layout.switchX,layout.switchY);
+      this.weaponToken.setPosition(layout.switchX,layout.switchY).setScale(layout.switchSize/42);
       this.menuButton.setPosition(layout.menuX,layout.menuY).setSize(layout.menuWidth,layout.menuHeight);
       this.menuLabel.setPosition(layout.menuX,layout.menuY).setFontSize(layout.menuFont);
       this.hpFace.resize(layout);this.hpText.setPosition(layout.hpX,layout.hpY);
