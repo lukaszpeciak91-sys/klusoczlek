@@ -36,10 +36,51 @@ export function bossBeamPoint(origin,angle,length,mask,step=4){
  }
  return end;
 }
+// Bounded deterministic A* on the decoded terrain footprint. Every traversed
+// edge is swept by volcanoStep; a blocked waypoint is never a despawn event.
+export function findMarlenaRoute(mask,from,to,{radius=14,cell=12,maxNodes=18000}={}){
+ if(!mask||!volcanoFootprintAllowed(mask,from.x,from.y,radius))return null;
+ const valid=(x,y)=>volcanoFootprintAllowed(mask,x,y,radius);
+ const destination=valid(to.x,to.y)?to:null;
+ if(!destination)return null;
+ const key=(x,y)=>x+','+y,open=[],best=new Map(),closed=new Set();
+ const start={x:Math.round(from.x/cell),y:Math.round(from.y/cell)};
+ const goal={x:Math.round(to.x/cell),y:Math.round(to.y/cell)};
+ const startKey=key(start.x,start.y),goalKey=key(goal.x,goal.y);
+ const h=(x,y)=>Math.hypot(goal.x-x,goal.y-y);
+ open.push({...start,g:0,f:h(start.x,start.y),parent:null});best.set(startKey,0);
+ const steps=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+ let visited=0;
+ while(open.length&&visited++<maxNodes){
+  open.sort((a,b)=>a.f-b.f||a.g-b.g||a.y-b.y||a.x-b.x);
+  const node=open.shift(),id=key(node.x,node.y);
+  if(closed.has(id))continue;
+  closed.add(id);
+  if(id===goalKey||Math.hypot(node.x*cell-to.x,node.y*cell-to.y)<=cell){
+   const route=[{x:to.x,y:to.y}];let n=node;
+   while(n?.parent){route.unshift({x:n.x*cell,y:n.y*cell});n=n.parent;}
+   return route;
+  }
+  for(const [dx,dy] of steps){
+   const x=node.x+dx,y=node.y+dy,k=key(x,y),px=x*cell,py=y*cell;
+   if(closed.has(k)||!valid(px,py))continue;
+   if(dx&&dy&&(!valid((node.x+dx)*cell,node.y*cell)||!valid(node.x*cell,(node.y+dy)*cell)))continue;
+   const cost=node.g+Math.hypot(dx,dy);
+   if(cost>=(best.get(k)??Infinity))continue;
+   best.set(k,cost);open.push({x,y,g:cost,f:cost+h(x,y),parent:node});
+  }
+ }
+ return null;
+}
+export function marlenaOffscreen(actor,camera,margin=90){
+ const view=camera.worldView;
+ return actor.x<view.x-margin||actor.x>view.right+margin||
+        actor.y<view.y-margin||actor.y>view.bottom+margin;
+}
 export function createBogdanEncounter(scene,Phaser){
  let disposed=false,ready=false,failed=false,started=false,argumentDone=false,departing=false,
   departed=false,confrontation=false,active=false,defeated=false,attackIndex=0,attack=null,
-  hp=BOGDAN_HP,lastHit=-Infinity,projectiles=[],actors=[],marlena=null,bogdan=null;
+  hp=BOGDAN_HP,lastHit=-Infinity,projectiles=[],actors=[],marlena=null,bogdan=null,defeatPending=false;
  const graphics=scene.add.graphics().setDepth(17);
  const bossLabel=scene.add.text(0,0,'',{fontFamily:'monospace',fontSize:'16px',color:'#ffce85',
   stroke:'#281018',strokeThickness:4}).setOrigin(.5).setDepth(22).setVisible(false);
@@ -86,37 +127,55 @@ export function createBogdanEncounter(scene,Phaser){
   if(!ready||started||disposed||scene.dialogueState.id||scene.defeated)return false;
   started=true;return true;
  }
+ let departureTick=null;
  function depart(){
-  if(!started||departing||departed||!marlena)return false;
+  if(!started||departing||departed||!marlena||disposed)return false;
   departing=true;
-  const path=APARTMENT.exit;
-  let segment=0,elapsed=0,barkIndex=0;
+  const destinations=[{x:1030,y:680},{x:940,y:760},{x:1080,y:820},{x:820,y:850}];
+  let route=null,index=0,elapsed=0,barkIndex=0,stalled=0,retries=0;
   const showBark=()=>{
    if(barkIndex>=MARLENA_BARKS.length)return;
    bark.setText(MARLENA_BARKS[barkIndex++]).setVisible(true);
   };
-  showBark();
-  function tick(dt){
+  const reroute=()=>{
+   route=null;index=0;
+   for(let i=0;i<destinations.length;i++){
+    const target=destinations[(retries+i)%destinations.length];
+    const candidate=findMarlenaRoute(scene.walkability,marlena,target);
+    if(candidate?.length){route=candidate;retries+=i+1;return true;}
+   }
+   console.warn('[Volcano Boss] no safe Marlena route to middle arena; NPC retained until offscreen');
+   return false;
+  };
+  reroute();showBark();
+  departureTick=dt=>{
    if(disposed||!departing||!marlena?.active)return;
    elapsed+=dt;
-   if(elapsed>1250&&barkIndex===1)showBark();
-   if(elapsed>2550)bark.setVisible(false);
-   const target=path[segment];
-   if(!target){departing=false;departed=true;marlena.destroy();marlena=null;bark.setVisible(false);return;}
-   const dx=target.x-marlena.x,dy=target.y-marlena.y,d=Math.hypot(dx,dy);
-   if(d<5){segment++;return;}
-   const next=volcanoStep(marlena,{x:dx/d,y:dy/d},dt,145,14,scene.walkability);
-   if(Math.hypot(next.x-marlena.x,next.y-marlena.y)<.05){
-    console.warn('[Volcano Boss] Marlena route blocked, ending departure safely');
-    departing=false;departed=true;marlena.destroy();marlena=null;bark.setVisible(false);return;
+   if(elapsed>=1250&&barkIndex===1)showBark();
+   if(elapsed>=2550)bark.setVisible(false);
+   if(!route||index>=route.length){
+    if(marlenaOffscreen(marlena,scene.cameras.main)){
+     departing=false;departed=true;marlena.destroy();marlena=null;bark.setVisible(false);
+    }else if(!route&&retries<8){retries++;reroute();}
+    else if(index>=route?.length&&retries<8){retries++;reroute();}
+    return;
    }
+   const target=route[index],dx=target.x-marlena.x,dy=target.y-marlena.y,d=Math.hypot(dx,dy);
+   if(d<7){index++;return;}
+   const next=volcanoStep(marlena,{x:dx/d,y:dy/d},dt,145,14,scene.walkability);
+   const moved=Math.hypot(next.x-marlena.x,next.y-marlena.y);
+   if(moved<.1){
+    stalled+=dt;
+    if(stalled>=450){stalled=0;if(retries<8){retries++;reroute();}
+     else console.warn('[Volcano Boss] Marlena path blocked after bounded alternate routing');}
+    return;
+   }
+   stalled=0;
    marlena.setPosition(next.x,next.y).setFrame(playerFrame(facingOf(dx,dy,'s')));
    bark.setPosition(marlena.x,marlena.y-105);
-  }
-  departureTick=tick;
+  };
   return true;
  }
- let departureTick=null;
  function beginConfrontation(){
   if(!departed||!ready||confrontation||scene.defeated||scene.dialogueState.id)return false;
   confrontation=true;return true;
@@ -131,10 +190,12 @@ export function createBogdanEncounter(scene,Phaser){
   lastHit=now;hp=Math.max(0,hp-amount);
   if(hp===0){
    defeated=true;active=false;attack=null;projectiles.length=0;graphics.clear();
+   defeatPending=true;
    bossLabel.setText('BOGDAN POKONANY — '+hp+'/'+BOGDAN_HP);
   }
   return true;
  }
+ function consumeDefeat(){if(!defeatPending)return false;defeatPending=false;return true;}
  function hurtPlayer(now){
   if(scene.dialogueState.id||scene.defeated||scene.run.hp<=0)return;
   const contact=applyPlayerContact({hp:scene.run.hp,invulnerableUntil:scene.playerInvulnerableUntil??0},now);
@@ -205,8 +266,8 @@ export function createBogdanEncounter(scene,Phaser){
   disposed=true;departureTick=null;projectiles.length=0;graphics.destroy();bossLabel.destroy();bark.destroy();
   for(const actor of actors)if(actor.active)actor.destroy();
  });
- return {prepare,beginArgument,depart,beginConfrontation,activate,damage,update,
+ return {prepare,beginArgument,depart,beginConfrontation,activate,damage,update,consumeDefeat,
   get ready(){return ready;},get failed(){return failed;},get argumentStarted(){return started;},
   get departed(){return departed;},get active(){return active;},get defeated(){return defeated;},
-  get hp(){return hp;},get bogdan(){return bogdan;},get marlena(){return marlena;}};
+  get hp(){return hp;},get hostileProjectileCount(){return projectiles.length;},get defeatPending(){return defeatPending;},get bogdan(){return bogdan;},get marlena(){return marlena;}};
 }
