@@ -8,6 +8,8 @@ export const PANIC_PROFILES=Object.freeze({
  marcin:HEAVY_PANIC,
  bobrozombi:Object.freeze({duration:2500,speed:75}),
  bocianolak:Object.freeze({duration:1800,speed:110}),
+ 'lawostworek-1':Object.freeze({duration:2500,speed:115}),
+ 'lawostworek-2':Object.freeze({duration:1200,speed:48}),
  zubrokryptyda:HEAVY_PANIC
 });
 export function createIgnitionState(){return {burningUntil:0,panicImmuneUntil:0,ignitedAt:null};}

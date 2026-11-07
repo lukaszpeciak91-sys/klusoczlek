@@ -9,6 +9,7 @@ import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js'
 import {createBurningFx} from './enemy-fire-vfx.js';
 import {recordHit,recordAttack} from './combat-feedback.js';
 import {muzzlePoint} from './shooting.js';
+import {drawContinuousStream,emitContinuousParticle} from './continuous-weapon.js';
 
 // Airship-owned combat adapter: existing tuning, hit detection, enemy renderers
 // and death feedback; no Act I director, wave or boss state is copied.
@@ -49,40 +50,11 @@ export function createAirshipCombat(scene,delivery){
  }
  function flame(aim,now){
    const tune=COMBAT_TUNING.flamethrower,origin=muzzlePoint(scene.player.x,scene.player.y,aim);
-   stream.clear();
-   const normal={x:-aim.y,y:aim.x};
-   // Match Act I's layered, pulsing flame fan rather than the prototype triangle.
-   for(const [color,factor,alpha] of [[0xe7441b,1,0.72],[0xff8c24,0.66,0.84],[0xffed96,0.28,0.95]]){
-     stream.fillStyle(color,alpha);
-     let last=origin;
-     for(let i=1;i<=11;i++){
-       const distance=i*tune.range/11;
-       const center={x:origin.x+aim.x*distance,y:origin.y+aim.y*distance};
-       if(scene.wheelhouse?.visible&&wheelhouseSegmentHit(last,center))break;
-       const wave=Math.sin(now*0.022+i*1.7)*2.4;
-       const spread=Math.min(19,distance*Math.tan(tune.halfAngle)*0.45)*factor*(0.95+0.09*Math.sin(now*0.035+i));
-       const tip=Math.max(1,spread*(1-distance/tune.range*0.55));
-       const left={x:center.x+normal.x*(tip+wave*factor),y:center.y+normal.y*(tip+wave*factor)};
-       const right={x:center.x-normal.x*(tip-wave*factor),y:center.y-normal.y*(tip-wave*factor)};
-       stream.fillTriangle(last.x,last.y,left.x,left.y,right.x,right.y);
-       last=center;
-     }
-   }
-   stream.fillStyle(0xfff4b3,0.96).fillCircle(origin.x,origin.y,5);
-   if(flameEmissionAt===null||now-flameEmissionAt>=tune.particleInterval){
-     flameEmissionAt=now;
-     if(flameParticles.length<tune.maxParticles){
-       const wobble=Math.sin(now*0.021)*0.21;
-       const angle=Math.atan2(aim.y,aim.x)+wobble;
-       const speed=160+(Math.sin(now*0.017)+1)*52;
-       const dir={x:Math.cos(angle),y:Math.sin(angle)};
-       const start={x:origin.x+aim.x*6,y:origin.y+aim.y*6};
-       const life=180+(Math.sin(now*0.031)+1)*85;
-       const color=[0xffd65d,0xff903b,0xf14b27][Math.floor(now/67)%3];
-       const object=scene.add.circle(start.x,start.y,3.4+(Math.sin(now*0.034)+1)*1.6,color,0.8).setDepth(13);
-       flameParticles.push({object,vx:dir.x*speed,vy:dir.y*speed,age:0,life});
-     }
-   }
+   const blocked=(a,b)=>Boolean(scene.wheelhouse?.visible&&wheelhouseSegmentHit(a,b));
+   drawContinuousStream(stream,origin,aim,now,'flamethrower',blocked);
+   const emission={particles:flameParticles,emissionAt:flameEmissionAt};
+   emitContinuousParticle(scene,emission,origin,aim,now,'flamethrower',blocked);
+   flameEmissionAt=emission.emissionAt;
   for(const enemy of delivery.groundEnemies){
    if(enemy.dead||now<enemy.activationAt||
       (scene.wheelhouse?.visible&&wheelhouseSegmentHit(origin,enemy))||
