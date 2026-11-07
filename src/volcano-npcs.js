@@ -60,7 +60,7 @@ export function createNpcReadiness(){
  };
 }
 export function createVolcanoNpcs(scene,Phaser){
- let disposed=false,placing=null,lawos=[],fairy=null,departing=false,departed=false,lawosReady=false;
+ let disposed=false,placing=null,fairyLoading=null,lawos=[],fairy=null,departing=false,departed=false,lawosReady=false;
  const actors=[];
  async function load(key){
   const def=SHEETS[key],texture='volcano-npc-'+key;
@@ -103,29 +103,32 @@ export function createVolcanoNpcs(scene,Phaser){
   if(disposed||!scene.walkability)return false;
   const mask=scene.walkability,p=scene.player;
   const spots=[{x:p.x+92,y:p.y-78},{x:p.x+150,y:p.y-76}];
-  const results=await Promise.all([
-   ...spots.map((spot,i)=>{
-    const at=nearestVolcanoSpawn(mask,spot.x,spot.y,16,0,null,80);
-    return at?spawn(i===0?'lawostworek-1':'lawostworek-2',at):Promise.resolve(null);
-   }),
-   (()=>{
-    // Keep the fairy on the marked upper-left platform; never relocate far away.
-    const at=findFairyIslandSpawn(mask);
-    if(!at)console.warn('[Volcano NPC] Świnia-Wróżka: no valid spawn on marked upper-left island at (333,240)');
-    return at?spawn('swinia-wrozka',at):Promise.resolve(null);
-   })()
-  ]);
+  const results=await Promise.all(spots.map((spot,i)=>{
+   const at=nearestVolcanoSpawn(mask,spot.x,spot.y,16,0,null,80);
+   return at?spawn(i===0?'lawostworek-1':'lawostworek-2',at):Promise.resolve(null);
+  }));
   if(disposed)return false;
   lawos=results.slice(0,2).filter(Boolean);
   lawosReady=lawos.length===2&&lawos.every(n=>n.actor.active&&n.sprite.active&&n.actor.visible);
   if(!lawosReady)console.warn('[Volcano NPC] Lawostworki unavailable: skipping dialogue safely');
-  fairy=results[2];
-  if(fairy){
-   fairy.actor.setVisible(true);
-   fairy.idle=scene.tweens.add({targets:fairy.sprite,y:-5,rotation:.035,scaleX:SHEETS['swinia-wrozka'].scale*1.025,
-    scaleY:SHEETS['swinia-wrozka'].scale*1.025,duration:900,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
-  }
   return lawosReady;
+ }
+ function revealFairy(){
+  if(disposed||departed||fairy)return Promise.resolve(Boolean(fairy));
+  if(fairyLoading)return fairyLoading;
+  fairyLoading=(async()=>{
+   const at=findFairyIslandSpawn(scene.walkability);
+   if(!at){console.warn('[Volcano NPC] fairy reveal unavailable on marked island (333,240)');return false;}
+   const npc=await spawn('swinia-wrozka',at);
+   if(disposed||!npc)return false;
+   fairy=npc;
+   fairy.actor.setVisible(true);
+   fairy.idle=scene.tweens.add({targets:fairy.sprite,y:-5,rotation:.035,
+    scaleX:SHEETS['swinia-wrozka'].scale*1.025,
+    scaleY:SHEETS['swinia-wrozka'].scale*1.025,duration:900,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+   return true;
+  })();
+  return fairyLoading;
  }
  function finishLawos(){
   for(const npc of lawos)npc.actor.destroy();
@@ -146,6 +149,6 @@ export function createVolcanoNpcs(scene,Phaser){
   for(const actor of actors){scene.tweens.killTweensOf(actor);for(const child of actor.list)scene.tweens.killTweensOf(child);if(actor.active)actor.destroy();}
   lawos=[];fairy=null;
  });
- return {place,finishLawos,departFairy,get lawosReady(){return lawosReady;},get fairy(){return fairy;},get lawos(){return lawos;},
+ return {place,revealFairy,finishLawos,departFairy,get lawosReady(){return lawosReady;},get fairy(){return fairy;},get lawos(){return lawos;},
   get departed(){return departed;},get departing(){return departing;}};
 }
