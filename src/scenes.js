@@ -1,3 +1,4 @@
+import {drawContinuousStream,emitContinuousParticle,updateContinuousParticles} from './continuous-weapon.js';
 import {selectOrdinarySpawn} from './enemy-spawn.js';
 import {createIntroEvidence,rememberOrdinaryDeath,introductionEvidence,claimIntroduction} from './introduction-evidence.js';
 import {createDirector,directorPopulation,directorOpportunity,nextDirectorType,recordDirectorSpawn} from './encounter-director.js';
@@ -1020,59 +1021,20 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   drawFlameStream(origin,aim,now){
-    const g=this.flameStream,tune=COMBAT_TUNING.flamethrower;
-    g.clear();
-    const normal={x:-aim.y,y:aim.x};
-    // Fan layers share the authoritative cone and stop before blocking obstacles.
-    for(const [color,factor,alpha] of [[0xe7441b,1,0.72],[0xff8c24,0.66,0.84],[0xffed96,0.28,0.95]]){
-      g.fillStyle(color,alpha);
-      let last=origin;
-      for(let i=1;i<=11;i++){
-        const distance=i*tune.range/11;
-        const center={x:origin.x+aim.x*distance,y:origin.y+aim.y*distance};
-        if(segmentObstacleHit(last,center,this.obstacles,0))break;
-        const wave=Math.sin(now*0.022+i*1.7)*2.4;
-        const spread=Math.min(19,distance*Math.tan(tune.halfAngle)*0.45)*factor*(0.95+0.09*Math.sin(now*0.035+i));
-        const tip=Math.max(1,spread*(1-distance/tune.range*0.55));
-        const left={x:center.x+normal.x*(tip+wave*factor),y:center.y+normal.y*(tip+wave*factor)};
-        const right={x:center.x-normal.x*(tip-wave*factor),y:center.y-normal.y*(tip-wave*factor)};
-        // Check both edges, not just the centerline, to avoid fire through walls.
-        if(segmentObstacleHit(last,left,this.obstacles,0)||segmentObstacleHit(last,right,this.obstacles,0))break;
-        g.fillTriangle(last.x,last.y,left.x,left.y,right.x,right.y);
-        last=center;
-      }
-    }
-    g.fillStyle(0xfff4b3,0.96).fillCircle(origin.x,origin.y,5);
+    drawContinuousStream(this.flameStream,origin,aim,now,'flamethrower',
+      (a,b)=>segmentObstacleHit(a,b,this.obstacles,0));
   }
 
   updateFlameParticles(now,delta){
-    for(const p of this.flameParticles){
-      p.age+=delta;
-      const next={x:p.object.x+p.vx*delta/1000,y:p.object.y+p.vy*delta/1000};
-      if(segmentObstacleHit(p.object,next,this.obstacles,0)){p.object.destroy();continue;}
-      p.object.setPosition(next.x,next.y);
-      p.object.setAlpha(Math.max(0,1-p.age/p.life)*0.82);
-      if(p.age>=p.life)p.object.destroy();
-    }
-    this.flameParticles=this.flameParticles.filter(p=>p.object.active);
+    updateContinuousParticles({particles:this.flameParticles},delta,
+      (a,b)=>segmentObstacleHit(a,b,this.obstacles,0));
   }
 
   emitFlame(origin,aim,now){
-    const tune=COMBAT_TUNING.flamethrower;
-    if(this.flameEmissionAt!==null&&now-this.flameEmissionAt<tune.particleInterval)return;
-    this.flameEmissionAt=now;
-    if(this.flameParticles.length>=tune.maxParticles)return;
-    const wobble=Math.sin(now*0.021)*0.21;
-    const angle=Math.atan2(aim.y,aim.x)+wobble;
-    const speed=160+(Math.sin(now*0.017)+1)*52;
-    const dir={x:Math.cos(angle),y:Math.sin(angle)};
-    const start={x:origin.x+aim.x*6,y:origin.y+aim.y*6};
-    const end={x:start.x+dir.x*speed*0.24,y:start.y+dir.y*speed*0.24};
-    if(segmentObstacleHit(start,end,this.obstacles,0))return;
-    const life=180+(Math.sin(now*0.031)+1)*85;
-    const color=[0xffd65d,0xff903b,0xf14b27][Math.floor(now/67)%3];
-    const object=this.add.circle(start.x,start.y,3.4+(Math.sin(now*0.034)+1)*1.6,color,0.8).setDepth(13);
-    this.flameParticles.push({object,vx:dir.x*speed,vy:dir.y*speed,age:0,life});
+    const state={particles:this.flameParticles,emissionAt:this.flameEmissionAt};
+    emitContinuousParticle(this,state,origin,aim,now,'flamethrower',
+      (a,b)=>segmentObstacleHit(a,b,this.obstacles,0));
+    this.flameEmissionAt=state.emissionAt;
   }
 
   applyFlame(aim,now){
