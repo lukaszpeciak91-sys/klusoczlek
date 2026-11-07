@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue} from '../src/dialogue-data.js';
-import {FAIRY_MARK,FAIRY_TRIGGER_RADIUS,FAIRY_DEPARTURE_MS,fairyTrigger,findFairyIslandSpawn,createNpcReadiness,shouldRevealFairy} from '../src/volcano-npcs.js';
+import {FAIRY_MARK,FAIRY_TRIGGER_RADIUS,FAIRY_DEPARTURE_MS,fairyTrigger,findFairyIslandSpawn,findFairyRouteSpawn,FAIRY_ROUTE_MARKS,createNpcReadiness,shouldRevealFairy} from '../src/volcano-npcs.js';
 import {VOLCANO_START} from '../src/volcano-contract.js';
 
 test('Act III tenants dialogue has the approved exact sequence',()=>{
@@ -37,8 +37,9 @@ test('dialogue state prevents concurrent encounters and completes once',()=>{
  for(let i=0;i<2;i++)assert.equal(advanceDialogue(state),'next');
  assert.equal(advanceDialogue(state),'act3-swinia-wrozka');
 });
-test('fairy stays on approved upper-left island, not at Act III entrance',()=>{
- assert.deepEqual(FAIRY_MARK,{x:333,y:240});
+test('fairy now prefers the apartment travel corridor, not the former island',()=>{
+ assert.deepEqual(FAIRY_MARK,{x:780,y:820});
+ assert.equal(FAIRY_ROUTE_MARKS.length,4);
  assert.equal(FAIRY_DEPARTURE_MS,1300);
  assert.equal(fairyTrigger(VOLCANO_START),false);
  assert.equal(fairyTrigger({x:FAIRY_MARK.x+FAIRY_TRIGGER_RADIUS-1,y:FAIRY_MARK.y}),true);
@@ -75,9 +76,9 @@ test('failed PNG resolves pending trigger without permanent lock',()=>{
 });
 test('fairy uses exact valid mark and nearest valid footprint on same island',()=>{
  const mask=islandMask();
- assert.deepEqual(findFairyIslandSpawn(mask),FAIRY_MARK);
+ assert.deepEqual(findFairyIslandSpawn(mask,{x:333,y:240}),{x:333,y:240});
  for(let y=225;y<255;y++)for(let x=320;x<345;x++)mask.pixels[y*mask.width+x]=0;
- const fallback=findFairyIslandSpawn(mask);
+ const fallback=findFairyIslandSpawn(mask,{x:333,y:240});
  assert.ok(fallback);
  assert.ok(fallback.x>=250&&fallback.x<420);
  assert.ok(fallback.y>=170&&fallback.y<350);
@@ -86,7 +87,7 @@ test('fairy uses exact valid mark and nearest valid footprint on same island',()
 test('fairy cannot jump to a separate island or lava',()=>{
  const mask=islandMask();
  for(let y=170;y<350;y++)for(let x=250;x<420;x++)mask.pixels[y*mask.width+x]=0;
- assert.equal(findFairyIslandSpawn(mask),null);
+ assert.equal(findFairyIslandSpawn(mask,{x:333,y:240}),null);
 });
 
 test('fairy reveal follows completed tenants dialogue without combat-zone clearance',()=>{
@@ -94,4 +95,19 @@ test('fairy reveal follows completed tenants dialogue without combat-zone cleara
  assert.equal(shouldRevealFairy(true,false),true);
  assert.equal(shouldRevealFairy(true,true),false);
  assert.equal(shouldRevealFairy(false,true),false);
+});
+
+test('fairy route candidate requires walkable ground and player reachability',()=>{
+ const width=1800,height=1200,pixels=new Uint8Array(width*height);
+ for(let y=600;y<1050;y++)for(let x=250;x<1200;x++)pixels[y*width+x]=1;
+ const mask={width,height,pixels};
+ const player={x:300,y:1000};
+ const reachable=(m,from,to)=>[to];
+ const point=findFairyRouteSpawn(mask,player,reachable);
+ assert.deepEqual(point,FAIRY_ROUTE_MARKS[0]);
+ assert.equal(findFairyRouteSpawn(mask,player,()=>null),null);
+ for(let y=780;y<860;y++)for(let x=740;x<820;x++)pixels[y*width+x]=0;
+ const fallback=findFairyRouteSpawn(mask,player,reachable);
+ assert.ok(fallback);
+ assert.notDeepEqual(fallback,FAIRY_ROUTE_MARKS[0]);
 });
