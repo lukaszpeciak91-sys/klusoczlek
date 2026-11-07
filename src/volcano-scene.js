@@ -10,7 +10,10 @@ import {createCaptainArrival} from './captain-arrival.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {arenaHudLayout} from './ui-layout.js';
 import {createHpFaceHud} from './hp-face-hud.js';
-import {volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing} from './volcano-contract.js';
+import {WEAPONS,availableWeapons,cycleUnlockedWeapon} from './weapon-progression.js';
+import {resolveAim} from './shooting.js';
+import {createVolcanoCombat} from './volcano-combat.js';
+import {volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing,createVolcanoWalkability,nearestVolcanoSpawn} from './volcano-contract.js';
 
 // Scene owns only two persistent world layers. Missing production art is safe.
 export class VolcanoScene extends Phaser.Scene {
@@ -23,6 +26,8 @@ export class VolcanoScene extends Phaser.Scene {
     }
     this.disposed=false;
     this.openingComplete=false;
+    this.walkability=null;
+    this.combatPending=false;
     this.dialogueState=createDialogueState();
     this.obstacles=[];
     this.pendingLoads=new Set();
@@ -64,6 +69,8 @@ export class VolcanoScene extends Phaser.Scene {
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
       if(id==='act3-opening'){
         this.openingComplete=true;
+        if(this.walkability)this.combat.start();
+        else this.combatPending=true;
         this.resetMovement();
         this.syncControls();
       }
@@ -72,6 +79,24 @@ export class VolcanoScene extends Phaser.Scene {
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
     this.joystick=createJoystick(this,'left');
     this.aimJoystick=createJoystick(this,'right');
+    this.weapon=availableWeapons(this.run.unlockedWeapons,'act3').includes(this.run.selectedWeapon)?this.run.selectedWeapon:'water-flamethrower';
+    this.run.selectedWeapon=this.weapon;
+    this.playerInvulnerableUntil=0;
+    this.combat=createVolcanoCombat(this);
+    const switchWeapon=()=>{
+      if(!this.openingComplete||!this.controlsAllowed())return;
+      this.combat.stopFire();
+      this.weapon=cycleUnlockedWeapon(this.weapon,this.run.unlockedWeapons,'act3');
+      this.run.selectedWeapon=this.weapon;
+      this.weaponLabel.setText(WEAPONS[this.weapon]?.symbol??'—');
+      void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'unarmed':this.weapon);
+    };
+    this.weaponButton=this.add.circle(0,0,22,0x303b2b).setStrokeStyle(2,0xb9a16b).setScrollFactor(0).setDepth(66).setInteractive();
+    this.weaponLabel=this.add.text(0,0,WEAPONS[this.weapon]?.symbol??'—',{fontFamily:'monospace',fontSize:'22px',color:'#b9f5ff'}).setOrigin(.5).setScrollFactor(0).setDepth(67);
+    this.weaponButton.on('pointerdown',switchWeapon);
+    const weaponKey=e=>{if(e.code==='KeyQ'&&!e.repeat)switchWeapon();};
+    this.input.keyboard.on('keydown',weaponKey);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.input.keyboard.off('keydown',weaponKey));
     this.hudLayout=arenaHudLayout(this.scale.height,this.scale.width);
     this.menuButton=this.add.rectangle(0,0,80,38,0x2b3324,0.95)
       .setStrokeStyle(2,0xb9a16b).setScrollFactor(0).setDepth(60)
@@ -94,6 +119,8 @@ export class VolcanoScene extends Phaser.Scene {
       this.joystick.reposition(layout.joystickX,layout.joystickY,layout.joystickRadius);
       this.aimJoystick.reposition(layout.aimX,layout.aimY,layout.joystickRadius);
       this.hudLayout=layout;
+      this.weaponButton.setPosition(layout.switchX,layout.switchY).setRadius(layout.switchSize/2);
+      this.weaponLabel.setPosition(layout.switchX,layout.switchY);
       this.menuButton.setPosition(layout.menuX,layout.menuY).setSize(layout.menuWidth,layout.menuHeight);
       this.menuLabel.setPosition(layout.menuX,layout.menuY).setFontSize(layout.menuFont);
       this.hpFace.resize(layout);this.hpText.setPosition(layout.hpX,layout.hpY);
@@ -165,12 +192,26 @@ export class VolcanoScene extends Phaser.Scene {
         this.lava.tilePositionY=previous;
         this.lava.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
       }else{
+        // Decode the exact world-sized RGBA terrain once, before enabling gameplay.
+        const canvas=document.createElement('canvas');
+        canvas.width=def.width;canvas.height=def.height;
+        const context=canvas.getContext('2d',{willReadFrequently:true});
+        if(!context)throw Error('terrain collision canvas unavailable');
+        context.drawImage(image,0,0);
+        const pixels=context.getImageData(0,0,def.width,def.height);
+        const mask=createVolcanoWalkability(pixels.data,def.width,def.height);
+        const playerStart=nearestVolcanoSpawn(mask,this.player.x,this.player.y,PLAYER_RADIUS);
+        if(!playerStart)throw Error('no valid player spawn in terrain mask');
+        this.walkability=mask;
+        this.player.setPosition(playerStart.x,playerStart.y);
+        this.player.body.reset(playerStart.x,playerStart.y);
+        if(this.openingComplete&&this.combatPending){this.combat.start();this.combatPending=false;}
         this.terrainImage.setTexture(key).setPosition(0,0).setOrigin(0).setDisplaySize(ARENA.width,ARENA.height).setVisible(true);
         this.terrain.setVisible(false);
       }
     }catch(error){
       if(!controller.signal.aborted&&!this.disposed)
-        console.info('[Volcano] procedural fallback for '+kind+': '+error.message);
+        console.error('[Volcano] '+kind+' asset failure: '+error.message+(kind==='terrain'?'; collision and gameplay remain disabled':''));
     }finally{
       if(objectUrl)URL.revokeObjectURL(objectUrl);
       this.pendingLoads.delete(controller);
@@ -184,7 +225,7 @@ export class VolcanoScene extends Phaser.Scene {
     });
   }
   syncControls(){
-    const enabled=this.controlsAllowed()&&this.openingComplete;
+    const enabled=this.controlsAllowed()&&this.openingComplete&&Boolean(this.walkability);
     if(this.joystick.enabled!==enabled)this.joystick.setEnabled(enabled);
     if(this.aimJoystick.enabled!==enabled)this.aimJoystick.setEnabled(enabled);
   }
@@ -192,6 +233,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.joystick?.setEnabled(false);
     this.aimJoystick?.setEnabled(false);
     this.input.keyboard?.resetKeys();
+    this.combat?.stopFire();
   }
   openMenu(){
     if(this.scene.isPaused()||this.scene.isActive('Menu')||!this.controlsAllowed())return;
@@ -204,16 +246,18 @@ export class VolcanoScene extends Phaser.Scene {
     this.syncControls();
     if(!this.controlsAllowed())return;
     this.captainArrival.update(delta);
-    if(!this.openingComplete){this.resetMovement();return;}
+    if(!this.openingComplete||!this.walkability){this.resetMovement();return;}
     this.lava.tilePositionY=advanceVolcanoLava(this.lava.tilePositionY,delta);
     const k=this.keys;
     const input=normalizeInput(
       this.joystick.direction.x+Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),
       this.joystick.direction.y+Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown));
-    const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS);
+    const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
     this.facing=volcanoFacing(input,this.facing);
     this.playerVisual.update(this.facing,Boolean(input.x||input.y),Math.min(delta,50));
+    const aim=resolveAim(this.aimJoystick.direction.x,this.aimJoystick.direction.y);
+    this.combat.update(delta,this.time.now,aim,this.aimJoystick.held,this.weapon);
     this.hpFace.setHp(this.run.hp);
     this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
     this.hpFace.update(delta);

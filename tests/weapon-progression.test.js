@@ -26,8 +26,8 @@ test('spawn sequence deterministic and remote from player, inside arena',()=>{
  }
 });
 test('three pickup variants and labels remain distinct',()=>{
- assert.deepEqual(Object.keys(WEAPONS),['blunderbuss','rifle','flamethrower']);
- assert.equal(new Set(Object.values(WEAPONS).map(x=>x.color)).size,3);
+ assert.deepEqual(Object.keys(WEAPONS),['blunderbuss','rifle','flamethrower','water-flamethrower']);
+ assert.equal(new Set(Object.values(WEAPONS).map(x=>x.color)).size,4);
 });
 
 test('blocked death location uses a safe world fallback',()=>{
