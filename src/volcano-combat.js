@@ -49,9 +49,7 @@ export function createVolcanoCombat(scene){
  const firing=createFiringState(),firePressure=fireState.pressure,flameCooldowns=fireState.cooldowns;
  const sprites={};
  // Match Act I Bobrozombi's 96px frame at its approved 0.75 visual scale.
- const enemyDisplaySize=type=>type==='lawostworek-1'
-  ?BOBROZOMBI_ASSET.frameWidth*BOBROZOMBI_VISUAL_SCALE
-  :BOBROZOMBI_ASSET.frameWidth*BOBROZOMBI_VISUAL_SCALE*1.16;
+ const enemyDisplaySize=type=>type==='lawostworek-1'?100:116;
  for(const type of Object.keys(LAVA_TYPES)){
   const def=LAVA_TYPES[type],key='volcano-'+type;
   const g=scene.make.graphics({x:0,y:0});
@@ -135,6 +133,7 @@ export function createVolcanoCombat(scene){
   const zoneId=zoneForPosition(scene.player);
   if(scene.finale?.state!=='ESCAPE_ACTIVE'&&zoneId&&zoneId!=='entrance')activateZone(zoneId);
   const sec=Math.min(50,dt)/1000;
+  const openingSafe=now<(scene.openingSafeUntil??0);
   const water=weapon==='water-flamethrower',fire=weapon==='flamethrower';
   const flowing=water&&waterState.step(held,dt);
   const flaming=fire&&fireState.step(held,dt);
@@ -149,7 +148,7 @@ export function createVolcanoCombat(scene){
    emitContinuousParticle(scene,state,origin,aim,now,weapon);
    for(const enemy of enemies)if(!enemy.dead&&inFlameCone(origin,aim,enemy,tune.range,tune.halfAngle,enemy.radius)&&cooldownReady(water?waterCooldowns:flameCooldowns,enemy,now,tune.damageInterval))hit(enemy,weapon,tune.damage,now);
    const boss=scene.boss;
-   if(boss?.active&&boss.bogdan&&inFlameCone(origin,aim,boss.bogdan,tune.range,tune.halfAngle,24)&&cooldownReady(water?waterCooldowns:flameCooldowns,boss.bogdan,now,tune.damageInterval))boss.damage(tune.damage,now);
+   if(boss?.active&&boss.bogdan&&inFlameCone(origin,aim,boss.bogdan,tune.range,tune.halfAngle,boss.hitRadius)&&cooldownReady(water?waterCooldowns:flameCooldowns,boss.bogdan,now,tune.damageInterval))boss.damage(tune.damage,now);
   }
   updateContinuousParticles(waterState,dt);
   updateContinuousParticles(fireState,dt);
@@ -164,12 +163,12 @@ export function createVolcanoCombat(scene){
    const shot=shots[i];shot.age+=dt;shot.x+=shot.vx*sec;shot.y+=shot.vy*sec;shot.sprite.setPosition(shot.x,shot.y);
    const enemy=enemies.find(e=>!e.dead&&Math.hypot(e.x-shot.x,e.y-shot.y)<e.radius+5);
    if(enemy)hit(enemy,shot.weapon,1,now);
-   const bossHit=!enemy&&scene.boss?.active&&scene.boss.bogdan&&Math.hypot(scene.boss.bogdan.x-shot.x,scene.boss.bogdan.y-shot.y)<30;
+   const bossHit=!enemy&&scene.boss?.active&&scene.boss.bogdan&&Math.hypot(scene.boss.bogdan.x-shot.x,scene.boss.bogdan.y-shot.y)<scene.boss.hitRadius+5;
    if(bossHit)scene.boss.damage(1,now);
    if(enemy||bossHit||shot.age>550){shot.sprite.destroy();shots.splice(i,1);}
   }
   for(const enemy of enemies){
-   if(enemy.dead)continue;
+   if(enemy.dead||openingSafe)continue;
    advanceIgnition(enemy.ignition,now);
    const p=lavaEnemyStep(enemy,scene.player,dt,now,scene.walkability);
    const dx=p.x-enemy.x,dy=p.y-enemy.y;
