@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers,clampToDeck,stepAroundWheelhouse,WHEELHOUSE_FOOTPRINT} from './airship-contract.js';
 import {createHorizontalParallaxLayer} from './airship-parallax.js';
 import {PADDLEWHEEL_MOUNT,paddlewheelDisplaySize,advancePaddlewheelAngle} from './airship-paddlewheel.js';
-import {currentCampaignRun,prepareActStart,updateRunEquipment,completeCampaignAct} from './campaign-run.js';
+import {currentCampaignRun,prepareActStart,updateRunEquipment,completeCampaignAct,nextActHandoff} from './campaign-run.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl} from './character-visual.js';
 import {createJoystick} from './joystick.js';
@@ -570,17 +570,30 @@ export class AirshipScene extends Phaser.Scene {
     this.cameras.main.fadeOut(450,0,0,0);
   }
   completeAct2(){
-    if(!this.finalResultsPending||!this.resultOverlay.visible||
+    if(this.act2TransitionStarted||!this.finalResultsPending||!this.resultOverlay.visible||
         this.game.loop.time<this.resultsArmedAt||document.hidden)return false;
     const result=this.defense.result;
     if(!result||result.outcome!=='survived')return false;
-    if(!completeCampaignAct(this.campaignRun,'act2',{
+    const registered=new Set(Object.keys(this.scene.manager.keys));
+    if(!registered.has('ActTitle')||!registered.has('Volcano')){
+      console.error('[Airship] Act III title or Volcano scene unavailable');
+      return false;
+    }
+    const run=this.campaignRun;
+    if(run.completedActs.has('act2'))return false;
+    if(!completeCampaignAct(run,'act2',{
       hp:this.playerHp,maxHp:this.maxHp,
       unlockedWeapons:this.unlockedWeapons,selectedWeapon:this.weapon,
       kills:result.kills,activeCombatMs:result.activeCombatMs
     }))return false;
+    const handoff=nextActHandoff(run,registered);
+    if(!handoff||handoff.actId!=='act3'){
+      console.error('[Airship] Act III handoff unavailable after Act II completion');
+      return false;
+    }
+    this.act2TransitionStarted=true;
     this.resultsButton.disableInteractive();
-    this.scene.start('Menu');
+    this.scene.start('ActTitle',{actId:'act3',handoff});
     return true;
   }
   update(time,delta){

@@ -239,11 +239,48 @@ try {
     assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG'],'PR65 DEBUG missing');
     await clickControl('DEBUG');
     assert.equal(await evaluate("window.__game.scene.getScene('Menu').debugOpen"),true,'PR65 selector not opened');
-    const target=await evaluate("(()=>{const menu=window.__game.scene.getScene('Menu');const t=menu.children.list.find(o=>o.type==='Text'&&o.visible&&o.text==="+JSON.stringify(label)+");if(!t)return null;const box=menu.input._list.find(o=>o.input&&o.visible&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1);return box?{x:box.x,y:box.y,width:box.width,height:box.height}:null})()");
-    assert.ok(target,'PR65 visible checkpoint missing '+id);
+    assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'DEBUG opening launched checkpoint');
+    // Inspect the label even when clipped: invisible objects still retain
+    // their world position, which tells us the correct scroll direction.
+    const checkpointGeometry=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');const t=m.children.list.find(o=>o.type==='Text'&&o.text==="+JSON.stringify(label)+");if(!t)return null;const b=m.children.list.find(o=>o!==t&&o.geom&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1&&o.width>200);return b?{x:b.x,y:b.y,width:b.width,height:b.height,visible:!!(t.visible&&b.visible),interactive:!!b.input?.enabled}:null})()");
+    let target=await checkpointGeometry();
+    if(id==='act1-opening')console.log('DEBUG initial first checkpoint',JSON.stringify(target));
+    assert.ok(target,'PR65 checkpoint label/background absent '+id);
+    const swipe=async(direction)=>{
+      const rect=(await snapshot()).rect;
+      const x=rect.x+rect.width/2;
+      const fromY=rect.y+rect.height*(direction==='down'?.32:.70);
+      const toY=rect.y+rect.height*(direction==='down'?.70:.32);
+      await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y:fromY,id:1}]});
+      for(let step=1;step<=8;step++){
+        await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:fromY+(toY-fromY)*step/8,id:1}]});
+      }
+      await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'scroll gesture launched checkpoint '+id);
+    };
+    // The list viewport is bounded by the first/last fully visible rows;
+    // hidden rows above have smaller Y, hidden rows below have larger Y.
+    for(let scroll=0;!target.visible&&scroll<24;scroll++){
+      const visibleRows=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return m.children.list.filter(o=>o.type==='Text'&&o.visible&&o.text.includes('AKT ')).map(o=>o.y).sort((a,b)=>a-b)})()");
+      assert.ok(visibleRows.length,'DEBUG has no visible checkpoint rows');
+      const direction=target.y<visibleRows[0]?'down':target.y>visibleRows.at(-1)?'up':null;
+      assert.ok(direction,'DEBUG checkpoint hidden within visible row range '+id+' '+JSON.stringify(target));
+      await swipe(direction);
+      const next=await checkpointGeometry();
+      assert.ok(next,'DEBUG checkpoint disappeared after scroll '+id);
+      assert.ok(Math.abs(next.y-target.y)>1||next.visible,'DEBUG scroll made no progress '+id);
+      target=next;
+    }
+    if(!target.visible){
+      const diagnostic=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return m.children.list.filter(o=>o.type==='Text'||o.geom).map(o=>({type:o.type,geomType:o.geom?.type,text:o.text,x:o.x,y:o.y,w:o.width,h:o.height,visible:o.visible,input:!!o.input}))})()");
+      console.error('DEBUG actual Phaser GameObjects',JSON.stringify(diagnostic));
+    }
+    assert.ok(target.visible,'PR65 visible checkpoint missing after directional scrolling '+id);
+    assert.equal(target.interactive,false,'DEBUG checkpoints must use independent gestures');
     assert.ok(target.x-target.width/2>=0&&target.x+target.width/2<=800,'PR65 checkpoint clipped');
     const rect=(await snapshot()).rect;
-    await click(rect.x+target.x,rect.y+target.y);
+    await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:rect.x+target.x,y:rect.y+target.y,id:1}]});
+    await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
     for(let n=0;n<100;n++){if(await evaluate("window.__game.scene.isActive("+JSON.stringify(expectedScene)+")"))break;await sleep(35);}
     assert.equal(await evaluate("window.__game.scene.isActive("+JSON.stringify(expectedScene)+")"),true,'PR65 scene start failed '+id);
     const check=await evaluate("(()=>{const g=window.__game,s=g.scene.getScene("+JSON.stringify(expectedScene)+"),r=s.campaignRun;return {checkpoint:s.debugCheckpoint,act:r.actId,hp:r.hp,weapon:r.selectedWeapon,artifact:r.artifacts.has('marcin-mohawk'),completed:[...r.completedActs],phase:s.openingPhase,defense:s.defense?.state,remaining:180000-(s.defense?.elapsedMs??0),results:s.act1Panels?.mode}})()");
@@ -471,10 +508,10 @@ try {
       const rect=(await snapshot()).rect;
       await click(rect.x+final.x,rect.y+final.y);
       for(let k=0;k<80;k++){
-        if(await evaluate("window.__game.scene.isActive('Menu')"))break;
+        if(await evaluate("window.__game.scene.isActive('ActTitle')"))break;
         await sleep(40);
       }
-      assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'PR66 returns to Menu');
+      assert.equal(await evaluate("window.__game.scene.isActive('ActTitle')"),true,'PR66 advances to Act III title');
       const completed=await evaluate("(()=>{const r=window.__game.registry.get('campaign-run');return {act2:r.completedActs.has('act2'),kills:r.stats.kills,time:r.stats.activeCombatMs,byAct:r.stats.byAct.act2}})()");
       assert.equal(completed.act2,true,'PR66 narrative completion');
       assert.equal(completed.kills,42,'PR66 exactly-once total kills');
