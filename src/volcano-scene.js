@@ -359,6 +359,9 @@ export class VolcanoScene extends Phaser.Scene {
       if(decision)this.startLawosEncounter(decision);
       if(!this.lawosStarted||this.dialogueState.id){this.resetMovement();return;}
     }
+    if(!this.lawosStarted&&this.lawosReadiness.state==='pending'&&this.lawosReadiness.movement){
+      this.resetMovement();return;
+    }
     if(this.lawosReadiness.started&&!this.lawosStarted){
       this.resetMovement();return;
     }
