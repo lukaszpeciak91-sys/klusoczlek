@@ -1,9 +1,11 @@
+import {createVolcanoFinaleState,HORN_ID,formatEscape} from './volcano-finale.js';
+import {createPixelBurst} from './pixel-death-vfx.js';
 import Phaser from 'phaser';
 import {ARENA,PLAYER_SPEED,PLAYER_RADIUS,normalizeInput} from './movement.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl} from './character-visual.js';
 import {createJoystick} from './joystick.js';
-import {currentCampaignRun,prepareActStart,grantWaterFlamethrower} from './campaign-run.js';
+import {currentCampaignRun,prepareActStart,grantWaterFlamethrower,awardRunArtifact,completeCampaignAct} from './campaign-run.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
@@ -15,8 +17,8 @@ import {resolveAim} from './shooting.js';
 import {facingOf} from './combat-contract.js';
 import {createVolcanoCombat} from './volcano-combat.js';
 import {createVolcanoNpcs,fairyTrigger,createNpcReadiness} from './volcano-npcs.js';
-import {createBogdanEncounter,apartmentReached} from './volcano-bogdan.js';
-import {volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing,createVolcanoWalkability,nearestVolcanoSpawn} from './volcano-contract.js';
+import {createBogdanEncounter,apartmentReached,findMarlenaRoute} from './volcano-bogdan.js';
+import {volcanoFootprintAllowed,volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing,createVolcanoWalkability,nearestVolcanoSpawn} from './volcano-contract.js';
 
 // Scene owns only two persistent world layers. Missing production art is safe.
 export class VolcanoScene extends Phaser.Scene {
@@ -41,6 +43,9 @@ export class VolcanoScene extends Phaser.Scene {
     this.apartmentComplete=false;
     this.bogdanDialogueStarted=false;
     this.defeated=false;
+    this.finale=createVolcanoFinaleState();
+    this.escapeBurst=null;this.escapeSpawnAt=0;this.escapeSpawned=0;this.escapeEnemies=[];
+    this.escapeCheckpoint=null;this.extractionPoint=null;this.extractionActor=null;this.extractionLoading=false;
     this.dialogueState=createDialogueState();
     this.obstacles=[];
     this.pendingLoads=new Set();
@@ -99,6 +104,12 @@ export class VolcanoScene extends Phaser.Scene {
       }else if(id==='act3-bogdan-confrontation'){
         this.boss.activate();
         this.resetMovement();this.syncControls();
+      }else if(id==='act3-bogdan-final'){
+        if(this.finale.advance('FINAL_DIALOGUE'))this.showHornReward();
+      }else if(id==='act3-eruption-warning'){
+        this.startEscape();
+      }else if(id==='act3-captain-extraction'){
+        if(this.finale.advance('CAPTAIN_EXTRACTION'))this.completeActThree();
       }else if(id==='act3-swinia-wrozka'){
         this.fairyComplete=true;
         this.npcs.departFairy();
@@ -117,6 +128,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.combat=createVolcanoCombat(this);
     this.npcs=createVolcanoNpcs(this,Phaser);
     this.boss=createBogdanEncounter(this,Phaser);
+    this.createFinaleUi();
     const switchWeapon=()=>{
       if(!this.openingComplete||!this.controlsAllowed())return;
       this.combat.stopFire();
@@ -194,6 +206,7 @@ export class VolcanoScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange',focus);
       if(this.fullscreenButton)this.fullscreenButton.hidden=this.fullscreenPreviousHidden;
       this.pressureBar.destroy();this.playerVisual.destroy();this.hpFace.destroy();
+      this.escapeBurst?.destroy();this.extractionActor?.destroy();
     });
     resize();
     enforceOrientationOnSceneStart(this);
@@ -308,6 +321,144 @@ export class VolcanoScene extends Phaser.Scene {
     }
     return false;
   }
+  createFinaleUi(){
+    const w=()=>this.scale.width,h=()=>this.scale.height;
+    this.escapeClock=this.add.text(w()/2,20,'',{fontFamily:'monospace',fontSize:'23px',fontStyle:'bold',color:'#ffe7a4',stroke:'#220a07',strokeThickness:5}).setOrigin(.5,0).setScrollFactor(0).setDepth(100).setVisible(false);
+    this.finaleShade=this.add.rectangle(0,0,w(),h(),0x080609,.68).setOrigin(0).setScrollFactor(0).setDepth(105).setVisible(false);
+    this.rewardRoot=this.add.container(0,0).setScrollFactor(0).setDepth(210).setVisible(false);
+    const bg=this.add.rectangle(0,0,w(),h(),0x101417,.96).setOrigin(0);
+    const title=this.add.text(w()/2,h()*.23,'ZDOBYŁEŚ ARTEFAKT',{fontFamily:'monospace',fontSize:'23px',fontStyle:'bold',color:'#f2d18c'}).setOrigin(.5);
+    const horn=this.add.text(w()/2,h()*.48,'RÓG MYŚLIWSKI BOGDANA',{fontFamily:'monospace',fontSize:'22px',fontStyle:'bold',color:'#f3e9d5',align:'center',wordWrap:{width:w()-30}}).setOrigin(.5);
+    const detail=this.add.text(w()/2,h()*.68,'ARTEFAKT 2/3',{fontFamily:'monospace',fontSize:'17px',color:'#f2d18c'}).setOrigin(.5);
+    this.rewardRoot.add([bg,title,horn,detail]);
+    this.rewardButton=this.add.rectangle(w()/2,h()-28,135,40,0x655039).setStrokeStyle(2,0xd9bd80).setScrollFactor(0).setDepth(212).setInteractive({useHandCursor:true}).setVisible(false);
+    this.rewardButtonLabel=this.add.text(w()/2,h()-28,'DALEJ',{fontFamily:'monospace',fontSize:'18px',color:'#fff2d6'}).setOrigin(.5).setScrollFactor(0).setDepth(213).setVisible(false);
+    this.rewardButton.on('pointerdown',()=>{if(this.finale.state!=='ARTIFACT_REWARD'||this.game.loop.time<this.rewardArmedAt)return;
+      this.rewardRoot.setVisible(false);this.rewardButton.setVisible(false);this.rewardButtonLabel.setVisible(false);
+      if(this.finale.advance('ARTIFACT_REWARD'))this.explodeBogdan();
+    });
+    this.retryRoot=this.add.container(0,0).setScrollFactor(0).setDepth(220).setVisible(false);
+    const retryBg=this.add.rectangle(w()/2,h()/2,w(),h(),0x160a09,.96);
+    const retryText=this.add.text(w()/2,h()*.42,'WULKAN WYBUCHŁ!\\nSPRÓBUJ PONOWNIE',{fontFamily:'monospace',fontSize:'23px',color:'#f2d18c',align:'center'}).setOrigin(.5);
+    const retryButton=this.add.rectangle(w()/2,h()*.70,185,46,0x655039).setStrokeStyle(2,0xd9bd80).setInteractive({useHandCursor:true});
+    const retryLabel=this.add.text(w()/2,h()*.70,'PONÓW UCIECZKĘ',{fontFamily:'monospace',fontSize:'15px',color:'#fff2d6'}).setOrigin(.5);
+    this.retryRoot.add([retryBg,retryText,retryButton,retryLabel]);
+    retryButton.on('pointerdown',()=>this.retryEscape());
+    const resize=()=>{const x=w()/2,y=h();this.escapeClock.setPosition(x,12);this.finaleShade.setSize(w(),h());bg.setSize(w(),h());
+      title.setPosition(x,y*.22).setFontSize(Math.min(23,y*.065));horn.setPosition(x,y*.47).setWordWrapWidth(w()-30).setFontSize(Math.min(22,y*.058));detail.setPosition(x,y*.66);
+      this.rewardButton.setPosition(x,y-26);this.rewardButtonLabel.setPosition(x,y-26);
+      retryBg.setPosition(x,y/2).setSize(w(),h());retryText.setPosition(x,y*.42);retryButton.setPosition(x,y*.70);retryLabel.setPosition(x,y*.70);};
+    this.scale.on(Phaser.Scale.Events.RESIZE,resize);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.scale.off(Phaser.Scale.Events.RESIZE,resize));
+    resize();
+  }
+  startBogdanFinale(){
+    this.resetMovement();this.combat.stopFire();
+    this.finaleShade.setVisible(true);
+    if(this.finale.advance('BOGDAN_DEFEATED')&&beginDialogue(this.dialogueState,'act3-bogdan-final'))this.dialoguePanel.show(this.dialogueState);
+  }
+  showHornReward(){
+    awardRunArtifact(this.run,HORN_ID);
+    this.finaleShade.setVisible(false);this.rewardArmedAt=this.game.loop.time+220;
+    this.rewardRoot.setVisible(true);this.rewardButton.setVisible(true);this.rewardButtonLabel.setVisible(true);
+    this.resetMovement();
+  }
+  explodeBogdan(){
+    const actor=this.boss.bogdan;
+    if(actor){this.escapeBurst=createPixelBurst(this,'marcin',actor.x,actor.y,93);this.boss.removeDefeatedSprite();}
+    this.time.delayedCall(750,()=>{
+      if(this.disposed||this.finale.state!=='BOGDAN_EXPLOSION')return;
+      if(this.finale.advance('BOGDAN_EXPLOSION')&&beginDialogue(this.dialogueState,'act3-eruption-warning'))this.dialoguePanel.show(this.dialogueState);
+    });
+  }
+  findExtractionPoint(){
+    if(!this.walkability)return null;
+    const mask=this.walkability,from={x:this.player.x,y:this.player.y};
+    // All candidates are in the established lower-left exit area.
+    // Require actual connected walkability from the current boss position.
+    const candidates=[VOLCANO_START,{x:350,y:970},{x:405,y:1010},{x:280,y:930},{x:460,y:1040},{x:220,y:1020}];
+    for(const target of candidates){
+      const point=nearestVolcanoSpawn(mask,target.x,target.y,PLAYER_RADIUS,0,null,45);
+      if(!point||Math.hypot(point.x-from.x,point.y-from.y)<180)continue;
+      const route=findMarlenaRoute(mask,from,point,{radius:PLAYER_RADIUS,cell:10,maxNodes:26000});
+      if(route?.length&&route.every(p=>volcanoFootprintAllowed(mask,p.x,p.y,PLAYER_RADIUS)))return point;
+    }
+    return null;
+  }
+  startEscape(){
+    if(this.disposed||this.finale.state!=='ALOES_WARNING')return;
+    const point=this.findExtractionPoint();
+    if(!point){
+      console.error('[Volcano Finale] no verified reachable extraction; countdown not started');
+      this.retryRoot.setVisible(true);this.resetMovement();return;
+    }
+    this.extractionPoint=point;
+    this.escapeCheckpoint={x:this.player.x,y:this.player.y,hp:Math.max(1,this.run.hp)};
+    if(!this.finale.advance('ALOES_WARNING'))return;
+    this.escapeSpawnAt=this.time.now+4500;
+    this.escapeClock.setVisible(true).setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
+    void this.spawnExtractionCaptain();
+    this.syncControls();
+  }
+  async spawnExtractionCaptain(){
+    if(this.extractionLoading||this.disposed||!this.extractionPoint)return;
+    this.extractionLoading=true;
+    try{
+      const key='npc-captain',point=this.extractionPoint;
+      if(!this.textures.exists(key))await this.captainArrival.loading;
+      if(this.disposed||!this.extractionPoint)return;
+      if(this.textures.exists(key))this.extractionActor=this.add.sprite(point.x,point.y,key,2).setOrigin(.5,1).setScale(.75).setDepth(13);
+      else this.extractionActor=this.add.circle(point.x,point.y-35,23,0x477b8e).setDepth(13);
+    }finally{this.extractionLoading=false;}
+  }
+  updateEscape(delta){
+    if(this.finale.tick(delta)){this.escapeFailed();return;}
+    this.escapeClock.setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
+    if(this.extractionPoint&&Math.hypot(this.player.x-this.extractionPoint.x,this.player.y-this.extractionPoint.y)<72){
+      if(this.finale.advance('ESCAPE_ACTIVE')){
+        this.escapeClock.setVisible(false);this.resetMovement();this.combat.clearEscapeEnemies();
+        if(beginDialogue(this.dialogueState,'act3-captain-extraction'))this.dialoguePanel.show(this.dialogueState);
+      }
+      return;
+    }
+    if(this.time.now>=this.escapeSpawnAt&&this.escapeSpawned<12){
+      this.escapeSpawnAt=this.time.now+Math.max(2800,5500-this.escapeSpawned*170);
+      this.escapeSpawned++;
+      const alive=this.combat.enemies.filter(e=>!e.dead);
+      if(alive.length<6){
+        const p=nearestVolcanoSpawn(this.walkability,this.player.x+180,this.player.y+110,24,0,[{x:this.player.x,y:this.player.y,radius:110}],90);
+        if(p)this.combat.spawnEscapeEnemy(p,this.escapeSpawned%4===0?'lawostworek-2':'lawostworek-1');
+      }
+    }
+    if(Math.floor(this.finale.remaining/1000)%9===0&&this.finale.remaining%9000<delta){
+      this.cameras.main.shake(180,.002);
+      this.cameras.main.flash(110,180,28,15,false);
+    }
+  }
+  escapeFailed(){
+    if(this.finale.state==='ESCAPE_ACTIVE')this.finale.fail();
+    if(this.finale.state!=='ESCAPE_RETRY')return;
+    this.resetMovement();this.combat.clearTransientShots();this.combat.clearEscapeEnemies();this.escapeClock.setVisible(false);this.retryRoot.setVisible(true);
+  }
+  retryEscape(){
+    if(this.finale.state==='ALOES_WARNING'){this.retryRoot.setVisible(false);this.startEscape();return;}
+    if(!this.finale.retry()||!this.escapeCheckpoint)return;
+    this.retryRoot.setVisible(false);
+    this.combat.clearEscapeEnemies();this.escapeSpawned=0;this.escapeSpawnAt=this.time.now+4500;
+    this.run.hp=Math.max(2,Math.min(this.run.maxHp,this.escapeCheckpoint.hp));
+    this.playerInvulnerableUntil=this.time.now+1400;
+    this.player.setPosition(this.escapeCheckpoint.x,this.escapeCheckpoint.y);this.player.body.reset(this.player.x,this.player.y);
+    this.escapeClock.setVisible(true).setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
+    this.hpFace.setHp(this.run.hp);this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
+    this.syncControls();
+  }
+  completeActThree(){
+    if(this.disposed||this.finale.state!=='ACT_III_COMPLETE')return;
+    this.resetMovement();this.combat.clearEscapeEnemies();this.escapeClock.setVisible(false);
+    completeCampaignAct(this.run,'act3',{hp:this.run.hp,maxHp:this.run.maxHp,unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,kills:0,activeCombatMs:0});
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{if(!this.disposed)this.scene.start('Menu');});
+    this.cameras.main.fadeOut(550,0,0,0);
+  }
   refreshWeaponHud(){
     const selected=WEAPONS[this.weapon];
     this.weaponLabel.setText(selected?.symbol??'—');
@@ -332,7 +483,7 @@ export class VolcanoScene extends Phaser.Scene {
     });
   }
   syncControls(){
-    const enabled=!this.defeated&&this.run.hp>0&&this.controlsAllowed()&&this.openingComplete&&Boolean(this.walkability)&&!this.dialogueState.id;
+    const enabled=!this.defeated&&this.run.hp>0&&['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(this.finale.state)&&this.controlsAllowed()&&this.openingComplete&&Boolean(this.walkability)&&!this.dialogueState.id;
     if(this.joystick.enabled!==enabled)this.joystick.setEnabled(enabled);
     if(this.aimJoystick.enabled!==enabled)this.aimJoystick.setEnabled(enabled);
   }
@@ -370,7 +521,8 @@ export class VolcanoScene extends Phaser.Scene {
     this.scene.bringToTop('Menu');
   }
   update(_time,delta){
-    if(this.run.hp<=0){this.lockDeath();return;}
+    if(this.finale.state==='ESCAPE_RETRY')return;
+    if(this.run.hp<=0){if(this.finale.state==='ESCAPE_ACTIVE'){this.escapeFailed();return;}this.lockDeath();return;}
     this.syncControls();
     if(!this.controlsAllowed()||this.defeated)return;
     this.captainArrival.update(delta);
@@ -391,19 +543,20 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.lawosReadiness.started&&!this.lawosStarted){
       this.resetMovement();return;
     }
+    if(!['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(this.finale.state)){this.resetMovement();return;}
     const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
-    if(!this.boss.argumentStarted&&apartmentReached(this.player)){
+    if(this.finale.state==='BOGDAN_ACTIVE'&&!this.boss.argumentStarted&&apartmentReached(this.player)){
       this.apartmentPending=true;
       if(this.tryApartmentEncounter())return;
     }
-    if(this.boss.departed&&!this.bogdanDialogueStarted&&this.boss.bogdan&&
+    if(this.finale.state==='BOGDAN_ACTIVE'&&this.boss.leftApartment&&!this.bogdanDialogueStarted&&this.boss.bogdan&&
        Math.hypot(this.player.x-this.boss.bogdan.x,this.player.y-this.boss.bogdan.y)<155){
       if(this.boss.beginConfrontation()&&beginDialogue(this.dialogueState,'act3-bogdan-confrontation')){
         this.bogdanDialogueStarted=true;this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
       }
     }
-    if(this.lawosComplete&&this.combat.fairyZoneCleared&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
+    if(this.finale.state==='BOGDAN_ACTIVE'&&this.lawosComplete&&this.combat.fairyZoneCleared&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
       this.fairyStarted=true;
       if(beginDialogue(this.dialogueState,'act3-swinia-wrozka')){
         this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
@@ -414,16 +567,21 @@ export class VolcanoScene extends Phaser.Scene {
     // movement controls only locomotion, never the direction of the muzzle.
     this.facing=(aim.x||aim.y)?facingOf(aim.x,aim.y,this.facing):volcanoFacing(input,this.facing);
     this.playerVisual.update(this.facing,Boolean(input.x||input.y),Math.min(delta,50));
-    this.combat.update(delta,this.time.now,aim,this.aimJoystick.held,this.weapon);
+    if(this.finale.state==='BOGDAN_ACTIVE')this.combat.update(delta,this.time.now,aim,this.aimJoystick.held,this.weapon);
+    else if(this.finale.state==='ESCAPE_ACTIVE')this.combat.update(delta,this.time.now,aim,this.aimJoystick.held,this.weapon);
+    else this.combat.stopFire();
     this.boss.update(delta,this.time.now);
-    if(this.combat.fairyZoneCleared&&!this.fairyRevealRequested&&!this.defeated){
+    if(this.boss.consumeDefeat()&&this.finale.advance('BOGDAN_ACTIVE'))this.startBogdanFinale();
+    if(this.finale.state==='ESCAPE_ACTIVE')this.updateEscape(delta);
+    if(this.escapeBurst&&!this.escapeBurst.done)this.escapeBurst.update(delta);
+    if(this.finale.state==='BOGDAN_ACTIVE'&&this.combat.fairyZoneCleared&&!this.fairyRevealRequested&&!this.defeated){
       this.fairyRevealRequested=true;
       void this.npcs.revealFairy().then(ready=>{
         if(!this.disposed&&!ready)console.warn('[Volcano] fairy zone cleared, but NPC artwork or spawn is unavailable');
       }).catch(error=>{if(!this.disposed)console.warn('[Volcano] fairy reveal failed:',error);});
     }
     this.renderPressureBar();
-    if(this.run.hp<=0){this.lockDeath();return;}
+    if(this.run.hp<=0){if(this.finale.state==='ESCAPE_ACTIVE'){this.escapeFailed();return;}this.lockDeath();return;}
     this.hpFace.setHp(this.run.hp);
     this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
     this.hpFace.update(delta);
