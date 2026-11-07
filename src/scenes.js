@@ -95,8 +95,8 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
     });
     const debug = button(this, initial.centerX, 0, initial.startWidth, 44, 'DEBUG', () => {
-      if(!allowed())return;
-      debugScroll=0;this.debugOpen=true;resize();
+      if(!allowed()||this.debugOpen)return;
+      debugScroll=0;this.debugOpen=true;debugGesture=null;debugPointer=null;resize();
     });
     const resume = ((hasSession&&!terminal)||savedCheckpoint) ? button(this, initial.centerX, 0, initial.startWidth, 44, 'WZNÓW', () => {
       if (!allowed()) return;
@@ -124,28 +124,29 @@ export class MenuScene extends Phaser.Scene {
     }) : null;
     this.debugOpen=false;
     let debugScroll=0,debugMaxScroll=0,debugViewportTop=0,debugViewportBottom=0;
-    let debugDrag=null,debugSuppressUntil=0;
+    let debugGesture=null,debugPointer=null;
     const choices=DEBUG_CHECKPOINTS.map(checkpoint=>({
       checkpoint,
-      control:button(this,initial.centerX,0,160,34,checkpoint.label,()=>{
-        if(!allowed()||!this.debugOpen||this.game.loop.time<debugSuppressUntil)return;
-        const fixture=createDebugFixture(checkpoint.id);
-        if(!fixture)return;
-        this.navigating=true;
-        this.cameras.main.once('camerafadeoutcomplete',()=>{
-          if(!this.sys.isActive())return;
-          if(hasSession)this.scene.stop(sessionKey);
-          fixture.run.isDebugRun=true; // Never persist developer fixtures as campaign saves.
-        this.game.registry.set('campaign-run',fixture.run);
-          if(checkpoint.id==='act3-opening')this.scene.start('ActTitle',{actId:'act3',handoff:fixture.handoff,debugCheckpoint:checkpoint.id});
-          else this.scene.start(checkpoint.scene,{debugCheckpoint:checkpoint.id,handoff:fixture.handoff});
-        });
-        this.cameras.main.fadeOut(240,0,0,0);
-      },'pointerup')
+      control:button(this,initial.centerX,0,160,34,checkpoint.label,()=>{})
     }));
+    const activateCheckpoint=checkpoint=>{
+      if(!allowed()||!this.debugOpen)return;
+      const fixture=createDebugFixture(checkpoint.id);
+      if(!fixture)return;
+      this.navigating=true;
+      this.cameras.main.once('camerafadeoutcomplete',()=>{
+        if(!this.sys.isActive())return;
+        if(hasSession)this.scene.stop(sessionKey);
+        fixture.run.isDebugRun=true;
+        this.game.registry.set('campaign-run',fixture.run);
+        if(checkpoint.id==='act3-opening')this.scene.start('ActTitle',{actId:'act3',handoff:fixture.handoff,debugCheckpoint:checkpoint.id});
+        else this.scene.start(checkpoint.scene,{debugCheckpoint:checkpoint.id,handoff:fixture.handoff});
+      });
+      this.cameras.main.fadeOut(240,0,0,0);
+    };
     const back=button(this,initial.centerX,0,150,35,'WRÓĆ',()=>{
       if(!allowed())return;
-      this.debugOpen=false;resize();
+      this.debugOpen=false;debugGesture=null;resize();
     });
     const resize = () => {
       const layout = menuLayout(this.scale.width, this.scale.height);
@@ -164,63 +165,73 @@ export class MenuScene extends Phaser.Scene {
         control.caption.setPosition(layout.centerX,y).setFontSize(Math.max(14,Math.min(24,h*.058))).setVisible(!this.debugOpen);
         control.background.input.enabled=!this.debugOpen;
       }
-      const colWidth=Math.min(275,(w-24)/2-6);
-      const rowGap=Math.min(57,Math.max(42,h*.145));
-      const itemHeight=Math.min(43,rowGap-5);
-      debugViewportTop=Math.max(h*.19,title.y+title.height/2+12);
-      debugViewportBottom=h*.91-Math.min(37,h*.10)/2-12;
+      const margin=Math.max(18,Math.min(42,w*.045));
+      const buttonWidth=Math.min(650,w-2*margin);
+      const rowGap=Math.max(48,Math.min(60,h*.155));
+      const itemHeight=rowGap-7;
+      debugViewportTop=Math.max(h*.19,title.y+title.height/2+14);
+      debugViewportBottom=h*.91-Math.min(37,h*.10)/2-14;
       const viewportHeight=Math.max(0,debugViewportBottom-debugViewportTop);
-      const contentHeight=Math.ceil(choices.length/2)*rowGap-(rowGap-itemHeight);
+      const contentHeight=choices.length*rowGap-(rowGap-itemHeight);
       debugMaxScroll=Math.max(0,contentHeight-viewportHeight);
       debugScroll=Math.max(0,Math.min(debugMaxScroll,debugScroll));
       choices.forEach(({control},i)=>{
-        const x=w/2+(i%2===0?-1:1)*(colWidth/2+3);
-        const y=debugViewportTop+itemHeight/2+Math.floor(i/2)*rowGap-debugScroll;
-        const visible=this.debugOpen&&y-itemHeight/2>=debugViewportTop-0.5&&y+itemHeight/2<=debugViewportBottom+0.5;
-        control.background.setPosition(x,y).setSize(colWidth,itemHeight).setVisible(visible);
-        control.caption.setPosition(x,y).setFontSize(Math.max(10,Math.min(15,w*.018,h*.043))).setVisible(visible);
-        control.background.input.enabled=visible;
+        const x=w/2,y=debugViewportTop+itemHeight/2+i*rowGap-debugScroll;
+        const visible=this.debugOpen&&y-itemHeight/2>=debugViewportTop&&y+itemHeight/2<=debugViewportBottom;
+        control.background.setPosition(x,y).setSize(buttonWidth,itemHeight).setVisible(visible);
+        control.caption.setPosition(x,y).setFontSize(Math.max(11,Math.min(18,buttonWidth/(Math.max(20,control.caption.text.length)*.65),h*.047))).setVisible(visible);
+        // Selection is handled by a complete pointer gesture, never Phaser's
+        // pointerup event on a button that may have appeared under the finger.
+        control.background.disableInteractive();
       });
       back.background.setPosition(w/2,h*.91).setSize(Math.min(170,w*.35),Math.min(37,h*.10)).setVisible(this.debugOpen);
       back.caption.setPosition(w/2,h*.91).setFontSize(Math.max(13,Math.min(18,h*.052))).setVisible(this.debugOpen);
       back.background.input.enabled=this.debugOpen;
     };
-    // Scroll only the checkpoint viewport. Phaser input coordinates are screen-local.
     const inDebugList=pointer=>this.debugOpen&&pointer.y>=debugViewportTop&&pointer.y<=debugViewportBottom;
+    const choiceAt=pointer=>choices.find(({control})=>control.background.visible&&
+      Math.abs(pointer.x-control.background.x)<=control.background.width/2&&
+      Math.abs(pointer.y-control.background.y)<=control.background.height/2);
     const pointerDown=pointer=>{
-      if(!inDebugList(pointer))return;
-      debugDrag={id:pointer.id,y:pointer.y,startY:pointer.y,scroll:debugScroll,moved:false};
+      if(!inDebugList(pointer)||debugGesture)return;
+      debugGesture={id:pointer.id,startY:pointer.y,startX:pointer.x,scroll:debugScroll,moved:false,
+        choice:choiceAt(pointer)};
     };
     const pointerMove=pointer=>{
-      if(!debugDrag||pointer.id!==debugDrag.id)return;
-      const delta=pointer.y-debugDrag.startY;
-      if(Math.abs(delta)>7)debugDrag.moved=true;
-      if(!debugDrag.moved)return;
-      debugSuppressUntil=this.game.loop.time+350;
-      debugScroll=Math.max(0,Math.min(debugMaxScroll,debugDrag.scroll-delta));
+      if(!debugGesture||pointer.id!==debugGesture.id)return;
+      const g=debugGesture;
+      if(Math.hypot(pointer.x-g.startX,pointer.y-g.startY)>9)g.moved=true;
+      if(!g.moved)return;
+      debugScroll=Math.max(0,Math.min(debugMaxScroll,g.scroll-(pointer.y-g.startY)));
       resize();
     };
     const pointerUp=pointer=>{
-      if(!debugDrag||pointer.id!==debugDrag.id)return;
-      if(debugDrag.moved)debugSuppressUntil=this.game.loop.time+350;
-      debugDrag=null;
+      const g=debugGesture;
+      if(!g||pointer.id!==g.id)return;
+      debugGesture=null;
+      if(g.moved||!inDebugList(pointer)||!g.choice||choiceAt(pointer)!==g.choice)return;
+      activateCheckpoint(g.choice.checkpoint);
     };
+    const pointerCancel=()=>{debugGesture=null;};
     const wheel=(pointer,_objects,_dx,dy)=>{
       if(!inDebugList(pointer))return;
+      debugGesture=null;
       debugScroll=Math.max(0,Math.min(debugMaxScroll,debugScroll+dy));
       resize();
     };
     this.input.on('pointerdown',pointerDown);
     this.input.on('pointermove',pointerMove);
     this.input.on('pointerup',pointerUp);
-    this.input.on('pointerupoutside',pointerUp);
+    this.input.on('pointerupoutside',pointerCancel);
+    this.input.on('gameout',pointerCancel);
     this.input.on('wheel',wheel);
     resize();
     this.scale.on(Phaser.Scale.Events.RESIZE, resize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, resize);
       this.input.off('pointerdown',pointerDown);this.input.off('pointermove',pointerMove);
-      this.input.off('pointerup',pointerUp);this.input.off('pointerupoutside',pointerUp);
+      this.input.off('pointerup',pointerUp);this.input.off('pointerupoutside',pointerCancel);
+      this.input.off('gameout',pointerCancel);
       this.input.off('wheel',wheel);
     });
     const fullscreenButton = document.getElementById('fullscreen-button');
