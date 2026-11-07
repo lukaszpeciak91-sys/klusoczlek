@@ -11,7 +11,7 @@ export function resetFiring(state,weapon=null){
 export function firingStep(state,weapon,held,now){
  if(state.weapon!==weapon)resetFiring(state,weapon);
  if(!held||!weapon){resetFiring(state,weapon);return 0;}
- if(weapon==='flamethrower'){state.active=true;return 0;}
+ if(weapon==='flamethrower'||weapon==='water-flamethrower'){state.active=true;return 0;}
  if(weapon==='blunderbuss'){
   if(state.lastShot===null||now-state.lastShot>=COMBAT_TUNING.blunderbuss.interval){state.lastShot=now;state.active=true;return 1;}
   return 0;
