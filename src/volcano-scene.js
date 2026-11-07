@@ -44,6 +44,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.bogdanDialogueStarted=false;
     this.defeated=false;
     this.finale=createVolcanoFinaleState();
+    this.openingSafeUntil=0;
     this.escapeBurst=null;this.escapeSpawnAt=0;this.escapeSpawned=0;this.escapeEnemies=[];
     this.escapeCheckpoint=null;this.extractionPoint=null;this.extractionActor=null;this.extractionLoading=false;
     this.dialogueState=createDialogueState();
@@ -87,6 +88,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
       if(id==='act3-opening'){
         this.openingComplete=true;
+        this.openingSafeUntil=this.time.now+2200;
         this.resetMovement();
         this.syncControls();
         if(this.lawosReadiness.started&&!this.lawosStarted)this.startLawosEncounter(this.lawosReadiness.state);
@@ -121,7 +123,8 @@ export class VolcanoScene extends Phaser.Scene {
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
     this.joystick=createJoystick(this,'left');
     this.aimJoystick=createJoystick(this,'right');
-    this.weapon=availableWeapons(this.run.unlockedWeapons,'act3').includes(this.run.selectedWeapon)?this.run.selectedWeapon:'water-flamethrower';
+    grantWaterFlamethrower(this.run);
+    this.weapon='water-flamethrower';
     this.run.selectedWeapon=this.weapon;
     void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'flamethrower':this.weapon);
     this.playerInvulnerableUntil=0;
