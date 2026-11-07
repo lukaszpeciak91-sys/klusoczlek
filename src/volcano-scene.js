@@ -39,6 +39,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.fairyRevealRequested=false;
     this.fairyStarted=false;
     this.fairyComplete=false;
+    this.fairyReady=false;
     this.apartmentPending=false;
     this.apartmentComplete=false;
     this.bogdanDialogueStarted=false;
@@ -322,12 +323,14 @@ export class VolcanoScene extends Phaser.Scene {
     if(!shouldRevealFairy(this.lawosComplete,this.fairyRevealRequested)||this.disposed||this.defeated)return;
     if(!this.walkability)return;
     this.fairyRevealRequested=true;
-    void this.npcs.revealFairy().then(ready=>{
-      if(!this.disposed&&!ready)console.warn('[Volcano] fairy reveal unavailable: inspect approved island PNG and sprite');
-    }).catch(error=>{if(!this.disposed)console.warn('[Volcano] fairy reveal failed:',error);});
+    void this.npcs.revealFairy(findMarlenaRoute).then(ready=>{
+      if(this.disposed)return;
+      this.fairyReady=ready;
+      if(!ready){this.fairyRevealRequested=false;console.error('[Volcano] fairy route unavailable; apartment story gate remains locked until safe spawn is found');}
+    }).catch(error=>{if(!this.disposed){this.fairyRevealRequested=false;console.error('[Volcano] fairy reveal failed:',error);}});
   }
   tryApartmentEncounter(){
-    if(!this.openingComplete||!this.lawosComplete||this.dialogueState.id||this.defeated||!this.boss.ready)return false;
+    if(!this.openingComplete||!this.lawosComplete||!this.fairyComplete||this.dialogueState.id||this.defeated||!this.boss.ready)return false;
     if(!this.boss.beginArgument())return false;
     if(beginDialogue(this.dialogueState,'act3-apartment-argument')){
       this.resetMovement();this.dialoguePanel.show(this.dialogueState);return true;
@@ -559,6 +562,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(!['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(this.finale.state)){this.resetMovement();return;}
     const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
+    if(this.finale.state==='BOGDAN_ACTIVE'&&!this.fairyComplete&&this.lawosComplete&&!this.fairyRevealRequested)this.revealFairyAfterLawos();
     if(this.finale.state==='BOGDAN_ACTIVE'&&!this.boss.argumentStarted&&apartmentReached(this.player)){
       this.apartmentPending=true;
       if(this.tryApartmentEncounter())return;
@@ -569,7 +573,7 @@ export class VolcanoScene extends Phaser.Scene {
         this.bogdanDialogueStarted=true;this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
       }
     }
-    if(this.finale.state==='BOGDAN_ACTIVE'&&this.lawosComplete&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
+    if(this.finale.state==='BOGDAN_ACTIVE'&&this.lawosComplete&&this.fairyReady&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
       this.fairyStarted=true;
       if(beginDialogue(this.dialogueState,'act3-swinia-wrozka')){
         this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
