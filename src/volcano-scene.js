@@ -14,7 +14,7 @@ import {WEAPONS,availableWeapons,cycleUnlockedWeapon} from './weapon-progression
 import {resolveAim} from './shooting.js';
 import {facingOf} from './combat-contract.js';
 import {createVolcanoCombat} from './volcano-combat.js';
-import {createVolcanoNpcs,fairyTrigger} from './volcano-npcs.js';
+import {createVolcanoNpcs,fairyTrigger,createNpcReadiness} from './volcano-npcs.js';
 import {volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing,createVolcanoWalkability,nearestVolcanoSpawn} from './volcano-contract.js';
 
 // Scene owns only two persistent world layers. Missing production art is safe.
@@ -31,6 +31,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.walkability=null;
     this.combatPending=false;
     this.lawosStarted=false;
+    this.lawosReadiness=createNpcReadiness();
     this.lawosComplete=false;
     this.fairyStarted=false;
     this.fairyComplete=false;
@@ -78,6 +79,7 @@ export class VolcanoScene extends Phaser.Scene {
         this.openingComplete=true;
         this.resetMovement();
         this.syncControls();
+        if(this.lawosReadiness.started&&!this.lawosStarted)this.startLawosEncounter(this.lawosReadiness.state);
       }else if(id==='act3-lawostworki'){
         this.lawosComplete=true;
         this.npcs.finishLawos();
@@ -237,7 +239,14 @@ export class VolcanoScene extends Phaser.Scene {
         this.walkability=mask;
         this.player.setPosition(playerStart.x,playerStart.y);
         this.player.body.reset(playerStart.x,playerStart.y);
-        void this.npcs.place();
+        void this.npcs.place().then(ready=>{
+          if(this.disposed||this.defeated||this.run.hp<=0)return;
+          this.resolveLawosReadiness(ready);
+        }).catch(error=>{
+          if(this.disposed)return;
+          console.error('[Volcano NPC] placement failed:',error);
+          this.resolveLawosReadiness(false);
+        });
         if(this.lawosComplete&&this.combatPending){this.combat.start();this.combatPending=false;}
         this.terrainImage.setTexture(key).setPosition(0,0).setOrigin(0).setDisplaySize(ARENA.width,ARENA.height).setVisible(true);
         this.terrain.setVisible(false);
@@ -249,6 +258,29 @@ export class VolcanoScene extends Phaser.Scene {
       if(objectUrl)URL.revokeObjectURL(objectUrl);
       this.pendingLoads.delete(controller);
     }
+  }
+  resolveLawosReadiness(ready){
+    const decision=this.lawosReadiness.resolve(ready);
+    if(decision)this.startLawosEncounter(decision);
+  }
+  startLawosEncounter(decision){
+    if(this.disposed||this.defeated||this.run.hp<=0||this.lawosStarted||!this.openingComplete||!this.walkability)return;
+    if(decision==='ready'&&this.npcs.lawosReady){
+      if(beginDialogue(this.dialogueState,'act3-lawostworki')){
+        this.lawosStarted=true;
+        this.resetMovement();
+        this.dialoguePanel.show(this.dialogueState);
+        return;
+      }
+    }
+    // A failed production PNG must not permanently lock Act III.
+    this.lawosStarted=true;
+    this.lawosComplete=true;
+    this.npcs.finishLawos();
+    console.warn('[Volcano NPC] Lawostworki dialogue skipped because both sprites are not available');
+    this.combat.start();
+    this.resetMovement();
+    this.syncControls();
   }
   refreshWeaponHud(){
     const selected=WEAPONS[this.weapon];
@@ -323,10 +355,12 @@ export class VolcanoScene extends Phaser.Scene {
       this.joystick.direction.x+Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),
       this.joystick.direction.y+Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown));
     if(!this.lawosStarted&&Math.hypot(input.x,input.y)>.05){
-      this.lawosStarted=true;
-      if(beginDialogue(this.dialogueState,'act3-lawostworki')){
-        this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
-      }
+      const decision=this.lawosReadiness.requestMovement();
+      if(decision)this.startLawosEncounter(decision);
+      if(!this.lawosStarted||this.dialogueState.id){this.resetMovement();return;}
+    }
+    if(this.lawosReadiness.started&&!this.lawosStarted){
+      this.resetMovement();return;
     }
     const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
