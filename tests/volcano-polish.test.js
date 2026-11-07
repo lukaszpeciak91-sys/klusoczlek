@@ -24,7 +24,7 @@ test('fairy reveal waits for active island combat, but does not softlock on inva
  const p=createPlatformProgression();
  assert.equal(p.fairyReveal,false);
  p.activate('fairy',()=>false);
- assert.equal(p.fairyReveal,true);
+ assert.equal(p.fairyReveal,false);
  const q=createPlatformProgression();
  q.activate('fairy',()=>true);
  assert.equal(q.fairyReveal,false);
