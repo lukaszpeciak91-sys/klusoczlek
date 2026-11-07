@@ -5,13 +5,14 @@ import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressur
 import {volcanoStep,nearestVolcanoSpawn} from './volcano-contract.js';
 import {BOBROZOMBI_ASSET,BOBROZOMBI_VISUAL_SCALE} from './enemy-visual.js';
 import {muzzlePoint} from './shooting.js';
+import {createContinuousWeaponState,continuousDamageAllowed,drawContinuousStream,emitContinuousParticle,updateContinuousParticles} from './continuous-weapon.js';
 
 export const LAVA_TYPES=Object.freeze({
  'lawostworek-1':Object.freeze({hp:3,speed:115,radius:21,frame:96,width:768,height:96,color:0xffa51f}),
  'lawostworek-2':Object.freeze({hp:9,speed:48,radius:25,frame:128,width:1024,height:128,color:0xe0441b})
 });
 export const LAVA_BARKS=Object.freeze(['Łaskocze!','I co mi zrobisz?!','Ale groźny!','HA! HA! HA!','Spróbuj wodą, geniuszu!']);
-export function lavaDamage(weapon,amount){return weapon==='water-flamethrower'?amount:0;}
+export function lavaDamage(weapon,amount){return continuousDamageAllowed(weapon,'lawostworek-1')?amount:0;}
 export function createLavaEnemy(type,x,y,index=0){
  const def=LAVA_TYPES[type];return {type,x,y,hp:def.hp,dead:false,radius:def.radius,index,hitAt:-Infinity,barkAt:-Infinity,contactAt:-Infinity,panicUntil:0,lungeAt:0,headingAt:0,headingOffset:0};
 }
@@ -39,9 +40,10 @@ export function lavaEnemyStep(enemy,player,dt,now=0,mask=null){
  return volcanoStep(enemy,{x:vx,y:vy},elapsed,speed,enemy.radius,mask);
 }
 export function createVolcanoCombat(scene){
- const enemies=[],shots=[],pressure=createPressure(),waterCooldowns=new Map(),stream=scene.add.graphics().setDepth(13);
+ const enemies=[],shots=[],waterState=createContinuousWeaponState(),fireState=createContinuousWeaponState(),stream=scene.add.graphics().setDepth(13);
+ const pressure=waterState.pressure,waterCooldowns=waterState.cooldowns;
  let stage=0,stageAt=0,active=false;
- const firing=createFiringState(),firePressure=createPressure(),flameCooldowns=new Map();
+ const firing=createFiringState(),firePressure=fireState.pressure,flameCooldowns=fireState.cooldowns;
  const groups=[['lawostworek-1','lawostworek-1'],['lawostworek-1','lawostworek-1','lawostworek-2'],['lawostworek-1','lawostworek-1','lawostworek-2','lawostworek-2']];
  const sprites={};
  // Match Act I Bobrozombi's 96px frame at its approved 0.75 visual scale.
@@ -106,44 +108,27 @@ export function createVolcanoCombat(scene){
   enemy.hp=applyEnemyHit(enemy.hp,damage);
   if(enemy.hp<=0){enemy.dead=true;enemy.sprite.destroy();enemy.bark.destroy();}
  }
- function stopFire(){cancelPressureTrigger(pressure);cancelPressureTrigger(firePressure);resetFiring(firing);stream.clear();for(const shot of shots)shot.sprite.destroy();shots.length=0;}
+ function stopFire(){waterState.stop();fireState.stop();resetFiring(firing);stream.clear();for(const state of [waterState,fireState]){for(const p of state.particles)p.object.destroy();state.particles.length=0;state.emissionAt=null;}for(const shot of shots)shot.sprite.destroy();shots.length=0;}
  function start(){if(active)return;active=true;stage=0;spawnGroup();}
  function update(dt,now,aim,held,weapon){
   if(!active||scene.defeated||scene.run.hp<=0){stopFire();return;}
   const sec=Math.min(50,dt)/1000;
   const water=weapon==='water-flamethrower',fire=weapon==='flamethrower';
-  const flowing=water&&stepPressure(pressure,held,dt);
-  const flaming=fire&&stepPressure(firePressure,held,dt);
-  if(!water)stepPressure(pressure,false,dt);
-  if(!fire)stepPressure(firePressure,false,dt);
+  const flowing=water&&waterState.step(held,dt);
+  const flaming=fire&&fireState.step(held,dt);
+  if(!water)waterState.step(false,dt);
+  if(!fire)fireState.step(false,dt);
   stream.clear();
   if((flowing||flaming)&&Math.hypot(aim.x,aim.y)>.5){
    const origin=muzzlePoint(scene.player.x,scene.player.y,aim);
    const tune=COMBAT_TUNING.flamethrower;
-   if(water){
-    // Bounded, lightweight spray with irregular edges and droplets.
-    const nx=-aim.y,ny=aim.x,steps=9;
-    for(let i=0;i<steps;i++){
-     const a=i/steps,b=(i+1)/steps;
-     const w1=Math.sin(now*.018+i*2.7)*6*a+Math.cos(now*.011+i*4.1)*3*a;
-     const w2=Math.sin(now*.018+(i+1)*2.7)*6*b+Math.cos(now*.011+(i+1)*4.1)*3*b;
-     const x1=origin.x+aim.x*tune.range*a+nx*w1,y1=origin.y+aim.y*tune.range*a+ny*w1;
-     const x2=origin.x+aim.x*tune.range*b+nx*w2,y2=origin.y+aim.y*tune.range*b+ny*w2;
-     stream.lineStyle(18+14*b,0x1b9bd5,.36).lineBetween(x1,y1,x2,y2);
-     stream.lineStyle(8+7*b,0x8ee9ff,.55).lineBetween(x1,y1,x2,y2);
-     for(let j=0;j<2;j++){
-      const side=Math.sin(now*.009+i*7+j*13)*(3+11*b);
-      const d=tune.range*(a+(j+.35)/2/steps);
-      stream.fillStyle(j?0xbaf6ff:0x37b9ec,.48);
-      stream.fillCircle(origin.x+aim.x*d+nx*side,origin.y+aim.y*d+ny*side,2+3*b);
-     }
-    }
-   }else{
-    stream.lineStyle(15,0xe7441b,.72).lineBetween(origin.x,origin.y,origin.x+aim.x*tune.range,origin.y+aim.y*tune.range);
-    stream.lineStyle(6,0xffed96,.9).lineBetween(origin.x,origin.y,origin.x+aim.x*tune.range,origin.y+aim.y*tune.range);
-   }
+   const state=water?waterState:fireState;
+   drawContinuousStream(stream,origin,aim,now,weapon);
+   emitContinuousParticle(scene,state,origin,aim,now,weapon);
    for(const enemy of enemies)if(!enemy.dead&&inFlameCone(origin,aim,enemy,tune.range,tune.halfAngle,enemy.radius)&&cooldownReady(water?waterCooldowns:flameCooldowns,enemy,now,tune.damageInterval))hit(enemy,weapon,tune.damage,now);
   }
+  updateContinuousParticles(waterState,dt);
+  updateContinuousParticles(fireState,dt);
   const count=firingStep(firing,weapon,held&&Math.hypot(aim.x,aim.y)>.5,now);
   if(count){
    const tune=COMBAT_TUNING[weapon],origin=muzzlePoint(scene.player.x,scene.player.y,aim);
