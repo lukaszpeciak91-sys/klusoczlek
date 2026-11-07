@@ -61,7 +61,7 @@ export function createPlatformProgression(){
    return entry.cleared;
   },
   get(id){return state.get(id);},
-  get fairyReveal(){return state.get('fairy').cleared;}
+  get fairyReveal(){const f=state.get('fairy');return f.activated&&f.alive===0&&(f.spawned>0||f.failed===VOLCANO_ZONES.find(z=>z.id==='fairy').enemies.length);}
  };
 }
 export const FAIRY_ZONE=VOLCANO_ZONES.find(z=>z.id==='fairy');
