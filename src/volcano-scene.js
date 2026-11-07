@@ -521,6 +521,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.scene.bringToTop('Menu');
   }
   update(_time,delta){
+    if(this.finale.state==='ESCAPE_RETRY')return;
     if(this.run.hp<=0){if(this.finale.state==='ESCAPE_ACTIVE'){this.escapeFailed();return;}this.lockDeath();return;}
     this.syncControls();
     if(!this.controlsAllowed()||this.defeated)return;
