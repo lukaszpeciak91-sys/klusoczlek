@@ -240,7 +240,7 @@ try {
     await clickControl('DEBUG');
     assert.equal(await evaluate("window.__game.scene.getScene('Menu').debugOpen"),true,'PR65 selector not opened');
     assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'DEBUG opening launched checkpoint');
-    const checkpointGeometry=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');const t=m.children.list.find(o=>o.type==='Text'&&o.visible&&o.text==="+JSON.stringify(label)+");if(!t)return null;const b=m.children.list.find(o=>o.visible&&o.geom?.type===3&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1&&o.width>200);return b?{x:b.x,y:b.y,width:b.width,height:b.height,interactive:!!b.input?.enabled}:null})()");
+    const checkpointGeometry=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');const t=m.children.list.find(o=>o.type==='Text'&&o.visible&&o.text==="+JSON.stringify(label)+");if(!t)return null;const b=m.children.list.find(o=>o.visible&&o!==t&&o.geom&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1&&o.width>200);return b?{x:b.x,y:b.y,width:b.width,height:b.height,interactive:!!b.input?.enabled}:null})()");
     let target=await checkpointGeometry();
     for(let scroll=0;!target&&scroll<24;scroll++){
       const rect=(await snapshot()).rect;
