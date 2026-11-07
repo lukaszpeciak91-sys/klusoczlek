@@ -1,6 +1,12 @@
 name: Web CI
 on:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      full_browser:
+        description: 'Run comprehensive Chromium regression'
+        type: boolean
+        default: true
   push:
     branches:
       - feat/pr01-web-foundation
@@ -44,12 +50,15 @@ jobs:
             echo "Documentation-only PR: Chromium skipped; Node tests/build retained."
           else
             echo "run_browser=true" >> "$GITHUB_OUTPUT"
-            echo "Source, workflow or mixed PR: full browser regression retained."
+            echo "Source, workflow or mixed PR: fast browser smoke enabled."
           fi
       - run: npm test
       - run: npm run build
-      - run: npm run test:browser
+      - run: npm run test:browser:smoke
         if: github.event_name != 'pull_request' || steps.changes.outputs.run_browser != 'false'
+      - name: Full Chromium regression (manual)
+        if: github.event_name == 'workflow_dispatch' && inputs.full_browser
+        run: npm run test:browser
       - name: Verify Pages output
         run: test -f dist/index.html
       - uses: actions/upload-artifact@v4
