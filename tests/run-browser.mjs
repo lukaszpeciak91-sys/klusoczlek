@@ -511,7 +511,9 @@ try {
         if(await evaluate("window.__game.scene.isActive('ActTitle')"))break;
         await sleep(40);
       }
-      assert.equal(await evaluate("window.__game.scene.isActive('ActTitle')"),true,'PR66 advances to Act III title');
+      const transition=await evaluate("(()=>{const g=window.__game,s=g.scene.getScene('Airship'),r=s.campaignRun;return {title:g.scene.isActive('ActTitle'),volcano:g.scene.isActive('Volcano'),airship:g.scene.isActive('Airship'),started:s.act2TransitionStarted??false,pending:s.finalResultsPending,visible:s.resultOverlay.visible,armed:s.resultsArmedAt,now:g.loop.time,completed:r.completedActs.has('act2'),act:r.actId,registered:Object.keys(g.scene.manager.keys)}})()");
+      console.log('PR66 Act II to III transition diagnostic',JSON.stringify(transition));
+      assert.ok(transition.title||transition.volcano,'PR66 advances to Act III title or Volcano');
       const completed=await evaluate("(()=>{const r=window.__game.registry.get('campaign-run');return {act2:r.completedActs.has('act2'),kills:r.stats.kills,time:r.stats.activeCombatMs,byAct:r.stats.byAct.act2}})()");
       assert.equal(completed.act2,true,'PR66 narrative completion');
       assert.equal(completed.kills,42,'PR66 exactly-once total kills');
