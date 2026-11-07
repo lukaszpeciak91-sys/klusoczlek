@@ -11,6 +11,12 @@ export const APARTMENT=Object.freeze({
 });
 export const MARLENA_BARKS=Object.freeze(['Mama miała rację!','Niech sam w tym smrodzie siedzi, pajac!']);
 export const BOGDAN_HP=80;
+export const BOGDAN_HIT_RADIUS=34;
+export function bossRepositionVector(boss,player,now,phase=1){
+ const dx=player.x-boss.x,dy=player.y-boss.y,d=Math.max(1,Math.hypot(dx,dy));
+ const orbit=Math.sin(now/1100+phase)*.9,close=d>210?1:d<105?-.6:.22;
+ return {x:(dx/d)*close-(dy/d)*orbit,y:(dy/d)*close+(dx/d)*orbit};
+}
 export const BOSS_TELEGRAPH_MS=Object.freeze({beam:900,spread:500,charge:550});
 export const BOSS_BEAM_MS=700;
 export function apartmentReached(player){
@@ -132,10 +138,11 @@ export function createBogdanEncounter(scene,Phaser){
   if(!started||departing||departed||!marlena||disposed)return false;
   departing=true;
   const destinations=[{x:1030,y:680},{x:940,y:760},{x:1080,y:820},{x:820,y:850}];
-  let route=null,index=0,elapsed=0,barkIndex=0,stalled=0,retries=0;
+  let route=null,index=0,elapsed=0,barkIndex=0,stalled=0,retries=0,barkUntil=0;
   const showBark=()=>{
    if(barkIndex>=MARLENA_BARKS.length)return;
    bark.setText(MARLENA_BARKS[barkIndex++]).setVisible(true);
+   barkUntil=elapsed+2200;
   };
   const reroute=()=>{
    route=null;index=0;
@@ -151,10 +158,10 @@ export function createBogdanEncounter(scene,Phaser){
   departureTick=dt=>{
    if(disposed||!departing||!marlena?.active)return;
    elapsed+=dt;
-   if(elapsed>=1250&&barkIndex===1)showBark();
+   if(elapsed>=2450&&barkIndex===1)showBark();
    // Story gate is independent of eventual offscreen removal and pathfinding.
-   if(elapsed>=2600&&barkIndex===2)leftApartment=true;
-   if(elapsed>=2550)bark.setVisible(false);
+   if(elapsed>=4750&&barkIndex===2)leftApartment=true;
+   if(elapsed>=barkUntil)bark.setVisible(false);
    if(!route||index>=route.length){
     if(marlenaOffscreen(marlena,scene.cameras.main)){
      departing=false;departed=true;marlena.destroy();marlena=null;bark.setVisible(false);
@@ -173,7 +180,8 @@ export function createBogdanEncounter(scene,Phaser){
     return;
    }
    stalled=0;
-   marlena.setPosition(next.x,next.y).setFrame(playerFrame(facingOf(dx,dy,'s')));
+   marlena.setFrame(playerFrame(facingOf(next.x-marlena.x,next.y-marlena.y,'s'))).setPosition(next.x,next.y);
+   marlena.setAngle(Math.sin(elapsed*.013)*1.6);
    bark.setPosition(marlena.x,marlena.y-105);
   };
   return true;
@@ -221,6 +229,12 @@ export function createBogdanEncounter(scene,Phaser){
    graphics.fillStyle(0xffe16b).fillCircle(shot.x,shot.y,4);
    if(Math.hypot(p.x-shot.x,p.y-shot.y)<22){hurtPlayer(now);projectiles.splice(i,1);}
   }
+  if(attack.mode==='recovery'){
+   const v=bossRepositionVector(bogdan,p,now,phase);
+   const next=volcanoStep(bogdan,v,delta,phase===2?125:92,BOGDAN_HIT_RADIUS,scene.walkability);
+   const mx=next.x-bogdan.x,my=next.y-bogdan.y;
+   if(Math.hypot(mx,my)>.05)bogdan.setFrame(playerFrame(facingOf(mx,my,'s'))).setPosition(next.x,next.y);
+  }
   attack.remaining-=delta;
   if(attack.mode==='recovery'){
    if(attack.remaining>0)return;
@@ -254,7 +268,7 @@ export function createBogdanEncounter(scene,Phaser){
    }
    if(attack.remaining<=0)attack={mode:'recovery',remaining:phase===2?600:1050};
   }else if(attack.mode==='charge'){
-   const next=volcanoStep(bogdan,{x:Math.cos(attack.angle),y:Math.sin(attack.angle)},delta,410,20,scene.walkability);
+   const next=volcanoStep(bogdan,{x:Math.cos(attack.angle),y:Math.sin(attack.angle)},delta,410,BOGDAN_HIT_RADIUS,scene.walkability);
    if(Math.hypot(next.x-bogdan.x,next.y-bogdan.y)<.1)attack.remaining=0;
    bogdan.setPosition(next.x,next.y).setFrame(playerFrame(facingOf(Math.cos(attack.angle),Math.sin(attack.angle),'s')));
    if(Math.hypot(p.x-bogdan.x,p.y-bogdan.y)<42)hurtPlayer(now);
@@ -272,5 +286,5 @@ export function createBogdanEncounter(scene,Phaser){
  return {prepare,beginArgument,depart,beginConfrontation,activate,damage,update,consumeDefeat,removeDefeatedSprite,
   get ready(){return ready;},get failed(){return failed;},get argumentStarted(){return started;},
   get leftApartment(){return leftApartment;},get departed(){return departed;},get active(){return active;},get defeated(){return defeated;},
-  get hp(){return hp;},get hostileProjectileCount(){return projectiles.length;},get defeatPending(){return defeatPending;},get bogdan(){return bogdan;},get marlena(){return marlena;}};
+  get hp(){return hp;},get hitRadius(){return BOGDAN_HIT_RADIUS;},get hostileProjectileCount(){return projectiles.length;},get defeatPending(){return defeatPending;},get bogdan(){return bogdan;},get marlena(){return marlena;}};
 }

@@ -6,6 +6,8 @@ import {nearestVolcanoSpawn,volcanoFootprintAllowed} from './volcano-contract.js
 export const FAIRY_MARK=Object.freeze({x:333,y:240});
 export const FAIRY_TRIGGER_RADIUS=112;
 export const FAIRY_DEPARTURE_MS=1300;
+// The tenants dialogue, not the optional island combat zone, unlocks the fairy.
+export const shouldRevealFairy=(tenantsDialogueComplete,revealRequested)=>Boolean(tenantsDialogueComplete&&!revealRequested);
 const SHEETS=Object.freeze({
  'lawostworek-1':Object.freeze({path:'enemies/lawostworek-1.png',width:768,height:96,frame:96,scale:.75}),
  'lawostworek-2':Object.freeze({path:'enemies/lawostworek-2.png',width:1024,height:128,frame:128,scale:.68}),

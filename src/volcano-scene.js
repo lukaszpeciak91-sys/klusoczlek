@@ -16,7 +16,7 @@ import {WEAPONS,availableWeapons,cycleUnlockedWeapon} from './weapon-progression
 import {resolveAim} from './shooting.js';
 import {facingOf} from './combat-contract.js';
 import {createVolcanoCombat} from './volcano-combat.js';
-import {createVolcanoNpcs,fairyTrigger,createNpcReadiness} from './volcano-npcs.js';
+import {createVolcanoNpcs,fairyTrigger,createNpcReadiness,shouldRevealFairy} from './volcano-npcs.js';
 import {createBogdanEncounter,apartmentReached,findMarlenaRoute} from './volcano-bogdan.js';
 import {volcanoFootprintAllowed,volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing,createVolcanoWalkability,nearestVolcanoSpawn} from './volcano-contract.js';
 
@@ -44,6 +44,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.bogdanDialogueStarted=false;
     this.defeated=false;
     this.finale=createVolcanoFinaleState();
+    this.openingSafeUntil=0;
     this.escapeBurst=null;this.escapeSpawnAt=0;this.escapeSpawned=0;this.escapeEnemies=[];
     this.escapeCheckpoint=null;this.extractionPoint=null;this.extractionActor=null;this.extractionLoading=false;
     this.dialogueState=createDialogueState();
@@ -87,12 +88,14 @@ export class VolcanoScene extends Phaser.Scene {
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
       if(id==='act3-opening'){
         this.openingComplete=true;
+        this.openingSafeUntil=this.time.now+2200;
         this.resetMovement();
         this.syncControls();
         if(this.lawosReadiness.started&&!this.lawosStarted)this.startLawosEncounter(this.lawosReadiness.state);
       }else if(id==='act3-lawostworki'){
         this.lawosComplete=true;
         this.npcs.finishLawos();
+        this.revealFairyAfterLawos();
         if(this.walkability)this.combat.start();
         else this.combatPending=true;
         this.resetMovement();
@@ -121,7 +124,8 @@ export class VolcanoScene extends Phaser.Scene {
     this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
     this.joystick=createJoystick(this,'left');
     this.aimJoystick=createJoystick(this,'right');
-    this.weapon=availableWeapons(this.run.unlockedWeapons,'act3').includes(this.run.selectedWeapon)?this.run.selectedWeapon:'water-flamethrower';
+    grantWaterFlamethrower(this.run);
+    this.weapon='water-flamethrower';
     this.run.selectedWeapon=this.weapon;
     void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'flamethrower':this.weapon);
     this.playerInvulnerableUntil=0;
@@ -308,10 +312,19 @@ export class VolcanoScene extends Phaser.Scene {
     this.lawosStarted=true;
     this.lawosComplete=true;
     this.npcs.finishLawos();
+    this.revealFairyAfterLawos();
     console.warn('[Volcano NPC] Lawostworki dialogue skipped because both sprites are not available');
     this.combat.start();
     this.resetMovement();
     this.syncControls();
+  }
+  revealFairyAfterLawos(){
+    if(!shouldRevealFairy(this.lawosComplete,this.fairyRevealRequested)||this.disposed||this.defeated)return;
+    if(!this.walkability)return;
+    this.fairyRevealRequested=true;
+    void this.npcs.revealFairy().then(ready=>{
+      if(!this.disposed&&!ready)console.warn('[Volcano] fairy reveal unavailable: inspect approved island PNG and sprite');
+    }).catch(error=>{if(!this.disposed)console.warn('[Volcano] fairy reveal failed:',error);});
   }
   tryApartmentEncounter(){
     if(!this.openingComplete||!this.lawosComplete||this.dialogueState.id||this.defeated||!this.boss.ready)return false;
@@ -556,7 +569,7 @@ export class VolcanoScene extends Phaser.Scene {
         this.bogdanDialogueStarted=true;this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
       }
     }
-    if(this.finale.state==='BOGDAN_ACTIVE'&&this.lawosComplete&&this.combat.fairyZoneCleared&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
+    if(this.finale.state==='BOGDAN_ACTIVE'&&this.lawosComplete&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
       this.fairyStarted=true;
       if(beginDialogue(this.dialogueState,'act3-swinia-wrozka')){
         this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
@@ -574,12 +587,6 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.boss.consumeDefeat()&&this.finale.advance('BOGDAN_ACTIVE'))this.startBogdanFinale();
     if(this.finale.state==='ESCAPE_ACTIVE')this.updateEscape(delta);
     if(this.escapeBurst&&!this.escapeBurst.done)this.escapeBurst.update(delta);
-    if(this.finale.state==='BOGDAN_ACTIVE'&&this.combat.fairyZoneCleared&&!this.fairyRevealRequested&&!this.defeated){
-      this.fairyRevealRequested=true;
-      void this.npcs.revealFairy().then(ready=>{
-        if(!this.disposed&&!ready)console.warn('[Volcano] fairy zone cleared, but NPC artwork or spawn is unavailable');
-      }).catch(error=>{if(!this.disposed)console.warn('[Volcano] fairy reveal failed:',error);});
-    }
     this.renderPressureBar();
     if(this.run.hp<=0){if(this.finale.state==='ESCAPE_ACTIVE'){this.escapeFailed();return;}this.lockDeath();return;}
     this.hpFace.setHp(this.run.hp);
