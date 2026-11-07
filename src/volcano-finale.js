@@ -7,7 +7,7 @@ export function createVolcanoFinaleState(){
  return {
   get state(){return state;},get remaining(){return remaining;},get checkpoint(){return checkpoint;},
   advance(expected){if(state!==expected||!NEXT[state])return false;state=NEXT[state];if(state==='ESCAPE_ACTIVE')checkpoint=true;if(state==='ACT_III_COMPLETE')completed=true;return true;},
-  tick(delta){if(state!=='ESCAPE_ACTIVE')return false;remaining=Math.max(0,remaining-Math.max(0,Math.min(100,delta)));if(remaining===0){state='ESCAPE_RETRY';return true;}return false;},
+  tick(delta){if(state!=='ESCAPE_ACTIVE')return false;remaining=Math.max(0,remaining-(Number.isFinite(delta)?Math.max(0,delta):0));if(remaining===0){state='ESCAPE_RETRY';return true;}return false;},
   fail(){if(state!=='ESCAPE_ACTIVE')return false;state='ESCAPE_RETRY';return true;},
   retry(){if(state!=='ESCAPE_RETRY'||!checkpoint)return false;remaining=ESCAPE_MS;state='ESCAPE_ACTIVE';return true;},
   get completed(){return completed;}
