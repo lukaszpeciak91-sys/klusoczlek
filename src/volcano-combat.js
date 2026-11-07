@@ -177,5 +177,5 @@ export function createVolcanoCombat(scene){
   }
  }
  scene.events.once('shutdown',()=>{stopFire();stream.destroy();for(const e of enemies){e.sprite?.destroy();e.bark?.destroy();}});
- return {start,update,stopFire,get enemies(){return enemies;},get pressure(){return pressure;}};
+ return {start,update,stopFire,get enemies(){return enemies;},get pressure(){return scene.weapon==='flamethrower'?firePressure:pressure;}};
 }
