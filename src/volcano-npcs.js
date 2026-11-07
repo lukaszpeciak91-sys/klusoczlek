@@ -17,9 +17,22 @@ export function fairyTrigger(player,position=FAIRY_MARK,radius=FAIRY_TRIGGER_RAD
 // A bounded connected-component search prevents crossing lava into another island.
 export function findFairyIslandSpawn(mask,mark=FAIRY_MARK,radius=14,maxDistance=180){
  if(!mask)return null;
- const w=mask.width,h=mask.height,seedX=Math.round(mark.x),seedY=Math.round(mark.y);
+ const w=mask.width,h=mask.height;
+ let seedX=Math.round(mark.x),seedY=Math.round(mark.y);
  const validCenter=(x,y)=>x>=0&&y>=0&&x<w&&y<h&&mask.pixels[y*w+x]===1;
- if(!validCenter(seedX,seedY))return null;
+ if(!validCenter(seedX,seedY)){
+  // Small transparency holes in the approved platform must not suppress the NPC.
+  // A distant disconnected platform cannot become the search seed.
+  let seed=null;
+  for(let r=1;r<=24&&!seed;r++){
+   for(let dy=-r;dy<=r&&!seed;dy++)for(let dx=-r;dx<=r;dx++){
+    if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;
+    if(validCenter(seedX+dx,seedY+dy)){seed=[seedX+dx,seedY+dy];break;}
+   }
+  }
+  if(!seed)return null;
+  [seedX,seedY]=seed;
+ }
  if(volcanoFootprintAllowed(mask,seedX,seedY,radius))return {x:seedX,y:seedY};
  const queue=[[seedX,seedY]],seen=new Set([seedY*w+seedX]);
  let best=null,bestDistance=Infinity;
