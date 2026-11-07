@@ -14,6 +14,7 @@ import {WEAPONS,availableWeapons,cycleUnlockedWeapon} from './weapon-progression
 import {resolveAim} from './shooting.js';
 import {facingOf} from './combat-contract.js';
 import {createVolcanoCombat} from './volcano-combat.js';
+import {createVolcanoNpcs,fairyTrigger,createNpcReadiness} from './volcano-npcs.js';
 import {volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing,createVolcanoWalkability,nearestVolcanoSpawn} from './volcano-contract.js';
 
 // Scene owns only two persistent world layers. Missing production art is safe.
@@ -29,6 +30,11 @@ export class VolcanoScene extends Phaser.Scene {
     this.openingComplete=false;
     this.walkability=null;
     this.combatPending=false;
+    this.lawosStarted=false;
+    this.lawosReadiness=createNpcReadiness();
+    this.lawosComplete=false;
+    this.fairyStarted=false;
+    this.fairyComplete=false;
     this.defeated=false;
     this.dialogueState=createDialogueState();
     this.obstacles=[];
@@ -71,8 +77,19 @@ export class VolcanoScene extends Phaser.Scene {
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>{
       if(id==='act3-opening'){
         this.openingComplete=true;
+        this.resetMovement();
+        this.syncControls();
+        if(this.lawosReadiness.started&&!this.lawosStarted)this.startLawosEncounter(this.lawosReadiness.state);
+      }else if(id==='act3-lawostworki'){
+        this.lawosComplete=true;
+        this.npcs.finishLawos();
         if(this.walkability)this.combat.start();
         else this.combatPending=true;
+        this.resetMovement();
+        this.syncControls();
+      }else if(id==='act3-swinia-wrozka'){
+        this.fairyComplete=true;
+        this.npcs.departFairy();
         this.resetMovement();
         this.syncControls();
       }
@@ -86,6 +103,7 @@ export class VolcanoScene extends Phaser.Scene {
     void this.playerVisual.setVariant(this.weapon==='water-flamethrower'?'flamethrower':this.weapon);
     this.playerInvulnerableUntil=0;
     this.combat=createVolcanoCombat(this);
+    this.npcs=createVolcanoNpcs(this,Phaser);
     const switchWeapon=()=>{
       if(!this.openingComplete||!this.controlsAllowed())return;
       this.combat.stopFire();
@@ -221,7 +239,15 @@ export class VolcanoScene extends Phaser.Scene {
         this.walkability=mask;
         this.player.setPosition(playerStart.x,playerStart.y);
         this.player.body.reset(playerStart.x,playerStart.y);
-        if(this.openingComplete&&this.combatPending){this.combat.start();this.combatPending=false;}
+        void this.npcs.place().then(ready=>{
+          if(this.disposed||this.defeated||this.run.hp<=0)return;
+          this.resolveLawosReadiness(ready);
+        }).catch(error=>{
+          if(this.disposed)return;
+          console.error('[Volcano NPC] placement failed:',error);
+          this.resolveLawosReadiness(false);
+        });
+        if(this.lawosComplete&&this.combatPending){this.combat.start();this.combatPending=false;}
         this.terrainImage.setTexture(key).setPosition(0,0).setOrigin(0).setDisplaySize(ARENA.width,ARENA.height).setVisible(true);
         this.terrain.setVisible(false);
       }
@@ -232,6 +258,29 @@ export class VolcanoScene extends Phaser.Scene {
       if(objectUrl)URL.revokeObjectURL(objectUrl);
       this.pendingLoads.delete(controller);
     }
+  }
+  resolveLawosReadiness(ready){
+    const decision=this.lawosReadiness.resolve(ready);
+    if(decision)this.startLawosEncounter(decision);
+  }
+  startLawosEncounter(decision){
+    if(this.disposed||this.defeated||this.run.hp<=0||this.lawosStarted||!this.openingComplete||!this.walkability)return;
+    if(decision==='ready'&&this.npcs.lawosReady){
+      if(beginDialogue(this.dialogueState,'act3-lawostworki')){
+        this.lawosStarted=true;
+        this.resetMovement();
+        this.dialoguePanel.show(this.dialogueState);
+        return;
+      }
+    }
+    // A failed production PNG must not permanently lock Act III.
+    this.lawosStarted=true;
+    this.lawosComplete=true;
+    this.npcs.finishLawos();
+    console.warn('[Volcano NPC] Lawostworki dialogue skipped because both sprites are not available');
+    this.combat.start();
+    this.resetMovement();
+    this.syncControls();
   }
   refreshWeaponHud(){
     const selected=WEAPONS[this.weapon];
@@ -257,7 +306,7 @@ export class VolcanoScene extends Phaser.Scene {
     });
   }
   syncControls(){
-    const enabled=!this.defeated&&this.run.hp>0&&this.controlsAllowed()&&this.openingComplete&&Boolean(this.walkability);
+    const enabled=!this.defeated&&this.run.hp>0&&this.controlsAllowed()&&this.openingComplete&&Boolean(this.walkability)&&!this.dialogueState.id;
     if(this.joystick.enabled!==enabled)this.joystick.setEnabled(enabled);
     if(this.aimJoystick.enabled!==enabled)this.aimJoystick.setEnabled(enabled);
   }
@@ -299,14 +348,31 @@ export class VolcanoScene extends Phaser.Scene {
     this.syncControls();
     if(!this.controlsAllowed()||this.defeated)return;
     this.captainArrival.update(delta);
-    if(!this.openingComplete||!this.walkability){this.resetMovement();return;}
+    if(!this.openingComplete||!this.walkability||this.dialogueState.id){this.resetMovement();return;}
     this.lava.tilePositionY=advanceVolcanoLava(this.lava.tilePositionY,delta);
     const k=this.keys;
     const input=normalizeInput(
       this.joystick.direction.x+Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),
       this.joystick.direction.y+Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown));
+    if(!this.lawosStarted&&Math.hypot(input.x,input.y)>.05){
+      const decision=this.lawosReadiness.requestMovement();
+      if(decision)this.startLawosEncounter(decision);
+      if(!this.lawosStarted||this.dialogueState.id){this.resetMovement();return;}
+    }
+    if(!this.lawosStarted&&this.lawosReadiness.state==='pending'&&this.lawosReadiness.movement){
+      this.resetMovement();return;
+    }
+    if(this.lawosReadiness.started&&!this.lawosStarted){
+      this.resetMovement();return;
+    }
     const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
+    if(this.lawosComplete&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
+      this.fairyStarted=true;
+      if(beginDialogue(this.dialogueState,'act3-swinia-wrozka')){
+        this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
+      }
+    }
     const aim=resolveAim(this.aimJoystick.direction.x,this.aimJoystick.direction.y);
     // Like Acts I/II, the weapon sheet follows the right stick while firing;
     // movement controls only locomotion, never the direction of the muzzle.
