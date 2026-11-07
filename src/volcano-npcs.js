@@ -43,7 +43,7 @@ export function createNpcReadiness(){
   requestMovement(){movement=true;return this.consume();},
   resolve(ready){state=ready?'ready':'failed';return this.consume();},
   consume(){if(started||!movement||state==='pending')return null;started=true;return state;},
-  get state(){return state;},get started(){return started;}
+  get state(){return state;},get started(){return started;},get movement(){return movement;}
  };
 }
 export function createVolcanoNpcs(scene,Phaser){
