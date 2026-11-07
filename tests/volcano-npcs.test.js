@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue} from '../src/dialogue-data.js';
-import {FAIRY_MARK,FAIRY_TRIGGER_RADIUS,FAIRY_DEPARTURE_MS,fairyTrigger,findFairyIslandSpawn,createNpcReadiness} from '../src/volcano-npcs.js';
+import {FAIRY_MARK,FAIRY_TRIGGER_RADIUS,FAIRY_DEPARTURE_MS,fairyTrigger,findFairyIslandSpawn,createNpcReadiness,shouldRevealFairy} from '../src/volcano-npcs.js';
 import {VOLCANO_START} from '../src/volcano-contract.js';
 
 test('Act III tenants dialogue has the approved exact sequence',()=>{
@@ -87,4 +87,11 @@ test('fairy cannot jump to a separate island or lava',()=>{
  const mask=islandMask();
  for(let y=170;y<350;y++)for(let x=250;x<420;x++)mask.pixels[y*mask.width+x]=0;
  assert.equal(findFairyIslandSpawn(mask),null);
+});
+
+test('fairy reveal follows completed tenants dialogue without combat-zone clearance',()=>{
+ assert.equal(shouldRevealFairy(false,false),false);
+ assert.equal(shouldRevealFairy(true,false),true);
+ assert.equal(shouldRevealFairy(true,true),false);
+ assert.equal(shouldRevealFairy(false,true),false);
 });
