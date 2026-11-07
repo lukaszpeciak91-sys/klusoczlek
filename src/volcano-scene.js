@@ -33,6 +33,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.lawosStarted=false;
     this.lawosReadiness=createNpcReadiness();
     this.lawosComplete=false;
+    this.fairyRevealRequested=false;
     this.fairyStarted=false;
     this.fairyComplete=false;
     this.defeated=false;
@@ -367,7 +368,7 @@ export class VolcanoScene extends Phaser.Scene {
     }
     const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
-    if(this.lawosComplete&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
+    if(this.lawosComplete&&this.combat.fairyZoneCleared&&!this.fairyStarted&&this.npcs.fairy&&fairyTrigger(this.player,this.npcs.fairy.position)){
       this.fairyStarted=true;
       if(beginDialogue(this.dialogueState,'act3-swinia-wrozka')){
         this.resetMovement();this.dialoguePanel.show(this.dialogueState);return;
@@ -379,6 +380,12 @@ export class VolcanoScene extends Phaser.Scene {
     this.facing=(aim.x||aim.y)?facingOf(aim.x,aim.y,this.facing):volcanoFacing(input,this.facing);
     this.playerVisual.update(this.facing,Boolean(input.x||input.y),Math.min(delta,50));
     this.combat.update(delta,this.time.now,aim,this.aimJoystick.held,this.weapon);
+    if(this.combat.fairyZoneCleared&&!this.fairyRevealRequested&&!this.defeated){
+      this.fairyRevealRequested=true;
+      void this.npcs.revealFairy().then(ready=>{
+        if(!this.disposed&&!ready)console.warn('[Volcano] fairy zone cleared, but NPC artwork or spawn is unavailable');
+      }).catch(error=>{if(!this.disposed)console.warn('[Volcano] fairy reveal failed:',error);});
+    }
     this.renderPressureBar();
     if(this.run.hp<=0){this.lockDeath();return;}
     this.hpFace.setHp(this.run.hp);
