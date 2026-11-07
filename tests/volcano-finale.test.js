@@ -26,8 +26,7 @@ test('single-fire ordered finale; no premature escape countdown',()=>{
 test('timeout, retry and HP failure retain checkpoint without boss replay',()=>{
  const f=createVolcanoFinaleState();
  for(const state of ['BOGDAN_ACTIVE','BOGDAN_DEFEATED','FINAL_DIALOGUE','ARTIFACT_REWARD','BOGDAN_EXPLOSION','ALOES_WARNING'])f.advance(state);
- assert.equal(f.tick(60000),false); // frame delta clamped to 100 ms
- for(let i=0;i<599;i++)f.tick(100);
+ assert.equal(f.tick(60000),true); // full elapsed gameplay delta is counted
  assert.equal(f.state,'ESCAPE_RETRY');assert.equal(f.retry(),true);
  assert.equal(f.state,'ESCAPE_ACTIVE');assert.equal(f.remaining,60000);
  assert.equal(f.fail(),true);assert.equal(f.retry(),true);
@@ -42,4 +41,20 @@ test('Marcin artifact and weapon unlocks survive idempotent horn and Act III com
  assert.equal(completeCampaignAct(run,'act3',{hp:4,maxHp:5,unlockedWeapons:run.unlockedWeapons,selectedWeapon:'rifle',kills:0,activeCombatMs:0}),false);
  assert.equal(run.artifacts.has(MARCIN_MOHAWK_ID),true);assert.equal(run.artifacts.has(HORN_ID),true);
  assert.equal(run.unlockedWeapons.has('rifle'),true);assert.equal(run.actId,'act3');
+});
+
+test('60-second countdown stays accurate at 60, 30, 10 and 1 FPS',()=>{
+ for(const fps of [60,30,10,1]){
+  const f=createVolcanoFinaleState();
+  for(const state of ['BOGDAN_ACTIVE','BOGDAN_DEFEATED','FINAL_DIALOGUE','ARTIFACT_REWARD','BOGDAN_EXPLOSION','ALOES_WARNING'])f.advance(state);
+  for(let i=0;i<fps*59;i++)f.tick(1000/fps);
+  assert.ok(Math.abs(f.remaining-1000)<.01,'fps='+fps);
+  for(let i=0;i<fps;i++)f.tick(1000/fps);
+  assert.equal(f.state,'ESCAPE_RETRY','fps='+fps);
+ }
+});
+test('nonfinite or negative frame delta never advances countdown',()=>{
+ const f=createVolcanoFinaleState();
+ for(const state of ['BOGDAN_ACTIVE','BOGDAN_DEFEATED','FINAL_DIALOGUE','ARTIFACT_REWARD','BOGDAN_EXPLOSION','ALOES_WARNING'])f.advance(state);
+ f.tick(NaN);f.tick(-200);f.tick(Infinity);assert.equal(f.remaining,60000);
 });
