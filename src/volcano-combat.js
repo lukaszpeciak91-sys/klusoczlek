@@ -110,6 +110,7 @@ export function createVolcanoCombat(scene){
   enemy.bark=scene.add.text(point.x,point.y-55,'',{fontFamily:'monospace',fontSize:'14px',color:'#fff4cf',stroke:'#241018',strokeThickness:4}).setOrigin(.5).setDepth(21).setVisible(false);
   enemies.push(enemy);return true;
  }
+ function clearTransientShots(){stopFire();}
  function clearEscapeEnemies(){
   for(const enemy of enemies)if(enemy.zoneId===null&&!enemy.dead){enemy.dead=true;enemy.sprite.destroy();enemy.bark.destroy();}
  }
@@ -132,7 +133,7 @@ export function createVolcanoCombat(scene){
  function update(dt,now,aim,held,weapon){
   if(!active||scene.defeated||scene.run.hp<=0){stopFire();return;}
   const zoneId=zoneForPosition(scene.player);
-  if(zoneId&&zoneId!=='entrance')activateZone(zoneId);
+  if(scene.finale?.state!=='ESCAPE_ACTIVE'&&zoneId&&zoneId!=='entrance')activateZone(zoneId);
   const sec=Math.min(50,dt)/1000;
   const water=weapon==='water-flamethrower',fire=weapon==='flamethrower';
   const flowing=water&&waterState.step(held,dt);
@@ -179,11 +180,11 @@ export function createVolcanoCombat(scene){
     enemy.contactAt=now;
     const contact=applyPlayerContact({hp:scene.run.hp,invulnerableUntil:scene.playerInvulnerableUntil??0},now);
     scene.run.hp=contact.hp;scene.playerInvulnerableUntil=contact.invulnerableUntil;
-    if(scene.run.hp<=0){scene.lockDeath();break;}
+    if(scene.run.hp<=0){if(scene.finale?.state==='ESCAPE_ACTIVE')scene.escapeFailed();else scene.lockDeath();break;}
    }
   }
 
  }
  scene.events.once('shutdown',()=>{stopFire();stream.destroy();for(const e of enemies){e.sprite?.destroy();e.bark?.destroy();}});
- return {start,update,stopFire,activateZone,spawnEscapeEnemy,clearEscapeEnemies,get fairyZoneCleared(){return progression.fairyReveal;},get zoneProgress(){return progression;},get enemies(){return enemies;},get pressure(){return scene.weapon==='flamethrower'?firePressure:pressure;}};
+ return {start,update,stopFire,activateZone,spawnEscapeEnemy,clearEscapeEnemies,clearTransientShots,get fairyZoneCleared(){return progression.fairyReveal;},get zoneProgress(){return progression;},get enemies(){return enemies;},get pressure(){return scene.weapon==='flamethrower'?firePressure:pressure;}};
 }
