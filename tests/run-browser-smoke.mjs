@@ -180,6 +180,32 @@ try{
  const wave4=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {wave:s.combat.wave,elapsed:s.combat.elapsedMs,water:s.weapon==='water-flamethrower',act:s.run.actId,phase:s.schoolPhase}})()");
  assert.equal(wave4.wave,3);assert.ok(wave4.elapsed>=120000);
  assert.equal(wave4.water,false);assert.equal(wave4.act,'act4');
+ // R2: real approved enemy sheets, eight directions and gait (not procedural stand-ins).
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return Object.values(s.combat.renderers).every(r=>r.loaded)})()",'all three approved School sheets',9000);
+ const sheets=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),types=['bobrozombi','bocianolak','zubrokryptyda'];return types.map(type=>{const r=s.combat.renderers[type],p=s.cameras.main.getWorldPoint(s.scale.width/2,s.scale.height*.65),sprite=r.create(p.x,p.y),e={type,x:p.x,y:p.y,seed:7,facing:'s',sprite},frames=new Set();for(let i=0;i<8;i++){const a=i*Math.PI/4;r.update(e,{x:e.x+Math.cos(a)*100,y:e.y+Math.sin(a)*100},4,.03);frames.add(String(sprite.getData(type+'-art')?.frame?.name));}const art=sprite.getData(type+'-art'),gait=sprite.getData(type+'-gait'),before=gait.phase;r.update(e,{x:e.x+100,y:e.y},8,.04);const result={type,loaded:r.loaded,frames:frames.size,sprite:art?.active===true,gait:gait.phase!==before,footprint:!!r.damagePoseOf(e),anchor:!!r.speechAnchorOf(e)};sprite.destroy();return result;})})()");
+ for(const x of sheets)assert.ok(x.loaded&&x.frames===8&&x.sprite&&x.gait&&x.footprint&&x.anchor,'approved sprite parity '+JSON.stringify(x));
+ await wait("window.__game.scene.getScene('School').combat.enemies.some(e=>!e.dead)",'live School bark candidate');
+ const setup=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),e=s.combat.enemies.find(e=>!e.dead),p=s.cameras.main.getWorldPoint(s.scale.width*.5,s.scale.height*.8);e.x=p.x;e.y=p.y;s.combat.renderers[e.type].update(e,s.player,0,0);s.ambientBarks.state.remaining=0;return {eligible:s.ambientBarks.eligible,type:e.type}})()");
+ assert.equal(setup.eligible,true);
+ await wait("(()=>{const b=window.__game.scene.getScene('School').ambientBarks;return b.state.shown>0&&b.pool.some(p=>p.root.visible&&p.event?.kind==='spontaneous')})()",'approved School spontaneous bark',5000);
+ const bubble=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks,p=b.pool.find(p=>p.root.visible),a=p.bounds,h=s.hudLayout;const clear=(x,y)=>{const px=Math.max(a.x,Math.min(a.x+a.width,x)),py=Math.max(a.y,Math.min(a.y+a.height,y));return Math.hypot(x-px,y-py)>h.joystickRadius*1.4+6};return {count:b.state.active.length,hud:a.y>=h.panelY+h.panelHeight+6,left:clear(h.joystickX,h.joystickY),right:clear(h.aimX,h.aimY??h.joystickY)}})()");
+ assert.ok(bubble.count<=2&&bubble.hud&&bubble.left&&bubble.right,'approved bark layout '+JSON.stringify(bubble));
+ const hit=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks,e=b.state.active[0].speaker;e.hp=60;let attempts=0;while(b.state.hitShown===0&&attempts++<30)s.combat.qa.damage(e,1);return {attempts,hit:b.state.hitShown,visible:b.pool.some(p=>p.root.visible&&p.event?.kind==='damage'),hp:e.hp}})()");
+ assert.ok(hit.hit>0&&hit.visible&&hit.hp<60,'real damage bark under original probability '+JSON.stringify(hit));
+ const following=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks,p=b.pool.find(p=>p.root.visible&&p.event?.kind==='damage'),e=p.event.speaker,oldX=p.bounds.x;e.x+=18;s.combat.renderers[e.type].update(e,s.player,18,.03);b.tick(s.combat.elapsedMs);const next=b.pool.find(p=>p.root.visible&&p.event?.speaker===e);return {visible:!!next,dx:(next?.bounds.x??oldX)-oldX}})()");
+ assert.ok(following.visible&&Math.abs(following.dx)>7,'bubble follows moving enemy '+JSON.stringify(following));
+ const p=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
+ await touch(p.x,p.y);
+ await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'School bark MENU pause');
+ assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('School').ambientBarks;return [b.state.active.length,b.pool.filter(p=>p.root.visible).length]})()"),[0,0],'barks hidden on MENU');
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('School')",'resume School bark QA');
+ const listeners=await evaluate("window.__game.scene.getScene('School').scale.listenerCount('resize')");
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');window.__r2OldRoot=s.ambientBarks.root;s.scene.restart({debugCheckpoint:'act4-wave4'});return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat?.started&&s.combat.wave===3&&!!s.ambientBarks?.root?.active})()",'School in-place restart');
+ const restarted=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {listeners:s.scale.listenerCount('resize'),oldDestroyed:!window.__r2OldRoot.active,poolHidden:s.ambientBarks.pool.every(p=>!p.root.visible)}})()");
+ assert.ok(restarted.listeners===listeners&&restarted.oldDestroyed&&restarted.poolHidden,'no duplicate bark listeners on restart '+JSON.stringify(restarted));
+ console.log('PASS R2 real Chromium: eight-direction sprites and gait for three approved enemies; spontaneous/hit bark; moving attachment; HUD exclusion; pause and in-place restart cleanup');
  // R1: use the approved DEBUG run only to stage the existing active-play
  // clock. The real SchoolCombat.update owns all transitions and rendering.
  await wait("window.__game.scene.getScene('School').combat.enemies.length>0",'wave4 real active enemy for timed completion');
