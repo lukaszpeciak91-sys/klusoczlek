@@ -14,8 +14,8 @@ test('Act II Captain is nonblocking; deck and wheelhouse collision remain',()=>{
 test('Act III dialogue waits for player travel and has no tiny Lawostworki NPC actors',()=>{
  const s=source('../src/volcano-scene.js');
  assert.match(s,/lawosTravel>=125/);
- assert.doesNotMatch(s,/this\\.npcs\\.place\\(/);
- assert.match(s,/this\\.fairyComplete/);
+ assert.equal(s.includes('this.npcs.place('),false);
+ assert.ok(s.includes('this.fairyComplete'));
 });
 test('exactly two entrance enemies and correct story assignment',()=>{
  const first=VOLCANO_ZONES.find(z=>z.id==='entrance');
