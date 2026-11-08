@@ -301,6 +301,10 @@ export class SchoolScene extends Phaser.Scene {
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
       if(this.disposed||this.schoolPhase!=='BICYCLE_RIDE')return;
       if(this.bicycleTexture){
+        // Stage on a known-safe outdoor route beside the bicycle rack; never
+        // tween through the school even if the boss died on its far side.
+        this.player.setPosition(BLAZEJ_START.x,BLAZEJ_START.y);
+        this.player.body.reset(this.player.x,this.player.y);
         // Approved PNG alone; no replacement bike, rider sheet or riding controls.
         this.bicycleWorld=this.add.image(this.player.x,this.player.y+10,this.bicycleTexture)
           .setScale(.48).setDepth(10);
