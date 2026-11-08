@@ -34,6 +34,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.walkability=null;
     this.combatPending=false;
     this.lawosStarted=false;
+    this.lawosTravel=0;
     this.lawosReadiness=createNpcReadiness();
     this.lawosComplete=false;
     this.fairyRevealRequested=false;
@@ -92,7 +93,7 @@ export class VolcanoScene extends Phaser.Scene {
         this.openingSafeUntil=this.time.now+2200;
         this.resetMovement();
         this.syncControls();
-        if(this.lawosReadiness.started&&!this.lawosStarted)this.startLawosEncounter(this.lawosReadiness.state);
+        // Dialogue now begins after meaningful player travel, not at first input.
       }else if(id==='act3-lawostworki'){
         this.lawosComplete=true;
         this.npcs.finishLawos();
@@ -211,7 +212,8 @@ export class VolcanoScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange',focus);
       if(this.fullscreenButton)this.fullscreenButton.hidden=this.fullscreenPreviousHidden;
       this.pressureBar.destroy();this.playerVisual.destroy();this.hpFace.destroy();
-      this.escapeBurst?.destroy();this.extractionActor?.destroy();
+      this.escapeBurst?.destroy();
+      if(this.extractionActor!==this.captainArrival.actor)this.extractionActor?.destroy();
     });
     resize();
     enforceOrientationOnSceneStart(this);
@@ -275,14 +277,6 @@ export class VolcanoScene extends Phaser.Scene {
           if(!ready)console.warn('[Volcano Boss] apartment encounter unavailable');
           else if(this.apartmentPending)this.tryApartmentEncounter();
         });
-        void this.npcs.place().then(ready=>{
-          if(this.disposed||this.defeated||this.run.hp<=0)return;
-          this.resolveLawosReadiness(ready);
-        }).catch(error=>{
-          if(this.disposed)return;
-          console.error('[Volcano NPC] placement failed:',error);
-          this.resolveLawosReadiness(false);
-        });
         if(this.lawosComplete&&this.combatPending){this.combat.start();this.combatPending=false;}
         this.terrainImage.setTexture(key).setPosition(0,0).setOrigin(0).setDisplaySize(ARENA.width,ARENA.height).setVisible(true);
         this.terrain.setVisible(false);
@@ -299,25 +293,13 @@ export class VolcanoScene extends Phaser.Scene {
     const decision=this.lawosReadiness.resolve(ready);
     if(decision)this.startLawosEncounter(decision);
   }
-  startLawosEncounter(decision){
+  startLawosEncounter(){
     if(this.disposed||this.defeated||this.run.hp<=0||this.lawosStarted||!this.openingComplete||!this.walkability)return;
-    if(decision==='ready'&&this.npcs.lawosReady){
-      if(beginDialogue(this.dialogueState,'act3-lawostworki')){
-        this.lawosStarted=true;
-        this.resetMovement();
-        this.dialoguePanel.show(this.dialogueState);
-        return;
-      }
+    if(beginDialogue(this.dialogueState,'act3-lawostworki')){
+      this.lawosStarted=true;
+      this.resetMovement();
+      this.dialoguePanel.show(this.dialogueState);
     }
-    // A failed production PNG must not permanently lock Act III.
-    this.lawosStarted=true;
-    this.lawosComplete=true;
-    this.npcs.finishLawos();
-    this.revealFairyAfterLawos();
-    console.warn('[Volcano NPC] Lawostworki dialogue skipped because both sprites are not available');
-    this.combat.start();
-    this.resetMovement();
-    this.syncControls();
   }
   revealFairyAfterLawos(){
     if(!shouldRevealFairy(this.lawosComplete,this.fairyRevealRequested)||this.disposed||this.defeated)return;
@@ -423,7 +405,10 @@ export class VolcanoScene extends Phaser.Scene {
       const key='npc-captain',point=this.extractionPoint;
       if(!this.textures.exists(key))await this.captainArrival.loading;
       if(this.disposed||!this.extractionPoint)return;
-      if(this.textures.exists(key))this.extractionActor=this.add.sprite(point.x,point.y,key,2).setOrigin(.5,1).setScale(.75).setDepth(13);
+      // Reposition the original Captain; never create a second world instance.
+      const existing=this.captainArrival.actor;
+      if(existing?.active){existing.setPosition(point.x,point.y).setDepth(13);this.extractionActor=existing;}
+      else if(this.textures.exists(key))this.extractionActor=this.add.sprite(point.x,point.y,key,2).setOrigin(.5,1).setScale(.75).setDepth(13);
       else this.extractionActor=this.add.circle(point.x,point.y-35,23,0x477b8e).setDepth(13);
     }finally{this.extractionLoading=false;}
   }
@@ -548,16 +533,12 @@ export class VolcanoScene extends Phaser.Scene {
     const input=normalizeInput(
       this.joystick.direction.x+Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),
       this.joystick.direction.y+Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown));
-    if(!this.lawosStarted&&Math.hypot(input.x,input.y)>.05){
-      const decision=this.lawosReadiness.requestMovement();
-      if(decision)this.startLawosEncounter(decision);
-      if(!this.lawosStarted||this.dialogueState.id){this.resetMovement();return;}
-    }
-    if(!this.lawosStarted&&this.lawosReadiness.state==='pending'&&this.lawosReadiness.movement){
-      this.resetMovement();return;
-    }
-    if(this.lawosReadiness.started&&!this.lawosStarted){
-      this.resetMovement();return;
+    if(!this.lawosStarted){
+      const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
+      this.lawosTravel+=Math.hypot(next.x-this.player.x,next.y-this.player.y);
+      this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
+      if(this.lawosTravel>=125)this.startLawosEncounter();
+      if(this.dialogueState.id)return;
     }
     if(!['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(this.finale.state)){this.resetMovement();return;}
     const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
