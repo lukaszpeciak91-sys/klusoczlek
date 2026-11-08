@@ -16,7 +16,8 @@ export const LAVA_TYPES=Object.freeze({
  'lawostworek-1':Object.freeze({hp:3,speed:115,radius:21,frame:96,width:768,height:96,color:0xffa51f}),
  'lawostworek-2':Object.freeze({hp:6,speed:48,radius:25,frame:128,width:1024,height:128,color:0xe0441b})
 });
-export const LAVA_BARKS=Object.freeze(['Łaskocze!','I co mi zrobisz?!','Ale groźny!','HA! HA! HA!','Spróbuj wodą, geniuszu!']);
+export const LAVA_BARKS=Object.freeze(['I co mi zrobisz?!','Ale groźny!','HA! HA! HA!']);
+export const LAVA_INEFFECTIVE_BARKS=Object.freeze(['Łaskocze!','Spróbuj wodą, geniuszu!']);
 export function ordinaryLavaBarkDue(enemy,now,dialogueActive,visibleBarks=0){
  return !enemy.dead&&!dialogueActive&&visibleBarks===0&&now>=(enemy.ordinaryBarkAt??Infinity);
 }
@@ -54,6 +55,7 @@ export function createVolcanoCombat(scene){
  const progression=createPlatformProgression();
  const firing=createFiringState(),firePressure=fireState.pressure,flameCooldowns=fireState.cooldowns;
  const sprites={};
+ const preparedZones=new Set();
  // Match Act I Bobrozombi's 96px frame at its approved 0.75 visual scale.
  const visualSizes={'lawostworek-1':72,'lawostworek-2':84};
  const enemyDisplaySize=type=>visualSizes[type];
@@ -95,21 +97,35 @@ export function createVolcanoCombat(scene){
    }catch(error){console.warn('[Volcano] enemy placeholder '+type+': '+error.message);}
   })();
  }
+ function prepareZones(){
+  if(!scene.walkability)return false;
+  for(const zone of VOLCANO_ZONES){
+   if(preparedZones.has(zone.id))continue;
+   preparedZones.add(zone.id);
+   for(const [i,type] of zone.enemies.entries()){
+    const def=LAVA_TYPES[type],preferred=zone.spawns[i];
+    const avoid=[{x:scene.player.x,y:scene.player.y,radius:110},
+     ...enemies.filter(e=>!e.dead).map(e=>({x:e.x,y:e.y,radius:e.radius}))];
+    const point=findZoneSpawn(scene.walkability,zone,preferred,def.radius,avoid,zone.id==='fairy'?260:125);
+    if(!point){console.warn('[Volcano] pre-stage invalid '+zone.id+' '+i);continue;}
+    const enemy=createLavaEnemy(type,point.x,point.y,VOLCANO_ZONES.indexOf(zone)*10+i);
+    enemy.zoneId=zone.id;enemy.engaged=false;
+    enemy.sprite=scene.add.sprite(point.x,point.y,sprites[type],sprites[type]===type?2:0).setDepth(12);
+    enemy.sprite.setDisplaySize(enemyDisplaySize(type),enemyDisplaySize(type));
+    enemy.facing='s';enemy.bark=makeMonsterBark(scene,point.x,point.y-65);
+    enemies.push(enemy);
+   }
+  }
+  return true;
+ }
  function activateZone(id){
   if(!scene.walkability)return false;
+  prepareZones();
   return progression.activate(id,(zone,type,i)=>{
-   const def=LAVA_TYPES[type],preferred=zone.spawns[i];
-   const avoid=[{x:scene.player.x,y:scene.player.y,radius:17},
-    ...enemies.filter(e=>!e.dead).map(e=>({x:e.x,y:e.y,radius:e.radius}))];
-   const point=findZoneSpawn(scene.walkability,zone,preferred,def.radius,avoid,zone.id==='fairy'?260:105);
-   if(!point){console.error('[Volcano] '+id+': no valid same-zone spawn for '+type+' #'+i);return false;}
-   const enemy=createLavaEnemy(type,point.x,point.y,VOLCANO_ZONES.indexOf(zone)*10+i);
-   enemy.zoneId=id;
-   enemy.sprite=scene.add.sprite(point.x,point.y,sprites[type],sprites[type]===type?2:0).setDepth(12);
-   enemy.sprite.setDisplaySize(enemyDisplaySize(type),enemyDisplaySize(type));
-   enemy.facing='s';
-   enemy.bark=makeMonsterBark(scene,point.x,point.y-65);
-   enemies.push(enemy);
+   const enemy=enemies.find(e=>e.zoneId===id&&e.index===VOLCANO_ZONES.indexOf(zone)*10+i&&!e.dead);
+   if(!enemy)return false;
+   enemy.engaged=true;
+   enemy.ordinaryBarkAt=scene.time.now+3500+(i*1300);
    return true;
   });
  }
@@ -134,10 +150,10 @@ export function createVolcanoCombat(scene){
   if(enemy.dead)return;
   const damage=lavaDamage(weapon,amount);
   if(!damage){
-   showMonsterBark(enemy.bark,enemy.barkState,LAVA_BARKS,now);
+   if(!scene.dialogueState.id)showMonsterBark(enemy.bark,enemy.barkState,LAVA_INEFFECTIVE_BARKS,now);
    return;
   }
-  if(weapon==='water-flamethrower')showMonsterBark(enemy.bark,enemy.barkState,WATER_BARKS,now);
+  if(weapon==='water-flamethrower'&&!scene.dialogueState.id)showMonsterBark(enemy.bark,enemy.barkState,WATER_BARKS,now);
   if(weapon==='water-flamethrower')igniteEnemy(enemy.ignition,enemy.type,now);
   const applied=Math.min(enemy.hp,damage);
   enemy.hp=applyEnemyHit(enemy.hp,damage);
@@ -174,7 +190,7 @@ export function createVolcanoCombat(scene){
    const state=water?waterState:fireState;
    drawContinuousStream(stream,origin,aim,now,weapon);
    emitContinuousParticle(scene,state,origin,aim,now,weapon);
-   for(const enemy of enemies)if(!enemy.dead&&inFlameCone(origin,aim,enemy,tune.range,tune.halfAngle,enemy.radius)&&cooldownReady(water?waterCooldowns:flameCooldowns,enemy,now,tune.damageInterval))hit(enemy,weapon,tune.damage,now);
+   for(const enemy of enemies)if(!enemy.dead&&enemy.engaged!==false&&inFlameCone(origin,aim,enemy,tune.range,tune.halfAngle,enemy.radius)&&cooldownReady(water?waterCooldowns:flameCooldowns,enemy,now,tune.damageInterval))hit(enemy,weapon,tune.damage,now);
    const boss=scene.boss;
    if(boss?.active&&boss.bogdan&&inFlameCone(origin,aim,bogdanConeTarget(boss.bogdan),tune.range,tune.halfAngle,boss.bogdan.displayWidth*.38)&&cooldownReady(water?waterCooldowns:flameCooldowns,boss.bogdan,now,tune.damageInterval))boss.damage(tune.damage,now);
   }
@@ -191,7 +207,7 @@ export function createVolcanoCombat(scene){
   }
   for(let i=shots.length-1;i>=0;i--){
    const shot=shots[i];shot.age+=dt;shot.x+=shot.vx*sec;shot.y+=shot.vy*sec;shot.sprite.setPosition(shot.x,shot.y);
-   const enemy=enemies.find(e=>!e.dead&&Math.hypot(e.x-shot.x,e.y-shot.y)<e.radius+5);
+   const enemy=enemies.find(e=>!e.dead&&e.engaged!==false&&Math.hypot(e.x-shot.x,e.y-shot.y)<e.radius+5);
    if(enemy)hit(enemy,shot.weapon,1,now);
    const bossHit=!enemy&&scene.boss?.active&&scene.boss.bogdan&&bogdanCombatHit(scene.boss.bogdan,shot.x,shot.y,5);
    if(bossHit)scene.boss.damage(1,now);
@@ -212,7 +228,7 @@ export function createVolcanoCombat(scene){
      enemy.ordinaryBarkAt=now+8500+(enemy.index%4)*1300;
    }
    syncMonsterBark(enemy.bark,enemy.barkState,now,p.x,p.y-65,speechAllowed);
-   if(Math.hypot(p.x-scene.player.x,p.y-scene.player.y)<enemy.radius+18&&now-enemy.contactAt>1100){
+   if(!openingSafe&&Math.hypot(p.x-scene.player.x,p.y-scene.player.y)<enemy.radius+18&&now-enemy.contactAt>1100){
     enemy.contactAt=now;
     const contact=applyPlayerContact({hp:scene.run.hp,invulnerableUntil:scene.playerInvulnerableUntil??0},now);
     scene.run.hp=contact.hp;scene.playerInvulnerableUntil=contact.invulnerableUntil;
@@ -222,5 +238,6 @@ export function createVolcanoCombat(scene){
 
  }
  scene.events.once('shutdown',()=>{stopFire();for(const burst of deathBursts)burst.destroy();stream.destroy();for(const e of enemies){e.sprite?.destroy();e.bark?.destroy();}});
- return {start,update,stopFire,activateZone,spawnEscapeEnemy,clearEscapeEnemies,clearTransientShots,get fairyZoneCleared(){return progression.fairyReveal;},get zoneProgress(){return progression;},get enemies(){return enemies;},get pressure(){return scene.weapon==='flamethrower'?firePressure:pressure;}};
-}
+ return {start,prepareZones,update,stopFire,activateZone,spawnEscapeEnemy,clearEscapeEnemies,clearTransientShots,get fairyZoneCleared(){return progression.fairyReveal;},get zoneProgress(){return progression;},get enemies(){return enemies;},get pressure(){return scene.weapon==='flamethrower'?firePressure:pressure;}};
+}   enemy.hp=applyEnemyHit(enemy.hp,damage);
+
