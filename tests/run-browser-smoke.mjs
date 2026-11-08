@@ -231,6 +231,13 @@ try{
  await sleep(140);
  assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.run.hp,heart:s.hearts.wave2.token?.active,collected:s.hearts.wave2.collected}})()"),
   {hp:5,heart:true,collected:false},'full HP does not waste wave2 heart');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');window.__wave2Token=s.hearts.wave2.token;return true})()");
+ const heartMenu=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
+ await touch(heartMenu.x,heartMenu.y);
+ await wait("window.__game.scene.isPaused('School')&&window.__game.scene.isActive('Menu')",'MENU while heart visible');
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('School')",'resume same wave2 heart');
+ assert.equal(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.hearts.wave2.token===window.__wave2Token&&s.hearts.wave2.spawned&&!s.hearts.wave2.collected})()"),true,'no second heart after MENU/WZNÓW');
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.hp=3;s.hpFace.setHp(3);return true})()");
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.hearts.wave2.collected&&s.run.hp===5})()",'wave2 heart heals exactly once and clamps',3000);
  const onceHeart=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {spawned:s.hearts.wave2.spawned,collected:s.hearts.wave2.collected,token:s.hearts.wave2.token}})()");
