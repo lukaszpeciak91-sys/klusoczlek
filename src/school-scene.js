@@ -17,7 +17,7 @@ import {seededRandom} from './arena-layout.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {createSchoolBlazej} from './school-blazej.js';
-import {BLAZEJ_BICYCLE_ID,BLAZEJ_START,CHAPEL_RETURN,blazejConfrontationReady} from './school-finale.js';
+import {BLAZEJ_BICYCLE_ID,BLAZEJ_START,CHAPEL_RETURN,BLAZEJ_OBSERVER_BARKS,BLAZEJ_BOSS_BARKS} from './school-finale.js';
 import {SCHOOL_COMBAT_MS} from './school-combat.js';
 import {SCHOOL_WORLD,SCHOOL_PLACES,SCHOOL_OBSTACLES,SCHOOL_WAVE_COUNT,schoolStep,schoolDebugPoint} from './school-contract.js';
 
@@ -37,7 +37,7 @@ export class SchoolScene extends Phaser.Scene {
     this.introActive=!['act4-school','act4-combat','act4-wave4','act4-blazej','act4-boss','act4-finale'].includes(this.debugCheckpoint);
     this.schoolPhase='INTRO';this.defeated=false;this.defeatVisualAt=null;
     this.captainDeparting=false;
-    this.storyBusy=false;this.observerShown=false;this.bossConfronted=false;
+    this.storyBusy=false;this.openingPending=false;this.openingDialogueStarted=false;this.bossConfronted=false;
     this.bossDefeatHandled=false;this.actCompleted=false;this.rewardArmedAt=0;this.bicycleTexture=null;
     this.dialogueState=createDialogueState();
     this.cameras.main.setBackgroundColor('#283c32');
@@ -115,8 +115,16 @@ export class SchoolScene extends Phaser.Scene {
     this.narrativeEvents=new Set(); // Act I story beats do not run in School.
     this.canResume=()=>this.controlsAllowed()&&!this.introActive&&!this.defeated&&
       this.run.hp>0&&!this.dialogueLoading&&!this.dialogueState?.id&&
-      (this.schoolPhase==='COMBAT'||this.schoolPhase==='CLEANUP');
-    this.ambientBarks=createAmbientBarks(this,seededRandom((104^0x46babc)>>>0));
+      (this.schoolPhase==='COMBAT'||this.schoolPhase==='CLEANUP'||this.schoolPhase==='BLAZEJ_BOSS');
+    this.ambientBarks=createAmbientBarks(this,seededRandom((104^0x46babc)>>>0),{
+      guest:{
+        rng:seededRandom((104^0x46ba22)>>>0),
+        speaker:()=>this.blazej?.actor,
+        phase:()=>['COMBAT','CLEANUP'].includes(this.schoolPhase)?'observer':
+          this.schoolPhase==='BLAZEJ_BOSS'?'boss':null,
+        phrases:{observer:BLAZEJ_OBSERVER_BARKS,boss:BLAZEJ_BOSS_BARKS}
+      }
+    });
     this.blazej=createSchoolBlazej(this,Phaser);
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>this.onSchoolDialogueEnded(id));
     this.createBicycleRewardUi();
@@ -180,7 +188,7 @@ export class SchoolScene extends Phaser.Scene {
       void this.captainArrival.loading.then(()=>{
         if(this.disposed)return;
         if(!this.captainArrival.start()){
-          this.introActive=false;this.combat.start();this.syncControls();
+          this.introActive=false;this.openingPending=true;this.syncControls();
         }
       });
     }
@@ -197,9 +205,17 @@ export class SchoolScene extends Phaser.Scene {
   }
   onSchoolDialogueEnded(id){
     if(this.disposed||this.defeated)return;
-    if(id==='act4-blazej-observer'){
-      this.storyBusy=false;this.combat.suspend();this.syncControls();
+    if(id==='act4-maciek-seba'){
+      this.storyBusy=false;
+      this.beginSchoolDialogue('act4-blazej-observer');
+    }else if(id==='act4-blazej-observer'){
+      this.storyBusy=false;
+      this.beginSchoolDialogue('act4-blazej-confrontation');
     }else if(id==='act4-blazej-confrontation'){
+      this.storyBusy=false;
+      this.combat.start(); // The first ordinary wave begins only after DALEJ.
+      this.combat.suspend();this.syncControls();
+    }else if(id==='act4-blazej-final'){
       this.storyBusy=false;
       if(this.combat.enterBoss())this.blazej.activate();
       this.combat.suspend();this.syncControls();
@@ -427,9 +443,13 @@ export class SchoolScene extends Phaser.Scene {
           if(this.disposed)return;
           actor?.destroy();
           this.introActive=false;
-          this.combat.start();
+          this.openingPending=true;
           this.syncControls();
         }});
+    }
+    if(this.openingPending&&!this.openingDialogueStarted&&this.controlsAllowed()){
+      this.openingDialogueStarted=this.beginSchoolDialogue('act4-maciek-seba');
+      if(this.openingDialogueStarted)this.openingPending=false;
     }
     this.syncControls();
     if(!this.controlsAllowed()||this.introActive||this.defeated){this.combat.suspend();return;}
@@ -455,13 +475,8 @@ export class SchoolScene extends Phaser.Scene {
     this.playerVisual.update(this.facing,Math.hypot(input.x,input.y)>.05,Math.min(50,delta));
     const now=performance.now();
     this.combat.update(delta,now,aim,this.aimJoystick.held);
-    if(this.schoolPhase==='COMBAT'&&!this.run.isDebugRun&&!this.observerShown&&
-        this.combat.elapsedMs>=6000&&this.combat.enemies.some(e=>!e.dead)){
-      this.observerShown=this.beginSchoolDialogue('act4-blazej-observer');
-    }
-    if(this.schoolPhase==='BLAZEJ_PENDING'&&!this.bossConfronted&&
-        blazejConfrontationReady(this.schoolPhase,this.player,this.blazej.actor)){
-      this.bossConfronted=this.beginSchoolDialogue('act4-blazej-confrontation');
+    if(this.schoolPhase==='BLAZEJ_PENDING'&&!this.bossConfronted){
+      this.bossConfronted=this.beginSchoolDialogue('act4-blazej-final');
     }
     if(this.schoolPhase==='BLAZEJ_BOSS')this.blazej.update(delta,now);
     if(this.defeated)return;
