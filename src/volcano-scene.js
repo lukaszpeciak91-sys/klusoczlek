@@ -452,7 +452,7 @@ export class VolcanoScene extends Phaser.Scene {
       }
       return;
     }
-    if(this.time.now>=this.escapeSpawnAt&&this.escapeSpawned<12){
+    if(this.time.now>=this.escapeSpawnAt&&(this.escapeSpawned<12||this.escapeSuccessfulSpawns<3)&&this.escapeSpawned<30){
       this.escapeSpawnAt=this.time.now+(this.escapeSuccessfulSpawns<3?1100:4200);
       this.escapeSpawned++;
       const living=this.combat.enemies.filter(e=>!e.dead);
