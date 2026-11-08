@@ -421,7 +421,8 @@ export class VolcanoScene extends Phaser.Scene {
     this.extractionPoint=point;
     this.escapeCheckpoint={x:this.player.x,y:this.player.y,hp:Math.max(1,this.run.hp)};
     if(!this.finale.advance('ALOES_WARNING'))return;
-    this.escapeSpawnAt=this.time.now+1800;
+    this.escapeSpawned=0;this.escapeSuccessfulSpawns=0;
+    this.escapeSpawnAt=this.time.now+850;
     this.escapeShockAt=this.time.now+3500;
     this.escapeClock.setVisible(true).setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
     void this.spawnExtractionCaptain();
@@ -452,12 +453,22 @@ export class VolcanoScene extends Phaser.Scene {
       return;
     }
     if(this.time.now>=this.escapeSpawnAt&&this.escapeSpawned<12){
-      this.escapeSpawnAt=this.time.now+Math.max(2800,4300-this.escapeSpawned*150);
+      this.escapeSpawnAt=this.time.now+(this.escapeSuccessfulSpawns<3?1100:4200);
       this.escapeSpawned++;
-      const alive=this.combat.enemies.filter(e=>!e.dead);
-      if(alive.length<6){
-        const p=nearestVolcanoSpawn(this.walkability,this.player.x+180,this.player.y+110,24,0,[{x:this.player.x,y:this.player.y,radius:110}],90);
-        if(p)this.combat.spawnEscapeEnemy(p,this.escapeSpawned%4===0?'lawostworek-2':'lawostworek-1');
+      const living=this.combat.enemies.filter(e=>!e.dead);
+      if(living.length<6){
+        const offsets=[{x:185,y:110},{x:-190,y:115},{x:155,y:-175},
+         {x:-165,y:-175},{x:230,y:35},{x:-225,y:30}];
+        const candidates=offsets.map((o,i)=>({x:this.player.x+o.x,y:this.player.y+o.y,i}));
+        for(const candidate of candidates){
+          const point=nearestVolcanoSpawn(this.walkability,candidate.x,candidate.y,24,0,null,65);
+          if(!point||Math.hypot(point.x-this.player.x,point.y-this.player.y)<135||
+             (this.extractionPoint&&Math.hypot(point.x-this.extractionPoint.x,point.y-this.extractionPoint.y)<105)||
+             living.some(e=>Math.hypot(e.x-point.x,e.y-point.y)<95))continue;
+          const type=this.escapeSuccessfulSpawns%3===1?'lawostworek-2':'lawostworek-1';
+          if(this.combat.spawnEscapeEnemy(point,type))this.escapeSuccessfulSpawns++;
+          break;
+        }
       }
     }
     // World-only lava pulse: HUD remains stable; never use camera flash/shake on controls.
@@ -479,7 +490,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.finale.state==='ALOES_WARNING'){this.retryRoot.setVisible(false);this.startEscape();return;}
     if(!this.finale.retry()||!this.escapeCheckpoint)return;
     this.retryRoot.setVisible(false);
-    this.combat.clearEscapeEnemies();this.escapeSpawned=0;this.escapeSpawnAt=this.time.now+1800;
+    this.combat.clearEscapeEnemies();this.escapeSpawned=0;this.escapeSuccessfulSpawns=0;this.escapeSpawnAt=this.time.now+850;
     this.escapeShockAt=this.time.now+3500;
     this.run.hp=Math.max(2,Math.min(this.run.maxHp,this.escapeCheckpoint.hp));
     this.playerInvulnerableUntil=this.time.now+1400;
