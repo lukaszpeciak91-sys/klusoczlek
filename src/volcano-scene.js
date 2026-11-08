@@ -18,6 +18,7 @@ import {WEAPONS,availableWeapons,cycleUnlockedWeapon} from './weapon-progression
 import {resolveAim} from './shooting.js';
 import {facingOf} from './combat-contract.js';
 import {createVolcanoCombat} from './volcano-combat.js';
+import {lawosDialogueTrigger,lawosTriggerReached} from './volcano-platforms.js';
 import {createVolcanoNpcs,fairyTrigger,createNpcReadiness,shouldRevealFairy} from './volcano-npcs.js';
 import {createBogdanEncounter,apartmentReached,findMarlenaRoute} from './volcano-bogdan.js';
 import {volcanoFootprintAllowed,volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing,createVolcanoWalkability,nearestVolcanoSpawn} from './volcano-contract.js';
@@ -37,7 +38,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.combatPending=false;
     this.lawosStarted=false;
     this.lawosTravel=0;
-    this.lawosTrigger=Object.freeze({x:510,y:890,radius:105});
+    this.lawosTrigger=null; // resolved from terrain-validated opening enemy positions
     this.lawosReadiness=createNpcReadiness();
     this.lawosComplete=false;
     this.fairyRevealRequested=false;
@@ -104,7 +105,7 @@ export class VolcanoScene extends Phaser.Scene {
         this.syncControls();
         // Dialogue now begins after meaningful player travel, not at first input.
       }else if(id==='act3-lawostworki'){
-        this.openingSafeUntil=this.time.now+3000;
+        this.openingSafeUntil=this.time.now+1100; // contact grace only, not an AI freeze
         this.lawosComplete=true;
         this.npcs.finishLawos();
         this.revealFairyAfterLawos();
@@ -284,6 +285,8 @@ export class VolcanoScene extends Phaser.Scene {
         if(!playerStart)throw Error('no valid player spawn in terrain mask');
         this.walkability=mask;
         this.combat.prepareZones();
+        this.lawosTrigger=lawosDialogueTrigger(this.combat.enemies.filter(e=>e.zoneId==='entrance'&&!e.dead));
+        if(!this.lawosTrigger)console.error('[Volcano] Lawostworki opening staging incomplete');
         this.player.setPosition(playerStart.x,playerStart.y);
         this.player.body.reset(playerStart.x,playerStart.y);
         void this.boss.prepare().then(ready=>{
@@ -311,7 +314,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.disposed||!this.walkability||!bossReady)return false;
     const id=this.debugCheckpoint;
     const targets={
-      'act3-lawos':{x:510,y:890},
+      'act3-lawos':{x:385,y:930}, // approach to upper platform before contact
       'act3-fairy':{x:760,y:820},
       'act3-apartment':{x:1250,y:480},
       'act3-boss':{x:1280,y:490},
@@ -372,7 +375,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.disposed||this.defeated||this.run.hp<=0||this.lawosStarted||!this.openingComplete||!this.walkability)return;
     if(beginDialogue(this.dialogueState,'act3-lawostworki')){
       this.lawosStarted=true;
-      this.openingSafeUntil=this.time.now+3500;
+      // Dialogue locks player input and AI; grace starts on its final panel.
       this.resetMovement();
       this.dialoguePanel.show(this.dialogueState);
     }
@@ -722,7 +725,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(!this.lawosStarted)this.lawosTravel+=Math.hypot(next.x-this.player.x,next.y-this.player.y);
     this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
     if(!this.lawosStarted){
-      if(Math.hypot(this.player.x-this.lawosTrigger.x,this.player.y-this.lawosTrigger.y)<=this.lawosTrigger.radius)this.startLawosEncounter();
+      if(lawosTriggerReached(this.player,this.lawosTrigger))this.startLawosEncounter();
       if(this.dialogueState.id)return;
     }
     if(this.lawosComplete&&!this.apartmentComplete&&!this.preBossHeartCollected&&!this.preBossHeart)this.spawnPreBossHeart();
