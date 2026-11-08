@@ -1,6 +1,7 @@
 import {createVolcanoFinaleState,HORN_ID,formatEscape} from './volcano-finale.js';
 import {createPixelBurst} from './pixel-death-vfx.js';
 import {healOneHp,canCollectBogdanHeart} from './volcano-heart.js';
+import {createHealthToken} from './health-token.js';
 import Phaser from 'phaser';
 import {ARENA,PLAYER_SPEED,PLAYER_RADIUS,normalizeInput} from './movement.js';
 import {createPlayer} from './player.js';
@@ -462,10 +463,7 @@ export class VolcanoScene extends Phaser.Scene {
     const candidate=nearestVolcanoSpawn(this.walkability,1090,610,17,0,null,120);
     if(!candidate)return false;
     this.preBossHeartPoint=candidate;
-    this.preBossHeart=this.add.text(candidate.x,candidate.y-14,'♥',{
-      fontFamily:'Arial',fontSize:'37px',fontStyle:'bold',color:'#e83448',
-      stroke:'#fff0c8',strokeThickness:3
-    }).setOrigin(.5).setDepth(16);
+    this.preBossHeart=createHealthToken(this,candidate.x,candidate.y);
     return true;
   }
   collectPreBossHeart(){
@@ -485,10 +483,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(!point)return false;
     this.bogdanHeartPoint=point;
     // Existing HUD heart motif, rendered directly; no new binary asset.
-    this.bogdanHeart=this.add.text(point.x,point.y-14,'♥',{
-      fontFamily:'Arial',fontSize:'37px',fontStyle:'bold',color:'#e83448',
-      stroke:'#fff0c8',strokeThickness:3
-    }).setOrigin(.5).setDepth(16);
+    this.bogdanHeart=createHealthToken(this,point.x,point.y);
     return true;
   }
   collectBogdanHeart(){
@@ -513,13 +508,22 @@ export class VolcanoScene extends Phaser.Scene {
     this.resetMovement();
   }
   explodeBogdan(){
+    if(this.escapeBurst||this.finale.state!=='BOGDAN_EXPLOSION')return;
     const actor=this.boss.bogdan;
-    if(actor){this.escapeBurst=createPixelBurst(this,'marcin',actor.x,actor.y,93);this.boss.removeDefeatedSprite();}
-    this.time.delayedCall(750,()=>{
-      if(this.disposed||this.finale.state!=='BOGDAN_EXPLOSION')return;
-      if(this.finale.advance('BOGDAN_EXPLOSION')&&beginDialogue(this.dialogueState,'act3-eruption-warning'))this.dialoguePanel.show(this.dialogueState);
-    });
+    if(!actor){this.finishBogdanExplosion();return;}
+    this.escapeBurst=createPixelBurst(this,'marcin',actor.x,actor.y,93);
+    this.boss.removeDefeatedSprite();
   }
+  finishBogdanExplosion(){
+    if(this.disposed||this.finale.state!=='BOGDAN_EXPLOSION')return;
+    if(this.finale.advance('BOGDAN_EXPLOSION')&&beginDialogue(this.dialogueState,'act3-eruption-warning'))this.dialoguePanel.show(this.dialogueState);
+  }
+  advanceBogdanExplosion(delta){
+    if(!this.escapeBurst||this.finale.state!=='BOGDAN_EXPLOSION')return;
+    if(!this.escapeBurst.done)this.escapeBurst.update(delta);
+    if(this.escapeBurst.done){this.escapeBurst=null;this.finishBogdanExplosion();}
+  }
+
   findExtractionPoint(){
     if(!this.walkability)return null;
     const mask=this.walkability,from={x:this.player.x,y:this.player.y};
@@ -696,6 +700,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.scene.bringToTop('Menu');
   }
   update(_time,delta){
+    this.advanceBogdanExplosion(delta);
     this.ensureApartmentCameraRecovery();
     if(this.finale.state==='ESCAPE_RETRY')return;
     if(this.run.hp<=0){if(this.finale.state==='ESCAPE_ACTIVE'){this.escapeFailed();return;}this.lockDeath();return;}
@@ -748,7 +753,6 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.finale.state==='ESCAPE_ACTIVE')this.updateEscape(delta);
     if(this.finale.state==='BOGDAN_ACTIVE'||this.finale.state==='ESCAPE_ACTIVE')this.collectBogdanHeart();
     if(this.finale.state==='BOGDAN_ACTIVE')this.collectPreBossHeart();
-    if(this.escapeBurst&&!this.escapeBurst.done)this.escapeBurst.update(delta);
     this.renderPressureBar();
     if(this.run.hp<=0){if(this.finale.state==='ESCAPE_ACTIVE'){this.escapeFailed();return;}this.lockDeath();return;}
     this.hpFace.setHp(this.run.hp);
