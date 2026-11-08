@@ -108,6 +108,7 @@ export class VolcanoScene extends Phaser.Scene {
         this.resetMovement();
         this.syncControls();
       }else if(id==='act3-apartment-argument'){
+        this.restoreApartmentCamera();
         this.apartmentComplete=true;
         this.boss.depart();
         this.resetMovement();this.syncControls();
@@ -317,11 +318,27 @@ export class VolcanoScene extends Phaser.Scene {
       if(!ready){this.fairyRevealRequested=false;console.error('[Volcano] fairy route unavailable; apartment story gate remains locked until safe spawn is found');}
     }).catch(error=>{if(!this.disposed){this.fairyRevealRequested=false;console.error('[Volcano] fairy reveal failed:',error);}});
   }
+  frameApartmentCamera(){
+    const camera=this.cameras.main;
+    if(!this.boss.marlena?.active||!this.boss.bogdan?.active)return;
+    const a=this.boss.marlena,b=this.boss.bogdan;
+    const target={x:(a.x+b.x)/2,y:(a.y+b.y)/2+65};
+    camera.stopFollow();camera.pan(target.x,target.y,850,'Sine.easeInOut');
+    this.apartmentCameraFramed=true;
+  }
+  restoreApartmentCamera(){
+    if(!this.apartmentCameraFramed)return;
+    this.apartmentCameraFramed=false;
+    const camera=this.cameras.main;
+    camera.pan(this.player.x,this.player.y,650,'Sine.easeInOut',false,(_cam,progress)=>{
+      if(progress===1&&!this.disposed)camera.startFollow(this.player,true,.12,.12);
+    });
+  }
   tryApartmentEncounter(){
     if(!this.openingComplete||!this.lawosComplete||!this.fairyComplete||this.dialogueState.id||this.defeated||!this.boss.ready)return false;
     if(!this.boss.beginArgument())return false;
     if(beginDialogue(this.dialogueState,'act3-apartment-argument')){
-      this.resetMovement();this.dialoguePanel.show(this.dialogueState);return true;
+      this.resetMovement();this.frameApartmentCamera();this.dialoguePanel.show(this.dialogueState);return true;
     }
     return false;
   }
