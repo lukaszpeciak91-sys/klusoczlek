@@ -1,7 +1,8 @@
-import {createCampaignRun,MARCIN_MOHAWK_ID,nextActHandoff} from './campaign-run.js';
+import {createCampaignRun,MARCIN_MOHAWK_ID,WATER_FLAMETHROWER_ID,nextActHandoff} from './campaign-run.js';
+import {HORN_ID} from './volcano-finale.js';
 import {ENCOUNTER} from './bobrozombi.js';
 
-// Temporary development-only destinations. Never expose the unimplemented acts.
+// Temporary development destinations. Never expose unimplemented boss checkpoints.
 export const DEBUG_CHECKPOINTS=Object.freeze([
   Object.freeze({id:'act1-opening',actId:'act1',scene:'Arena',label:'AKT I — POCZĄTEK'}),
   Object.freeze({id:'act1-marcin',actId:'act1',scene:'Arena',label:'AKT I — MARCIN'}),
@@ -17,6 +18,8 @@ export const DEBUG_CHECKPOINTS=Object.freeze([
   Object.freeze({id:'act3-apartment',actId:'act3',scene:'Volcano',label:'AKT III — MARLENA / BOGDAN'}),
   Object.freeze({id:'act3-boss',actId:'act3',scene:'Volcano',label:'AKT III — WALKA Z BOGDANEM'}),
   Object.freeze({id:'act3-escape',actId:'act3',scene:'Volcano',label:'AKT III — UCIECZKA'}),
+  Object.freeze({id:'act4-opening',actId:'act4',scene:'School',label:'AKT IV — POCZĄTEK'}),
+  Object.freeze({id:'act4-school',actId:'act4',scene:'School',label:'AKT IV — PRZY SZKOLE'}),
 ]);
 export const DEBUG_IDS=new Set(DEBUG_CHECKPOINTS.map(item=>item.id));
 
@@ -40,12 +43,20 @@ export function createDebugFixture(id){
   run.selectedWeapon='rifle';
   run.stats.byAct.act1={kills:42,activeCombatMs:240000};
   run.stats.kills=42;run.stats.activeCombatMs=240000;
-  if(checkpoint.actId==='act3'){
+  if(checkpoint.actId==='act3'||checkpoint.actId==='act4'){
     run.completedActs.add('act2');
     run.stats.byAct.act2={kills:0,activeCombatMs:180000};
     run.stats.activeCombatMs+=180000;
     run.actId='act2';
   }
-  const handoff=nextActHandoff(run,new Set(['Arena','Airship','Volcano']));
+  if(checkpoint.actId==='act4'){
+    run.completedActs.add('act3');
+    run.artifacts.add(HORN_ID);
+    run.unlockedWeapons.add(WATER_FLAMETHROWER_ID); // Historical, not selectable in Act IV.
+    run.stats.byAct.act3={kills:0,activeCombatMs:180000};
+    run.stats.activeCombatMs+=180000;
+    run.actId='act3';
+  }
+  const handoff=nextActHandoff(run,new Set(['Arena','Airship','Volcano','School']));
   return handoff?{checkpoint,run,handoff}:null;
 }
