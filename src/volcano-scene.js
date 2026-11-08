@@ -1,4 +1,5 @@
-import {createVolcanoFinaleState,HORN_ID,formatEscape} from './volcano-finale.js';
+import {createVolcanoFinaleState,HORN_ID,formatEscape,ESCAPE_MS} from './volcano-finale.js';
+import {eruptionFrame} from './volcano-eruption.js';
 import {createPixelBurst} from './pixel-death-vfx.js';
 import {healOneHp,canCollectBogdanHeart} from './volcano-heart.js';
 import {createHealthToken} from './health-token.js';
@@ -51,9 +52,9 @@ export class VolcanoScene extends Phaser.Scene {
     this.defeated=false;
     this.finale=createVolcanoFinaleState();
     this.openingSafeUntil=0;
-    this.escapePulseIndex=0;
+    this.escapeLastImpulse=null;
     this.escapeBurst=null;this.escapeSpawnAt=0;this.escapeSpawned=0;this.escapeEnemies=[];
-    this.escapeShockAt=0;
+    
     this.bogdanHeart=null;this.bogdanHeartPoint=null;this.bogdanHeartCollected=false;
     this.preBossHeart=null;this.preBossHeartPoint=null;this.preBossHeartCollected=false;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{this.preBossHeart?.destroy();this.preBossHeart=null;});
@@ -214,6 +215,7 @@ export class VolcanoScene extends Phaser.Scene {
     document.addEventListener('visibilitychange',focus);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
       this.disposed=true;
+      this.resetEruption();
       this.cancelApartmentCameraRecovery();
       for(const controller of this.pendingLoads)controller.abort();
       this.pendingLoads.clear();
@@ -555,7 +557,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(!this.finale.advance('ALOES_WARNING'))return;
     this.escapeSpawned=0;this.escapeSuccessfulSpawns=0;
     this.escapeSpawnAt=this.time.now+1800;
-    this.escapeShockAt=this.time.now+1200;this.escapePulseIndex=0;
+    this.resetEruption();
     this.escapeClock.setVisible(true).setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
     void this.spawnExtractionCaptain();
     this.syncControls();
@@ -608,27 +610,37 @@ export class VolcanoScene extends Phaser.Scene {
       }
     }
     // World-space eruption only: screen-space HUD and touch controls never move.
-    this.lava.setAlpha(.83+.17*Math.sin(this.time.now/290));
-    if(this.time.now>=this.escapeShockAt){
-      const strong=this.escapePulseIndex++%3===2;
-      this.escapeShockAt=this.time.now+(strong?5600:4100);
-      this.cameras.main.shake(strong?340:230,strong?.005:.003);
-      this.lava.setTint(strong?0xff7044:0xffbc72);
-      this.time.delayedCall(strong?500:300,()=>{if(!this.disposed&&this.lava?.active&&this.finale.state==='ESCAPE_ACTIVE')this.lava.clearTint();});
+    this.updateEruption();
+  }
+  resetEruption(){
+    this.escapeLastImpulse=null;
+    this.cameras.main.shakeEffect.reset();
+    if(this.lava?.active)this.lava.setAlpha(1).clearTint();
+  }
+  updateEruption(){
+    if(this.finale.state!=='ESCAPE_ACTIVE')return;
+    const frame=eruptionFrame(ESCAPE_MS-this.finale.remaining);
+    if(!frame)return;
+    this.lava.setAlpha(frame.lavaAlpha);
+    if(frame.lavaTint===null)this.lava.clearTint();
+    else this.lava.setTint(frame.lavaTint);
+    if(frame.shake&&frame.shake.id!==this.escapeLastImpulse){
+      this.escapeLastImpulse=frame.shake.id;
+      this.cameras.main.shake(frame.shake.duration,frame.shake.intensity);
     }
   }
   escapeFailed(){
     if(this.finale.state==='ESCAPE_ACTIVE')this.finale.fail();
     if(this.finale.state!=='ESCAPE_RETRY')return;
     this.resetMovement();this.combat.clearTransientShots();this.combat.clearEscapeEnemies();this.escapeClock.setVisible(false);this.retryRoot.setVisible(true);
-    this.cameras.main.shakeEffect.reset();this.lava.setAlpha(1).clearTint();
+    this.resetEruption();
   }
   retryEscape(){
     if(this.finale.state==='ALOES_WARNING'){this.retryRoot.setVisible(false);this.startEscape();return;}
     if(!this.finale.retry()||!this.escapeCheckpoint)return;
     this.retryRoot.setVisible(false);
     this.combat.clearEscapeEnemies();this.escapeSpawned=0;this.escapeSuccessfulSpawns=0;this.escapeSpawnAt=this.time.now+1800;
-    this.escapeShockAt=this.time.now+3500;
+    this.resetEruption();
     this.run.hp=Math.max(2,Math.min(this.run.maxHp,this.escapeCheckpoint.hp));
     this.playerInvulnerableUntil=this.time.now+1400;
     this.player.setPosition(this.escapeCheckpoint.x,this.escapeCheckpoint.y);this.player.body.reset(this.player.x,this.player.y);
@@ -639,7 +651,7 @@ export class VolcanoScene extends Phaser.Scene {
   completeActThree(){
     if(this.disposed||this.finale.state!=='ACT_III_COMPLETE')return;
     this.resetMovement();this.combat.clearEscapeEnemies();this.escapeClock.setVisible(false);
-    this.lava.setAlpha(1).clearTint();
+    this.resetEruption();
     completeCampaignAct(this.run,'act3',{hp:this.run.hp,maxHp:this.run.maxHp,unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,kills:0,activeCombatMs:0});
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{if(!this.disposed)this.scene.start('Menu');});
     this.cameras.main.fadeOut(550,0,0,0);
