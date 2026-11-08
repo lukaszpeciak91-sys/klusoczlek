@@ -124,10 +124,12 @@ export function createBogdanEncounter(scene,Phaser){
    if(disposed||textures.some(x=>!x))return false;
    for(const [i,key] of ['marlena','bogdan'].entries()){
     const desired=APARTMENT[key];
-    const p=nearestVolcanoSpawn(scene.walkability,desired.x,desired.y,18,0,
-      actors.map(actor=>({x:actor.x,y:actor.y,radius:44})),70);
+    const p=nearestVolcanoSpawn(scene.walkability,desired.x,desired.y,18,0,null,70);
     if(!p||!volcanoFootprintAllowed(scene.walkability,p.x,p.y,18)){
      console.warn('[Volcano Boss] invalid apartment NPC footprint: '+key);failed=true;return false;
+    }
+    if(actors.some(actor=>Math.hypot(actor.x-p.x,actor.y-p.y)<70)){
+     console.warn('[Volcano Boss] apartment actors would overlap: '+key);failed=true;return false;
     }
     const actor=scene.add.sprite(p.x,p.y,textures[i],2).setOrigin(.5,1).setDepth(12).setScale(.72);
     actors.push(actor);
