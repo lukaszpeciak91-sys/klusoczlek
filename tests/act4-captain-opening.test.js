@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue,currentDialogue} from '../src/dialogue-data.js';
-import {CAPTAIN_ARRIVAL_MS,CAPTAIN_SHEET} from '../src/captain-arrival.js';
 import {createDebugFixture} from '../src/debug-checkpoints.js';
 
 const source=path=>readFileSync(new URL(path,import.meta.url),'utf8');
@@ -39,8 +38,8 @@ test('Act IV opening dialogue matches all six approved panels, original speakers
 
 test('Marian waits until arrival and the final DALEJ before exactly one chapel departure tween',()=>{
  const scene=source('../src/school-scene.js'),captain=source('../src/captain-arrival.js');
- assert.equal(CAPTAIN_ARRIVAL_MS,800);
- assert.deepEqual(CAPTAIN_SHEET.directions,['e','se','s','sw','w','nw','n','ne']);
+ assert.ok(captain.includes('export const CAPTAIN_ARRIVAL_MS=800;'));
+ assert.ok(captain.includes("directions:['e','se','s','sw','w','nw','n','ne']"));
  assert.ok(captain.includes('if(t>=1){arrived=true'));
  assert.ok(scene.includes('this.captainArrival.update(delta);'));
  assert.ok(scene.includes("this.captainDialogueStarted=this.beginSchoolDialogue('act4-captain-opening');"));
