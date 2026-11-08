@@ -206,6 +206,9 @@ try{
  await wait("window.__game.scene.getScene('School').combat.enemies.length>0",'School wave1 spawns',10000);
  const school=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {wave:s.combat.wave,count:s.combat.enemies.length,state:s.schoolPhase,weapon:s.weapon,owned:[...s.run.unlockedWeapons],hp:s.run.hp}})()");
  assert.equal(school.wave,0);assert.ok(school.count<=6&&school.count>0,'wave1 cap');
+ const entourage=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {types:[...new Set(s.combat.enemies.map(e=>e.type))].sort(),spawned:s.combat.totalSpawned,alive:s.combat.enemies.filter(e=>!e.dead).length,positions:s.combat.enemies.slice(0,3).map(e=>({x:e.x,y:e.y,type:e.type}))}})()");
+ assert.deepEqual(entourage.types,['bobrozombi','bocianolak','zubrokryptyda'],'approved small ordinary entourage near Błażej');
+ assert.ok(entourage.spawned>=3&&entourage.alive<=6,'single cap-accounted director '+JSON.stringify(entourage));
  assert.equal(school.owned.includes('water-flamethrower'),true);
  assert.notEqual(school.weapon,'water-flamethrower');
  // Actual right-stick touch: a rifle shot must exist in the live School scene.
