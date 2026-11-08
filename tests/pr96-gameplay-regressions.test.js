@@ -7,9 +7,9 @@ import {BOGDAN_HP} from '../src/volcano-bogdan.js';
 const source=path=>readFileSync(new URL(path,import.meta.url),'utf8');
 test('Act II Captain is nonblocking; deck and wheelhouse collision remain',()=>{
  const s=source('../src/airship-scene.js');
- assert.doesNotMatch(s,/point=resolveCaptainFeet\\(/);
- assert.match(s,/stepDeckPosition\\(/);
- assert.match(s,/stepAroundWheelhouse\\(/);
+ assert.equal(s.includes('point=resolveCaptainFeet('),false);
+ assert.ok(s.includes('stepDeckPosition('));
+ assert.ok(s.includes('stepAroundWheelhouse('));
 });
 test('Act III dialogue waits for player travel and has no tiny Lawostworki NPC actors',()=>{
  const s=source('../src/volcano-scene.js');
@@ -26,9 +26,9 @@ test('exactly two entrance enemies and correct story assignment',()=>{
 });
 test('Act III finale reuses existing Captain and has Bogdan damage UI cleanup',()=>{
  const scene=source('../src/volcano-scene.js'),boss=source('../src/volcano-bogdan.js');
- assert.match(scene,/this\\.captainArrival\\.actor/);
- assert.match(scene,/this\\.extractionActor!==this\\.captainArrival\\.actor/);
- assert.match(boss,/bossHealth\\.clear\\(\\)\\.setVisible\\(false\\)/);
- assert.match(boss,/bossHealth\\.destroy\\(\\)/);
+ assert.ok(scene.includes('this.captainArrival.actor'));
+ assert.ok(scene.includes('this.extractionActor!==this.captainArrival.actor'));
+ assert.ok(boss.includes('bossHealth.clear().setVisible(false)'));
+ assert.ok(boss.includes('bossHealth.destroy()'));
  assert.equal(BOGDAN_HP,80);
 });
