@@ -131,7 +131,7 @@ try{
  assert.notEqual(schoolState.selected,'water-flamethrower','water is Act III-only');
  assert.ok(schoolState.owned.includes('water-flamethrower'),'water history retained');
  assert.ok(schoolState.artifacts.includes('bogdan-hunting-horn'),'horn inherited');
- assert.deepEqual(schoolState.obstacles,['chapel','school','bicycleRack']);
+ assert.deepEqual(schoolState.obstacles,['chapel','school','bicycleRack','school-tire-pile','school-toi-toi']);
  assert.deepEqual([schoolState.w,schoolState.h],[1800,1200]);
  await wait("!window.__game.scene.getScene('School').introActive",'Captain enters chapel',8000);
  const schoolMenu=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
@@ -169,7 +169,11 @@ try{
  await wait("window.__game.scene.isActive('School')",'School scene starts');
  const schoolIntro=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,enemies:s.combat.enemies.length,weapon:s.weapon,hp:s.run.hp}})()");
  assert.ok(schoolIntro.intro&&!schoolIntro.started&&schoolIntro.enemies===0,'no enemies during Captain cinematic '+JSON.stringify(schoolIntro));
- await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&s.dialogueState.id==='act4-maciek-seba'})()",'Captain exits then Maciek/Seba begin',25000);
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&!s.dialogueState.id&&!s.combat.started})()",'Captain enters chapel; player free to explore schoolyard',25000);
+ const optionalBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,maciek:s.maciekSeen,pitch:s.pitchStarted,actors:s.maciekSebaActors?.length}})()");
+ assert.deepEqual(optionalBefore,{intro:false,started:false,maciek:false,pitch:false,actors:2},'both NPCs staged, optional encounter not automatic');
+ const approachMaciek=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(695,620);s.player.body.reset(695,620);return true})()");
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-maciek-seba'",'optional dialogue on actual approach',4000);
  await wait("(()=>{const s=window.__game.scene.getScene('School');return ['bobrozombi','bocianolak','zubrokryptyda'].every(k=>s.dialoguePanel.loaded.has(k))})()",'original three character portraits load',10000);
  const first=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {captain:s.captainArrival.actor?.active??false,active:s.combat.started,phase:s.schoolPhase,boss:s.blazej.active}})()");
  assert.deepEqual(first,{captain:false,active:false,phase:'INTRO',boss:false});
@@ -179,7 +183,10 @@ try{
   'Ty to Maciek jednak głupi jesteś...\nA to nie jest czasem on? Do ataku!'
  ];
  for(let i=0;i<maciek.length;i++)await verifyPanel('act4-maciek-seba',i,maciek[i]);
- await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'observer exchange before waves');
+ const optionalDone=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,started:s.combat.started,seen:s.maciekSeen}})()");
+ assert.deepEqual(optionalDone,{id:null,started:false,seen:true},'Maciek/Seba once and no automatic combat');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1065,870);s.player.body.reset(1065,870);return true})()");
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'pitch observer exchange after optional encounter',4000);
  for(const [i,line] of ['...i ja wtedy normalnie od razu','Ty to jednak Błażej jesteś gość'].entries())
   await verifyPanel('act4-blazej-observer',i,line);
  await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-confrontation'",'five-panel bike confrontation before waves');
@@ -192,7 +199,7 @@ try{
  ];
  for(let i=0;i<prewaves.length;i++)await verifyPanel('act4-blazej-confrontation',i,prewaves[i]);
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.started&&s.schoolPhase==='COMBAT'&&!s.dialogueState.id})()",'waves start only after fifth confrontation panel',4000);
- console.log('PASS Act IV Chromium opening: Captain, Maciek/Seba 3, observer 2, confrontation 5, portraits and gated DALEJ; combat starts only afterwards');
+ console.log('PASS Act IV Chromium opening: Captain at chapel, optional Maciek/Seba 3, pitch observer 2, confrontation 5; combat only after approved DALEJ');
  await wait("window.__game.scene.getScene('School').combat.enemies.length>0",'School wave1 spawns',10000);
  const school=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {wave:s.combat.wave,count:s.combat.enemies.length,state:s.schoolPhase,weapon:s.weapon,owned:[...s.run.unlockedWeapons],hp:s.run.hp}})()");
  assert.equal(school.wave,0);assert.ok(school.count<=6&&school.count>0,'wave1 cap');
@@ -419,7 +426,7 @@ try{
  await sleep(250);await touch(rewardPoint.x,rewardPoint.y);
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='CHAPEL_RETURN'&&s.dialogueState?.id==='act4-chapel-ending'})()",'bicycle fade and chapel return',5000);
  const chapel=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {x:s.player.x,y:s.player.y,captain:s.captainArrival.actor?.active??false,bike:s.run.artifacts.has('blazej-bicycle'),dialogue:s.dialogueState.id,phase:s.schoolPhase}})()");
- assert.ok(Math.hypot(chapel.x-465,chapel.y-535)<2&&chapel.captain===false&&chapel.bike);
+ assert.ok(Math.hypot(chapel.x-525,chapel.y-1000)<2&&chapel.captain===false&&chapel.bike);
  for(let i=0;i<4;i++)await dialogueNext();
  await wait("window.__game.scene.isActive('Menu')&&!window.__game.scene.isActive('School')",'Act IV completed and returned to Menu',4500);
  const campaign=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run');return {hp:r.hp,completed:[...r.completedActs],artifacts:[...r.artifacts],selected:r.selectedWeapon,water:r.unlockedWeapons.has('water-flamethrower'),stat:r.stats.byAct.act4,title:g.scene.isActive('ActTitle'),cave:g.scene.keys.Cave??null,debug:r.isDebugRun}})()");
