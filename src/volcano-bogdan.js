@@ -1,13 +1,13 @@
 import {createBarkState,makeMonsterBark,showMonsterBark,syncMonsterBark,clearBark,BOGDAN_BARKS} from './monster-bark.js';
 import {assetUrl} from './character-visual.js';
-import {volcanoFootprintAllowed,volcanoStep} from './volcano-contract.js';
+import {volcanoFootprintAllowed,volcanoStep,nearestVolcanoSpawn} from './volcano-contract.js';
 import {facingOf,playerFrame} from './combat-contract.js';
 import {applyPlayerContact} from './bobrozombi.js';
 
 export const APARTMENT=Object.freeze({
  trigger:Object.freeze({x:1300,y:370,radius:185}),
- marlena:Object.freeze({x:1400,y:225}),
- bogdan:Object.freeze({x:1500,y:235}),
+ marlena:Object.freeze({x:1400,y:305}),
+ bogdan:Object.freeze({x:1500,y:315}),
  exit:Object.freeze([{x:1350,y:330},{x:1250,y:400},{x:1150,y:440},{x:1030,y:470}])
 });
 export const MARLENA_BARKS=Object.freeze(['Mama miała rację!','Niech sam w tym smrodzie siedzi, pajac!']);
@@ -121,8 +121,10 @@ export function createBogdanEncounter(scene,Phaser){
    const textures=await Promise.all([load('marlena'),load('bogdan')]);
    if(disposed||textures.some(x=>!x))return false;
    for(const [i,key] of ['marlena','bogdan'].entries()){
-    const p=APARTMENT[key];
-    if(!volcanoFootprintAllowed(scene.walkability,p.x,p.y,18)){
+    const desired=APARTMENT[key];
+    const p=nearestVolcanoSpawn(scene.walkability,desired.x,desired.y,18,0,
+      actors.map(actor=>({x:actor.x,y:actor.y,radius:44})),70);
+    if(!p||!volcanoFootprintAllowed(scene.walkability,p.x,p.y,18)){
      console.warn('[Volcano Boss] invalid apartment NPC footprint: '+key);failed=true;return false;
     }
     const actor=scene.add.sprite(p.x,p.y,textures[i],2).setOrigin(.5,1).setDepth(12).setScale(.72);
