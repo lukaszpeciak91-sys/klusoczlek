@@ -372,15 +372,18 @@ export class SchoolScene extends Phaser.Scene {
       try{
         // The approved upload appeared on main as artifact-blazej-bike.png
         // after the audited base; keep the contracted future name too.
-        let response=null;
-        for(const path of ['artifacts/artifact-blazej-bicycle.png',
-          'artifacts/artifact-blazej-bike.png']){
+        let bytes=null;
+        // Try the actual approved production name first. Vite may respond
+        // with index.html (HTTP 200) for a missing legacy filename, so only
+        // accept candidates *after* checking their PNG header.
+        for(const path of ['artifacts/artifact-blazej-bike.png',
+          'artifacts/artifact-blazej-bicycle.png']){
           const candidate=await fetch(assetUrl(import.meta.env.BASE_URL,path),{cache:'no-cache'});
-          if(candidate.ok){response=candidate;break;}
+          if(!candidate.ok)continue;
+          const data=new Uint8Array(await candidate.arrayBuffer());
+          if(validPngHeader(data,{width:192,height:192})){bytes=data;break;}
         }
-        if(!response)return;
-        const bytes=new Uint8Array(await response.arrayBuffer());
-        if(!validPngHeader(bytes,{width:192,height:192}))return;
+        if(!bytes)return;
         const blob=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
         try{
           const image=new Image();
