@@ -1,6 +1,6 @@
 // Shared monster speech presentation and deterministic scheduling for Act III.
 // Keep the familiar retro monospace / cream lettering and dark outline.
-export const MONSTER_BARK_STYLE=Object.freeze({fontFamily:'monospace',fontSize:'14px',fontStyle:'bold',color:'#fff4cf',stroke:'#241018',strokeThickness:4,align:'center'});
+export const MONSTER_BARK_STYLE=Object.freeze({fontFamily:'monospace',fontSize:'13px',fontStyle:'bold',color:'#fff1c9',backgroundColor:'#1c2028',padding:{x:5,y:3},align:'center'});
 export const BARK_DURATION_MS=2200;
 export const BARK_COOLDOWN_MS=4500;
 export const WATER_BARKS=Object.freeze(['Tylko nie wodą!','Ty łajzo!']);
@@ -23,7 +23,7 @@ export function clearBark(state,text){
 }
 export function barkVisible(state,now,allowed=true){return Boolean(allowed&&now<state.until);}
 export function makeMonsterBark(scene,x,y,{fontSize=MONSTER_BARK_STYLE.fontSize}={}){
- return scene.add.text(x,y,'',{...MONSTER_BARK_STYLE,fontSize}).setOrigin(.5).setDepth(22).setVisible(false);
+ return scene.add.text(x,y,'',{...MONSTER_BARK_STYLE,fontSize}).setOrigin(.5,1).setDepth(49).setVisible(false);
 }
 export function showMonsterBark(text,state,lines,now,options){
  const line=chooseBark(state,lines,now,options);
