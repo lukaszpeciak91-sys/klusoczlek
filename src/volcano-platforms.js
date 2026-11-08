@@ -5,7 +5,7 @@ import {FAIRY_MARK} from './volcano-npcs.js';
 // Narrow walkable passages do not merge these gameplay zones.
 export const VOLCANO_ZONES=Object.freeze([
  Object.freeze({id:'entrance',bounds:Object.freeze({minX:55,maxX:625,minY:720,maxY:1180}),
-  enemies:Object.freeze(['lawostworek-1','lawostworek-1']),
+  enemies:Object.freeze(['lawostworek-1','lawostworek-2']),
   spawns:Object.freeze([{x:320,y:880},{x:430,y:945},{x:250,y:920},{x:405,y:815}])}),
  Object.freeze({id:'middle',bounds:Object.freeze({minX:625,maxX:1420,minY:560,maxY:1170}),
   enemies:Object.freeze(['lawostworek-1','lawostworek-1','lawostworek-2']),
