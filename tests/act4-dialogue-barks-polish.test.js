@@ -62,7 +62,8 @@ test('only approved 4+3 Błażej guest barks; original ordinary vocabulary and t
 });
 test('Captain -> Maciek/Seba -> observer -> five-panel confrontation -> waves; post-wave one panel -> boss',()=>{
  const school=code('../src/school-scene.js');
- assert.ok(school.includes('this.introActive=false;\n          this.syncControls();'));
+ assert.ok(school.includes("this.captainDialogueStarted=this.beginSchoolDialogue('act4-captain-opening')"));
+ assert.ok(school.includes('startCaptainDeparture(){'));
  assert.ok(school.includes("this.maciekSeen=this.beginSchoolDialogue('act4-maciek-seba')"));
  assert.ok(school.includes("this.pitchStarted=this.beginSchoolDialogue('act4-blazej-observer')"));
  assert.ok(school.includes("this.beginSchoolDialogue('act4-blazej-confrontation')"));
