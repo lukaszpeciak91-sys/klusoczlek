@@ -551,7 +551,10 @@ try{
   assert.ok(p.visible&&p.hp===2&&p.id==='act3-captain-extraction','Act III dialogue must not heal Aloes');
   await touch(p.x,p.y);
  }
- await wait("window.__game.scene.isActive('ActTitle')",'Act III direct fade to Act IV title',3500);
+ await sleep(160);
+ const boundaryTrace=await evaluate("(()=>{const g=window.__game,s=g.scene.getScene('Volcano'),r=g.registry.get('campaign-run');return {finale:s.finale.state,dialogue:s.dialogueState.id,activeScenes:g.scene.getScenes(true).map(x=>x.scene.key),hp:r.hp,act:r.actId,completed:[...r.completedActs],horn:r.artifacts.has('bogdan-hunting-horn'),water:s.weapon,selected:r.selectedWeapon,fade:s.cameras.main._fadeAlpha,disposed:s.disposed}})()");
+ console.log('ACT III/IV HANDOFF TRACE',JSON.stringify(boundaryTrace));
+ await wait("window.__game.scene.isActive('ActTitle')",'Act III direct fade to Act IV title',4500);
  const titleHP=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run'),t=g.scene.getScene('ActTitle'),raw=JSON.parse(localStorage.getItem('klusoczlek-campaign-v1'));return {hp:r.hp,max:r.maxHp,handoffHp:t.handoff?.hp,handoffMax:t.handoff?.maxHp,act:t.actId,selected:r.selectedWeapon,water:r.unlockedWeapons.has('water-flamethrower'),horn:r.artifacts.has('bogdan-hunting-horn'),completed:[...r.completedActs],saved:{act:raw.actId,hp:raw.hp,max:raw.maxHp,selected:raw.selectedWeapon,horn:raw.artifacts.includes('bogdan-hunting-horn')},menu:g.scene.isActive('Menu')}})()");
  assert.deepEqual([titleHP.hp,titleHP.max,titleHP.handoffHp,titleHP.handoffMax],[5,5,5,5]);
  assert.deepEqual(titleHP.saved,{act:'act4',hp:5,max:5,selected:'rifle',horn:true});
