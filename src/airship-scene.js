@@ -24,6 +24,7 @@ import {updateRunHealth} from './campaign-run.js';
 import {resolveAim} from './shooting.js';
 import {formatGameplayClock,advanceGameplayClock} from './gameplay-clock.js';
 import {updateBursts} from './pixel-death-vfx.js';
+import {act2HealthPoint,shouldSpawnAct2Health,collectAct2Health} from './act2-health-pickup.js';
 
 const DECK_TEXTURE='airship-deck-approved';
 export class AirshipScene extends Phaser.Scene {
@@ -217,6 +218,7 @@ export class AirshipScene extends Phaser.Scene {
     }).setOrigin(.5).setScrollFactor(0).setDepth(195).setVisible(false);
     this.resultsArmedAt=Infinity;
     this.resultsButton.on('pointerdown',()=>this.completeAct2());
+    this.healthPickup=null;this.healthPickupPoint=null;this.healthPickupSpawned=false;
     this.pickup=null;
     if(this.weapon===null){
       this.pickup=this.add.container(563,275).setDepth(12).setVisible(false);
@@ -270,6 +272,7 @@ export class AirshipScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange',this.onVisibility);
       this.captainSpeech?.destroy();
       this.gliderDelivery?.shutdown();
+      this.healthPickup?.destroy();this.healthPickup=null;
       this.combat?.cleanup();
       this.pressureBar?.destroy();this.resultsButton?.destroy();this.resultsButtonText?.destroy();
       this.playerVisual.destroy();this.hpFace.destroy();
@@ -500,6 +503,24 @@ export class AirshipScene extends Phaser.Scene {
       }
     }
   }
+  spawnHealthPickup(){
+    if(this.healthPickupSpawned||this.defense.ended||this.openingPhase!=='active')return false;
+    const point=act2HealthPoint(this.player);
+    if(!point)return false;
+    this.healthPickupSpawned=true;this.healthPickupPoint=point;
+    this.healthPickup=this.add.container(point.x,point.y).setDepth(15);
+    this.healthPickup.add(this.add.circle(0,0,22,0x7e1b2e,0.98).setStrokeStyle(3,0xffe4b5));
+    this.healthPickup.add(this.add.text(0,0,'♥',{fontFamily:'Arial',fontSize:'34px',fontStyle:'bold',color:'#ff5770'}).setOrigin(.5));
+    return true;
+  }
+  collectHealthPickup(){
+    if(!this.healthPickup?.active||this.defense.ended)return false;
+    const next=collectAct2Health(this.player,this.healthPickupPoint,this.playerHp,this.maxHp);
+    if(next===null)return false;
+    this.applyDamage(next);
+    this.healthPickup.destroy();this.healthPickup=null;this.healthPickupPoint=null;
+    return true;
+  }
   applyDamage(next,source=null){
     if(this.defense.ended)return;
     this.playerHp=Math.max(0,Math.min(this.maxHp,Math.floor(next)));
@@ -524,6 +545,7 @@ export class AirshipScene extends Phaser.Scene {
     this.resetMovement();
     this.joystick.setEnabled(false);this.aimJoystick.setEnabled(false);
     this.pickup?.setVisible(false);
+    this.healthPickup?.destroy();this.healthPickup=null;this.healthPickupPoint=null;
     this.objectiveText.setVisible(false);this.defenseKillsText.setVisible(false);
     this.pressureBar.clear();
     // Defense resolves once; campaign totals are booked at narrative completion.
@@ -640,6 +662,7 @@ export class AirshipScene extends Phaser.Scene {
       pending:this.gliderDelivery.pendingPassengers,
     });
     if(defenseEvent?.outcome){this.finishDefense('survived');return;}
+    if(shouldSpawnAct2Health(this.defense.elapsedMs,this.healthPickupSpawned,true))this.spawnHealthPickup();
     if(defenseEvent?.delivery)this.gliderDelivery.request(defenseEvent.delivery);
     this.gliderDelivery.update(delta);
     this.updateCaptainDefense(delta);
@@ -657,6 +680,7 @@ export class AirshipScene extends Phaser.Scene {
     // Keep wheelhouse and railing collision unchanged.
     this.player.setPosition(point.x,point.y);
     this.player.body.reset(point.x,point.y);
+    this.collectHealthPickup();
     // Roof must occlude Aloes when he walks behind the building, but not
     // when he passes in front of its solid footing.
     const houseDepth=point.y<WHEELHOUSE_FOOTPRINT.y+WHEELHOUSE_FOOTPRINT.ry?13:9;
