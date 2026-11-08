@@ -14,7 +14,7 @@ test('five stable acts with exact approved Polish title cards',()=>{
   assert.equal(FIRST_ACT_ID,'act1');
   assert.deepEqual(CAMPAIGN_ACTS.map(act=>act.nextActId),['act2','act3','act4','act5',null]);
 });
-test('unimplemented acts cannot route to unregistered gameplay scenes',()=>{
+test('Acts I–IV route through registered scenes while unbuilt Act V stays gated',()=>{
   assert.equal(sceneForAct('act1'),'Arena');
   assert.equal(getAct('act2').scene,'Airship');
   assert.equal(nextAct('act1')?.id,'act2');
@@ -25,8 +25,10 @@ test('unimplemented acts cannot route to unregistered gameplay scenes',()=>{
   assert.equal(sceneForAct('act2'),'Airship');
   assert.equal(nextAvailableAct('act2')?.id,'act3');
   assert.equal(sceneForAct('act3'),'Volcano');
-  assert.equal(nextAvailableAct('act3'),null);
-  assert.equal(sceneForAct('act4'),null);
+  assert.equal(nextAvailableAct('act3')?.id,'act4');
+  assert.equal(completionDestination('act3'),'School');
+  assert.equal(sceneForAct('act4'),'School');
+  assert.equal(nextAvailableAct('act4'),null);
   assert.equal(sceneForAct('act5'),null);
   assert.equal(sceneForAct('unknown'),null);
 });
