@@ -143,7 +143,7 @@ test('PR106 optional bicycle asset is honestly absent; no fake bike and DEBUG ne
  assert.ok(school.includes("artifacts/artifact-blazej-bicycle.png"));
  assert.ok(school.includes("artifacts/artifact-blazej-bike.png"));
  assert.ok(school.includes("validPngHeader(bytes,{width:192,height:192})"));
- assert.ok(school.includes('Without approved bike art the intended ride remains an honest fade.'));
+ assert.ok(school.includes('Missing/corrupt approved sheet: complete the existing finale'));
  assert.ok(chapelReturnValid());
  assert.ok(schoolWalkable(CHAPEL_RETURN));
  for(let i=0;i<=100;i++){
