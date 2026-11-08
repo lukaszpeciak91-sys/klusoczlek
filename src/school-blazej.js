@@ -10,6 +10,8 @@ import {firstFootprintHit} from './obstacle-geometry.js';
 import {createBossPresentationState,bossHpRatio} from './boss-presentation.js';
 import {MARCIN,createBossAttack,bossAttackStep,radialVolley,bossProjectileStep} from './marcin.js';
 import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
+import {createIgnitionState,igniteEnemy,advanceIgnition,isBurning,clearIgnition} from './enemy-panic.js';
+import {createBurningFx} from './enemy-fire-vfx.js';
 import {BLAZEJ_START,BLAZEJ_RADIUS,blazejJumpLanding} from './school-finale.js';
 
 export const BLAZEJ_HP=MARCIN.hp;
@@ -21,6 +23,8 @@ export function createSchoolBlazej(scene,Phaser){
  const actor={type:'zubrokryptyda',seed:106,x:BLAZEJ_START.x,y:BLAZEJ_START.y,
   hp:BLAZEJ_HP,dead:false,facing:'s',hitUntil:0,sprite:renderer.create(BLAZEJ_START.x,BLAZEJ_START.y)};
  const presentation=createBossPresentationState(),attack=createBossAttack();
+ const ignition=createIgnitionState();
+ let burningFx=null;
  const projectiles=[],bursts=[];
  const graphics=scene.add.graphics().setDepth(16);
  const health=scene.add.graphics().setDepth(100).setScrollFactor(0).setVisible(false);
@@ -43,12 +47,19 @@ export function createSchoolBlazej(scene,Phaser){
   if(actor.hp>0){recordHit(renderer.feedbackOf(actor),now,source,actor);actor.hitUntil=now+120;}
   else{
    defeated=true;active=false;actor.dead=true;presentation.defeat();clearAttacks();
+   burningFx?.destroy();burningFx=null;clearIgnition(ignition);
    health.setVisible(false);label.setVisible(false);
    const at={x:actor.x,y:actor.y};
    if(actor.sprite.active)actor.sprite.destroy();
    bursts.push(createPixelBurst(scene,'zubrokryptyda',at.x,at.y,actor.seed));
    scene.onBlazejDefeated();
   }
+  return true;
+ }
+ function ignite(now){
+  if(!active||defeated)return false;
+  if(!igniteEnemy(ignition,'zubrokryptyda',now))return false;
+  burningFx?.destroy();burningFx=createBurningFx(scene,'zubrokryptyda');
   return true;
  }
  function hurtPlayer(now){
@@ -67,6 +78,7 @@ export function createSchoolBlazej(scene,Phaser){
  function update(delta,now){
   if(disposed||defeated||!active||scene.defeated||scene.dialogueState?.id||scene.storyBusy)return;
   const dt=Math.max(0,Math.min(50,delta)),seconds=dt/1000;
+  if(advanceIgnition(ignition,now)){burningFx?.destroy();burningFx=null;}
   graphics.clear();
   for(let i=projectiles.length-1;i>=0;i--){
    const p=projectiles[i],status=bossProjectileStep(p,dt,scene.player,scene.obstacles);
@@ -113,15 +125,17 @@ export function createSchoolBlazej(scene,Phaser){
    }
    landing=null;
   }
+  if(isBurning(ignition,now))burningFx?.update(actor,now);
   drawHealth();
  }
  function destroy(){
   if(disposed)return;disposed=true;active=false;presentation.dispose();
-  clearAttacks();destroyBursts(bursts);graphics.destroy();health.destroy();label.destroy();
+  clearAttacks();clearIgnition(ignition);burningFx?.destroy();burningFx=null;
+  destroyBursts(bursts);graphics.destroy();health.destroy();label.destroy();
   if(actor.sprite?.active)actor.sprite.destroy();
  }
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,destroy);
- return {actor,activate,damage,update,updateVfx,clearAttacks,destroy,
+ return {actor,activate,damage,ignite,update,updateVfx,clearAttacks,destroy,
   get target(){return active&&!defeated?actor:null;},get active(){return active;},
   get defeated(){return defeated;},get projectiles(){return projectiles;},
   get attack(){return attack;},get kind(){return kind;},get warningTarget(){return landing;},
