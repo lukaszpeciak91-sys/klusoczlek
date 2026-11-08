@@ -1,5 +1,6 @@
 import {createVolcanoFinaleState,HORN_ID,formatEscape} from './volcano-finale.js';
 import {createPixelBurst} from './pixel-death-vfx.js';
+import {healOneHp,canCollectBogdanHeart} from './volcano-heart.js';
 import Phaser from 'phaser';
 import {ARENA,PLAYER_SPEED,PLAYER_RADIUS,normalizeInput} from './movement.js';
 import {createPlayer} from './player.js';
@@ -49,6 +50,8 @@ export class VolcanoScene extends Phaser.Scene {
     this.openingSafeUntil=0;
     this.escapeBurst=null;this.escapeSpawnAt=0;this.escapeSpawned=0;this.escapeEnemies=[];
     this.escapeShockAt=0;
+    this.bogdanHeart=null;this.bogdanHeartPoint=null;this.bogdanHeartCollected=false;
+    this.escapeSuccessfulSpawns=0;
     this.escapeCheckpoint=null;this.extractionPoint=null;this.extractionActor=null;this.extractionLoading=false;
     this.dialogueState=createDialogueState();
     this.obstacles=[];
@@ -213,7 +216,7 @@ export class VolcanoScene extends Phaser.Scene {
       document.removeEventListener('visibilitychange',focus);
       if(this.fullscreenButton)this.fullscreenButton.hidden=this.fullscreenPreviousHidden;
       this.pressureBar.destroy();this.playerVisual.destroy();this.hpFace.destroy();
-      this.escapeBurst?.destroy();
+      this.escapeBurst?.destroy();this.bogdanHeart?.destroy();
       if(this.extractionActor!==this.captainArrival.actor)this.extractionActor?.destroy();
     });
     resize();
@@ -351,8 +354,32 @@ export class VolcanoScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.scale.off(Phaser.Scale.Events.RESIZE,resize));
     resize();
   }
+  spawnBogdanHeart(){
+    if(this.disposed||this.bogdanHeart||this.bogdanHeartCollected||!this.walkability)return false;
+    const death=this.boss.deathPoint;
+    if(!death)return false;
+    const point=nearestVolcanoSpawn(this.walkability,death.x,death.y,16,0,null,110);
+    if(!point)return false;
+    this.bogdanHeartPoint=point;
+    // Existing HUD heart motif, rendered directly; no new binary asset.
+    this.bogdanHeart=this.add.text(point.x,point.y-14,'♥',{
+      fontFamily:'Arial',fontSize:'37px',fontStyle:'bold',color:'#e83448',
+      stroke:'#fff0c8',strokeThickness:3
+    }).setOrigin(.5).setDepth(16);
+    return true;
+  }
+  collectBogdanHeart(){
+    if(!this.bogdanHeart?.active||!canCollectBogdanHeart(this.player,this.bogdanHeartPoint,this.bogdanHeartCollected))return false;
+    this.bogdanHeartCollected=true;
+    this.run.hp=healOneHp(this.run.hp,this.run.maxHp);
+    this.hpFace.setHp(this.run.hp);
+    this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
+    this.bogdanHeart.destroy();this.bogdanHeart=null;
+    return true;
+  }
   startBogdanFinale(){
     this.resetMovement();this.combat.stopFire();
+    this.spawnBogdanHeart();
     this.finaleShade.setVisible(true);
     if(this.finale.advance('BOGDAN_DEFEATED')&&beginDialogue(this.dialogueState,'act3-bogdan-final'))this.dialoguePanel.show(this.dialogueState);
   }
@@ -580,6 +607,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.boss.update(delta,this.time.now);
     if(this.boss.consumeDefeat()&&this.finale.advance('BOGDAN_ACTIVE'))this.startBogdanFinale();
     if(this.finale.state==='ESCAPE_ACTIVE')this.updateEscape(delta);
+    if(this.finale.state==='BOGDAN_ACTIVE'||this.finale.state==='ESCAPE_ACTIVE')this.collectBogdanHeart();
     if(this.escapeBurst&&!this.escapeBurst.done)this.escapeBurst.update(delta);
     this.renderPressureBar();
     if(this.run.hp<=0){if(this.finale.state==='ESCAPE_ACTIVE'){this.escapeFailed();return;}this.lockDeath();return;}
