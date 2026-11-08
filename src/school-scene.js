@@ -11,10 +11,10 @@ import {facingOf} from './combat-contract.js';
 import {currentCampaignRun,prepareActStart} from './campaign-run.js';
 import {availableWeapons,cycleUnlockedWeapon,selectUnlockedWeapon,WEAPONS} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
+import {createSchoolCombat} from './school-combat.js';
 import {SCHOOL_WORLD,SCHOOL_PLACES,SCHOOL_OBSTACLES,SCHOOL_WAVE_COUNT,schoolStep,schoolDebugPoint} from './school-contract.js';
 
-// PR104 is deliberately exploration-only. Act I's combat contract and four
-// waves will be attached in PR105, without reimplementing the combat engine.
+// PR105 attaches approved Act I combat via the small School adapter.
 export class SchoolScene extends Phaser.Scene {
   constructor(){super('School');}
   init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
@@ -27,7 +27,8 @@ export class SchoolScene extends Phaser.Scene {
     }
     this.disposed=false;
     this.obstacles=SCHOOL_OBSTACLES;
-    this.introActive=this.debugCheckpoint!=='act4-school';
+    this.introActive=!['act4-school','act4-combat','act4-wave4'].includes(this.debugCheckpoint);
+    this.schoolPhase='INTRO';this.defeated=false;
     this.captainDeparting=false;
     this.cameras.main.setBackgroundColor('#283c32');
     this.cameras.main.setBounds(0,0,SCHOOL_WORLD.width,SCHOOL_WORLD.height);
@@ -60,6 +61,7 @@ export class SchoolScene extends Phaser.Scene {
       if(!this.controlsAllowed()||this.introActive)return;
       const next=cycleUnlockedWeapon(this.weapon,this.run.unlockedWeapons,'act4');
       if(!next||next===this.weapon)return;
+      this.combat?.stopFire();
       this.weapon=next;this.run.selectedWeapon=next;
       this.weaponLabel.setText(WEAPONS[next].symbol);
       this.weaponBody.setFillStyle(WEAPONS[next].color,.92);
@@ -87,6 +89,15 @@ export class SchoolScene extends Phaser.Scene {
     this.hpText=this.add.text(0,0,'HP '+this.run.hp+'/'+this.run.maxHp,
       {fontFamily:'monospace',fontSize:'13px',color:'#f3e8d1'})
       .setOrigin(.5,0).setScrollFactor(0).setDepth(81);
+    this.skullIcon=this.add.text(0,0,'☠',{fontFamily:'sans-serif',fontSize:'22px',color:'#d7b978'})
+      .setOrigin(.5).setScrollFactor(0).setDepth(66);
+    this.killsText=this.add.text(0,0,'0',{fontFamily:'monospace',fontSize:'17px',color:'#f0e4ca'})
+      .setOrigin(0,.5).setScrollFactor(0).setDepth(66);
+    this.pressureBar=this.add.graphics().setScrollFactor(0).setDepth(67);
+    this.objectiveText=this.add.text(0,0,'IDŹ DO SZKOŁY',
+      {fontFamily:'monospace',fontSize:'12px',color:'#f6d6a4',stroke:'#17211c',strokeThickness:2})
+      .setOrigin(.5,0).setScrollFactor(0).setDepth(66).setVisible(false);
+    this.combat=createSchoolCombat(this,Phaser);
     this.fullscreenButton=document.getElementById('fullscreen-button');
     this.fullscreenPreviousHidden=this.fullscreenButton?.hidden??false;
     if(this.fullscreenButton)this.fullscreenButton.hidden=true;
@@ -99,12 +110,16 @@ export class SchoolScene extends Phaser.Scene {
       this.weaponToken.setPosition(l.switchX,l.switchY).setScale(l.switchSize/42);
       this.menuButton.setPosition(l.menuX,l.menuY).setSize(l.menuWidth,l.menuHeight);
       this.menuLabel.setPosition(l.menuX,l.menuY).setFontSize(l.menuFont);
-      this.waveText.setPosition(this.scale.width/2,Math.max(8,l.menuY-l.menuHeight/2)).setFontSize(Math.max(10,Math.min(16,this.scale.height*.044)));
+      const waveY=Math.max(8,l.menuY-l.menuHeight/2);
+      this.waveText.setPosition(this.scale.width/2,waveY).setFontSize(Math.max(10,Math.min(16,this.scale.height*.044)));
+      this.skullIcon.setPosition(this.scale.width/2-105,waveY+11);
+      this.killsText.setPosition(this.scale.width/2-88,waveY+11);
+      this.objectiveText.setPosition(this.scale.width/2,waveY+20);
       this.hpFace.resize(l);this.hpText.setPosition(l.hpX,l.hpY);
       this.syncControls();
     };
-    const reset=()=>this.resetMovement();
-    const sync=()=>this.syncControls();
+    const reset=()=>{this.combat?.suspend();this.resetMovement();};
+    const sync=()=>{this.combat?.suspend();this.syncControls();};
     this.scale.on(Phaser.Scale.Events.RESIZE,resize);
     this.events.on(Phaser.Scenes.Events.RESUME,sync);
     this.events.on(Phaser.Scenes.Events.PAUSE,reset);
@@ -126,11 +141,14 @@ export class SchoolScene extends Phaser.Scene {
     });
     this.captainArrival=createCaptainArrival(this);
     resize();
+    if(!this.introActive)this.combat.start({wave4:this.debugCheckpoint==='act4-wave4'});
     this.cameras.main.fadeIn(360,0,0,0);
     if(this.introActive){
       void this.captainArrival.loading.then(()=>{
         if(this.disposed)return;
-        if(!this.captainArrival.start()){this.introActive=false;this.syncControls();}
+        if(!this.captainArrival.start()){
+          this.introActive=false;this.combat.start();this.syncControls();
+        }
       });
     }
     enforceOrientationOnSceneStart(this);
@@ -165,7 +183,7 @@ export class SchoolScene extends Phaser.Scene {
   }
   syncControls(){
     if(!this.joystick||!this.aimJoystick)return;
-    const allow=this.controlsAllowed()&&!this.introActive&&this.run.hp>0;
+    const allow=this.controlsAllowed()&&!this.introActive&&!this.defeated&&this.run.hp>0;
     if(this.joystick.enabled!==allow)this.joystick.setEnabled(allow);
     if(this.aimJoystick.enabled!==allow)this.aimJoystick.setEnabled(allow);
   }
@@ -176,6 +194,7 @@ export class SchoolScene extends Phaser.Scene {
   }
   openMenu(){
     if(this.scene.isPaused()||this.scene.isActive('Menu')||!this.controlsAllowed())return;
+    this.combat?.suspend();
     this.resetMovement();
     this.scene.pause();
     this.scene.launch('Menu');
@@ -193,11 +212,12 @@ export class SchoolScene extends Phaser.Scene {
           if(this.disposed)return;
           actor?.destroy();
           this.introActive=false;
+          this.combat.start();
           this.syncControls();
         }});
     }
     this.syncControls();
-    if(!this.controlsAllowed()||this.introActive)return;
+    if(!this.controlsAllowed()||this.introActive||this.defeated){this.combat.suspend();return;}
     const k=this.keys;
     const input=normalizeInput(
       this.joystick.direction.x+Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),
@@ -209,6 +229,7 @@ export class SchoolScene extends Phaser.Scene {
     if(Math.hypot(aim.x,aim.y)>.05)this.facing=facingOf(aim.x,aim.y,this.facing);
     else if(Math.hypot(input.x,input.y)>.05)this.facing=facingOf(input.x,input.y,this.facing);
     this.playerVisual.update(this.facing,Math.hypot(input.x,input.y)>.05,Math.min(50,delta));
+    this.combat.update(delta,performance.now(),aim,this.aimJoystick.held);
     this.hpFace.update(delta);
   }
 }
