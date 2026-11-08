@@ -232,6 +232,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_IN_COMPLETE,()=>{
       if(this.disposed)return;
       this.captainArrival.start();
+      if(this.debugCheckpoint&&this.debugCheckpoint!=='act3-opening')return;
       if(beginDialogue(this.dialogueState,'act3-opening')){
         grantWaterFlamethrower(this.run);
         this.dialoguePanel.show(this.dialogueState);
@@ -281,6 +282,10 @@ export class VolcanoScene extends Phaser.Scene {
         this.player.setPosition(playerStart.x,playerStart.y);
         this.player.body.reset(playerStart.x,playerStart.y);
         void this.boss.prepare().then(ready=>{
+          if(this.debugCheckpoint&&this.debugCheckpoint!=='act3-opening'){
+            void this.initializeDebugCheckpoint(ready);
+            return;
+          }
           if(this.disposed||this.defeated)return;
           if(!ready)console.warn('[Volcano Boss] apartment encounter unavailable');
           else if(this.apartmentPending)this.tryApartmentEncounter();
@@ -295,6 +300,63 @@ export class VolcanoScene extends Phaser.Scene {
     }finally{
       if(objectUrl)URL.revokeObjectURL(objectUrl);
       this.pendingLoads.delete(controller);
+    }
+  }
+  async initializeDebugCheckpoint(bossReady){
+    if(this.disposed||!this.walkability||!bossReady)return false;
+    const id=this.debugCheckpoint;
+    const targets={
+      'act3-lawos':{x:510,y:890},
+      'act3-fairy':{x:760,y:820},
+      'act3-apartment':{x:1250,y:480},
+      'act3-boss':{x:1280,y:490},
+      'act3-escape':{x:1280,y:490}
+    };
+    const target=targets[id];if(!target)return false;
+    const point=nearestVolcanoSpawn(this.walkability,target.x,target.y,PLAYER_RADIUS,0,null,100);
+    if(!point){console.error('[Volcano DEBUG] no safe checkpoint position:',id);return false;}
+    this.player.setPosition(point.x,point.y);this.player.body.reset(point.x,point.y);
+    this.openingComplete=true;this.openingSafeUntil=this.time.now+2500;
+    this.lawosStarted=true;
+    this.run.hp=this.run.maxHp;
+    this.hpFace.setHp(this.run.hp);
+    this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
+    if(id==='act3-lawos'){
+      this.startLawosDebugDialogue();
+    }else{
+      this.lawosComplete=true;this.combat.start();
+      if(id==='act3-fairy'){
+        await this.npcs.revealFairy(findMarlenaRoute);
+        if(this.disposed)return false;
+        this.fairyRevealRequested=true;this.fairyReady=Boolean(this.npcs.fairy);
+        if(!this.fairyReady)return false;
+        const fairyPoint=this.npcs.fairy.position;
+        const near=nearestVolcanoSpawn(this.walkability,fairyPoint.x-135,fairyPoint.y+45,PLAYER_RADIUS,0,null,100);
+        if(near){this.player.setPosition(near.x,near.y);this.player.body.reset(near.x,near.y);}
+      }else{
+        this.fairyComplete=true;this.fairyRevealRequested=true;this.fairyStarted=true;
+        if(id==='act3-apartment')this.tryApartmentEncounter();
+        if(id==='act3-boss'){
+          this.apartmentComplete=true;this.bogdanDialogueStarted=true;
+          this.boss.debugBeginBoss();
+        }
+        if(id==='act3-escape'){
+          this.apartmentComplete=true;this.bogdanDialogueStarted=true;
+          if(!this.boss.debugDefeatBoss())return false;
+          this.boss.consumeDefeat();this.boss.removeDefeatedSprite();
+          this.bogdanHeartCollected=true;
+          for(const state of ['BOGDAN_ACTIVE','BOGDAN_DEFEATED','FINAL_DIALOGUE','ARTIFACT_REWARD','BOGDAN_EXPLOSION'])
+            this.finale.advance(state);
+          this.startEscape();
+        }
+      }
+    }
+    this.cameras.main.startFollow(this.player,true,.12,.12);
+    this.syncControls();return true;
+  }
+  startLawosDebugDialogue(){
+    if(beginDialogue(this.dialogueState,'act3-lawostworki')){
+      this.resetMovement();this.dialoguePanel.show(this.dialogueState);
     }
   }
   resolveLawosReadiness(ready){
