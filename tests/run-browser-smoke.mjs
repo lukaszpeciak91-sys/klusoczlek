@@ -140,6 +140,48 @@ try{
  assert.equal(await evaluate("window.__game.scene.isPaused('School')"),true);
  await tapMenu('WZNÓW');
  await wait("window.__game.scene.isActive('School')",'Act IV in-memory WZNÓW',3000);
+ // PR105: real SchoolScene interaction, not just imports/unit assertions.
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'menu before School gameplay');
+ const bootSchool=async id=>evaluate(`(async()=>{
+   const g=window.__game,m=g.scene.getScene('Menu');
+   const {createDebugFixture}=await import('/src/debug-checkpoints.js');
+   const fixture=createDebugFixture(${JSON.stringify(id)});
+   fixture.run.isDebugRun=true;g.registry.set('campaign-run',fixture.run);
+   m.scene.start('School',{handoff:fixture.handoff,debugCheckpoint:${JSON.stringify(id)}});
+   return true;
+ })()`);
+ await bootSchool('act4-opening');
+ await wait("window.__game.scene.isActive('School')",'School scene starts');
+ const schoolIntro=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,enemies:s.combat.enemies.length,weapon:s.weapon,hp:s.run.hp}})()");
+ assert.ok(schoolIntro.intro&&!schoolIntro.started&&schoolIntro.enemies===0,'no enemies during Captain cinematic '+JSON.stringify(schoolIntro));
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&s.combat.started})()",'Marian enters chapel then combat starts',25000);
+ await wait("window.__game.scene.getScene('School').combat.enemies.length>0",'School wave1 spawns',10000);
+ const school=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {wave:s.combat.wave,count:s.combat.enemies.length,state:s.schoolPhase,weapon:s.weapon,owned:[...s.run.unlockedWeapons],hp:s.run.hp}})()");
+ assert.equal(school.wave,0);assert.ok(school.count<=6&&school.count>0,'wave1 cap');
+ assert.equal(school.owned.includes('water-flamethrower'),true);
+ assert.notEqual(school.weapon,'water-flamethrower');
+ // Actual right-stick touch: a rifle shot must exist in the live School scene.
+ const stick=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.aimJoystick.base.x,y:r.y+s.aimJoystick.base.y,r:s.hudLayout.joystickRadius}})()");
+ await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:stick.x,y:stick.y,id:23}]});
+ await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:stick.x+stick.r*.85,y:stick.y,id:23}]});
+ await wait("window.__game.scene.getScene('School').combat.projectiles.length>0",'School real touch firing',3000);
+ await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
+ await touch(pausePoint.x,pausePoint.y);
+ await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'School MENU pause');
+ const enemiesBeforeResume=await evaluate("window.__game.scene.getScene('School').combat.enemies.length");
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('School')",'School WZNÓW resume');
+ assert.equal(await evaluate("window.__game.scene.getScene('School').combat.enemies.length"),enemiesBeforeResume,'no duplicate enemies on resume');
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'menu before wave4 DEBUG');
+ await bootSchool('act4-wave4');
+ await wait("(()=>{const s=window.__game?.scene.getScene('School');return s?.combat?.started&&s.combat.wave===3})()",'School wave4 DEBUG checkpoint');
+ const wave4=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {wave:s.combat.wave,elapsed:s.combat.elapsedMs,water:s.weapon==='water-flamethrower',act:s.run.actId,phase:s.schoolPhase}})()");
+ assert.equal(wave4.wave,3);assert.ok(wave4.elapsed>=120000);
+ assert.equal(wave4.water,false);assert.equal(wave4.act,'act4');
+ console.log('PASS School real Chromium Android landscape: Captain gating, wave1 enemy spawn, touch rifle, MENU/WZNÓW, wave4 DEBUG, water restriction');
  assert.deepEqual(exceptions,[],'uncaught Chromium exceptions');
  console.log('PASS FAST real Chromium: menu, DEBUG Act II/IV, handoffs, school placeholders, Act IV pause/resume and water filtering');
  console.log('FAST runtime ms',Date.now()-started);
