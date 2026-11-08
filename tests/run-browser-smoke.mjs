@@ -248,11 +248,11 @@ try{
  console.log('PASS R2 real Chromium: eight-direction sprites and gait for three approved enemies; spontaneous/hit bark; moving attachment; HUD exclusion; pause and in-place restart cleanup');
  // New narrative guest shares the original bubbles (not a second bubble UI).
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.renderers.zubrokryptyda.loaded&&s.combat.enemies.length>0})()",'Błażej approved sprite and wave4 enemies');
- await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1170,660);s.player.body.reset(1170,660);s.cameras.main.centerOn(1170,660);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1010,560);s.player.body.reset(1010,560);s.cameras.main.centerOn(1010,560);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
  await wait("(()=>{const s=window.__game.scene.getScene('School');return !!s.combat.renderers.zubrokryptyda.speechAnchorOf(s.blazej.actor)})()",'existing Żubrokryptyda speech anchor');
  const expectedObserver=['Szybciej!','Na niego!','Co z wami?','Do ataku!'];
  for(const phrase of expectedObserver){
-  const v=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks;b.state.active.length=0;b.guestState.nextAt=Number.MAX_SAFE_INTEGER;b.tick(s.combat.elapsedMs);b.guestState.nextAt=0;b.tick(s.combat.elapsedMs);const p=b.pool.find(x=>x.root.visible&&x.event?.kind==='blazej-observer');const h=s.hudLayout,a=p?.bounds;return {phrase:p?.event?.phrase,visible:!!p,bounds:a,active:b.state.active.length,next:b.guestState.nextAt-s.combat.elapsedMs,shown:b.guestState.shown,hudMin:h.panelY+h.panelHeight+6}})()");
+  const v=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks;b.state.active.length=0;b.guestState.nextAt=Number.MAX_SAFE_INTEGER;b.tick(s.combat.elapsedMs);b.guestState.nextAt=0;b.tick(s.combat.elapsedMs);const p=b.pool.find(x=>x.root.visible&&x.event?.kind==='blazej-observer');const h=s.hudLayout,a=p?.bounds;return {phrase:p?.event?.phrase,visible:!!p,bounds:a,active:b.state.active.length,next:b.guestState.nextAt-s.combat.elapsedMs,shown:b.guestState.shown,hudMin:h.panelY+h.panelHeight+6,anchor:s.combat.renderers.zubrokryptyda.speechAnchorOf(s.blazej.actor),view:{x:s.cameras.main.worldView.x,y:s.cameras.main.worldView.y,w:s.scale.width,h:s.scale.height},actorVisible:s.blazej.actor.sprite.visible,mode:b.guestState.mode,attempts:b.guestState.attempts}})()");
   assert.equal(v.phrase,phrase,'approved observer bark phrase '+JSON.stringify(v));
   assert.ok(v.visible&&v.active<=2&&v.bounds.y>=v.hudMin,'same approved bubble HUD exclusions');
   assert.ok(v.next>=4500&&v.next<=7500,'barks are occasional and cooldown bounded');
@@ -364,7 +364,7 @@ try{
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_BOSS'&&s.blazej.active&&!s.dialogueState.id})()",'Błażej boss begins only after confrontation',3500);
  const bossStart=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,ordinary:s.combat.enemies.length,wave:s.combat.wave,boss:s.blazej.active,water:s.weapon==='water-flamethrower'}})()");
  // Test three approved Błażej boss barks through exactly the same view.
- await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1170,660);s.player.body.reset(1170,660);s.cameras.main.centerOn(1170,660);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1010,560);s.player.body.reset(1010,560);s.cameras.main.centerOn(1010,560);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
  const bossBarkBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,phase:s.blazej.attack.phase,volley:s.blazej.volleys,jump:s.blazej.jumps}})()");
  const bossPhrases=['Nie oddam roweru!','Zniszczę Cię!','To je moje!'];
  for(const phrase of bossPhrases){
