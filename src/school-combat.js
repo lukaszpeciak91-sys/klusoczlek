@@ -68,6 +68,7 @@ export function createSchoolCombat(scene,Phaser){
  }
  function suspend(){
   advanceGameplayClock(clock,0,false);
+  scene.ambientBarks?.suspend();
   stopFire();
  }
  function stopFire(){
@@ -76,6 +77,7 @@ export function createSchoolCombat(scene,Phaser){
   stream.clear();
  }
  function clearCombat(){
+  scene.ambientBarks?.suspend();
   stopFire();
   for(const shot of projectiles)shot.object?.destroy();
   projectiles.length=0;
@@ -117,6 +119,7 @@ export function createSchoolCombat(scene,Phaser){
  function kill(enemy){
   if(enemy.dead||enemy.hp>0)return false;
   enemy.dead=true;kills++;
+  scene.ambientBarks?.speakerDied(enemy);
   bursts.push(createPixelBurst(scene,enemy.type,enemy.x,enemy.y,enemy.seed));
   enemy.burningFx?.destroy();enemy.burningFx=null;
   clearIgnition(enemy.ignition);fire.cooldowns.delete(enemy);
@@ -131,6 +134,7 @@ export function createSchoolCombat(scene,Phaser){
   if(enemy.hp===0)kill(enemy);
   else{
    recordHit(renderers[enemy.type].feedbackOf(enemy),now,source,enemy);
+   scene.ambientBarks?.hit(enemy,clock.elapsedMs);
    enemy.hitUntil=now+120;enemy.sprite.setAlpha(.45);
   }
   return true;
@@ -146,6 +150,7 @@ export function createSchoolCombat(scene,Phaser){
   scene.playerVisual.hit(enemy);
   if(result.hp===0){
    defeated=true;transition('DEFEAT');
+   scene.ambientBarks?.suspend();
    // Reuse Arena's actual camera-space death coordinate and Menu burst.
    scene.captureSchoolDefeat();
    clearCombat();scene.syncControls();
@@ -275,7 +280,7 @@ export function createSchoolCombat(scene,Phaser){
   }
  }):null;
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,destroy);
- return {start,update,suspend,stopFire,qa,get enemies(){return enemies;},
+ return {start,update,suspend,stopFire,qa,renderers,get enemies(){return enemies;},
   get started(){return started;},get state(){return phase;},get wave(){return wave;},
   get elapsedMs(){return clock.elapsedMs;},get kills(){return kills;},get phaseChanges(){return phaseChanges;},get totalSpawned(){return totalSpawned;},
   get pressure(){return fire.pressure;},get projectiles(){return projectiles;}};
