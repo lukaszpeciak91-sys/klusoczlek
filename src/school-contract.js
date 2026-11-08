@@ -1,27 +1,35 @@
 import {ARENA,PLAYER_RADIUS,PLAYER_SPEED,normalizeInput} from './movement.js';
 import {footprintOverlap} from './obstacle-geometry.js';
 import {resolveObstaclePosition} from './obstacles.js';
+import {createAuthoredObstacles} from './obstacle-catalog.js';
 
 // Act IV reuses Act I's world dimensions, swept collisions and player radius.
 // All geometry is authoritative without a school PNG; artwork is decorative.
 export const SCHOOL_WORLD=ARENA;
 export const SCHOOL_WAVE_COUNT=4;
 export const SCHOOL_PLACES=Object.freeze({
-  chapel:Object.freeze({x:330,y:300,width:300,height:250,label:'KAPLICA'}),
-  chapelDoor:Object.freeze({x:330,y:447}),
-  playerStart:Object.freeze({x:465,y:555}),
+  chapel:Object.freeze({x:330,y:840,width:300,height:250,label:'KAPLICA'}),
+  chapelDoor:Object.freeze({x:360,y:978}),
+  playerStart:Object.freeze({x:525,y:1030}),
   school:Object.freeze({x:1360,y:415,width:590,height:360,label:'SZKOŁA ZAWODOWA'}),
   schoolEntrance:Object.freeze({x:1340,y:630}),
   pitch:Object.freeze({x:790,y:930,width:560,height:345,label:'BOISKO'}),
   bicycleRack:Object.freeze({x:1510,y:830,width:220,height:54,label:'ROWERY'}),
   debugSchool:Object.freeze({x:1190,y:720}),
+  maciek:Object.freeze({x:695,y:620}),
+  seba:Object.freeze({x:770,y:610}),
+  pitchApproach:Object.freeze({x:1065,y:870}),
 });
 export const SCHOOL_OBSTACLES=Object.freeze([
   ...['chapel','school','bicycleRack'].map(id=>{
     const p=SCHOOL_PLACES[id];
     return Object.freeze({id,x:p.x,y:p.y,alive:true,gameplayClass:'solid',
       footprint:Object.freeze({shape:'box',x:p.x,y:p.y,width:p.width,height:p.height,angle:0})});
-  })
+  }),
+  ...createAuthoredObstacles([
+   {id:'school-tire-pile',type:'tire_pile',x:975,y:695},
+   {id:'school-toi-toi',type:'toi_toi',x:1185,y:675}
+  ])
 ]);
 export function schoolWalkable(point,radius=PLAYER_RADIUS){
   if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y))return false;
