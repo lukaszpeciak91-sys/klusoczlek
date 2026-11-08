@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {APARTMENT,BOGDAN_HP} from '../src/volcano-bogdan.js';
+import {BOBROZOMBI_ASSET,BOBROZOMBI_VISUAL_SCALE} from '../src/enemy-visual.js';
+import {fairyTextureLayout} from '../src/volcano-npcs.js';
+import {playerFrame,FACINGS} from '../src/combat-contract.js';
+const source=p=>readFileSync(new URL(p,import.meta.url),'utf8');
+test('approved fairy PNG world height is comparable to Bobrozombi',()=>{
+ const png=readFileSync(new URL('../public/assets/npcs/swinia-wrozka.png',import.meta.url));
+ const width=png.readUInt32BE(16),height=png.readUInt32BE(20);
+ assert.equal(width,256);assert.equal(height,256);
+ assert.equal(fairyTextureLayout(width,height).frames,1);
+ const fairyScale=.35,fairyHeight=height*fairyScale;
+ const bobroHeight=BOBROZOMBI_ASSET.frameHeight*BOBROZOMBI_VISUAL_SCALE;
+ assert.equal(fairyHeight,89.6);assert.equal(bobroHeight,72);
+ assert.ok(fairyHeight/bobroHeight>=1&&fairyHeight/bobroHeight<=1.3);
+ const s=source('../src/volcano-npcs.js');
+ assert.ok(s.includes('frame:null,scale:.35'));
+ assert.ok(s.includes("setScale(SHEETS['swinia-wrozka'].scale)"));
+});
+test('apartment desired coordinates and initial facing are exact',()=>{
+ assert.deepEqual(APARTMENT.marlena,{x:1400,y:313});
+ assert.deepEqual(APARTMENT.bogdan,{x:1500,y:323});
+ assert.deepEqual(FACINGS,['e','se','s','sw','w','nw','n','ne']);
+ assert.equal(playerFrame('e'),0);assert.equal(playerFrame('w'),4);
+ const s=source('../src/volcano-bogdan.js');
+ assert.ok(s.includes("setFrame(playerFrame(key==='marlena'?'e':'w'))"));
+ assert.ok(s.includes("setScale(key==='bogdan'?.79:.72)"));
+ assert.ok(s.includes('playerFrame(facingOf(mx,my'));
+});
+test('Bogdan 80 HP boss bar is above rendered sprite and separated from bark',()=>{
+ assert.equal(BOGDAN_HP,80);
+ const s=source('../src/volcano-bogdan.js');
+ assert.ok(s.includes('const spriteTop=bogdan.y-bogdan.displayHeight'));
+ assert.ok(s.includes('const barTop=spriteTop-24'));
+ assert.ok(s.includes('barTop-18'));
+ assert.ok(s.includes('barTop-46'));
+ assert.ok(s.includes('bossHpRatio(hp,BOGDAN_HP)'));
+});
