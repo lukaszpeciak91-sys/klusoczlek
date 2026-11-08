@@ -52,6 +52,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.escapeBurst=null;this.escapeSpawnAt=0;this.escapeSpawned=0;this.escapeEnemies=[];
     this.escapeShockAt=0;
     this.bogdanHeart=null;this.bogdanHeartPoint=null;this.bogdanHeartCollected=false;
+    this.preBossHeart=null;this.preBossHeartPoint=null;this.preBossHeartCollected=false;
     this.escapeSuccessfulSpawns=0;
     this.escapeCheckpoint=null;this.extractionPoint=null;this.extractionActor=null;this.extractionLoading=false;
     this.dialogueState=createDialogueState();
@@ -454,6 +455,27 @@ export class VolcanoScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.scale.off(Phaser.Scale.Events.RESIZE,resize));
     resize();
   }
+  spawnPreBossHeart(){
+    if(this.disposed||this.preBossHeart||this.preBossHeartCollected||!this.walkability)return false;
+    // Approach from the central platform; resolve to the actual production collision mask.
+    const candidate=nearestVolcanoSpawn(this.walkability,1090,610,17,0,null,120);
+    if(!candidate)return false;
+    this.preBossHeartPoint=candidate;
+    this.preBossHeart=this.add.text(candidate.x,candidate.y-14,'♥',{
+      fontFamily:'Arial',fontSize:'37px',fontStyle:'bold',color:'#e83448',
+      stroke:'#fff0c8',strokeThickness:3
+    }).setOrigin(.5).setDepth(16);
+    return true;
+  }
+  collectPreBossHeart(){
+    if(!this.preBossHeart?.active||this.preBossHeartCollected||this.run.hp>=this.run.maxHp||
+      Math.hypot(this.player.x-this.preBossHeartPoint.x,this.player.y-this.preBossHeartPoint.y)>=42)return false;
+    this.preBossHeartCollected=true;
+    this.run.hp=Math.min(this.run.maxHp,this.run.hp+2);
+    this.hpFace.setHp(this.run.hp);
+    this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
+    this.preBossHeart.destroy();this.preBossHeart=null;return true;
+  }
   spawnBogdanHeart(){
     if(this.disposed||this.bogdanHeart||this.bogdanHeartCollected||!this.walkability)return false;
     const death=this.boss.deathPoint;
@@ -522,7 +544,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.escapeCheckpoint={x:this.player.x,y:this.player.y,hp:Math.max(1,this.run.hp)};
     if(!this.finale.advance('ALOES_WARNING'))return;
     this.escapeSpawned=0;this.escapeSuccessfulSpawns=0;
-    this.escapeSpawnAt=this.time.now+850;
+    this.escapeSpawnAt=this.time.now+1800;
     this.escapeShockAt=this.time.now+3500;
     this.escapeClock.setVisible(true).setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
     void this.spawnExtractionCaptain();
@@ -553,13 +575,17 @@ export class VolcanoScene extends Phaser.Scene {
       return;
     }
     if(this.time.now>=this.escapeSpawnAt&&(this.escapeSpawned<12||this.escapeSuccessfulSpawns<3)&&this.escapeSpawned<30){
-      this.escapeSpawnAt=this.time.now+(this.escapeSuccessfulSpawns<3?1100:4200);
+      this.escapeSpawnAt=this.time.now+(this.escapeSuccessfulSpawns<3?2100:4200);
       this.escapeSpawned++;
       const living=this.combat.enemies.filter(e=>!e.dead);
       if(living.length<6){
-        const offsets=[{x:185,y:110},{x:-190,y:115},{x:155,y:-175},
-         {x:-165,y:-175},{x:230,y:35},{x:-225,y:30}];
-        const candidates=offsets.map((o,i)=>({x:this.player.x+o.x,y:this.player.y+o.y,i}));
+        const toward={x:this.extractionPoint.x-this.player.x,y:this.extractionPoint.y-this.player.y};
+        const distance=Math.max(1,Math.hypot(toward.x,toward.y));
+        const ux=toward.x/distance,uy=toward.y/distance;
+        const offsets=[{ahead:225,side:105},{ahead:255,side:-105},{ahead:175,side:135},
+         {ahead:185,side:-135},{ahead:300,side:80},{ahead:300,side:-80}];
+        const candidates=offsets.map((o,i)=>({x:this.player.x+ux*o.ahead-uy*o.side,
+          y:this.player.y+uy*o.ahead+ux*o.side,i}));
         for(const candidate of candidates){
           const point=nearestVolcanoSpawn(this.walkability,candidate.x,candidate.y,24,0,null,65);
           if(!point||Math.hypot(point.x-this.player.x,point.y-this.player.y)<135||
@@ -590,7 +616,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.finale.state==='ALOES_WARNING'){this.retryRoot.setVisible(false);this.startEscape();return;}
     if(!this.finale.retry()||!this.escapeCheckpoint)return;
     this.retryRoot.setVisible(false);
-    this.combat.clearEscapeEnemies();this.escapeSpawned=0;this.escapeSuccessfulSpawns=0;this.escapeSpawnAt=this.time.now+850;
+    this.combat.clearEscapeEnemies();this.escapeSpawned=0;this.escapeSuccessfulSpawns=0;this.escapeSpawnAt=this.time.now+1800;
     this.escapeShockAt=this.time.now+3500;
     this.run.hp=Math.max(2,Math.min(this.run.maxHp,this.escapeCheckpoint.hp));
     this.playerInvulnerableUntil=this.time.now+1400;
@@ -690,6 +716,7 @@ export class VolcanoScene extends Phaser.Scene {
       if(Math.hypot(this.player.x-this.lawosTrigger.x,this.player.y-this.lawosTrigger.y)<=this.lawosTrigger.radius)this.startLawosEncounter();
       if(this.dialogueState.id)return;
     }
+    if(this.lawosComplete&&!this.preBossHeartCollected&&!this.preBossHeart)this.spawnPreBossHeart();
     if(this.finale.state==='BOGDAN_ACTIVE'&&!this.fairyComplete&&this.lawosComplete&&!this.fairyRevealRequested)this.revealFairyAfterLawos();
     if(this.finale.state==='BOGDAN_ACTIVE'&&!this.boss.argumentStarted&&apartmentReached(this.player)){
       this.apartmentPending=true;
@@ -719,6 +746,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.boss.consumeDefeat()&&this.finale.advance('BOGDAN_ACTIVE'))this.startBogdanFinale();
     if(this.finale.state==='ESCAPE_ACTIVE')this.updateEscape(delta);
     if(this.finale.state==='BOGDAN_ACTIVE'||this.finale.state==='ESCAPE_ACTIVE')this.collectBogdanHeart();
+    if(this.finale.state==='BOGDAN_ACTIVE')this.collectPreBossHeart();
     if(this.escapeBurst&&!this.escapeBurst.done)this.escapeBurst.update(delta);
     this.renderPressureBar();
     if(this.run.hp<=0){if(this.finale.state==='ESCAPE_ACTIVE'){this.escapeFailed();return;}this.lockDeath();return;}
