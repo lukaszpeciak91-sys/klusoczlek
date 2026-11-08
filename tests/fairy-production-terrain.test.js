@@ -1,8 +1,9 @@
+import {APARTMENT} from '../src/volcano-bogdan.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {inflateSync} from 'node:zlib';
-import {createVolcanoWalkability,volcanoFootprintAllowed,VOLCANO_START} from '../src/volcano-contract.js';
+import {createVolcanoWalkability,volcanoFootprintAllowed,VOLCANO_START,nearestVolcanoSpawn} from '../src/volcano-contract.js';
 import {findFairyRouteSpawn} from '../src/volcano-npcs.js';
 import {findMarlenaRoute} from '../src/volcano-bogdan.js';
 
@@ -47,4 +48,15 @@ test('fairy spawn is safe and reachable on actual approved production terrain PN
  const route=findMarlenaRoute(mask,start,point,{radius:17,cell:12,maxNodes:26000});
  assert.ok(route?.length);
  console.log('VERIFIED FAIRY SPAWN',JSON.stringify(point),'reachable route waypoints',route.length);
+});
+
+test('apartment actors move down to reachable walkable terrain without overlap',()=>{
+ const mask=decodeRgbaPng(new URL('../public/assets/arenas/act3-volcano.png',import.meta.url));
+ const marlena=nearestVolcanoSpawn(mask,APARTMENT.marlena.x,APARTMENT.marlena.y,18,0,[],70);
+ const bogdan=nearestVolcanoSpawn(mask,APARTMENT.bogdan.x,APARTMENT.bogdan.y,18,0,marlena?[{x:marlena.x,y:marlena.y,radius:44}]:[],70);
+ assert.ok(marlena,'Marlena has no valid lower position');
+ assert.ok(bogdan,'Bogdan has no valid lower position');
+ assert.ok(volcanoFootprintAllowed(mask,marlena.x,marlena.y,18));
+ assert.ok(volcanoFootprintAllowed(mask,bogdan.x,bogdan.y,18));
+ console.log('VERIFIED APARTMENT ACTORS',JSON.stringify({marlena,bogdan}));
 });
