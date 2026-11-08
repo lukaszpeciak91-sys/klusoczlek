@@ -25,6 +25,7 @@ import {resolveAim} from './shooting.js';
 import {formatGameplayClock,advanceGameplayClock} from './gameplay-clock.js';
 import {updateBursts} from './pixel-death-vfx.js';
 import {act2HealthPoint,shouldSpawnAct2Health,collectAct2Health} from './act2-health-pickup.js';
+import {createHealthToken} from './health-token.js';
 
 const DECK_TEXTURE='airship-deck-approved';
 export class AirshipScene extends Phaser.Scene {
@@ -508,9 +509,7 @@ export class AirshipScene extends Phaser.Scene {
     const point=act2HealthPoint(this.player);
     if(!point)return false;
     this.healthPickupSpawned=true;this.healthPickupPoint=point;
-    this.healthPickup=this.add.container(point.x,point.y).setDepth(15);
-    this.healthPickup.add(this.add.circle(0,0,22,0x7e1b2e,0.98).setStrokeStyle(3,0xffe4b5));
-    this.healthPickup.add(this.add.text(0,0,'♥',{fontFamily:'Arial',fontSize:'34px',fontStyle:'bold',color:'#ff5770'}).setOrigin(.5));
+    this.healthPickup=createHealthToken(this,point.x,point.y);
     return true;
   }
   collectHealthPickup(){
