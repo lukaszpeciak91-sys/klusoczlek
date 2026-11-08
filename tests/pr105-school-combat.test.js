@@ -137,7 +137,8 @@ test('R11 contact cooldown, HP zero, kill once and no projectile ghost after dea
  const combat=source('../src/school-combat.js');
  assert.ok(combat.includes('if(enemy.dead||enemy.hp>0)return false'));
  assert.ok(combat.includes('if(result.hp===0){'));
- assert.ok(combat.includes('clearCombat();scene.defeated=true'));
+ assert.ok(combat.includes('scene.captureSchoolDefeat();'));
+ assert.ok(combat.includes('clearCombat();scene.syncControls();'));
  assert.ok(combat.includes('for(const shot of projectiles)shot.object?.destroy()'));
 });
 test('R12-R13 fixed wave4 handoff clears living enemies once and cannot award Błażej',()=>{
@@ -147,7 +148,7 @@ test('R12-R13 fixed wave4 handoff clears living enemies once and cannot award B�
  assert.equal(schoolCombatPhase(190000,0),'BLAZEJ_PENDING');
  const combat=source('../src/school-combat.js'),scene=source('../src/school-scene.js');
  assert.ok(combat.includes("phase==='CLEANUP'&&living().length===0&&!finished"));
- assert.ok(combat.includes("phase='BLAZEJ_PENDING'"));
+ assert.ok(combat.includes("transition('BLAZEJ_PENDING')"));
  assert.ok(scene.includes('IDŹ DO SZKOŁY'));
  assert.equal(combat.includes('awardRunArtifact('),false);
  assert.equal(combat.includes("this.scene.start('Cave'"),false);
