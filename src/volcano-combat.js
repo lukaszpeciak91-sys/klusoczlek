@@ -16,9 +16,12 @@ export const LAVA_TYPES=Object.freeze({
  'lawostworek-2':Object.freeze({hp:6,speed:48,radius:25,frame:128,width:1024,height:128,color:0xe0441b})
 });
 export const LAVA_BARKS=Object.freeze(['Łaskocze!','I co mi zrobisz?!','Ale groźny!','HA! HA! HA!','Spróbuj wodą, geniuszu!']);
+export function ordinaryLavaBarkDue(enemy,now,dialogueActive,visibleBarks=0){
+ return !enemy.dead&&!dialogueActive&&visibleBarks===0&&now>=(enemy.ordinaryBarkAt??Infinity);
+}
 export function lavaDamage(weapon,amount){return continuousDamageAllowed(weapon,'lawostworek-1')?amount:0;}
 export function createLavaEnemy(type,x,y,index=0){
- const def=LAVA_TYPES[type];return {type,x,y,hp:def.hp,dead:false,radius:def.radius,index,hitAt:-Infinity,barkAt:-Infinity,barkState:createBarkState(),contactAt:-Infinity,ignition:createIgnitionState(),lungeAt:0,headingAt:0,headingOffset:0};
+ const def=LAVA_TYPES[type];return {type,x,y,hp:def.hp,dead:false,radius:def.radius,index,hitAt:-Infinity,barkAt:-Infinity,barkState:createBarkState(),contactAt:-Infinity,ordinaryBarkAt:4000+index*1350,ignition:createIgnitionState(),lungeAt:0,headingAt:0,headingOffset:0};
 }
 export function lavaEnemyStep(enemy,player,dt,now=0,mask=null){
  const def=LAVA_TYPES[enemy.type],fleeing=isBurning(enemy.ignition,now);
@@ -201,7 +204,13 @@ export function createVolcanoCombat(scene){
    const dx=p.x-enemy.x,dy=p.y-enemy.y;
    enemy.x=p.x;enemy.y=p.y;enemy.sprite.setPosition(p.x,p.y);
    if(Math.hypot(dx,dy)>.01){enemy.facing=facingOf(dx,dy,enemy.facing);if(sprites[enemy.type]===enemy.type)enemy.sprite.setFrame(playerFrame(enemy.facing));}
-   syncMonsterBark(enemy.bark,enemy.barkState,now,p.x,p.y-65,!scene.dialogueState.id&&scene.finale?.state==='BOGDAN_ACTIVE');
+   const speechAllowed=!scene.dialogueState.id&&['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(scene.finale?.state);
+   const speaking=enemies.some(e=>e!==enemy&&!e.dead&&e.bark?.visible);
+   if(ordinaryLavaBarkDue(enemy,now,!speechAllowed,Number(speaking))){
+     showMonsterBark(enemy.bark,enemy.barkState,LAVA_BARKS,now,{cooldown:6000,duration:1700});
+     enemy.ordinaryBarkAt=now+8500+(enemy.index%4)*1300;
+   }
+   syncMonsterBark(enemy.bark,enemy.barkState,now,p.x,p.y-65,speechAllowed);
    if(Math.hypot(p.x-scene.player.x,p.y-scene.player.y)<enemy.radius+18&&now-enemy.contactAt>1100){
     enemy.contactAt=now;
     const contact=applyPlayerContact({hp:scene.run.hp,invulnerableUntil:scene.playerInvulnerableUntil??0},now);
