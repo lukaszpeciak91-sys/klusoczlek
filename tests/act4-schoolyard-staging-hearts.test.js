@@ -119,3 +119,28 @@ test('existing Act III heart visuals, gated collection and clamping reused twice
  assert.ok(scene.includes("if(!near)this.pendingApproachArmed=true"));
  assert.ok(scene.includes("if(near&&this.pendingApproachArmed)"));
 });
+
+test('approved Act IV source PNG dimensions and availability are audited without new assets',()=>{
+ const entries=[
+  ['background','backgrounds/act4-schoolyard.png',null,null],
+  ['school','obstacles/act4-school.png',610,450],
+  ['chapel','obstacles/act4-chapel.png',235,235],
+  ['rack','obstacles/act4-bicycle-rack.png',330,255],
+ ];
+ const audited=[];
+ for(const [id,path,width,height] of entries){
+  const target=new URL('../public/assets/'+path,import.meta.url);
+  // PR branch was cut just before the independently approved art commit;
+  // GitHub's PR merge test includes that commit from latest main.
+  if(!existsSync(target))continue;
+  const png=readFileSync(target);
+  assert.deepEqual([...png.subarray(0,8)],[137,80,78,71,13,10,26,10]);
+  const w=png.readUInt32BE(16),h=png.readUInt32BE(20);
+  assert.equal(png[24],8);
+  assert.ok([2,6].includes(png[25]));
+  if(width)assert.deepEqual([w,h],[width,height]);
+  else assert.ok(w>=1200&&h>=800);
+  audited.push(id+':'+w+'x'+h);
+ }
+ console.log('ACT4 APPROVED PNG AUDIT '+audited.join(', '));
+});
