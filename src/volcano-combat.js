@@ -13,7 +13,7 @@ import {createContinuousWeaponState,continuousDamageAllowed,drawContinuousStream
 
 export const LAVA_TYPES=Object.freeze({
  'lawostworek-1':Object.freeze({hp:3,speed:115,radius:21,frame:96,width:768,height:96,color:0xffa51f}),
- 'lawostworek-2':Object.freeze({hp:9,speed:48,radius:25,frame:128,width:1024,height:128,color:0xe0441b})
+ 'lawostworek-2':Object.freeze({hp:6,speed:48,radius:25,frame:128,width:1024,height:128,color:0xe0441b})
 });
 export const LAVA_BARKS=Object.freeze(['Łaskocze!','I co mi zrobisz?!','Ale groźny!','HA! HA! HA!','Spróbuj wodą, geniuszu!']);
 export function lavaDamage(weapon,amount){return continuousDamageAllowed(weapon,'lawostworek-1')?amount:0;}
