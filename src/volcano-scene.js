@@ -36,6 +36,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.combatPending=false;
     this.lawosStarted=false;
     this.lawosTravel=0;
+    this.lawosTrigger=Object.freeze({x:510,y:890,radius:105});
     this.lawosReadiness=createNpcReadiness();
     this.lawosComplete=false;
     this.fairyRevealRequested=false;
@@ -301,6 +302,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.disposed||this.defeated||this.run.hp<=0||this.lawosStarted||!this.openingComplete||!this.walkability)return;
     if(beginDialogue(this.dialogueState,'act3-lawostworki')){
       this.lawosStarted=true;
+      this.openingSafeUntil=this.time.now+3500;
       this.resetMovement();
       this.dialoguePanel.show(this.dialogueState);
     }
@@ -584,7 +586,7 @@ export class VolcanoScene extends Phaser.Scene {
       const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
       this.lawosTravel+=Math.hypot(next.x-this.player.x,next.y-this.player.y);
       this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
-      if(this.lawosTravel>=125)this.startLawosEncounter();
+      if(Math.hypot(this.player.x-this.lawosTrigger.x,this.player.y-this.lawosTrigger.y)<=this.lawosTrigger.radius)this.startLawosEncounter();
       if(this.dialogueState.id)return;
     }
     if(!['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(this.finale.state)){this.resetMovement();return;}
