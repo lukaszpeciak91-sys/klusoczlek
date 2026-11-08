@@ -71,7 +71,12 @@ test('entourage uses existing approved sprite identities and one cap-accounted d
  const occupied=[SCHOOL_ENTOURAGE[0]];
  assert.equal(schoolEntouragePoint(SCHOOL_ENTOURAGE[0],SCHOOL_PLACES.pitchApproach,occupied),false);
  const combat=source('../src/school-combat.js');
- assert.ok(combat.includes('if(!wave4)for(const p of SCHOOL_ENTOURAGE)spawnEnemy({type:p.type,preferred:p});'));
+ assert.ok(combat.includes('if(!wave4)activateEntourage();'));
+ assert.ok(combat.includes('const enemies=[],stagedEntourage=[]'));
+ assert.ok(combat.includes('if(!wave4&&!stagedEntourage.length)stageEntourage()'));
+ assert.ok(combat.includes('enemies.push(enemy);recordDirectorSpawn(director,0,enemy.type)'));
+ assert.ok(combat.includes('const candidates=preferred?[preferred]:'));
+ assert.ok(combat.includes('schoolDirectorSpawnSites(totalSpawned)'));
  assert.ok(combat.includes('population.length>=SCHOOL_WAVES[wave].maxAlive'));
  assert.ok(combat.includes('recordDirectorSpawn(director,wave,type)'));
  assert.ok(combat.includes('clearPoint(preferred,scene.obstacles,radius+4,navigation)'));
