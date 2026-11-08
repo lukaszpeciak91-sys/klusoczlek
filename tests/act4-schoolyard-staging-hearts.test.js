@@ -44,6 +44,8 @@ test('optional Maciek and Seba trigger can be bypassed without delaying pitch or
  assert.equal(Boolean(maciekSebaNearby(SCHOOL_PLACES.maciek)),true);
  assert.equal(Boolean(pitchNearby(SCHOOL_PLACES.pitchApproach)),true);
  assert.equal(Boolean(maciekSebaNearby(SCHOOL_PLACES.pitchApproach)),false);
+ assert.equal(Boolean(maciekSebaNearby(SCHOOL_PLACES.debugSchool)),false);
+ assert.equal(Boolean(pitchNearby(SCHOOL_PLACES.debugSchool)),false);
  const code=source('../src/school-scene.js');
  assert.ok(code.includes('this.maciekSeen=this.beginSchoolDialogue(\'act4-maciek-seba\')'));
  assert.ok(code.includes('this.pitchStarted=this.beginSchoolDialogue(\'act4-blazej-observer\')'));
