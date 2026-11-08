@@ -1,3 +1,4 @@
+import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue} from '../src/dialogue-data.js';
@@ -117,4 +118,12 @@ test('approved fairy PNG accepts static artwork or eight horizontal frames',()=>
  assert.deepEqual(fairyTextureLayout(192,192),{frameWidth:192,frameHeight:192,frames:1});
  assert.deepEqual(fairyTextureLayout(1024,128),{frameWidth:128,frameHeight:128,frames:8});
  assert.equal(fairyTextureLayout(800,120),null);
+});
+
+test('production fairy sprite path and PNG header match supported layout',()=>{
+ const png=readFileSync(new URL('../public/assets/npcs/swinia-wrozka.png',import.meta.url));
+ assert.deepEqual([...png.subarray(0,8)],[137,80,78,71,13,10,26,10]);
+ const width=png.readUInt32BE(16),height=png.readUInt32BE(20);
+ console.log('APPROVED FAIRY PNG DIMENSIONS',width,height);
+ assert.ok(fairyTextureLayout(width,height),'Approved fairy sprite is neither square nor eight horizontal frames');
 });
