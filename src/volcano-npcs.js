@@ -73,6 +73,12 @@ export function findFairyRouteSpawn(mask,player,routeFinder,{radius=17}={}){
  }
  return null;
 }
+export function fairyTextureLayout(width,height){
+ if(!Number.isInteger(width)||!Number.isInteger(height)||height<32)return null;
+ if(width===height*8)return {frameWidth:height,frameHeight:height,frames:8};
+ if(width===height)return {frameWidth:width,frameHeight:height,frames:1};
+ return null;
+}
 export function createNpcReadiness(){
  let state='pending',movement=false,started=false;
  return {
@@ -92,19 +98,20 @@ export function createVolcanoNpcs(scene,Phaser){
   if(!response.ok)throw Error('HTTP '+response.status);
   const bytes=new Uint8Array(await response.arrayBuffer());
   const n=i=>((bytes[i]*16777216)+(bytes[i+1]<<16)+(bytes[i+2]<<8)+bytes[i+3])>>>0;
+  const layout=key==='swinia-wrozka'?fairyTextureLayout(n(16),n(20)):
+   (n(16)===8*n(20)&&n(20)>=64?{frameWidth:n(20),frameHeight:n(20),frames:8}:null);
   if(bytes.length<33||![137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v)||
-   bytes[24]!==8||![2,6].includes(bytes[25])||
-   n(16)!==8*n(20)||n(20)<64||
+   bytes[24]!==8||![2,6].includes(bytes[25])||!layout||
    (def.width&&(n(16)!==def.width||n(20)!==def.height)))
-   throw Error('invalid 8-direction horizontal spritesheet');
+   throw Error('invalid approved NPC PNG dimensions');
   const url=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
   try{
    const image=new Image();
    await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=url;});
    if(disposed)return null;
-   if(!scene.textures.exists(texture))scene.textures.addSpriteSheet(texture,image,{frameWidth:n(20),frameHeight:n(20)});
+   if(!scene.textures.exists(texture))scene.textures.addSpriteSheet(texture,image,{frameWidth:layout.frameWidth,frameHeight:layout.frameHeight});
    scene.textures.get(texture).setFilter(Phaser.Textures.FilterMode.NEAREST);
-   return {texture,frame:n(20)};
+   return {texture,frame:n(20),frames:layout.frames};
   }finally{URL.revokeObjectURL(url);}
  }
  function spawn(key,position){
@@ -112,7 +119,7 @@ export function createVolcanoNpcs(scene,Phaser){
   return load(key).then(info=>{
    if(!info||disposed)return null;
    const actor=scene.add.container(position.x,position.y).setDepth(12);
-   const sprite=scene.add.sprite(0,0,info.texture,2).setOrigin(.5,1).setScale(def.scale);
+   const sprite=scene.add.sprite(0,0,info.texture,info.frames===1?0:2).setOrigin(.5,1).setScale(def.scale);
    actor.add(sprite);
    actors.push(actor);
    return {actor,sprite,position};
