@@ -12,8 +12,10 @@ import { SchoolScene } from '/src/school-scene.js';
 import { setupViewport } from '/src/viewport.js';
 import { toggleFullscreen } from '/src/fullscreen.js';
 import {createEpisode,advanceTimedWaves,WAVE_TIMING,recordSpawn} from '/src/episode.js';
+import {createDebugFixture} from '/src/debug-checkpoints.js';
 const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},input:{activePointers:3},scene:[MenuScene,ActTitleScene,ArenaScene,AirshipScene,VolcanoScene,SchoolScene]});
 window.__game=game;
+window.__createDebugFixture=createDebugFixture;
 window.__createObstacle=(await import('/src/obstacle-catalog.js')).createObstacle;
 // Fixture-only deterministic clock/state staging; production owns the sole gameplay clock.
 window.__setActiveTime=ms=>{const a=game.scene.getScene('Arena');a.gameplayClock.elapsedMs=ms;a.gameplayClock.lastNow=null;};
