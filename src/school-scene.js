@@ -12,6 +12,8 @@ import {currentCampaignRun,prepareActStart} from './campaign-run.js';
 import {availableWeapons,cycleUnlockedWeapon,selectUnlockedWeapon,WEAPONS} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {createSchoolCombat} from './school-combat.js';
+import {createAmbientBarks} from './ambient-bark-view.js';
+import {seededRandom} from './arena-layout.js';
 import {SCHOOL_WORLD,SCHOOL_PLACES,SCHOOL_OBSTACLES,SCHOOL_WAVE_COUNT,schoolStep,schoolDebugPoint} from './school-contract.js';
 
 // PR105 attaches approved Act I combat via the small School adapter.
@@ -98,6 +100,15 @@ export class SchoolScene extends Phaser.Scene {
       {fontFamily:'monospace',fontSize:'12px',color:'#f6d6a4',stroke:'#17211c',strokeThickness:2})
       .setOrigin(.5,0).setScrollFactor(0).setDepth(66).setVisible(false);
     this.combat=createSchoolCombat(this,Phaser);
+    // Tiny compatibility surface for the approved Act I bark view; no fork.
+    this.enemies=this.combat.enemies;
+    this.enemyRenderers=this.combat.renderers;
+    this.episode={ended:false,state:'active'};
+    this.narrativeEvents=new Set(); // Act I story beats do not run in School.
+    this.canResume=()=>this.controlsAllowed()&&!this.introActive&&!this.defeated&&
+      this.run.hp>0&&!this.dialogueLoading&&!this.dialogueState?.id&&
+      (this.schoolPhase==='COMBAT'||this.schoolPhase==='CLEANUP');
+    this.ambientBarks=createAmbientBarks(this,seededRandom((104^0x46babc)>>>0));
     this.fullscreenButton=document.getElementById('fullscreen-button');
     this.fullscreenPreviousHidden=this.fullscreenButton?.hidden??false;
     if(this.fullscreenButton)this.fullscreenButton.hidden=true;
@@ -118,8 +129,8 @@ export class SchoolScene extends Phaser.Scene {
       this.hpFace.resize(l);this.hpText.setPosition(l.hpX,l.hpY);
       this.syncControls();
     };
-    const reset=()=>{this.combat?.suspend();this.resetMovement();};
-    const sync=()=>{this.combat?.suspend();this.syncControls();};
+    const reset=()=>{this.combat?.suspend();this.ambientBarks?.suspend();this.resetMovement();};
+    const sync=()=>{this.combat?.suspend();this.ambientBarks?.guard();this.syncControls();};
     this.scale.on(Phaser.Scale.Events.RESIZE,resize);
     this.events.on(Phaser.Scenes.Events.RESUME,sync);
     this.events.on(Phaser.Scenes.Events.PAUSE,reset);
@@ -208,6 +219,7 @@ export class SchoolScene extends Phaser.Scene {
   openMenu(){
     if(this.scene.isPaused()||this.scene.isActive('Menu')||!this.controlsAllowed())return;
     this.combat?.suspend();
+    this.ambientBarks?.suspend();
     this.resetMovement();
     this.scene.pause();
     this.scene.launch('Menu');
@@ -215,6 +227,7 @@ export class SchoolScene extends Phaser.Scene {
   }
   update(_time,delta){
     if(this.disposed)return;
+    this.ambientBarks?.guard();
     this.captainArrival.update(delta);
     if(this.introActive&&this.captainArrival.arrived&&!this.captainDeparting){
       this.captainDeparting=true;
@@ -243,6 +256,7 @@ export class SchoolScene extends Phaser.Scene {
     else if(Math.hypot(input.x,input.y)>.05)this.facing=facingOf(input.x,input.y,this.facing);
     this.playerVisual.update(this.facing,Math.hypot(input.x,input.y)>.05,Math.min(50,delta));
     this.combat.update(delta,performance.now(),aim,this.aimJoystick.held);
+    this.ambientBarks.tick(this.combat.elapsedMs);
     this.hpFace.update(delta);
   }
 }
