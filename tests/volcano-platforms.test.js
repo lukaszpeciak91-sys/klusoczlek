@@ -18,10 +18,10 @@ test('zone activation is one-shot and leaving/re-entering does not duplicate ene
  assert.equal(p.activate('entrance',(z,t,i)=>{spawned.push([z.id,t,i]);return true;}),true);
  assert.equal(p.activate('entrance',()=>{throw Error('duplicate');}),false);
  assert.equal(p.get('entrance').alive,2);
- assert.equal(p.get('apartment-approach').alive,3);
  assert.equal(p.activate('middle',(z,t,i)=>{spawned.push([z.id,t,i]);return true;}),true);
  assert.equal(p.activate('apartment-approach',(z,t,i)=>{spawned.push([z.id,t,i]);return true;}),true);
  assert.equal(p.activate('apartment-approach',()=>{throw Error('duplicate apartment activation');}),false);
+ assert.equal(p.get('apartment-approach').alive,3);
  assert.equal(p.activate('fairy',(z,t,i)=>{spawned.push([z.id,t,i]);return true;}),true);
  assert.equal(spawned.length,12);
  assert.equal(p.fairyReveal,false);
