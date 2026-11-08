@@ -584,7 +584,9 @@ try{
  const bicycleReward=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.run.artifacts.has('blazej-bicycle'),all:[...s.run.artifacts],text:s.rewardName.text,third:s.rewardDetail.text,approvedImage:s.bicycleTexture}})()");
  assert.ok(bicycleReward.id&&bicycleReward.all.length===3&&bicycleReward.text==='ROWER BŁAŻEJA'&&bicycleReward.third==='ARTEFAKT 3/3');
  assert.ok(bicycleReward.approvedImage===null||bicycleReward.approvedImage==='artifact-blazej-bicycle','only validated original bike PNG or honest text fallback');
- await wait("(()=>{const s=window.__game.scene.getScene('School');return s.bicycleCinematic.ready&&s.bicycleTexture==='artifact-blazej-bicycle'})()",'both actual approved bicycle images decoded in browser',12000);
+ const bikeAssetStatus=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),t=s.textures;return {movieReady:s.bicycleCinematic.ready,movieStarted:s.bicycleCinematic.started,movieTexture:t.exists('act4-aloes-bicycle-cinematic'),movieFrames:t.exists('act4-aloes-bicycle-cinematic')?t.get('act4-aloes-bicycle-cinematic').frameTotal:null,artifact:s.bicycleTexture,artifactTexture:t.exists('artifact-blazej-bicycle'),phase:s.schoolPhase}})()");
+ console.log('ACT IV BICYCLE ASSET STATUS',JSON.stringify(bikeAssetStatus));
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.bicycleCinematic.ready&&s.bicycleTexture==='artifact-blazej-bicycle'})()",'both actual approved bicycle images decoded in browser',4500);
  const rewardPoint=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.rewardButton.x,y:r.y+s.rewardButton.y}})()");
  await sleep(250);await touch(rewardPoint.x,rewardPoint.y);
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BICYCLE_RIDE'&&s.bicycleRideStarted&&s.storyBusy&&!s.rewardRoot.visible})()",'reward DALEJ opens one cinematic transition',2000);
