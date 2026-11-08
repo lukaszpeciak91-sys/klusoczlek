@@ -14,7 +14,7 @@ import {createDialogueState,beginDialogue,queueBocianolakHitDialogue,BOCIANOLAK_
 import {createDialoguePanel} from './dialogue-ui.js';
 import {createAct1Panels} from './act1-epilogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
-import {FIRST_ACT_ID,completionDestination} from './campaign.js';
+import {FIRST_ACT_ID,CAMPAIGN_ACTS,completionDestination} from './campaign.js';
 import {readCampaignCheckpoint,writeCampaignCheckpoint} from './campaign-save.js';
 import {beginCampaignRun,currentCampaignRun,updateRunHealth,updateRunEquipment,awardRunArtifact,completeCampaignAct,nextActHandoff,MARCIN_MOHAWK_ID} from './campaign-run.js';
 import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
@@ -79,11 +79,11 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.background);
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
-    const sessionKey=this.scene.isPaused('Volcano')?'Volcano':this.scene.isPaused('Airship')?'Airship':'Arena';
+    const sessionKey=['School','Volcano','Airship','Arena'].find(key=>this.scene.isPaused(key))??'Arena';
     const hasSession = this.scene.isPaused(sessionKey);
     const savedCheckpoint=readCampaignCheckpoint();
-    const terminal = hasSession && (sessionKey==='Arena' && this.scene.get('Arena').episode?.ended || sessionKey==='Volcano' && this.scene.get('Volcano').defeated);
-    const defeated = terminal && (sessionKey==='Volcano'||this.scene.get('Arena').episode.state==='defeat');
+    const terminal = hasSession && ((sessionKey==='Arena' && this.scene.get('Arena').episode?.ended) || (sessionKey==='Volcano' && this.scene.get('Volcano').defeated));
+    const defeated = terminal && (sessionKey==='Volcano'||(sessionKey==='Arena'&&this.scene.get('Arena').episode.state==='defeat'));
     const victorious=terminal&&!defeated;
     const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
     const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
@@ -114,8 +114,10 @@ export class MenuScene extends Phaser.Scene {
       if(!run){this.navigating=false;return;}
       let handoff=null;
       if(run.actId!=='act1'){
-        const actId=run.actId;
-        run.actId='act1';
+        const actId=run.actId,index=CAMPAIGN_ACTS.findIndex(act=>act.id===actId);
+        const previous=CAMPAIGN_ACTS[index-1];
+        if(!previous){this.navigating=false;return;}
+        run.actId=previous.id;
         handoff=nextActHandoff(run,new Set(Object.keys(this.scene.manager.keys)));
         if(!handoff||handoff.actId!==actId){this.navigating=false;return;}
       }
@@ -140,7 +142,7 @@ export class MenuScene extends Phaser.Scene {
         if(hasSession)this.scene.stop(sessionKey);
         fixture.run.isDebugRun=true;
         this.game.registry.set('campaign-run',fixture.run);
-        if(checkpoint.id==='act3-opening')this.scene.start('ActTitle',{actId:'act3',handoff:fixture.handoff,debugCheckpoint:checkpoint.id});
+        if(checkpoint.id==='act3-opening'||checkpoint.id==='act4-opening')this.scene.start('ActTitle',{actId:checkpoint.actId,handoff:fixture.handoff,debugCheckpoint:checkpoint.id});
         else this.scene.start(checkpoint.scene,{debugCheckpoint:checkpoint.id,handoff:fixture.handoff});
       });
       this.cameras.main.fadeOut(240,0,0,0);
