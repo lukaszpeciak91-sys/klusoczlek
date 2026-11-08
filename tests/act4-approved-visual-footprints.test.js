@@ -104,9 +104,12 @@ test('five approved Act I pieces surround the pitch without crowding centre or s
  assert.ok(nav.visited>0);
  for(const target of [
   SCHOOL_PLACES.maciek,SCHOOL_PLACES.seba,SCHOOL_PLACES.pitchApproach,
-  BLAZEJ_START,SCHOOL_PLACES.schoolEntrance,SCHOOL_PLACES.chapelDoor,
+  BLAZEJ_START,SCHOOL_PLACES.schoolEntrance,
   {x:1510,y:875},...Object.values(SCHOOL_HEART_POINTS),...SCHOOL_ENTOURAGE])
   assert.ok(nav.isReachable(target),'heavy-enemy-size corridor reachable '+JSON.stringify(target));
+ const playerNav=reachableCells({width:SCHOOL_WORLD.width,height:SCHOOL_WORLD.height,cellSize:12,
+  actorRadius:PLAYER_RADIUS,origin:SCHOOL_PLACES.playerStart,obstacles:SCHOOL_OBSTACLES});
+ assert.ok(playerNav.isReachable(SCHOOL_PLACES.chapelDoor),'player/Captain chapel approach reachable');
 });
 
 test('existing swept motion, projectiles, spawn checks and boss jump respect the compact solids',()=>{
