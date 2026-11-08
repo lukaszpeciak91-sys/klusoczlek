@@ -36,13 +36,14 @@ test('same eight-direction muzzle and stream geometry for both variants',()=>{
   assert.ok(Math.abs(Math.hypot(origin.x-200,origin.y-300)-24)<1e-8);
   const commands=weapon=>{
    const log=[];
-   const g={clear(){log.push(['clear']);},fillStyle(color,alpha){log.push(['color',color,alpha]);return this;},fillTriangle(...p){log.push(['triangle',...p]);return this;},fillCircle(...p){log.push(['circle',...p]);return this;}};
+   const g={clear(){log.push(['clear']);},fillStyle(color,alpha){log.push(['color',color,alpha]);return this;},fillTriangle(...p){log.push(['triangle',...p]);return this;},fillCircle(...p){log.push(['circle',...p]);return this;},lineStyle(...p){log.push(['lineStyle',...p]);return this;},lineBetween(...p){log.push(['line',...p]);return this;},strokeCircle(...p){log.push(['ring',...p]);return this;}};
    drawContinuousStream(g,origin,aim,1234,weapon);return log;
   };
   const fire=commands('flamethrower'),water=commands('water-flamethrower');
-  assert.deepEqual(fire.filter(x=>x[0]==='triangle'),water.filter(x=>x[0]==='triangle'));
   assert.equal(fire.filter(x=>x[0]==='triangle').length,33);
-  assert.notEqual(fire[1][1],water[1][1]);
+  assert.equal(water.filter(x=>x[0]==='triangle').length,0);
+  assert.ok(water.filter(x=>x[0]==='line').length>=3);
+  assert.equal(fire.filter(x=>x[0]==='line').length,0);
   assert.equal(inFlameCone(origin,aim,{x:origin.x+aim.x*100,y:origin.y+aim.y*100},COMBAT_TUNING.flamethrower.range,COMBAT_TUNING.flamethrower.halfAngle),true);
  }
 });
