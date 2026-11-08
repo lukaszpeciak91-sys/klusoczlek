@@ -48,7 +48,7 @@ test('PR106 Błażej is a passive, invulnerable visual observer until authoritat
  assert.ok(combat.includes("phase!=='BLAZEJ_PENDING'||living().length"));
  assert.ok(combat.includes("get target(){return active&&!defeated?actor:null;}")===false);
  assert.ok(combat.includes('scene.blazej?.target'));
- assert.ok(scene.includes("blazejConfrontationReady(this.schoolPhase,this.player,this.blazej.actor)"));
+ assert.ok(scene.includes("this.bossConfronted=this.beginSchoolDialogue('act4-blazej-final')"));
 });
 test('PR106 telegraph, radial volleys, jump landing and solid obstacles are bounded',()=>{
  const state=createBossAttack();assert.equal(state.phase,'chase');
