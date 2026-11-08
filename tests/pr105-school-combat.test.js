@@ -138,7 +138,7 @@ test('R11 contact cooldown, HP zero, kill once and no projectile ghost after dea
  assert.ok(combat.includes('if(enemy.dead||enemy.hp>0)return false'));
  assert.ok(combat.includes('if(result.hp===0){'));
  assert.ok(combat.includes('scene.captureSchoolDefeat();'));
- assert.ok(combat.includes('clearCombat();scene.syncControls();'));
+ assert.ok(combat.includes('clearCombat();scene.blazej?.clearAttacks();scene.syncControls();'));
  assert.ok(combat.includes('for(const shot of projectiles)shot.object?.destroy()'));
 });
 test('R12-R13 fixed wave4 handoff clears living enemies once and cannot award Błażej',()=>{
@@ -202,7 +202,7 @@ test('PR105 R1 actual death coordinates and approved existing Menu presentation'
  const scene=source('../src/school-scene.js'),combat=source('../src/school-combat.js');
  const menu=source('../src/scenes.js');
  assert.ok(combat.includes("scene.captureSchoolDefeat();"));
- assert.ok(combat.includes("clearCombat();scene.syncControls();"));
+ assert.ok(combat.includes("clearCombat();scene.blazej?.clearAttacks();scene.syncControls();"));
  assert.ok(combat.includes("scene.openMenu();"));
  assert.ok(scene.includes("const camera=this.cameras.main,origin=camera.getWorldPoint(0,0);"));
  assert.ok(scene.includes("this.defeatVisualAt={x:(this.player.x-origin.x)*camera.zoom,"));
