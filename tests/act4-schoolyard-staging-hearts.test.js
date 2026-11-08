@@ -79,7 +79,7 @@ test('entourage uses existing approved sprite identities and one cap-accounted d
  assert.ok(combat.includes('schoolDirectorSpawnSites(totalSpawned)'));
  assert.ok(combat.includes('population.length>=SCHOOL_WAVES[wave].maxAlive'));
  assert.ok(combat.includes('recordDirectorSpawn(director,wave,type)'));
- assert.ok(combat.includes('clearPoint(preferred,scene.obstacles,radius+4,navigation)'));
+ assert.ok(combat.includes('clearPoint(p,scene.obstacles,radius+4,navigation)'));
  assert.ok(combat.includes('schoolEntouragePoint(preferred,scene.player,population)'));
  assert.ok(combat.includes('createPixelBurst(scene,enemy.type,enemy.x,enemy.y,enemy.seed)'));
  assert.ok(SCHOOL_WAVES[0].maxAlive>=SCHOOL_ENTOURAGE.length);
