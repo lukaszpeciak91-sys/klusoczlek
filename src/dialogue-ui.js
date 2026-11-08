@@ -7,6 +7,10 @@ export function validDialoguePng(bytes){
 }
 import {currentDialogue,advanceDialogue} from './dialogue-data.js';
 const PORTRAITS=['aloes','bobrozombi','bocianolak','zubrokryptyda','marcin','captain','lawostworek-1','lawostworek-2','swinia-wrozka','marlena','bogdan'];
+export function dialoguePortraitSize(width,height){
+ const compact=width<400;
+ return Math.round(Math.min(compact?64:108,Math.max(43,height*(compact?.23:.32))));
+}
 export function createDialoguePanel(scene,Phaser,onFinish,onAdvance=null){
  const shell=scene.add.container(0,0).setDepth(110).setScrollFactor(0).setVisible(false);
  const bg=scene.add.rectangle(0,0,100,100,0x171b20,0.92).setStrokeStyle(2,0xb39a64).setOrigin(0);
@@ -23,7 +27,7 @@ export function createDialoguePanel(scene,Phaser,onFinish,onAdvance=null){
   const w=scene.scale.width,h=scene.scale.height;
   const margin=Math.max(5,Math.min(12,w*.015)),width=w-2*margin,x=margin;
   const compact=w<400;
-  const portrait=Math.round(Math.min(compact?55:78,Math.max(43,h*.23)));
+  const portrait=dialoguePortraitSize(w,h);
   const px=x+10,tx=px+portrait+12,tw=Math.max(70,width-portrait-36);
   const font=compact?13:w<650?16:18;
   const speakerFont=compact?12:w<650?15:17;
