@@ -681,16 +681,15 @@ export class VolcanoScene extends Phaser.Scene {
     const input=normalizeInput(
       this.joystick.direction.x+Number(k.D.isDown||k.RIGHT.isDown)-Number(k.A.isDown||k.LEFT.isDown),
       this.joystick.direction.y+Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown));
+    if(!['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(this.finale.state)){this.resetMovement();return;}
+    // Exactly one integration per frame, including the pre-Lawostworki walk.
+    const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
+    if(!this.lawosStarted)this.lawosTravel+=Math.hypot(next.x-this.player.x,next.y-this.player.y);
+    this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
     if(!this.lawosStarted){
-      const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
-      this.lawosTravel+=Math.hypot(next.x-this.player.x,next.y-this.player.y);
-      this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
       if(Math.hypot(this.player.x-this.lawosTrigger.x,this.player.y-this.lawosTrigger.y)<=this.lawosTrigger.radius)this.startLawosEncounter();
       if(this.dialogueState.id)return;
     }
-    if(!['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(this.finale.state)){this.resetMovement();return;}
-    const next=volcanoStep(this.player,input,delta,PLAYER_SPEED,PLAYER_RADIUS,this.walkability);
-    this.player.setPosition(next.x,next.y);this.player.body.reset(next.x,next.y);
     if(this.finale.state==='BOGDAN_ACTIVE'&&!this.fairyComplete&&this.lawosComplete&&!this.fairyRevealRequested)this.revealFairyAfterLawos();
     if(this.finale.state==='BOGDAN_ACTIVE'&&!this.boss.argumentStarted&&apartmentReached(this.player)){
       this.apartmentPending=true;
