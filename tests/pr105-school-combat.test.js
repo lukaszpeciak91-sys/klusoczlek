@@ -120,12 +120,12 @@ test('R10 projectile ordering and flame LOS use the existing solid footprint pre
  const hit=enemyProjectileHit(from,to,enemy,5);
  assert.ok(hit&&wall.t<hit.t,'chapel blocks a projectile before monster hit');
  assert.ok(segmentObstacleHit(from,to,SCHOOL_OBSTACLES,5));
- assert.equal(enemyFlameVisible({x:170,y:840},{x:1,y:0},
-   {type:'bobrozombi',x:300,y:840,hp:3},SCHOOL_OBSTACLES),false);
+ assert.equal(enemyFlameVisible({x:235,y:840},{x:1,y:0},
+   {type:'bobrozombi',x:420,y:840,hp:3},SCHOOL_OBSTACLES),false);
  assert.equal(enemyFlameVisible({x:530,y:840},{x:1,y:0},
    {type:'bobrozombi',x:650,y:840,hp:3},SCHOOL_OBSTACLES),true);
- assert.equal(flameTargetVisible({x:170,y:840},{x:1,y:0},
-   {x:300,y:840},21,SCHOOL_OBSTACLES),false);
+ assert.equal(flameTargetVisible({x:235,y:840},{x:1,y:0},
+   {x:420,y:840},21,SCHOOL_OBSTACLES),false);
 });
 test('R11 contact cooldown, HP zero, kill once and no projectile ghost after death',()=>{
  assert.equal(applyEnemyHit(ENEMY_TYPES.bocianolak.hp,99),0);
