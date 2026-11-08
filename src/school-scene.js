@@ -21,6 +21,7 @@ import {BLAZEJ_BICYCLE_ID,BLAZEJ_START,BLAZEJ_CONFRONT_RADIUS,CHAPEL_RETURN,BLAZ
 import {SCHOOL_COMBAT_MS} from './school-combat.js';
 import {createHealthToken} from './health-token.js';
 import {createObstacleVisual} from './obstacle-renderer.js';
+import {createSchoolyardArt} from './schoolyard-art.js';
 import {MACIEK_SEBA_RADIUS,PITCH_ENCOUNTER_RADIUS,SCHOOL_WAVE2_END_MS,
   SCHOOL_HEART_POINTS,maciekSebaNearby,pitchNearby,canSpawnSchoolHeart,
   collectSchoolHeart} from './school-staging.js';
@@ -52,6 +53,7 @@ export class SchoolScene extends Phaser.Scene {
     this.physics.world.setBounds(0,0,SCHOOL_WORLD.width,SCHOOL_WORLD.height);
     createArenaGround(this,SCHOOL_WORLD.width,SCHOOL_WORLD.height,Phaser,{border:0x6c6150});
     this.drawPrototypePlaces();
+    this.schoolArt=createSchoolyardArt(this);
 
     const spawn=schoolDebugPoint(this.debugCheckpoint);
     this.player=createPlayer(this,spawn.x,spawn.y);
@@ -424,29 +426,34 @@ export class SchoolScene extends Phaser.Scene {
     return true;
   }
   drawPrototypePlaces(){
-    // These labels and blocks are disposable visual placeholders, NOT PNG masks.
+    // Hide each old placeholder only after its actual approved PNG is decoded.
+    this.schoolPlacePlaceholders=new Map();this.schoolTerrainPlaceholders=[];
     const colors={chapel:0x86725d,school:0x706a5f,bicycleRack:0x837c56};
     for(const obstacle of this.obstacles){
       const p=SCHOOL_PLACES[obstacle.id];
       if(!p)continue;
-      this.add.rectangle(p.x,p.y,p.width,p.height,colors[obstacle.id])
+      const rect=this.add.rectangle(p.x,p.y,p.width,p.height,colors[obstacle.id])
         .setStrokeStyle(5,0x272923).setDepth(-9);
-      this.add.text(p.x,p.y,p.label,{fontFamily:'monospace',fontSize:'28px',
+      const title=this.add.text(p.x,p.y,p.label,{fontFamily:'monospace',fontSize:'28px',
         fontStyle:'bold',color:'#f8e6c3',align:'center'}).setOrigin(.5).setDepth(-8);
+      this.schoolPlacePlaceholders.set(obstacle.id,[rect,title]);
     }
     const pitch=SCHOOL_PLACES.pitch;
-    this.add.rectangle(pitch.x,pitch.y,pitch.width,pitch.height,0x426a50,.73)
-      .setStrokeStyle(5,0xd9dfcb).setDepth(-10);
-    this.add.line(pitch.x,pitch.y,0,-pitch.height/2,0,pitch.height/2,0xd9dfcb,.7)
-      .setLineWidth(3).setDepth(-9);
-    this.add.circle(pitch.x,pitch.y,66).setStrokeStyle(4,0xd9dfcb,.7).setDepth(-9);
-    this.add.text(pitch.x,pitch.y-120,'BOISKO',{fontFamily:'monospace',fontSize:'28px',color:'#ffffff'})
-      .setOrigin(.5).setDepth(-8);
+    this.schoolTerrainPlaceholders.push(
+      this.add.rectangle(pitch.x,pitch.y,pitch.width,pitch.height,0x426a50,.73)
+        .setStrokeStyle(5,0xd9dfcb).setDepth(-10),
+      this.add.line(pitch.x,pitch.y,0,-pitch.height/2,0,pitch.height/2,0xd9dfcb,.7)
+        .setLineWidth(3).setDepth(-9),
+      this.add.circle(pitch.x,pitch.y,66).setStrokeStyle(4,0xd9dfcb,.7).setDepth(-9),
+      this.add.text(pitch.x,pitch.y-120,'BOISKO',{fontFamily:'monospace',fontSize:'28px',color:'#ffffff'})
+        .setOrigin(.5).setDepth(-8)
+    );
     const entrance=SCHOOL_PLACES.schoolEntrance;
-    this.add.text(entrance.x,entrance.y,'WEJŚCIE DO SZKOŁY',
-      {fontFamily:'monospace',fontSize:'16px',color:'#f6e9b9'}).setOrigin(.5).setDepth(-7);
+    this.schoolTerrainPlaceholders.push(this.add.text(entrance.x,entrance.y,'WEJŚCIE DO SZKOŁY',
+      {fontFamily:'monospace',fontSize:'16px',color:'#f6e9b9'}).setOrigin(.5).setDepth(-7));
     const chapelDoor=SCHOOL_PLACES.chapelDoor;
-    this.add.rectangle(chapelDoor.x,chapelDoor.y,85,12,0xaa8c5e).setDepth(-7);
+    this.schoolTerrainPlaceholders.push(
+      this.add.rectangle(chapelDoor.x,chapelDoor.y,85,12,0xaa8c5e).setDepth(-7));
     // These two are approved Act I atlas sprites, never invented replacement art.
     // The original atlas renderer can create a temporary shape; hide it until
     // the verified original texture is ready (or leave invisible if unavailable).
