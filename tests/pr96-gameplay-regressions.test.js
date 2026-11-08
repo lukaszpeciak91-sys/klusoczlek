@@ -27,7 +27,8 @@ test('exactly two entrance enemies and correct story assignment',()=>{
 test('Act III finale reuses existing Captain and has Bogdan damage UI cleanup',()=>{
  const scene=source('../src/volcano-scene.js'),boss=source('../src/volcano-bogdan.js');
  assert.ok(scene.includes('this.captainArrival.actor'));
- assert.ok(scene.includes('this.extractionActor!==this.captainArrival.actor'));
+ assert.ok(scene.includes('this.extractionActor=existing'));
+ assert.equal(scene.includes('this.add.sprite(point.x,point.y,key,2)'),false);
  assert.ok(boss.includes('bossHealth.clear().setVisible(false)'));
  assert.ok(boss.includes('bossHealth.destroy()'));
  assert.equal(BOGDAN_HP,80);
