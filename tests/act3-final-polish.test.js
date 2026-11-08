@@ -23,7 +23,7 @@ test('Lawostworki death grants zone progress once and uses charcoal VFX',()=>{
  assert.ok(s.includes('scene.time.delayedCall(145'));
 });
 test('fairy smaller and Bogdan enlarged without changing Marlena scale',()=>{
- assert.ok(read('../src/volcano-npcs.js').includes('scale:.50'));
+ assert.ok(read('../src/volcano-npcs.js').includes('scale:.35'));
  const s=read('../src/volcano-bogdan.js');
  assert.ok(s.includes("key==='bogdan'?.79:.72"));
  assert.equal(BOGDAN_HIT_RADIUS,38);
