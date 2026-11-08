@@ -1,6 +1,12 @@
 import {BARK_PHRASES,EXTRA_BARKS,HIT_BARKS,createBarkSchedule,advanceBarks,damageBark,eligibleBarkSpeaker,bubblePlacement,boxesOverlap,MAX_BUBBLES} from './ambient-barks.js';
 // Two persistent independent Phaser bubbles. Neither takes input or advances game time.
-export function createAmbientBarks(scene,rng){
+export function createAmbientBarks(scene,rng,{guest=null}={}){
+ // Optional narrative guest shares the *same* two approved bubbles, anchors,
+ // viewport/HUD exclusions and suspend lifecycle. Absent in Act I.
+ const guestState={mode:null,nextAt:null,shown:0,attempts:0,history:[],
+  cursor:{observer:0,boss:0}};
+ const guestRng=guest?.rng??rng;
+ const guestDelay=()=>4500+Math.floor(guestRng()*3001);
  const state=createBarkSchedule(rng),pool=Array.from({length:MAX_BUBBLES},()=>{
   const root=scene.add.container(0,0).setScrollFactor(0).setDepth(49).setVisible(false);
   const graphics=scene.add.graphics();
@@ -9,7 +15,11 @@ export function createAmbientBarks(scene,rng){
  });
  let lastElapsed=null,disposed=false;
  const allowed=()=>!disposed&&scene.sys.isActive()&&!scene.scene.isPaused()&&!scene.scene.isActive('Menu')&&!scene.physics.world.isPaused&&scene.canResume()&&!scene.dialogueLoading&&!scene.dialogueState?.id&&!scene.episode.ended&&scene.episode.state==='active'&&!scene.bossEntrance&&!scene.bossEntrancePending&&!scene.narrativeEvents.has('before-marcin');
- const suspend=()=>{state.active.length=0;state.echoRemaining=-1;lastElapsed=null;pool.forEach(p=>{p.event=null;p.bounds=null;p.root.setVisible(false);});};
+ const suspend=()=>{
+  state.active.length=0;state.echoRemaining=-1;lastElapsed=null;
+  guestState.nextAt=null;
+  pool.forEach(p=>{p.event=null;p.bounds=null;p.root.setVisible(false);});
+ };
  const anchorOf=e=>scene.enemyRenderers[e.type]?.speechAnchorOf?.(e)??null;
  const measure=(p,phrase)=>{
   p.text.setFontSize(scene.scale.width<600?12:13).setText(phrase);
@@ -49,6 +59,29 @@ export function createAmbientBarks(scene,rng){
   if(!allowed()){suspend();return;}
   const delta=lastElapsed===null?0:Math.max(0,elapsed-lastElapsed);lastElapsed=elapsed;
   advanceBarks(state,delta,true,candidates,rng);
+  if(guest){
+   const mode=guest.phase();
+   if(mode!==guestState.mode){guestState.mode=mode;guestState.nextAt=null;}
+   if(mode&&guestState.nextAt===null)guestState.nextAt=elapsed+guestDelay();
+   else if(mode&&elapsed>=guestState.nextAt){
+    guestState.nextAt=elapsed+guestDelay();
+    guestState.attempts++;
+    const speaker=guest.speaker(),lines=guest.phrases[mode];
+    if(lines?.length&&speaker&&!speaker.dead&&speaker.hp>0&&
+       state.active.length<MAX_BUBBLES&&!state.active.some(e=>e.speaker===speaker)){
+      const phrase=lines[guestState.cursor[mode]%lines.length];
+      const slot=pool.find(p=>!p.root.visible);
+      if(slot){
+       const size=measure(slot,phrase);
+       if(place(speaker,size)){
+        state.active.push({speaker,phrase,kind:'blazej-'+mode,
+          priority:1,life:1800,age:0});
+        guestState.cursor[mode]++;guestState.shown++;guestState.history.push(phrase);
+       }
+      }
+    }
+   }
+  }
   display();
  };
  const hit=(enemy,at)=>{
@@ -61,7 +94,7 @@ export function createAmbientBarks(scene,rng){
  scene.scale.on('resize',resize);scene.events.on('pause',suspend);
  const destroy=()=>{if(disposed)return;disposed=true;suspend();scene.scale.off('resize',resize);scene.events.off('pause',suspend);pool.forEach(p=>p.root.destroy());};
  scene.events.once('shutdown',destroy);
- return {state,pool,root:pool[0].root,text:pool[0].text,graphics:pool[0].graphics,guard,tick,hit,suspend,destroy,
+ return {state,guestState,pool,root:pool[0].root,text:pool[0].text,graphics:pool[0].graphics,guard,tick,hit,suspend,destroy,
  speakerDied(enemy){state.active=state.active.filter(e=>e.speaker!==enemy);display();},
  get bounds(){return pool[0].root.visible?pool[0].bounds:null;},
  get eligible(){return allowed();}};
