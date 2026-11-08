@@ -7,7 +7,7 @@ test('debug destinations cover implemented Acts I–III',()=>{
  assert.deepEqual(DEBUG_CHECKPOINTS.map(x=>x.id),[
   'act1-opening','act1-marcin','act1-ending','act1-results',
   'act2-opening','act2-defense','act2-last15','act2-results',
-  'act3-opening']);
+  'act3-opening','act3-lawos','act3-fairy','act3-apartment','act3-boss','act3-escape']);
  assert.equal(DEBUG_IDS.size,DEBUG_CHECKPOINTS.length);
  assert.ok(DEBUG_CHECKPOINTS.every(x=>['Arena','Airship','Volcano'].includes(x.scene)));
  assert.equal(createDebugFixture('act3-opening')?.handoff.scene,'Volcano');
