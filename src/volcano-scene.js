@@ -8,7 +8,7 @@ import {ARENA,PLAYER_SPEED,PLAYER_RADIUS,normalizeInput} from './movement.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl} from './character-visual.js';
 import {createJoystick} from './joystick.js';
-import {currentCampaignRun,prepareActStart,grantWaterFlamethrower,awardRunArtifact,completeCampaignAct,nextActHandoff} from './campaign-run.js';
+import {currentCampaignRun,prepareActStart,grantWaterFlamethrower,awardRunArtifact,completeCampaignAct,updateRunHealth,nextActHandoff} from './campaign-run.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
@@ -654,6 +654,9 @@ export class VolcanoScene extends Phaser.Scene {
     this.resetEruption();
     if(!completeCampaignAct(this.run,'act3',{hp:this.run.hp,maxHp:this.run.maxHp,
       unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,kills:0,activeCombatMs:0}))return;
+    // The act boundary heals Aloes, not the eruption or escape. Match the
+    // already full-HP Act IV autosave and direct ActTitle -> School handoff.
+    updateRunHealth(this.run,this.run.maxHp);
     // Water is Act III-only. Keep the historical entitlement, but hand off
     // a valid Act IV weapon (prefer the previously unlocked rifle).
     const allowed=availableWeapons(this.run.unlockedWeapons,'act4');
