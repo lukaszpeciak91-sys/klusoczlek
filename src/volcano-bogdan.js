@@ -91,6 +91,7 @@ export function createBogdanEncounter(scene,Phaser){
  const graphics=scene.add.graphics().setDepth(17);
  const bossLabel=scene.add.text(0,0,'',{fontFamily:'monospace',fontSize:'16px',color:'#ffce85',
   stroke:'#281018',strokeThickness:4}).setOrigin(.5).setDepth(22).setVisible(false);
+ const bossHealth=scene.add.graphics().setDepth(23).setVisible(false);
  const bark=makeMonsterBark(scene,0,0);
  const bossBark=makeMonsterBark(scene,0,0);
  const bossBarkState=createBarkState();
@@ -196,22 +197,23 @@ export function createBogdanEncounter(scene,Phaser){
   if(!confrontation||active||disposed)return false;
   active=true;attack={mode:'recovery',remaining:900};
   clearBark(bossBarkState,bossBark);
-  bossLabel.setVisible(true);return true;
+  bossLabel.setVisible(true);bossHealth.setVisible(true);return true;
  }
  function damage(amount,now){
   if(!active||defeated||now-lastHit<150)return false;
   lastHit=now;hp=Math.max(0,hp-amount);
+  if(bogdan?.active){bogdan.setTintFill(0xffffff);scene.time.delayedCall(110,()=>{if(!disposed&&bogdan?.active)bogdan.clearTint();});}
   if(hp>0&&scene.finale?.state==='BOGDAN_ACTIVE'&&!scene.dialogueState.id)
    showMonsterBark(bossBark,bossBarkState,BOGDAN_BARKS.damage,now,{cooldown:5600});
   if(hp===0){
    defeated=true;active=false;attack=null;projectiles.length=0;graphics.clear();
    clearBark(bossBarkState,bossBark);
-   defeatPending=true;
+   defeatPending=true;bossHealth.clear().setVisible(false);
    bossLabel.setText('BOGDAN POKONANY — '+hp+'/'+BOGDAN_HP);
   }
   return true;
  }
- function removeDefeatedSprite(){if(!defeated||!bogdan?.active)return false;bogdan.destroy();bogdan=null;bossLabel.setVisible(false);return true;}
+ function removeDefeatedSprite(){if(!defeated||!bogdan?.active)return false;bogdan.destroy();bogdan=null;bossLabel.setVisible(false);bossHealth.clear().setVisible(false);return true;}
  function consumeDefeat(){if(!defeatPending)return false;defeatPending=false;return true;}
  function hurtPlayer(now){
   if(scene.dialogueState.id||scene.defeated||scene.run.hp<=0)return;
@@ -226,6 +228,9 @@ export function createBogdanEncounter(scene,Phaser){
   const delta=Math.min(50,dt),phase=bossPhase(hp),p=scene.player;
   graphics.clear();
   bossLabel.setPosition(bogdan.x,bogdan.y-120).setText('BOGDAN '+hp+'/'+BOGDAN_HP);
+  bossHealth.clear().fillStyle(0x211319,.95).fillRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3)
+   .fillStyle(0xb53228,1).fillRect(bogdan.x-59,bogdan.y-102,118*hp/BOGDAN_HP,7)
+   .lineStyle(2,0xf2ce8b).strokeRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3);
   syncMonsterBark(bossBark,bossBarkState,now,bogdan.x,bogdan.y-150,scene.finale?.state==='BOGDAN_ACTIVE');
   for(let i=projectiles.length-1;i>=0;i--){
    const shot=projectiles[i];shot.age+=delta;
@@ -292,7 +297,7 @@ export function createBogdanEncounter(scene,Phaser){
 
  }
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
-  disposed=true;departureTick=null;projectiles.length=0;graphics.destroy();bossLabel.destroy();bark.destroy();bossBark.destroy();
+  disposed=true;departureTick=null;projectiles.length=0;graphics.destroy();bossLabel.destroy();bossHealth.destroy();bark.destroy();bossBark.destroy();
   for(const actor of actors)if(actor.active)actor.destroy();
  });
  return {prepare,beginArgument,depart,beginConfrontation,activate,damage,update,consumeDefeat,removeDefeatedSprite,
