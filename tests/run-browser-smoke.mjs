@@ -120,7 +120,12 @@ try{
  assert.ok(schoolPoint,'DEBUG checkpoint scroll did not reach Act IV opening');
  await touch(schoolPoint.x,schoolPoint.y);
  await wait("window.__game.scene.isActive('ActTitle')",'Act IV title',3200);
- await wait("window.__game.scene.isActive('School')",'Act IV school scene',6000);
+ try{
+   await wait("window.__game.scene.isActive('School')",'Act IV school scene',6000);
+ }catch(error){
+   const diagnostic=await evaluate("(()=>{const g=window.__game;return {scenes:Object.keys(g.scene.keys).map(id=>({id,active:g.scene.isActive(id),paused:g.scene.isPaused(id)})),act:g.registry.get('campaign-run')?.actId}})()");
+   throw new Error(error.message+' '+JSON.stringify({diagnostic,exceptions}));
+ }
  const schoolState=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=s.run;return {act:r.actId,selected:r.selectedWeapon,owned:[...r.unlockedWeapons],artifacts:[...r.artifacts],player:{x:s.player.x,y:s.player.y},obstacles:s.obstacles.map(o=>o.id),w:s.cameras.main.bounds.width,h:s.cameras.main.bounds.height}})()");
  assert.equal(schoolState.act,'act4','DEBUG handoff reached Act IV');
  assert.notEqual(schoolState.selected,'water-flamethrower','water is Act III-only');
