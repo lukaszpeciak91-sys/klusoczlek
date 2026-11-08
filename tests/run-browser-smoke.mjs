@@ -131,7 +131,7 @@ try{
  assert.notEqual(schoolState.selected,'water-flamethrower','water is Act III-only');
  assert.ok(schoolState.owned.includes('water-flamethrower'),'water history retained');
  assert.ok(schoolState.artifacts.includes('bogdan-hunting-horn'),'horn inherited');
- assert.deepEqual(schoolState.obstacles,['chapel','school','bicycleRack','school-tire-pile','school-toi-toi']);
+ assert.deepEqual(schoolState.obstacles,['chapel','school','bicycleRack','school-tire-pile','school-tire-pile-2','school-toi-toi','school-rock-small','school-rock-medium']);
  assert.deepEqual([schoolState.w,schoolState.h],[1800,1200]);
  await wait("!window.__game.scene.getScene('School').introActive",'Captain enters chapel',8000);
  const schoolMenu=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
