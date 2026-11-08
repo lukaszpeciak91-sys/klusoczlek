@@ -1,13 +1,14 @@
+import {createBossPresentationState,bossHpRatio} from './boss-presentation.js';
 import {createBarkState,makeMonsterBark,showMonsterBark,syncMonsterBark,clearBark,BOGDAN_BARKS} from './monster-bark.js';
 import {assetUrl} from './character-visual.js';
-import {volcanoFootprintAllowed,volcanoStep} from './volcano-contract.js';
+import {volcanoFootprintAllowed,volcanoStep,nearestVolcanoSpawn} from './volcano-contract.js';
 import {facingOf,playerFrame} from './combat-contract.js';
 import {applyPlayerContact} from './bobrozombi.js';
 
 export const APARTMENT=Object.freeze({
  trigger:Object.freeze({x:1300,y:370,radius:185}),
- marlena:Object.freeze({x:1400,y:225}),
- bogdan:Object.freeze({x:1500,y:235}),
+ marlena:Object.freeze({x:1400,y:305}),
+ bogdan:Object.freeze({x:1500,y:315}),
  exit:Object.freeze([{x:1350,y:330},{x:1250,y:400},{x:1150,y:440},{x:1030,y:470}])
 });
 export const MARLENA_BARKS=Object.freeze(['Mama miała rację!','Niech sam w tym smrodzie siedzi, pajac!']);
@@ -91,6 +92,8 @@ export function createBogdanEncounter(scene,Phaser){
  const graphics=scene.add.graphics().setDepth(17);
  const bossLabel=scene.add.text(0,0,'',{fontFamily:'monospace',fontSize:'16px',color:'#ffce85',
   stroke:'#281018',strokeThickness:4}).setOrigin(.5).setDepth(22).setVisible(false);
+ const bossPresentation=createBossPresentationState();
+ const bossHealth=scene.add.graphics().setDepth(23).setVisible(false);
  const bark=makeMonsterBark(scene,0,0);
  const bossBark=makeMonsterBark(scene,0,0);
  const bossBarkState=createBarkState();
@@ -120,9 +123,13 @@ export function createBogdanEncounter(scene,Phaser){
    const textures=await Promise.all([load('marlena'),load('bogdan')]);
    if(disposed||textures.some(x=>!x))return false;
    for(const [i,key] of ['marlena','bogdan'].entries()){
-    const p=APARTMENT[key];
-    if(!volcanoFootprintAllowed(scene.walkability,p.x,p.y,18)){
+    const desired=APARTMENT[key];
+    const p=nearestVolcanoSpawn(scene.walkability,desired.x,desired.y,18,0,null,70);
+    if(!p||!volcanoFootprintAllowed(scene.walkability,p.x,p.y,18)){
      console.warn('[Volcano Boss] invalid apartment NPC footprint: '+key);failed=true;return false;
+    }
+    if(actors.some(actor=>Math.hypot(actor.x-p.x,actor.y-p.y)<70)){
+     console.warn('[Volcano Boss] apartment actors would overlap: '+key);failed=true;return false;
     }
     const actor=scene.add.sprite(p.x,p.y,textures[i],2).setOrigin(.5,1).setDepth(12).setScale(.72);
     actors.push(actor);
@@ -196,22 +203,33 @@ export function createBogdanEncounter(scene,Phaser){
   if(!confrontation||active||disposed)return false;
   active=true;attack={mode:'recovery',remaining:900};
   clearBark(bossBarkState,bossBark);
-  bossLabel.setVisible(true);return true;
+  bossPresentation.activate();bossLabel.setVisible(true);bossHealth.setVisible(true);return true;
+ }
+ function showDamageNumber(amount){
+  if(!bogdan?.active||disposed)return;
+  const label=scene.add.text(bogdan.x,bogdan.y-145,'-'+amount,{
+   fontFamily:'monospace',fontSize:'23px',fontStyle:'bold',color:'#ffe5a0',
+   stroke:'#34130d',strokeThickness:4
+  }).setOrigin(.5).setDepth(24);
+  scene.tweens.add({targets:label,y:label.y-34,alpha:0,duration:620,
+   onComplete:()=>label.destroy()});
  }
  function damage(amount,now){
   if(!active||defeated||now-lastHit<150)return false;
-  lastHit=now;hp=Math.max(0,hp-amount);
+  lastHit=now;const applied=Math.min(hp,Math.max(0,amount));hp=Math.max(0,hp-applied);
+  if(applied>0)showDamageNumber(applied);
+  if(bogdan?.active){bogdan.setTintFill(0xffffff);scene.time.delayedCall(110,()=>{if(!disposed&&bogdan?.active)bogdan.clearTint();});}
   if(hp>0&&scene.finale?.state==='BOGDAN_ACTIVE'&&!scene.dialogueState.id)
    showMonsterBark(bossBark,bossBarkState,BOGDAN_BARKS.damage,now,{cooldown:5600});
   if(hp===0){
    defeated=true;active=false;attack=null;projectiles.length=0;graphics.clear();
    clearBark(bossBarkState,bossBark);
-   defeatPending=true;
+   defeatPending=true;bossPresentation.defeat();bossHealth.clear().setVisible(false);
    bossLabel.setText('BOGDAN POKONANY — '+hp+'/'+BOGDAN_HP);
   }
   return true;
  }
- function removeDefeatedSprite(){if(!defeated||!bogdan?.active)return false;bogdan.destroy();bogdan=null;bossLabel.setVisible(false);return true;}
+ function removeDefeatedSprite(){if(!defeated||!bogdan?.active)return false;bogdan.destroy();bogdan=null;bossLabel.setVisible(false);bossHealth.clear().setVisible(false);return true;}
  function consumeDefeat(){if(!defeatPending)return false;defeatPending=false;return true;}
  function hurtPlayer(now){
   if(scene.dialogueState.id||scene.defeated||scene.run.hp<=0)return;
@@ -226,6 +244,9 @@ export function createBogdanEncounter(scene,Phaser){
   const delta=Math.min(50,dt),phase=bossPhase(hp),p=scene.player;
   graphics.clear();
   bossLabel.setPosition(bogdan.x,bogdan.y-120).setText('BOGDAN '+hp+'/'+BOGDAN_HP);
+  bossHealth.clear().fillStyle(0x211319,.95).fillRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3)
+   .fillStyle(0xb53228,1).fillRect(bogdan.x-59,bogdan.y-102,118*bossHpRatio(hp,BOGDAN_HP),7)
+   .lineStyle(2,0xf2ce8b).strokeRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3);
   syncMonsterBark(bossBark,bossBarkState,now,bogdan.x,bogdan.y-150,scene.finale?.state==='BOGDAN_ACTIVE');
   for(let i=projectiles.length-1;i>=0;i--){
    const shot=projectiles[i];shot.age+=delta;
@@ -292,11 +313,11 @@ export function createBogdanEncounter(scene,Phaser){
 
  }
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
-  disposed=true;departureTick=null;projectiles.length=0;graphics.destroy();bossLabel.destroy();bark.destroy();bossBark.destroy();
+  disposed=true;bossPresentation.dispose();departureTick=null;projectiles.length=0;graphics.destroy();bossLabel.destroy();bossHealth.destroy();bark.destroy();bossBark.destroy();
   for(const actor of actors)if(actor.active)actor.destroy();
  });
  return {prepare,beginArgument,depart,beginConfrontation,activate,damage,update,consumeDefeat,removeDefeatedSprite,
   get ready(){return ready;},get failed(){return failed;},get argumentStarted(){return started;},
   get leftApartment(){return leftApartment;},get departed(){return departed;},get active(){return active;},get defeated(){return defeated;},
-  get hp(){return hp;},get hitRadius(){return BOGDAN_HIT_RADIUS;},get hostileProjectileCount(){return projectiles.length;},get defeatPending(){return defeatPending;},get bogdan(){return bogdan;},get marlena(){return marlena;}};
+  get hp(){return hp;},get deathPoint(){return bogdan?.active?{x:bogdan.x,y:bogdan.y}:null;},get hitRadius(){return BOGDAN_HIT_RADIUS;},get hostileProjectileCount(){return projectiles.length;},get defeatPending(){return defeatPending;},get bogdan(){return bogdan;},get marlena(){return marlena;}};
 }

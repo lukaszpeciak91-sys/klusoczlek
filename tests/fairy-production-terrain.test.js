@@ -1,13 +1,14 @@
+import {APARTMENT} from '../src/volcano-bogdan.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {inflateSync} from 'node:zlib';
-import {createVolcanoWalkability,volcanoFootprintAllowed,VOLCANO_START} from '../src/volcano-contract.js';
+import {createVolcanoWalkability,volcanoFootprintAllowed,VOLCANO_START,nearestVolcanoSpawn} from '../src/volcano-contract.js';
 import {findFairyRouteSpawn} from '../src/volcano-npcs.js';
 import {findMarlenaRoute} from '../src/volcano-bogdan.js';
 
 // Decode the production RGBA PNG in CI, not a synthetic approximation.
-function decodeRgbaPng(file){
+export function decodeRgbaPng(file){
  const bytes=readFileSync(file),signature=Buffer.from([137,80,78,71,13,10,26,10]);
  assert.ok(bytes.subarray(0,8).equals(signature),'PNG signature');
  let width=0,height=0,depth=0,color=0;const parts=[];
@@ -47,4 +48,30 @@ test('fairy spawn is safe and reachable on actual approved production terrain PN
  const route=findMarlenaRoute(mask,start,point,{radius:17,cell:12,maxNodes:26000});
  assert.ok(route?.length);
  console.log('VERIFIED FAIRY SPAWN',JSON.stringify(point),'reachable route waypoints',route.length);
+});
+
+test('apartment actors move down to reachable walkable terrain without overlap',()=>{
+ const mask=decodeRgbaPng(new URL('../public/assets/arenas/act3-volcano.png',import.meta.url));
+ const marlena=nearestVolcanoSpawn(mask,APARTMENT.marlena.x,APARTMENT.marlena.y,18,0,null,70);
+ const bogdan=nearestVolcanoSpawn(mask,APARTMENT.bogdan.x,APARTMENT.bogdan.y,18,0,null,70);
+ if(!marlena){const choices=[];for(let y=240;y<=550;y+=20)for(let x=1150;x<=1650;x+=25)if(volcanoFootprintAllowed(mask,x,y,18))choices.push({x,y});console.log('VALID LOWER APARTMENT SAMPLES',JSON.stringify(choices.slice(0,60)));}
+ assert.ok(marlena,'Marlena has no valid lower position');
+ assert.ok(bogdan,'Bogdan has no valid lower position');
+ assert.ok(volcanoFootprintAllowed(mask,marlena.x,marlena.y,18));
+ assert.ok(volcanoFootprintAllowed(mask,bogdan.x,bogdan.y,18));
+ assert.ok(Math.hypot(marlena.x-bogdan.x,marlena.y-bogdan.y)>=70);
+ assert.ok(findMarlenaRoute(mask,VOLCANO_START,marlena,{radius:17,cell:12,maxNodes:26000})?.length);
+ assert.ok(findMarlenaRoute(mask,VOLCANO_START,bogdan,{radius:17,cell:12,maxNodes:26000})?.length);
+ console.log('VERIFIED APARTMENT ACTORS',JSON.stringify({marlena,bogdan}));
+});
+
+test('Bogdan death heart and escape spawn offsets have safe terrain candidates',()=>{
+ const mask=decodeRgbaPng(new URL('../public/assets/arenas/act3-volcano.png',import.meta.url));
+ const heart=nearestVolcanoSpawn(mask,APARTMENT.bogdan.x,APARTMENT.bogdan.y,16,0,null,110);
+ assert.ok(heart,'Heart cannot spawn on production terrain');
+ const offsets=[{x:185,y:110},{x:-190,y:115},{x:155,y:-175},{x:-165,y:-175},{x:230,y:35},{x:-225,y:30}];
+ const candidates=offsets.map(o=>nearestVolcanoSpawn(mask,APARTMENT.bogdan.x+o.x,APARTMENT.bogdan.y+o.y,24,0,null,65))
+  .filter(p=>p&&Math.hypot(p.x-APARTMENT.bogdan.x,p.y-APARTMENT.bogdan.y)>=135);
+ assert.ok(candidates.length>=3,'Need at least three safe escape spawn candidates');
+ console.log('ESCAPE SPAWN TERRAIN CANDIDATES',JSON.stringify(candidates));
 });

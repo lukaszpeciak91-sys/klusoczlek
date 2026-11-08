@@ -11,7 +11,7 @@ test('Act III Captain introduces the water weapon before Lawostworki',()=>{
 });
 test('Lawostworki speakers are Krzyś and Andrzejek with original portrait keys',()=>{
  const lines=DIALOGUES['act3-lawostworki'];
- assert.ok(lines.every(l=>l[1]===(l[0]==='lawostworek-1'?'KRZYŚ':l[0]==='lawostworek-2'?'ANDRZEJEK':'ALOES')));
+ assert.ok(lines.every(l=>l[1]===(l[0]==='lawostworek-2'?'KRZYŚ':l[0]==='lawostworek-1'?'ANDRZEJEK':'ALOES')));
 });
 test('Bogdan repositions deterministically and keeps a boss-sized radius',()=>{
  assert.ok(BOGDAN_HIT_RADIUS>25);
