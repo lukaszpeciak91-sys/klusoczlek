@@ -37,8 +37,9 @@ test('escape reinforcements count successful spawns and respect population cap',
  assert.ok(s.includes('this.escapeSuccessfulSpawns<3?2100:4200'));
  assert.ok(s.includes('this.escapeSuccessfulSpawns=0'));
 });
-test('Bogdan damage numbers use actual applied damage',()=>{
+test('Bogdan damage applies actual amount without floating damage labels',()=>{
  const s=read('../src/volcano-bogdan.js');
- assert.ok(s.includes('showDamageNumber(applied)'));
+ assert.ok(!s.includes('showDamageNumber('));
+ assert.ok(s.includes('bogdan.setTintFill(0xffffff)'));
  assert.ok(s.includes('Math.min(hp,Math.max(0,amount))'));
 });
