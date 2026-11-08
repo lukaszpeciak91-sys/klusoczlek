@@ -7,7 +7,7 @@ import {createJoystick} from './joystick.js';
 import {createHpFaceHud} from './hp-face-hud.js';
 import {arenaHudLayout} from './ui-layout.js';
 import {normalizeInput} from './movement.js';
-import {facingOf} from './combat-contract.js';
+import {facingOf,playerFrame} from './combat-contract.js';
 import {currentCampaignRun,prepareActStart,awardRunArtifact,completeCampaignAct} from './campaign-run.js';
 import {availableWeapons,cycleUnlockedWeapon,selectUnlockedWeapon,WEAPONS} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
@@ -42,7 +42,7 @@ export class SchoolScene extends Phaser.Scene {
     this.obstacles=SCHOOL_OBSTACLES;
     this.introActive=!['act4-school','act4-combat','act4-wave4','act4-blazej','act4-boss','act4-finale'].includes(this.debugCheckpoint);
     this.schoolPhase='INTRO';this.defeated=false;this.defeatVisualAt=null;
-    this.captainDeparting=false;
+    this.captainDeparting=false;this.captainDialogueStarted=false;
     this.storyBusy=false;this.maciekSeen=false;this.pitchStarted=false;
     this.pendingObserved=false;this.pendingApproachArmed=false;this.bossConfronted=false;
     this.hearts={wave2:{spawned:false,collected:false,token:null},wave4:{spawned:false,collected:false,token:null}};
@@ -264,9 +264,35 @@ export class SchoolScene extends Phaser.Scene {
     this.dialoguePanel.show(this.dialogueState);
     return true;
   }
+  // The captain cannot enter the chapel until the last approved DALEJ.
+  // Retain introActive throughout the whole departure, so neither input nor
+  // the ordinary combat director can run early.
+  startCaptainDeparture(){
+    if(this.disposed||this.defeated||!this.introActive||
+       !this.captainDialogueStarted||this.captainDeparting)return false;
+    this.captainDeparting=true;this.storyBusy=false;
+    const actor=this.captainArrival.actor;
+    if(!actor?.active){
+      this.introActive=false;this.syncControls();return true;
+    }
+    const door=SCHOOL_PLACES.chapelDoor;
+    this.captainArrival.sprite?.setFrame(playerFrame(facingOf(
+      door.x-actor.x,door.y-actor.y,'s')));
+    this.tweens.add({targets:actor,x:door.x,y:door.y,alpha:0,duration:1100,
+      ease:'Sine.easeInOut',onComplete:()=>{
+        if(this.disposed)return;
+        if(actor.active)actor.destroy();
+        this.introActive=false;
+        this.syncControls();
+      }});
+    this.syncControls();
+    return true;
+  }
   onSchoolDialogueEnded(id){
     if(this.disposed||this.defeated)return;
-    if(id==='act4-maciek-seba'){
+    if(id==='act4-captain-opening'){
+      this.startCaptainDeparture();
+    }else if(id==='act4-maciek-seba'){
       this.storyBusy=false;this.syncControls();
     }else if(id==='act4-blazej-observer'){
       this.storyBusy=false;
@@ -524,17 +550,11 @@ export class SchoolScene extends Phaser.Scene {
     this.ambientBarks?.guard();
     this.blazej?.updateVfx(delta);
     this.captainArrival.update(delta);
-    if(this.introActive&&this.captainArrival.arrived&&!this.captainDeparting){
-      this.captainDeparting=true;
-      const actor=this.captainArrival.actor;
-      const door=SCHOOL_PLACES.chapelDoor;
-      this.tweens.add({targets:actor,x:door.x,y:door.y,alpha:0,duration:1100,
-        ease:'Sine.easeInOut',onComplete:()=>{
-          if(this.disposed)return;
-          actor?.destroy();
-          this.introActive=false;
-          this.syncControls();
-        }});
+    // Retry only until dialogue UI/focus is available. The flag is set only
+    // after beginSchoolDialogue succeeds, so it can never start twice.
+    if(this.introActive&&this.captainArrival.arrived&&!this.captainDialogueStarted&&
+       !this.captainDeparting&&this.controlsAllowed()){
+      this.captainDialogueStarted=this.beginSchoolDialogue('act4-captain-opening');
     }
     this.syncControls();
     if(!this.controlsAllowed()||this.introActive||this.defeated){this.combat.suspend();return;}

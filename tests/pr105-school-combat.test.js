@@ -52,7 +52,8 @@ test('R4-R5 gameplay clock excludes intro, MENU pause, hidden, portrait and dial
  assert.equal(advanceGameplayClock(clock,200000,true),1000);
  assert.equal(advanceGameplayClock(clock,201000,true),2000);
  const school=source('../src/school-scene.js'),combat=source('../src/school-combat.js');
- assert.ok(school.includes('this.introActive=false;\n          this.syncControls();'));
+ assert.ok(school.includes("this.captainDialogueStarted=this.beginSchoolDialogue('act4-captain-opening')"));
+ assert.ok(school.includes('startCaptainDeparture(){'));
  assert.ok(school.includes("this.combat.start(); // The first ordinary wave begins only after DALEJ."));
  assert.ok(school.includes('if(!this.controlsAllowed()||this.introActive||this.defeated){this.combat.suspend();return;}'));
  assert.ok(school.includes("this.events.on(Phaser.Scenes.Events.PAUSE,reset)"));

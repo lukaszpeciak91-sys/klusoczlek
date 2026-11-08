@@ -133,7 +133,53 @@ try{
  assert.ok(schoolState.artifacts.includes('bogdan-hunting-horn'),'horn inherited');
  assert.deepEqual(schoolState.obstacles,['chapel','school','bicycleRack','school-tire-pile','school-tire-pile-2','school-toi-toi','school-rock-small','school-rock-medium']);
  assert.deepEqual([schoolState.w,schoolState.h],[1800,1200]);
- await wait("!window.__game.scene.getScene('School').introActive",'Captain enters chapel',8000);
+ // Actual Captain arrival, six untouched panels and departure in real Chromium.
+ const captainOpeningText=[
+  ['KAPITAN MARIAN','No i jesteśmy! Szkoła zawodowa!\nTu znajdziesz Błażeja i jego rower!','dialogue-captain'],
+  ['ALOES','A pan dokąd?','dialogue-aloes'],
+  ['KAPITAN MARIAN','Ja wezmę dwa pierwsze artefakty\ni muszę załatwić pewną bardzo ważną\nsprawę w tej kaplicy...','dialogue-captain'],
+  ['KAPITAN MARIAN','By móc odesłać Cię do domu oczywiście,\nprzecież parostatkiem nie polecimy\ndo innego wymiaru','dialogue-captain'],
+  ['ALOES','Ach rozumiem','dialogue-aloes'],
+  ['KAPITAN MARIAN','Nie stój jak widły w gnoju!\nLeć po rower!','dialogue-captain']
+ ];
+ const finishCaptainOpening=async({pauseMidway=false}={})=>{
+  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.introActive&&s.captainArrival.arrived&&s.captainDialogueStarted&&s.dialogueState.id==='act4-captain-opening'})()",'Captain stops beside Aloes and begins approved dialogue',9000);
+  await wait("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.loaded.has('captain')&&d.loaded.has('aloes')})()",'approved Captain and Aloes portraits loaded',6000);
+  const stateBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.run.hp,weapon:s.run.selectedWeapon,artifacts:[...s.run.artifacts].sort(),completed:[...s.run.completedActs].sort(),x:s.player.x,y:s.player.y,departure:s.captainDeparting,started:s.combat.started}})()");
+  assert.ok(!stateBefore.departure&&!stateBefore.started);
+  for(let i=0;i<captainOpeningText.length;i++){
+   const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),d=s.dialoguePanel;return {id:s.dialogueState.id,index:s.dialogueState.index,text:d.text.text,speaker:d.shell.list.filter(o=>o.type==='Text').map(o=>o.text),images:d.shell.list.filter(o=>o.type==='Image'&&o.visible).map(o=>o.texture.key),arrival:s.captainArrival.arrived,departure:s.captainDeparting,actor:s.captainArrival.actor?.active??false,controls:s.joystick.enabled,aim:s.aimJoystick.enabled,clock:s.combat.elapsedMs,enemies:s.combat.enemies.length,spawned:s.combat.totalSpawned,bullets:s.combat.projectiles.length,player:[s.player.x,s.player.y]}})()");
+   const [who,line,portrait]=captainOpeningText[i];
+   assert.deepEqual([actual.id,actual.index,actual.text],['act4-captain-opening',i,line],'Captain panel '+(i+1));
+   assert.ok(actual.speaker.includes(who)&&actual.images.includes(portrait),'approved speaker/portrait '+(i+1)+' '+JSON.stringify(actual));
+   assert.ok(actual.arrival&&actual.actor&&!actual.departure&&!actual.controls&&!actual.aim,
+     'Marian stands, no movement, no departure before last DALEJ');
+   assert.deepEqual([actual.clock,actual.enemies,actual.spawned,actual.bullets,actual.player],
+     [0,0,0,0,[stateBefore.x,stateBefore.y]],'no wave time, enemies, projectiles or player movement');
+   if(pauseMidway&&i===2){
+    const menu=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
+    await touch(menu.x,menu.y);
+    await wait("window.__game.scene.isPaused('School')&&window.__game.scene.isActive('Menu')",'MENU during Captain panel 3',2800);
+    await tapMenu('WZNÓW');
+    await wait("window.__game.scene.isActive('School')",'resume Captain dialogue without restarting',2800);
+    assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return [s.dialogueState.id,s.dialogueState.index,s.captainDialogueStarted,s.captainDeparting]})()"),
+      ['act4-captain-opening',2,true,false],'MENU/WZNÓW did not duplicate or skip panels');
+   }
+   await sleep(235);
+   const next=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect(),b=s.dialoguePanel.button;return {x:r.x+b.x,y:r.y+b.y}})()");
+   await touch(next.x,next.y);
+  }
+  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.captainDeparting&&s.introActive&&!s.dialogueState.id})()",'Marian departs only after sixth DALEJ',2500);
+  await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&!s.captainArrival.actor?.active&&s.joystick.enabled&&s.aimJoystick.enabled})()",'one Captain chapel departure and restored movement',3800);
+  const after=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.run.hp,weapon:s.run.selectedWeapon,artifacts:[...s.run.artifacts].sort(),completed:[...s.run.completedActs].sort(),start:s.combat.started,dialogue:s.dialogueState.id,departing:s.captainDeparting}})()");
+  assert.deepEqual([after.hp,after.weapon,after.artifacts,after.completed],
+   [stateBefore.hp,stateBefore.weapon,stateBefore.artifacts,stateBefore.completed],
+   'Marian taking artifacts is narrative only, never an inventory transfer');
+  assert.equal(after.start,false);assert.equal(after.dialogue,null);assert.equal(after.departing,true);
+  return after;
+ };
+ await finishCaptainOpening({pauseMidway:true});
+ console.log('PASS Act IV Chromium Captain: exact six dialogue panels, original portraits, MENU/WZNÓW, only final DALEJ triggers chapel walk, controls and artifacts preserved');
  const schoolMenu=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
  await touch(schoolMenu.x,schoolMenu.y);
  await wait("window.__game.scene.isActive('Menu')",'Act IV MENU button',3000);
@@ -200,7 +246,7 @@ try{
  assert.deepEqual(solids,[{id:'chapel',w:96,h:94},{id:'school',w:500,h:160},{id:'bicycleRack',w:252,h:58}],
   'actual lower-footprint collision dimensions, never complete PNG canvas');
  console.log('PASS Act IV Chromium approved art: 1800x1200 terrain, native obstacle PNGs, alpha-based lower footprints, real Act I atlas pieces, occlusion and HUD');
- await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&!s.dialogueState.id&&!s.combat.started})()",'Captain enters chapel; player free to explore schoolyard',25000);
+ await finishCaptainOpening(); // Second scene entry gets exactly one new opening; combat remains gated.
  const optionalBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,maciek:s.maciekSeen,pitch:s.pitchStarted,actors:s.maciekSebaActors?.length}})()");
  assert.deepEqual(optionalBefore,{intro:false,started:false,maciek:false,pitch:false,actors:2},'both NPCs staged, optional encounter not automatic');
  const approachMaciek=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(695,620);s.player.body.reset(695,620);return true})()");
@@ -558,7 +604,7 @@ try{
  // Real Act III -> IV handoff QA with deterministic existing Act III escape DEBUG.
  // Its approved extraction dialogue, ActTitle, checkpoint and School scenes run normally.
  await cdp('Page.reload',{ignoreCache:true});
- await wait("window.__game?.scene.isActive('Menu')",'Menu before Act III HP boundary');
+ await wait("typeof window.__createDebugFixture==='function'&&window.__game?.scene.isActive('Menu')",'Menu before Act III HP boundary');
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-escape');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-escape'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Volcano');return s?.finale?.state==='ESCAPE_ACTIVE'&&!!s.extractionPoint&&!!s.dialoguePanel})()",'Act III extraction staged in live Volcano',16000);
  await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !s.cameras.main.fadeEffect?.isRunning})()",'original Act III camera fade-in completes before accelerated extraction',4500);
@@ -591,12 +637,16 @@ try{
  const directHP=await evaluate("(()=>{const g=window.__game,s=g.scene.getScene('School');return {hp:s.run.hp,max:s.run.maxHp,weapon:s.weapon,label:s.hpText.text,intro:s.introActive,captain:!!s.captainArrival,arrival:s.captainArrival?.arrived,departing:s.captainDeparting,menu:g.scene.isActive('Menu')}})()");
  assert.deepEqual([directHP.hp,directHP.max,directHP.weapon,directHP.label,directHP.captain,directHP.menu],[5,5,'rifle','HP 5/5',true,false]);
  assert.ok(directHP.intro||directHP.departing||directHP.arrival,'approved Captain Marian chapel introduction');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.dialogueState.id==='act4-captain-opening'&&s.captainDialogueStarted&&s.captainArrival.arrived})()",'direct Act III -> IV handoff starts approved Captain dialogue',5000);
+ assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return [s.dialogueState.index,s.introActive,s.captainDeparting,s.combat.started,s.run.artifacts.has('bogdan-hunting-horn')]})()"),
+  [0,true,false,false,true],'one opening after direct title handoff; Captain remains stopped and horn remains');
  const pause=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
  await touch(pause.x,pause.y);
  await wait("window.__game.scene.isPaused('School')&&window.__game.scene.isActive('Menu')",'Act IV MENU after direct handoff',3000);
  await tapMenu('WZNÓW');
  await wait("window.__game.scene.isActive('School')",'Act IV WZNÓW after direct handoff',3000);
- assert.equal(await evaluate("window.__game.scene.getScene('School').run.hp"),5);
+ assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return [s.run.hp,s.dialogueState.id,s.dialogueState.index,s.captainDialogueStarted,s.captainDeparting]})()"),
+  [5,'act4-captain-opening',0,true,false],'MENU/WZNÓW preserves first Captain dialogue panel and HP');
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'Menu after saved Act IV reload');
  assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'));
@@ -607,11 +657,14 @@ try{
  assert.deepEqual([savedHP.hp,savedHP.max,savedHP.weapon,savedHP.label,savedHP.horn,savedHP.captain,savedHP.menu],[5,5,'rifle','HP 5/5',true,true,false]);
  assert.ok(savedHP.intro||savedHP.departing||savedHP.arrived,'Captain intro retained after checkpoint reload');
  assert.deepEqual(savedHP.completed.sort(),['act1','act2','act3']);
+ await finishCaptainOpening();
+ assert.equal(await evaluate("window.__game.scene.getScene('School').captainDialogueStarted"),true,
+  'autosave resume played exactly one Captain intro for its new scene entry');
  console.log('PASS Act III -> IV real Chromium: 2/5 during escape/extraction, 5/5 live title, 5/5 autosave reload, horn, rifle, Marian and MENU/WZNÓW');
  // Approved Act III horn: stage the real Bogdan boss using existing DEBUG,
  // then verify original two-panel finale, award, art and eruption sequence.
  await cdp('Page.reload',{ignoreCache:true});
- await wait("window.__game?.scene.isActive('Menu')",'Menu before approved Bogdan horn QA');
+ await wait("typeof window.__createDebugFixture==='function'&&window.__game?.scene.isActive('Menu')",'Menu before approved Bogdan horn QA');
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-boss');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-boss'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Volcano');return s?.boss?.active&&s.boss.ready&&!!s.walkability&&s.finale.state==='BOGDAN_ACTIVE'})()",'real Volcano boss DEBUG with approved terrain and active Bogdan',16000);
  await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !!s.hornRewardImage?.active&&s.hornRewardImage.texture.key==='artifact-bogdan-horn'})()",'approved Bogdan horn PNG loaded and decoded in Volcano',8500);
