@@ -1,3 +1,4 @@
+import {createBarkState,makeMonsterBark,showMonsterBark,syncMonsterBark,WATER_BARKS,clearBark} from './monster-bark.js';
 import {applyEnemyHit,applyPlayerContact} from './bobrozombi.js';
 import {inFlameCone,cooldownReady,COMBAT_TUNING,createFiringState,firingStep,resetFiring} from './weapon-combat.js';
 import {facingOf,playerFrame} from './combat-contract.js';
@@ -16,7 +17,7 @@ export const LAVA_TYPES=Object.freeze({
 export const LAVA_BARKS=Object.freeze(['Łaskocze!','I co mi zrobisz?!','Ale groźny!','HA! HA! HA!','Spróbuj wodą, geniuszu!']);
 export function lavaDamage(weapon,amount){return continuousDamageAllowed(weapon,'lawostworek-1')?amount:0;}
 export function createLavaEnemy(type,x,y,index=0){
- const def=LAVA_TYPES[type];return {type,x,y,hp:def.hp,dead:false,radius:def.radius,index,hitAt:-Infinity,barkAt:-Infinity,contactAt:-Infinity,ignition:createIgnitionState(),lungeAt:0,headingAt:0,headingOffset:0};
+ const def=LAVA_TYPES[type];return {type,x,y,hp:def.hp,dead:false,radius:def.radius,index,hitAt:-Infinity,barkAt:-Infinity,barkState:createBarkState(),contactAt:-Infinity,ignition:createIgnitionState(),lungeAt:0,headingAt:0,headingOffset:0};
 }
 export function lavaEnemyStep(enemy,player,dt,now=0,mask=null){
  const def=LAVA_TYPES[enemy.type],fleeing=isBurning(enemy.ignition,now);
@@ -102,7 +103,7 @@ export function createVolcanoCombat(scene){
    enemy.sprite=scene.add.sprite(point.x,point.y,sprites[type],sprites[type]===type?2:0).setDepth(12);
    enemy.sprite.setDisplaySize(enemyDisplaySize(type),enemyDisplaySize(type));
    enemy.facing='s';
-   enemy.bark=scene.add.text(point.x,point.y-55,'',{fontFamily:'monospace',fontSize:'14px',color:'#fff4cf',stroke:'#241018',strokeThickness:4}).setOrigin(.5).setDepth(21).setVisible(false);
+   enemy.bark=makeMonsterBark(scene,point.x,point.y-65);
    enemies.push(enemy);
    return true;
   });
@@ -117,7 +118,7 @@ export function createVolcanoCombat(scene){
   enemy.sprite=scene.add.sprite(point.x,point.y,sprites[type],sprites[type]===type?2:0).setDepth(12);
   enemy.sprite.setDisplaySize(enemyDisplaySize(type),enemyDisplaySize(type));
   enemy.facing='s';
-  enemy.bark=scene.add.text(point.x,point.y-55,'',{fontFamily:'monospace',fontSize:'14px',color:'#fff4cf',stroke:'#241018',strokeThickness:4}).setOrigin(.5).setDepth(21).setVisible(false);
+  enemy.bark=makeMonsterBark(scene,point.x,point.y-65);
   enemies.push(enemy);return true;
  }
  function clearTransientShots(){stopFire();}
@@ -128,12 +129,10 @@ export function createVolcanoCombat(scene){
   if(enemy.dead)return;
   const damage=lavaDamage(weapon,amount);
   if(!damage){
-   if(now-enemy.barkAt>=4500){
-    enemy.barkAt=now;
-    enemy.bark.setText(LAVA_BARKS[Math.floor(Math.random()*LAVA_BARKS.length)]).setVisible(true);
-   }
+   showMonsterBark(enemy.bark,enemy.barkState,LAVA_BARKS,now);
    return;
   }
+  if(weapon==='water-flamethrower')showMonsterBark(enemy.bark,enemy.barkState,WATER_BARKS,now);
   if(weapon==='water-flamethrower')igniteEnemy(enemy.ignition,enemy.type,now);
   enemy.hp=applyEnemyHit(enemy.hp,damage);
   if(enemy.hp<=0){enemy.dead=true;enemy.sprite.destroy();enemy.bark.destroy();if(enemy.zoneId)progression.defeated(enemy.zoneId);}
@@ -180,13 +179,14 @@ export function createVolcanoCombat(scene){
    if(enemy||bossHit||shot.age>550){shot.sprite.destroy();shots.splice(i,1);}
   }
   for(const enemy of enemies){
-   if(enemy.dead||openingSafe)continue;
+   if(enemy.dead)continue;
+   if(openingSafe){clearBark(enemy.barkState,enemy.bark);continue;}
    advanceIgnition(enemy.ignition,now);
    const p=lavaEnemyStep(enemy,scene.player,dt,now,scene.walkability);
    const dx=p.x-enemy.x,dy=p.y-enemy.y;
    enemy.x=p.x;enemy.y=p.y;enemy.sprite.setPosition(p.x,p.y);
    if(Math.hypot(dx,dy)>.01){enemy.facing=facingOf(dx,dy,enemy.facing);if(sprites[enemy.type]===enemy.type)enemy.sprite.setFrame(playerFrame(enemy.facing));}
-   enemy.bark.setPosition(p.x,p.y-55).setVisible(now-enemy.barkAt<1100&&enemy.bark.visible);
+   syncMonsterBark(enemy.bark,enemy.barkState,now,p.x,p.y-65,!scene.dialogueState.id&&scene.finale?.state==='BOGDAN_ACTIVE');
    if(Math.hypot(p.x-scene.player.x,p.y-scene.player.y)<enemy.radius+18&&now-enemy.contactAt>1100){
     enemy.contactAt=now;
     const contact=applyPlayerContact({hp:scene.run.hp,invulnerableUntil:scene.playerInvulnerableUntil??0},now);
