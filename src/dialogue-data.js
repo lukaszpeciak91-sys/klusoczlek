@@ -1,4 +1,12 @@
 export const DIALOGUES=Object.freeze({
+ 'act4-captain-opening':[
+  ['captain','KAPITAN MARIAN','No i jesteśmy! Szkoła zawodowa!\nTu znajdziesz Błażeja i jego rower!'],
+  ['aloes','ALOES','A pan dokąd?'],
+  ['captain','KAPITAN MARIAN','Ja wezmę dwa pierwsze artefakty\ni muszę załatwić pewną bardzo ważną\nsprawę w tej kaplicy...'],
+  ['captain','KAPITAN MARIAN','By móc odesłać Cię do domu oczywiście,\nprzecież parostatkiem nie polecimy\ndo innego wymiaru'],
+  ['aloes','ALOES','Ach rozumiem'],
+  ['captain','KAPITAN MARIAN','Nie stój jak widły w gnoju!\nLeć po rower!']
+ ],
  'act4-maciek-seba':[
   ['bobrozombi','MACIEK','Najpierw Marcin...potem Bogdan...\no co chodzi temu Kłusoczłeku?'],
   ['bobrozombi','MACIEK','I w ogóle Sebuś, czemu Kłusoczłek,\nże kłusuje jak koń?'],
