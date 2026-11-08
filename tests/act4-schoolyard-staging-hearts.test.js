@@ -61,9 +61,9 @@ test('optional Maciek and Seba trigger can be bypassed without delaying pitch or
 test('entourage uses existing approved sprite identities and one cap-accounted director',()=>{
  assert.deepEqual(SCHOOL_ENTOURAGE.map(e=>e.type),
   ['bobrozombi','bocianolak','zubrokryptyda']);
- assert.equal(SCHOOL_OBSTACLES.length,5);
+ assert.equal(SCHOOL_OBSTACLES.length,8);
  assert.deepEqual(SCHOOL_OBSTACLES.map(o=>o.id),
-  ['chapel','school','bicycleRack','school-tire-pile','school-toi-toi']);
+  ['chapel','school','bicycleRack','school-tire-pile','school-tire-pile-2','school-toi-toi','school-rock-small','school-rock-medium']);
  for(const entry of SCHOOL_ENTOURAGE){
   assert.ok(schoolWalkable(entry,ENEMY_TYPES[entry.type].radius+4));
   assert.ok(schoolEntouragePoint(entry,SCHOOL_PLACES.pitchApproach,[]));
@@ -86,8 +86,8 @@ test('only the already approved tire and toi-toi atlas art is used',()=>{
  assert.equal(FOREST_ATLAS.path,'obstacles/forest-obstacles.png');
  assert.ok(existsSync(new URL('../public/assets/obstacles/forest-obstacles.png',import.meta.url)));
  for(const o of SCHOOL_OBSTACLES.slice(3)){
-  assert.ok(['tire_pile','toi_toi'].includes(o.type));
-  assert.ok([9,10].includes(obstacleArt(o).frame));
+  assert.ok(['tire_pile','toi_toi','rock'].includes(o.type));
+  assert.ok([0,1,9,10].includes(obstacleArt(o).frame));
  }
  const scene=source('../src/school-scene.js');
  assert.ok(scene.includes('createObstacleVisual(this,o)'));
