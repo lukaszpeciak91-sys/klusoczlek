@@ -330,7 +330,7 @@ try{
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_REWARD'&&s.rewardRoot.visible})()",'bicycle artifact reward panel',3000);
  const bicycleReward=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.run.artifacts.has('blazej-bicycle'),all:[...s.run.artifacts],text:s.rewardName.text,third:s.rewardDetail.text,approvedImage:s.bicycleTexture}})()");
  assert.ok(bicycleReward.id&&bicycleReward.all.length===3&&bicycleReward.text==='ROWER BŁAŻEJA'&&bicycleReward.third==='ARTEFAKT 3/3');
- assert.ok(!bicycleReward.approvedImage,'missing future exact-name bicycle PNG keeps text-only reward');
+ assert.ok(bicycleReward.approvedImage===null||bicycleReward.approvedImage==='artifact-blazej-bicycle','only validated original bike PNG or honest text fallback');
  const rewardPoint=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.rewardButton.x,y:r.y+s.rewardButton.y}})()");
  await sleep(250);await touch(rewardPoint.x,rewardPoint.y);
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='CHAPEL_RETURN'&&s.dialogueState?.id==='act4-chapel-ending'})()",'bicycle fade and chapel return',5000);
