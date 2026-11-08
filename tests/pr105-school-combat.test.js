@@ -170,3 +170,44 @@ test('R14-R15 Act IV fixtures preserve predecessor artifacts and scene resources
  assert.ok(scene.includes("this.input.keyboard.off('keydown',weaponKey)"));
  assert.ok(scene.includes('this.combat?.suspend()'));
 });
+
+test('PR105 R1 monotonic School phases are synchronized and terminal transitions happen once',()=>{
+ const combat=source('../src/school-combat.js');
+ const scene=source('../src/school-scene.js');
+ assert.ok(combat.includes('phaseChanges++;scene.schoolPhase=next;'));
+ assert.ok(combat.includes("if(phase===next||phase==='DEFEAT'||PHASE_ORDER[next]<=PHASE_ORDER[phase])return false;"));
+ assert.ok(combat.includes("started=true;transition('COMBAT');"));
+ assert.ok(combat.includes("if(phase==='COMBAT'&&elapsed>=SCHOOL_COMBAT_MS)transition('CLEANUP');"));
+ assert.ok(combat.includes("finished=true;transition('BLAZEJ_PENDING');"));
+ assert.ok(combat.includes("defeated=true;transition('DEFEAT');"));
+ assert.ok(scene.includes("this.schoolPhase='INTRO';this.defeated=false;"));
+ const history=[schoolCombatPhase(0,3),schoolCombatPhase(169999,3),schoolCombatPhase(170000,3),
+  schoolCombatPhase(170000,1),schoolCombatPhase(170000,0),schoolCombatPhase(190000,0)];
+ assert.deepEqual(history,['COMBAT','COMBAT','CLEANUP','CLEANUP','BLAZEJ_PENDING','BLAZEJ_PENDING']);
+});
+test('PR105 R1 deterministic live QA fixture advances existing clock without player-facing shortcuts',()=>{
+ const adapter=source('../src/school-combat.js'),scene=source('../src/school-scene.js');
+ assert.ok(adapter.includes('const qa=scene.run.isDebugRun?Object.freeze({'));
+ assert.ok(adapter.includes('clock.elapsedMs=value;clock.lastNow=null;return true;'));
+ assert.ok(adapter.includes('return hitEnemy(enemy,amount,scene.player,scene.time.now);'));
+ assert.ok(adapter.includes("phase==='CLEANUP'&&living().length===0&&!finished"));
+ assert.ok(adapter.includes("finished=true;transition('BLAZEJ_PENDING');"));
+ assert.ok(adapter.includes('if(phase===\'COMBAT\'){'));
+ assert.ok(scene.includes("this.objectiveText=this.add.text(0,0,'IDŹ DO SZKOŁY'"));
+ assert.equal(adapter.includes('awardRunArtifact('),false);
+ assert.equal(adapter.includes("this.scene.start('Cave'"),false);
+});
+test('PR105 R1 actual death coordinates and approved existing Menu presentation',()=>{
+ const scene=source('../src/school-scene.js'),combat=source('../src/school-combat.js');
+ const menu=source('../src/scenes.js');
+ assert.ok(combat.includes("scene.captureSchoolDefeat();"));
+ assert.ok(combat.includes("clearCombat();scene.syncControls();"));
+ assert.ok(combat.includes("scene.openMenu();"));
+ assert.ok(scene.includes("const camera=this.cameras.main,origin=camera.getWorldPoint(0,0);"));
+ assert.ok(scene.includes("this.defeatVisualAt={x:(this.player.x-origin.x)*camera.zoom,"));
+ assert.ok(scene.includes("this.playerVisual.sprite?.setVisible(false);"));
+ assert.ok(scene.includes("this.playerVisual.shadow?.setVisible(false);"));
+ assert.ok(scene.includes("this.player.setVisible(false);"));
+ assert.ok(menu.includes("sessionKey==='School' && this.scene.get('School').defeated"));
+ assert.ok(menu.includes("createPixelBurst(this,'aloes',at.x,at.y,7)"));
+});
