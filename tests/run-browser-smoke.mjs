@@ -202,7 +202,7 @@ try{
  await wait("window.__game.scene.isActive('School')",'resume School bark QA');
  const listeners=await evaluate("window.__game.scene.getScene('School').scale.listenerCount('resize')");
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');window.__r2OldRoot=s.ambientBarks.root;s.scene.restart({debugCheckpoint:'act4-wave4'});return true})()");
- await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat?.started&&s.combat.wave===3&&!!s.ambientBarks?.root?.active})()",'School in-place restart');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat?.started&&s.combat.wave===3&&!!s.ambientBarks?.root?.active&&s.ambientBarks.root!==window.__r2OldRoot})()",'School in-place restart');
  const restarted=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {listeners:s.scale.listenerCount('resize'),oldDestroyed:!window.__r2OldRoot.active,poolHidden:s.ambientBarks.pool.every(p=>!p.root.visible)}})()");
  assert.ok(restarted.listeners===listeners&&restarted.oldDestroyed&&restarted.poolHidden,'no duplicate bark listeners on restart '+JSON.stringify(restarted));
  console.log('PASS R2 real Chromium: eight-direction sprites and gait for three approved enemies; spontaneous/hit bark; moving attachment; HUD exclusion; pause and in-place restart cleanup');
