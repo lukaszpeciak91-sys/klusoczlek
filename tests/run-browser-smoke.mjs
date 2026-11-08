@@ -536,6 +536,59 @@ try{
  assert.equal(campaign.debug,true);
  console.log('PASS PR106 real Chromium: passive Błażej, authorized confrontation, 900ms warned radial and jump, bounded projectiles, boss MENU/WZNÓW, one death, text-only bicycle reward, chapel/Marian absence, three artifacts, Act IV completion to Menu');
  console.log('PASS School real Chromium Android landscape: Captain gating, wave1 enemy spawn, touch rifle, MENU/WZNÓW, wave4 DEBUG, water restriction');
+ // Real Act III -> IV handoff QA with deterministic existing Act III escape DEBUG.
+ // Its approved extraction dialogue, ActTitle, checkpoint and School scenes run normally.
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'Menu before Act III HP boundary');
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-escape');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-escape'});return true})()");
+ await wait("(()=>{const s=window.__game?.scene.getScene('Volcano');return s?.finale?.state==='ESCAPE_ACTIVE'&&!!s.extractionPoint&&!!s.dialoguePanel})()",'Act III extraction staged in live Volcano',16000);
+ await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !s.cameras.main.fadeEffect?.isRunning})()",'original Act III camera fade-in completes before accelerated extraction',4500);
+ const escapeHP=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),r=s.run;r.hp=2;r.isDebugRun=false;r.artifacts.add('bogdan-hunting-horn');r.selectedWeapon='water-flamethrower';s.weapon='water-flamethrower';s.hpFace.setHp(2);s.hpText.setText('HP 2/5');const before={hp:r.hp,max:r.maxHp,act:r.actId,water:r.unlockedWeapons.has('water-flamethrower'),horn:r.artifacts.has('bogdan-hunting-horn')};s.player.setPosition(s.extractionPoint.x,s.extractionPoint.y);s.player.body.reset(s.player.x,s.player.y);return before})()");
+ assert.deepEqual(escapeHP,{hp:2,max:5,act:'act3',water:true,horn:true});
+ await wait("window.__game.scene.getScene('Volcano').dialogueState.id==='act3-captain-extraction'",'three-panel Captain extraction',4500);
+ // Capture only the real Volcano final handoff request; the deterministic QA
+ // driver will dispatch that exact data through SceneManager separately.
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),original=s.scene.start.bind(s.scene);window.__act4Handoffs=[];s.scene.start=(key,data)=>{if(key==='ActTitle'){window.__act4Handoffs.push({key,data});return s;}return original(key,data);};return true})()");
+ for(let i=0;i<3;i++){
+  await sleep(230);
+  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),b=s.dialoguePanel.button,r=window.__game.canvas.getBoundingClientRect();return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,hp:s.run.hp,id:s.dialogueState.id}})()");
+  assert.ok(p.visible&&p.hp===2&&p.id==='act3-captain-extraction','Act III dialogue must not heal Aloes');
+  await touch(p.x,p.y);
+ }
+ await wait("window.__act4Handoffs?.length===1",'Volcano finale requests Act IV title exactly once',4500);
+ await sleep(160);
+ const actualHandoff=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run'),calls=window.__act4Handoffs;return {count:calls.length,key:calls[0].key,act:calls[0].data.actId,scene:calls[0].data.handoff?.scene,hp:calls[0].data.handoff?.hp,max:calls[0].data.handoff?.maxHp,selected:calls[0].data.handoff?.selectedWeapon,horn:calls[0].data.handoff?.artifacts.has('bogdan-hunting-horn'),completed:[...r.completedActs],runtimeHp:r.hp,menu:g.scene.isActive('Menu')}})()");
+ assert.deepEqual([actualHandoff.count,actualHandoff.key,actualHandoff.act,actualHandoff.scene,actualHandoff.hp,actualHandoff.max,actualHandoff.selected,actualHandoff.horn,actualHandoff.runtimeHp,actualHandoff.menu],
+  [1,'ActTitle','act4','School',5,5,'rifle',true,5,false],'exactly one authorized live Act IV handoff');
+ assert.deepEqual(actualHandoff.completed.sort(),['act1','act2','act3']);
+ await evaluate("(()=>{const g=window.__game;g.scene.start('ActTitle',window.__act4Handoffs[0].data);return true})()");
+ await wait("(()=>{try{return JSON.parse(localStorage.getItem('klusoczlek-campaign-v1'))?.actId==='act4'}catch{return false}})()",'ActTitle wrote valid Act IV checkpoint',3500);
+ const titleHP=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run'),t=g.scene.getScene('ActTitle'),raw=JSON.parse(localStorage.getItem('klusoczlek-campaign-v1'));return {hp:r.hp,max:r.maxHp,handoffHp:t.handoff?.hp,handoffMax:t.handoff?.maxHp,act:t.actId,selected:r.selectedWeapon,water:r.unlockedWeapons.has('water-flamethrower'),horn:r.artifacts.has('bogdan-hunting-horn'),completed:[...r.completedActs],saved:{act:raw.actId,hp:raw.hp,max:raw.maxHp,selected:raw.selectedWeapon,horn:raw.artifacts.includes('bogdan-hunting-horn')},menu:g.scene.isActive('Menu')}})()");
+ assert.deepEqual([titleHP.hp,titleHP.max,titleHP.handoffHp,titleHP.handoffMax],[5,5,5,5]);
+ assert.deepEqual(titleHP.saved,{act:'act4',hp:5,max:5,selected:'rifle',horn:true});
+ assert.ok(titleHP.act==='act4'&&titleHP.selected==='rifle'&&titleHP.water&&titleHP.horn&&!titleHP.menu);
+ assert.deepEqual(titleHP.completed.sort(),['act1','act2','act3']);
+ await wait("window.__game.scene.isActive('School')",'real Act IV School after title',6500);
+ const directHP=await evaluate("(()=>{const g=window.__game,s=g.scene.getScene('School');return {hp:s.run.hp,max:s.run.maxHp,weapon:s.weapon,label:s.hpText.text,intro:s.introActive,captain:!!s.captainArrival,arrival:s.captainArrival?.arrived,departing:s.captainDeparting,menu:g.scene.isActive('Menu')}})()");
+ assert.deepEqual([directHP.hp,directHP.max,directHP.weapon,directHP.label,directHP.captain,directHP.menu],[5,5,'rifle','HP 5/5',true,false]);
+ assert.ok(directHP.intro||directHP.departing||directHP.arrival,'approved Captain Marian chapel introduction');
+ const pause=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
+ await touch(pause.x,pause.y);
+ await wait("window.__game.scene.isPaused('School')&&window.__game.scene.isActive('Menu')",'Act IV MENU after direct handoff',3000);
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('School')",'Act IV WZNÓW after direct handoff',3000);
+ assert.equal(await evaluate("window.__game.scene.getScene('School').run.hp"),5);
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'Menu after saved Act IV reload');
+ assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'));
+ await tapMenu('WZNÓW');
+ await wait("(()=>{const g=window.__game;return g.scene.isActive('ActTitle')||g.scene.isActive('School')})()",'checkpoint resumes Act IV title or School',4000);
+ await wait("window.__game.scene.isActive('School')",'checkpoint resumes School',6500);
+ const savedHP=await evaluate("(()=>{const g=window.__game,s=g.scene.getScene('School');return {hp:s.run.hp,max:s.run.maxHp,weapon:s.weapon,label:s.hpText.text,horn:s.run.artifacts.has('bogdan-hunting-horn'),completed:[...s.run.completedActs],intro:s.introActive,captain:!!s.captainArrival,arrived:s.captainArrival?.arrived,departing:s.captainDeparting,menu:g.scene.isActive('Menu')}})()");
+ assert.deepEqual([savedHP.hp,savedHP.max,savedHP.weapon,savedHP.label,savedHP.horn,savedHP.captain,savedHP.menu],[5,5,'rifle','HP 5/5',true,true,false]);
+ assert.ok(savedHP.intro||savedHP.departing||savedHP.arrived,'Captain intro retained after checkpoint reload');
+ assert.deepEqual(savedHP.completed.sort(),['act1','act2','act3']);
+ console.log('PASS Act III -> IV real Chromium: 2/5 during escape/extraction, 5/5 live title, 5/5 autosave reload, horn, rifle, Marian and MENU/WZNÓW');
  assert.deepEqual(exceptions,[],'uncaught Chromium exceptions');
  console.log('PASS FAST real Chromium: menu, DEBUG Act II/IV, handoffs, school placeholders, Act IV pause/resume and water filtering');
  console.log('FAST runtime ms',Date.now()-started);
