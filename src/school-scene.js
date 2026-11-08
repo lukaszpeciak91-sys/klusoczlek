@@ -457,7 +457,7 @@ export class SchoolScene extends Phaser.Scene {
     // These two are approved Act I atlas sprites, never invented replacement art.
     // The original atlas renderer can create a temporary shape; hide it until
     // the verified original texture is ready (or leave invisible if unavailable).
-    for(const o of this.obstacles.filter(o=>o.type==='tire_pile'||o.type==='toi_toi')){
+    for(const o of this.obstacles.filter(o=>['tire_pile','toi_toi','rock'].includes(o.type))){
       const c=createObstacleVisual(this,o);
       c.getData('fallback')?.setVisible(false);
     }
