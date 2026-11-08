@@ -212,3 +212,50 @@ test('PR105 R1 actual death coordinates and approved existing Menu presentation'
  assert.ok(menu.includes("sessionKey==='School' && this.scene.get('School').defeated"));
  assert.ok(menu.includes("createPixelBurst(this,'aloes',at.x,at.y,7)"));
 });
+
+test('PR105 R2 School reuses original Act I bark view and its stable renderers',()=>{
+ const scene=source('../src/school-scene.js'),combat=source('../src/school-combat.js'),view=source('../src/ambient-bark-view.js');
+ assert.ok(scene.includes("import {createAmbientBarks} from './ambient-bark-view.js'"));
+ assert.ok(scene.includes("this.ambientBarks=createAmbientBarks(this,seededRandom("));
+ assert.ok(scene.includes("this.enemies=this.combat.enemies;"));
+ assert.ok(scene.includes("this.enemyRenderers=this.combat.renderers;"));
+ assert.ok(scene.includes("this.schoolPhase==='COMBAT'||this.schoolPhase==='CLEANUP'"));
+ assert.ok(scene.includes("this.run.hp>0&&!this.dialogueLoading&&!this.dialogueState?.id"));
+ assert.ok(scene.includes("this.ambientBarks.tick(this.combat.elapsedMs);"));
+ assert.ok(scene.includes("this.ambientBarks?.guard();"));
+ assert.ok(combat.includes("scene.ambientBarks?.hit(enemy,clock.elapsedMs);"));
+ assert.ok(combat.includes("scene.ambientBarks?.speakerDied(enemy);"));
+ assert.ok(combat.includes("scene.ambientBarks?.suspend();"));
+ assert.ok(combat.includes("renderers,get enemies(){return enemies;}"));
+ for(const [type,name] of [['bobrozombi','createBobrozombiRenderer'],['bocianolak','createBocianolakRenderer'],['zubrokryptyda','createZubrokryptydaRenderer']])
+  assert.ok(combat.includes(type+':'+name+'(scene,Phaser)'));
+ assert.ok(view.includes("scene.enemyRenderers[e.type]?.speechAnchorOf?.(e)"));
+ assert.ok(view.includes("const candidates=()=>scene.enemies.filter"));
+ assert.equal(combat.includes('createBarkSchedule('),false,'no forked bark engine');
+ assert.equal(scene.includes('queueBocianolakHitDialogue('),false,'Act I story dialogue not copied');
+});
+test('PR105 R2 approved bubble caps, existing probabilities and sprite contracts unchanged',()=>{
+ const bark=source('../src/ambient-barks.js'),view=source('../src/ambient-bark-view.js');
+ const visual=source('../src/enemy-visual.js'),combat=source('../src/school-combat.js');
+ assert.ok(bark.includes('export const MAX_BUBBLES=2;'));
+ assert.ok(bark.includes('if(unit(rng)>=0.35)return null;'));
+ assert.ok(bark.includes('state.enemyCooldown.get(enemy)'));
+ assert.ok(bark.includes('if(state.active.length>=MAX_BUBBLES'));
+ assert.ok(bark.includes('hud.joystickRadius*1.4+6'));
+ assert.ok(view.includes('scene.events.once(\'shutdown\',destroy);'));
+ assert.ok(view.includes('scene.scale.off(\'resize\',resize)'));
+ assert.ok(view.includes("scene.events.off('pause',suspend)"));
+ for(const [type,width,frame] of [['bobrozombi',768,96],['bocianolak',1024,128],['zubrokryptyda',1536,192]]){
+  assert.ok(visual.includes("path:'enemies/"+type+".png'"));
+  assert.ok(visual.includes('width:'+width));
+  assert.ok(visual.includes('frameWidth:'+frame));
+ }
+ assert.ok(visual.includes('art.setFrame(facing)'));
+ assert.ok(visual.includes('advanceEnemyGait(gait,type,distance,seconds)'));
+ assert.ok(visual.includes('art.setTint(hitActive('));
+ assert.ok(visual.includes('speechAnchorOf=enemy=>'));
+ assert.ok(combat.includes('advanceIgnition(enemy.ignition,now)'));
+ assert.ok(combat.includes('enemy.burningFx?.update(enemy,now)'));
+ assert.ok(combat.includes('createPixelBurst(scene,enemy.type,enemy.x,enemy.y,enemy.seed)'));
+ assert.ok(combat.includes('enemy.sprite.destroy()'));
+});
