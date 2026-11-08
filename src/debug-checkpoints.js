@@ -12,6 +12,11 @@ export const DEBUG_CHECKPOINTS=Object.freeze([
   Object.freeze({id:'act2-last15',actId:'act2',scene:'Airship',label:'AKT II — OSTATNIE 15 S'}),
   Object.freeze({id:'act2-results',actId:'act2',scene:'Airship',label:'AKT II — ZAKOŃCZENIE'}),
   Object.freeze({id:'act3-opening',actId:'act3',scene:'Volcano',label:'AKT III — POCZĄTEK'}),
+  Object.freeze({id:'act3-lawos',actId:'act3',scene:'Volcano',label:'AKT III — KRZYŚ / ANDRZEJEK'}),
+  Object.freeze({id:'act3-fairy',actId:'act3',scene:'Volcano',label:'AKT III — ŚWINIA-WRÓŻKA'}),
+  Object.freeze({id:'act3-apartment',actId:'act3',scene:'Volcano',label:'AKT III — MARLENA / BOGDAN'}),
+  Object.freeze({id:'act3-boss',actId:'act3',scene:'Volcano',label:'AKT III — WALKA Z BOGDANEM'}),
+  Object.freeze({id:'act3-escape',actId:'act3',scene:'Volcano',label:'AKT III — UCIECZKA'}),
 ]);
 export const DEBUG_IDS=new Set(DEBUG_CHECKPOINTS.map(item=>item.id));
 
