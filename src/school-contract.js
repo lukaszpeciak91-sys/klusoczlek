@@ -35,5 +35,7 @@ export function schoolStep(from,input,deltaMs,speed=PLAYER_SPEED){
   return resolveObstaclePosition(from,end,PLAYER_RADIUS,SCHOOL_OBSTACLES);
 }
 export function schoolDebugPoint(id){
-  return id==='act4-school'?SCHOOL_PLACES.debugSchool:SCHOOL_PLACES.playerStart;
+  if(id==='act4-school')return SCHOOL_PLACES.debugSchool;
+  if(id==='act4-wave4')return {x:900,y:930};
+  return SCHOOL_PLACES.playerStart;
 }
