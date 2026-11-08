@@ -15,7 +15,7 @@ export const SCHOOL_PLACES=Object.freeze({
   schoolEntrance:Object.freeze({x:1340,y:630}),
   pitch:Object.freeze({x:790,y:930,width:560,height:345,label:'BOISKO'}),
   bicycleRack:Object.freeze({x:1510,y:830,width:220,height:54,label:'ROWERY'}),
-  debugSchool:Object.freeze({x:1190,y:720}),
+  debugSchool:Object.freeze({x:900,y:600}),
   maciek:Object.freeze({x:695,y:620}),
   seba:Object.freeze({x:770,y:610}),
   pitchApproach:Object.freeze({x:1065,y:870}),
