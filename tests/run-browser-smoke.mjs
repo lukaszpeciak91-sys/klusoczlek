@@ -150,11 +150,49 @@ try{
    m.scene.start('School',{handoff:fixture.handoff,debugCheckpoint:${JSON.stringify(id)}});
    return true;
  })()`);
+ const dialogueNext=async()=>{await sleep(230);const pt=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.dialoguePanel.button,r=window.__game.canvas.getBoundingClientRect();return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,id:s.dialogueState.id}})()");assert.ok(pt.visible,'approved DALEJ available '+JSON.stringify(pt));await touch(pt.x,pt.y);};
+ const verifyPanel=async(id,index,phrase)=>{
+  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,index:s.dialogueState.index,text:s.dialoguePanel.text.text,started:s.combat.started,bullets:s.combat.projectiles.length,alive:s.combat.enemies.length,clock:s.combat.elapsedMs,boss:s.blazej.active,enabled:s.joystick.enabled,bubble:s.ambientBarks.pool.some(p=>p.root.visible)}})()");
+  assert.equal(p.id,id,'correct narrative beat '+JSON.stringify(p));
+  assert.equal(p.index,index,'DALEJ advances exactly one panel');
+  assert.equal(p.text,phrase,'approved literal panel');
+  assert.equal(p.started,false,'waves cannot start before confrontation');
+  assert.equal(p.bullets,0,'no attacks during dialogue');
+  assert.equal(p.alive,0,'no ordinary enemies during dialogue');
+  assert.equal(p.clock,0,'no background/dialogue combat time');
+  assert.equal(p.boss,false,'boss passive during opening');
+  assert.equal(p.enabled,false,'movement disabled while dialogue visible');
+  assert.equal(p.bubble,false,'speech bubbles suppressed during dialogue');
+  await dialogueNext();
+ };
  await bootSchool('act4-opening');
  await wait("window.__game.scene.isActive('School')",'School scene starts');
  const schoolIntro=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,enemies:s.combat.enemies.length,weapon:s.weapon,hp:s.run.hp}})()");
  assert.ok(schoolIntro.intro&&!schoolIntro.started&&schoolIntro.enemies===0,'no enemies during Captain cinematic '+JSON.stringify(schoolIntro));
- await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&s.combat.started})()",'Marian enters chapel then combat starts',25000);
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&s.dialogueState.id==='act4-maciek-seba'})()",'Captain exits then Maciek/Seba begin',25000);
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return ['bobrozombi','bocianolak','zubrokryptyda'].every(k=>s.dialoguePanel.loaded.has(k))})()",'original three character portraits load',10000);
+ const first=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {captain:s.captainArrival.actor?.active??false,active:s.combat.started,phase:s.schoolPhase,boss:s.blazej.active}})()");
+ assert.deepEqual(first,{captain:false,active:false,phase:'INTRO',boss:false});
+ const maciek=[
+  'Najpierw Marcin...potem Bogdan...\no co chodzi temu Kłusoczłeku?',
+  'I w ogóle Sebuś, czemu Kłusoczłek,\nże kłusuje jak koń?',
+  'Ty to Maciek jednak głupi jesteś...\nA to nie jest czasem on? Do ataku!'
+ ];
+ for(let i=0;i<maciek.length;i++)await verifyPanel('act4-maciek-seba',i,maciek[i]);
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'observer exchange before waves');
+ for(const [i,line] of ['...i ja wtedy normalnie od razu','Ty to jednak Błażej jesteś gość'].entries())
+  await verifyPanel('act4-blazej-observer',i,line);
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-confrontation'",'five-panel bike confrontation before waves');
+ const prewaves=[
+  'Kazał pan, musiał sam!',
+  'Nie wiem kim jesteś ale mam ochotę Cię rozgnieść',
+  'Potrzebuję na chwilę Twojego roweru, dasz się karnąć?',
+  'Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać',
+  'Zostaw mój rower, ty kutwo!\nChłopaki, na niego!'
+ ];
+ for(let i=0;i<prewaves.length;i++)await verifyPanel('act4-blazej-confrontation',i,prewaves[i]);
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.started&&s.schoolPhase==='COMBAT'&&!s.dialogueState.id})()",'waves start only after fifth confrontation panel',4000);
+ console.log('PASS Act IV Chromium opening: Captain, Maciek/Seba 3, observer 2, confrontation 5, portraits and gated DALEJ; combat starts only afterwards');
  await wait("window.__game.scene.getScene('School').combat.enemies.length>0",'School wave1 spawns',10000);
  const school=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {wave:s.combat.wave,count:s.combat.enemies.length,state:s.schoolPhase,weapon:s.weapon,owned:[...s.run.unlockedWeapons],hp:s.run.hp}})()");
  assert.equal(school.wave,0);assert.ok(school.count<=6&&school.count>0,'wave1 cap');
@@ -285,7 +323,7 @@ try{
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'menu before PR106 boss QA');
  await bootSchool('act4-blazej');
- await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_PENDING'&&s.dialogueState?.id==='act4-blazej-confrontation'})()",'Błażej confrontation after approved four waves',4500);
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_PENDING'&&s.dialogueState?.id==='act4-blazej-final'})()",'single post-wave Błażej panel',4500);
  const passiveBoss=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {phase:s.schoolPhase,visible:s.blazej.actor.sprite.visible,active:s.blazej.active,target:s.blazej.target,hp:s.blazej.actor.hp,ordinary:s.combat.enemies.length,started:s.combat.started,artifacts:[...s.run.artifacts],dialogue:s.dialogueState.id,pausedBarks:s.ambientBarks.state.active.length}})()");
  assert.equal(passiveBoss.phase,'BLAZEJ_PENDING');
  assert.equal(passiveBoss.visible,true);
@@ -294,8 +332,10 @@ try{
  assert.equal(passiveBoss.ordinary,0);
  assert.equal(passiveBoss.artifacts.length,2);
  assert.equal(passiveBoss.pausedBarks,0);
- const dialogueNext=async()=>{await sleep(220);const pt=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.dialoguePanel.button,r=window.__game.canvas.getBoundingClientRect();return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,id:s.dialogueState.id}})()");assert.ok(pt.visible,'approved dialogue advance visible '+JSON.stringify(pt));await touch(pt.x,pt.y);};
- for(let i=0;i<6;i++)await dialogueNext();
+ // Shared DALEJ helper above verifies one-panel touch advancement.
+ const postWave=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,index:s.dialogueState.index,text:s.dialoguePanel.text.text,boss:s.blazej.active,bullets:s.blazej.projectiles.length}})()");
+ assert.deepEqual(postWave,{id:'act4-blazej-final',index:0,text:'Ech, kazał pan, musiał sam!',boss:false,bullets:0},'no premature boss before one DALEJ');
+ await dialogueNext();
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_BOSS'&&s.blazej.active&&!s.dialogueState.id})()",'Błażej boss begins only after confrontation',3500);
  const bossStart=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,ordinary:s.combat.enemies.length,wave:s.combat.wave,boss:s.blazej.active,water:s.weapon==='water-flamethrower'}})()");
  assert.ok(bossStart.hp>0&&bossStart.boss&&bossStart.ordinary===0&&!bossStart.water);
