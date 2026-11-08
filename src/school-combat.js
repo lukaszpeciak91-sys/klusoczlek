@@ -48,16 +48,21 @@ export function createSchoolCombat(scene,Phaser){
  const clock=createGameplayClock(),firing=createFiringState(),fire=createContinuousWeaponState();
  const stream=scene.add.graphics().setDepth(12);
  const weaponCooldownUntil=new Map();
- let started=false,defeated=false,finished=false,phase='INTRO',wave=0,totalSpawned=0,kills=0,invulnerableUntil=0;
+ let started=false,defeated=false,finished=false,phase='INTRO',phaseChanges=0,wave=0,totalSpawned=0,kills=0,invulnerableUntil=0;
+ const PHASE_ORDER=Object.freeze({INTRO:0,COMBAT:1,CLEANUP:2,BLAZEJ_PENDING:3,DEFEAT:4});
+ function transition(next){
+  if(phase===next||phase==='DEFEAT'||PHASE_ORDER[next]<=PHASE_ORDER[phase])return false;
+  phase=next;phaseChanges++;scene.schoolPhase=next;
+  return true;
+ }
  const obstacleBlocked=(from,to)=>Boolean(segmentObstacleHit(from,to,scene.obstacles,0));
  const living=()=>enemies.filter(e=>!e.dead&&e.hp>0);
  function start({wave4=false}={}){
   if(started||defeated||scene.introActive||scene.disposed)return false;
-  started=true;phase='COMBAT';
+  started=true;transition('COMBAT');
   if(wave4)clock.elapsedMs=WAVE_TIMING[3].startMs;
   wave=schoolWaveIndex(clock.elapsedMs);
   director.nextMs=clock.elapsedMs;
-  scene.schoolPhase=phase;
   scene.waveText.setText('⚑ '+(wave+1)+'/'+SCHOOL_WAVE_COUNT);
   return true;
  }
@@ -140,8 +145,10 @@ export function createSchoolCombat(scene,Phaser){
   scene.hpText.setText('HP '+result.hp+'/'+scene.run.maxHp);
   scene.playerVisual.hit(enemy);
   if(result.hp===0){
-   defeated=true;phase='DEFEAT';scene.schoolPhase=phase;
-   clearCombat();scene.defeated=true;scene.syncControls();
+   defeated=true;transition('DEFEAT');
+   // Reuse Arena's actual camera-space death coordinate and Menu burst.
+   scene.captureSchoolDefeat();
+   clearCombat();scene.syncControls();
    scene.openMenu();
   }
  }
@@ -213,7 +220,7 @@ export function createSchoolCombat(scene,Phaser){
   if(!started||defeated||scene.introActive||scene.disposed)return;
   const elapsed=advanceGameplayClock(clock,now,true);
   wave=schoolWaveIndex(elapsed);
-  if(phase==='COMBAT'&&elapsed>=SCHOOL_COMBAT_MS)phase='CLEANUP';
+  if(phase==='COMBAT'&&elapsed>=SCHOOL_COMBAT_MS)transition('CLEANUP');
   if(phase==='COMBAT'){
    const view=scene.cameras.main.worldView;
    const population=directorPopulation(enemies,{x:view.x,y:view.y,width:view.width,height:view.height},scene.player);
@@ -241,7 +248,7 @@ export function createSchoolCombat(scene,Phaser){
   updateBursts(bursts,delta);
   if(defeated)return;
   if(phase==='CLEANUP'&&living().length===0&&!finished){
-   finished=true;phase='BLAZEJ_PENDING';scene.schoolPhase=phase;
+   finished=true;transition('BLAZEJ_PENDING');
    scene.objectiveText?.setVisible(true);
    stopFire();
   }
@@ -255,9 +262,21 @@ export function createSchoolCombat(scene,Phaser){
    }
   }
  }
+ // Controlled QA fixture is unavailable in normal runs and has no UI actions.
+ // It changes only elapsed active-play time; all transitions still run via update().
+ const qa=scene.run.isDebugRun?Object.freeze({
+  setElapsedMs(value){
+   if(!started||defeated||!Number.isFinite(value)||value<clock.elapsedMs||value>SCHOOL_COMBAT_MS)return false;
+   clock.elapsedMs=value;clock.lastNow=null;return true;
+  },
+  damage(enemy,amount=1){
+   if(!started||defeated||!enemies.includes(enemy)||!Number.isFinite(amount)||amount<=0)return false;
+   return hitEnemy(enemy,amount,scene.player,scene.time.now);
+  }
+ }):null;
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,destroy);
- return {start,update,suspend,stopFire,get enemies(){return enemies;},
+ return {start,update,suspend,stopFire,qa,get enemies(){return enemies;},
   get started(){return started;},get state(){return phase;},get wave(){return wave;},
-  get elapsedMs(){return clock.elapsedMs;},get kills(){return kills;},
+  get elapsedMs(){return clock.elapsedMs;},get kills(){return kills;},get phaseChanges(){return phaseChanges;},get totalSpawned(){return totalSpawned;},
   get pressure(){return fire.pressure;},get projectiles(){return projectiles;}};
 }
