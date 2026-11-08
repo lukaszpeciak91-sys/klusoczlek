@@ -186,6 +186,161 @@ export class SchoolScene extends Phaser.Scene {
     }
     enforceOrientationOnSceneStart(this);
   }
+  beginSchoolDialogue(id){
+    if(this.disposed||this.defeated||this.storyBusy||this.dialogueState.id||
+       !this.controlsAllowed()||!beginDialogue(this.dialogueState,id))return false;
+    this.storyBusy=true;
+    this.combat.suspend();this.ambientBarks.suspend();
+    this.resetMovement();this.syncControls();
+    this.dialoguePanel.show(this.dialogueState);
+    return true;
+  }
+  onSchoolDialogueEnded(id){
+    if(this.disposed||this.defeated)return;
+    if(id==='act4-blazej-observer'){
+      this.storyBusy=false;this.combat.suspend();this.syncControls();
+    }else if(id==='act4-blazej-confrontation'){
+      this.storyBusy=false;
+      if(this.combat.enterBoss())this.blazej.activate();
+      this.combat.suspend();this.syncControls();
+    }else if(id==='act4-chapel-ending')this.completeActFour();
+  }
+  onBlazejDefeated(){
+    if(this.disposed||this.defeated||this.bossDefeatHandled||
+       this.schoolPhase!=='BLAZEJ_BOSS')return;
+    this.bossDefeatHandled=true;this.storyBusy=true;
+    this.combat.stopFire();this.ambientBarks.suspend();this.resetMovement();this.syncControls();
+    // The existing Żubrokryptyda pixel burst completes before the reward.
+    this.time.delayedCall(470,()=>{
+      if(!this.disposed&&!this.defeated&&this.combat.advanceFinale('BLAZEJ_REWARD'))
+        this.showBicycleReward();
+    });
+  }
+  createBicycleRewardUi(){
+    const w=()=>this.scale.width,h=()=>this.scale.height;
+    this.rewardRoot=this.add.container(0,0).setScrollFactor(0).setDepth(210).setVisible(false);
+    const bg=this.add.rectangle(0,0,w(),h(),0x101417,.96).setOrigin(0);
+    this.rewardTitle=this.add.text(w()/2,h()*.23,'ZDOBYŁEŚ ARTEFAKT',
+      {fontFamily:'monospace',fontSize:'23px',fontStyle:'bold',color:'#f2d18c'}).setOrigin(.5);
+    this.rewardName=this.add.text(w()/2,h()*.48,'ROWER BŁAŻEJA',
+      {fontFamily:'monospace',fontSize:'22px',fontStyle:'bold',color:'#f3e9d5',
+       align:'center',wordWrap:{width:w()-30}}).setOrigin(.5);
+    this.rewardDetail=this.add.text(w()/2,h()*.68,'ARTEFAKT 3/3',
+      {fontFamily:'monospace',fontSize:'17px',color:'#f2d18c'}).setOrigin(.5);
+    this.rewardRoot.add([bg,this.rewardTitle,this.rewardName,this.rewardDetail]);
+    this.rewardBg=bg;this.rewardImage=null;
+    this.rewardButton=this.add.rectangle(w()/2,h()-28,135,40,0x655039)
+      .setStrokeStyle(2,0xd9bd80).setScrollFactor(0).setDepth(212)
+      .setInteractive({useHandCursor:true}).setVisible(false);
+    this.rewardButtonLabel=this.add.text(w()/2,h()-28,'DALEJ',
+      {fontFamily:'monospace',fontSize:'18px',color:'#fff2d6'})
+      .setOrigin(.5).setScrollFactor(0).setDepth(213).setVisible(false);
+    this.rewardButton.on('pointerdown',()=>{
+      if(this.schoolPhase!=='BLAZEJ_REWARD'||!this.controlsAllowed()||
+         this.game.loop.time<this.rewardArmedAt)return;
+      this.rewardRoot.setVisible(false);this.rewardButton.setVisible(false);
+      this.rewardButtonLabel.setVisible(false);
+      if(this.combat.advanceFinale('BICYCLE_RIDE'))this.startBicycleRide();
+    });
+    // Optional approved future 192x192 RGBA PNG; a missing file stays text-only.
+    void (async()=>{
+      try{
+        const response=await fetch(assetUrl(import.meta.env.BASE_URL,'artifacts/artifact-blazej-bicycle.png'),
+          {cache:'no-cache'});
+        if(!response.ok)return;
+        const bytes=new Uint8Array(await response.arrayBuffer());
+        if(!validPngHeader(bytes,{width:192,height:192}))return;
+        const blob=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
+        try{
+          const image=new Image();
+          await new Promise((resolve,reject)=>{
+            image.onload=resolve;image.onerror=reject;image.src=blob;
+          });
+          if(this.disposed||image.naturalWidth!==192||image.naturalHeight!==192)return;
+          const key='artifact-blazej-bicycle';
+          if(!this.textures.exists(key))this.textures.addImage(key,image);
+          this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+          this.bicycleTexture=key;
+          this.rewardImage=this.add.image(0,0,key).setDisplaySize(110,110);
+          this.rewardRoot.addAt(this.rewardImage,2);
+          this.resizeBicycleRewardUi();
+        }finally{URL.revokeObjectURL(blob);}
+      }catch{ /* The production artifact PNG is not yet included. */ }
+    })();
+  }
+  resizeBicycleRewardUi(){
+    if(!this.rewardRoot)return;
+    const w=this.scale.width,h=this.scale.height,x=w/2;
+    this.rewardBg.setSize(w,h);
+    this.rewardTitle.setPosition(x,h*.23).setFontSize(Math.min(23,h*.065));
+    this.rewardName.setPosition(x,this.rewardImage?h*.70:h*.48)
+      .setWordWrapWidth(w()-30).setFontSize(Math.min(22,h*.058));
+    this.rewardDetail.setPosition(x,this.rewardImage?h*.83:h*.68);
+    this.rewardImage?.setPosition(x,h*.44)
+      .setDisplaySize(Math.min(110,h*.32),Math.min(110,h*.32));
+    this.rewardButton.setPosition(x,h-26);
+    this.rewardButtonLabel.setPosition(x,h-26);
+  }
+  showBicycleReward(){
+    if(this.disposed||this.defeated||this.schoolPhase!=='BLAZEJ_REWARD')return false;
+    if(!this.run.artifacts.has(BLAZEJ_BICYCLE_ID))
+      awardRunArtifact(this.run,BLAZEJ_BICYCLE_ID);
+    this.rewardArmedAt=this.game.loop.time+220;
+    this.rewardRoot.setVisible(true);this.rewardButton.setVisible(true);
+    this.rewardButtonLabel.setVisible(true);this.syncControls();return true;
+  }
+  startBicycleRide(){
+    if(this.disposed||this.schoolPhase!=='BICYCLE_RIDE')return;
+    this.storyBusy=true;this.resetMovement();this.combat.suspend();
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
+      if(this.disposed||this.schoolPhase!=='BICYCLE_RIDE')return;
+      if(this.bicycleTexture){
+        // Approved PNG alone; no replacement bike, rider sheet or riding controls.
+        this.bicycleWorld=this.add.image(this.player.x,this.player.y+10,this.bicycleTexture)
+          .setScale(.48).setDepth(10);
+        this.cameras.main.fadeIn(150,0,0,0);
+        this.tweens.add({targets:this.player,x:CHAPEL_RETURN.x,y:CHAPEL_RETURN.y,
+          duration:1100,ease:'Sine.easeInOut',onComplete:()=>this.returnToChapel()});
+      }else{
+        // Without approved bike art the intended ride remains an honest fade.
+        this.player.setPosition(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
+        this.player.body.reset(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
+        this.cameras.main.centerOn(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_IN_COMPLETE,
+          ()=>this.returnToChapel());
+        this.cameras.main.fadeIn(350,0,0,0);
+      }
+    });
+    this.cameras.main.fadeOut(280,0,0,0);
+  }
+  returnToChapel(){
+    if(this.disposed||this.defeated||this.schoolPhase!=='BICYCLE_RIDE')return false;
+    this.bicycleWorld?.destroy();this.bicycleWorld=null;
+    this.player.setPosition(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
+    this.player.body.reset(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
+    this.playerVisual.update(this.facing,false,0);
+    if(!this.combat.advanceFinale('CHAPEL_RETURN'))return false;
+    this.storyBusy=false;
+    return this.beginSchoolDialogue('act4-chapel-ending');
+  }
+  completeActFour(){
+    if(this.disposed||this.actCompleted||this.defeated||
+       this.schoolPhase!=='CHAPEL_RETURN'||!this.run.artifacts.has(BLAZEJ_BICYCLE_ID))return false;
+    const committed=completeCampaignAct(this.run,'act4',{
+      hp:this.run.hp,maxHp:this.run.maxHp,unlockedWeapons:this.run.unlockedWeapons,
+      selectedWeapon:this.weapon,kills:this.combat.kills+Number(this.blazej.defeated),
+      activeCombatMs:this.combat.elapsedMs
+    });
+    if(!committed)return false;
+    this.actCompleted=true;this.storyBusy=true;
+    this.combat.advanceFinale('ACT_IV_COMPLETE');
+    this.combat.suspend();this.ambientBarks.suspend();this.resetMovement();
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
+      if(!this.disposed)this.scene.start('Menu'); // Act V remains unimplemented.
+    });
+    this.cameras.main.fadeOut(520,0,0,0);
+    return true;
+  }
   drawPrototypePlaces(){
     // These labels and blocks are disposable visual placeholders, NOT PNG masks.
     const colors={chapel:0x86725d,school:0x706a5f,bicycleRack:0x837c56};
