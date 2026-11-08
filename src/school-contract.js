@@ -37,5 +37,6 @@ export function schoolStep(from,input,deltaMs,speed=PLAYER_SPEED){
 export function schoolDebugPoint(id){
   if(id==='act4-school')return SCHOOL_PLACES.debugSchool;
   if(id==='act4-wave4')return {x:900,y:930};
+  if(['act4-blazej','act4-boss','act4-finale'].includes(id))return {x:1190,y:740};
   return SCHOOL_PLACES.playerStart;
 }
