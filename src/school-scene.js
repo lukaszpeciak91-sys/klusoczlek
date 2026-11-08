@@ -245,9 +245,15 @@ export class SchoolScene extends Phaser.Scene {
     // Optional approved future 192x192 RGBA PNG; a missing file stays text-only.
     void (async()=>{
       try{
-        const response=await fetch(assetUrl(import.meta.env.BASE_URL,'artifacts/artifact-blazej-bicycle.png'),
-          {cache:'no-cache'});
-        if(!response.ok)return;
+        // The approved upload appeared on main as artifact-blazej-bike.png
+        // after the audited base; keep the contracted future name too.
+        let response=null;
+        for(const path of ['artifacts/artifact-blazej-bicycle.png',
+          'artifacts/artifact-blazej-bike.png']){
+          const candidate=await fetch(assetUrl(import.meta.env.BASE_URL,path),{cache:'no-cache'});
+          if(candidate.ok){response=candidate;break;}
+        }
+        if(!response)return;
         const bytes=new Uint8Array(await response.arrayBuffer());
         if(!validPngHeader(bytes,{width:192,height:192}))return;
         const blob=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
