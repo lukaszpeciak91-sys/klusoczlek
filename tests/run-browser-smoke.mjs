@@ -249,6 +249,7 @@ try{
  // New narrative guest shares the original bubbles (not a second bubble UI).
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.renderers.zubrokryptyda.loaded&&s.combat.enemies.length>0})()",'Błażej approved sprite and wave4 enemies');
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1010,560);s.player.body.reset(1010,560);s.cameras.main.centerOn(1010,560);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.cameras.main.worldView.y<500&&s.cameras.main.worldView.x>540})()",'Phaser smoothed camera settles on Błażej viewport',3500);
  await wait("(()=>{const s=window.__game.scene.getScene('School');return !!s.combat.renderers.zubrokryptyda.speechAnchorOf(s.blazej.actor)})()",'existing Żubrokryptyda speech anchor');
  const expectedObserver=['Szybciej!','Na niego!','Co z wami?','Do ataku!'];
  for(const phrase of expectedObserver){
@@ -365,6 +366,7 @@ try{
  const bossStart=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,ordinary:s.combat.enemies.length,wave:s.combat.wave,boss:s.blazej.active,water:s.weapon==='water-flamethrower'}})()");
  // Test three approved Błażej boss barks through exactly the same view.
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1010,560);s.player.body.reset(1010,560);s.cameras.main.centerOn(1010,560);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.cameras.main.worldView.y<500&&s.cameras.main.worldView.x>540})()",'Phaser smoothed camera settles on Błażej viewport',3500);
  const bossBarkBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,phase:s.blazej.attack.phase,volley:s.blazej.volleys,jump:s.blazej.jumps}})()");
  const bossPhrases=['Nie oddam roweru!','Zniszczę Cię!','To je moje!'];
  for(const phrase of bossPhrases){
