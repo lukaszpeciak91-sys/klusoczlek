@@ -4,7 +4,8 @@ export const ACT2_HEALTH_HEAL=2;
 export const ACT2_HEALTH_PICKUP_RADIUS=34;
 export const ACT2_HEALTH_POINTS=Object.freeze([
  Object.freeze({x:480,y:315}),Object.freeze({x:435,y:318}),
- Object.freeze({x:525,y:318}),Object.freeze({x:480,y:275})
+ Object.freeze({x:525,y:318}),Object.freeze({x:390,y:300}),
+ Object.freeze({x:570,y:300}),Object.freeze({x:480,y:275})
 ]);
 export function act2HealthPoint(player){
  return ACT2_HEALTH_POINTS.find(p=>insideDeck(p,DECK_MARGIN,AIRSHIP_PLAYER_LOWER_MARGIN)&&
