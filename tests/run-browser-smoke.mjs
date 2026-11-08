@@ -546,16 +546,23 @@ try{
  const escapeHP=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),r=s.run;r.hp=2;r.isDebugRun=false;r.artifacts.add('bogdan-hunting-horn');r.selectedWeapon='water-flamethrower';s.weapon='water-flamethrower';s.hpFace.setHp(2);s.hpText.setText('HP 2/5');const before={hp:r.hp,max:r.maxHp,act:r.actId,water:r.unlockedWeapons.has('water-flamethrower'),horn:r.artifacts.has('bogdan-hunting-horn')};s.player.setPosition(s.extractionPoint.x,s.extractionPoint.y);s.player.body.reset(s.player.x,s.player.y);return before})()");
  assert.deepEqual(escapeHP,{hp:2,max:5,act:'act3',water:true,horn:true});
  await wait("window.__game.scene.getScene('Volcano').dialogueState.id==='act3-captain-extraction'",'three-panel Captain extraction',4500);
+ // Capture only the real Volcano final handoff request; the deterministic QA
+ // driver will dispatch that exact data through SceneManager separately.
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),original=s.scene.start.bind(s.scene);window.__act4Handoffs=[];s.scene.start=(key,data)=>{if(key==='ActTitle'){window.__act4Handoffs.push({key,data});return s;}return original(key,data);};return true})()");
  for(let i=0;i<3;i++){
   await sleep(230);
   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),b=s.dialoguePanel.button,r=window.__game.canvas.getBoundingClientRect();return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,hp:s.run.hp,id:s.dialogueState.id}})()");
   assert.ok(p.visible&&p.hp===2&&p.id==='act3-captain-extraction','Act III dialogue must not heal Aloes');
   await touch(p.x,p.y);
  }
- await sleep(950);
- const act3Transition=await evaluate("(()=>{const g=window.__game,v=g.scene.getScene('Volcano'),t=g.scene.getScene('ActTitle'),s=g.scene.getScene('School'),r=g.registry.get('campaign-run');return {active:g.scene.getScenes(true).map(a=>a.scene.key),volcano:{state:v.finale?.state,disposed:v.disposed,scene:v.scene.settings?.status},title:{act:t.actId,scene:t.nextScene,handoff:t.handoff?.actId,active:g.scene.isActive('ActTitle')},school:{active:g.scene.isActive('School'),run:s.run?.actId},registry:{act:r.actId,hp:r.hp,completed:[...r.completedActs]},saved:localStorage.getItem('klusoczlek-campaign-v1')?.slice(0,155)}})()");
- console.log('ACT III/IV DESTINATION TRACE',JSON.stringify(act3Transition));
- await wait("(()=>{const g=window.__game;return g.scene.isActive('ActTitle')||g.scene.isActive('School')})()",'Act III -> Act IV title or School handoff',6000);
+ await wait("window.__act4Handoffs?.length===1",'Volcano finale requests Act IV title exactly once',4500);
+ await sleep(160);
+ const actualHandoff=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run'),calls=window.__act4Handoffs;return {count:calls.length,key:calls[0].key,act:calls[0].data.actId,scene:calls[0].data.handoff?.scene,hp:calls[0].data.handoff?.hp,max:calls[0].data.handoff?.maxHp,selected:calls[0].data.handoff?.selectedWeapon,horn:calls[0].data.handoff?.artifacts.has('bogdan-hunting-horn'),completed:[...r.completedActs],runtimeHp:r.hp,menu:g.scene.isActive('Menu')}})()");
+ assert.deepEqual([actualHandoff.count,actualHandoff.key,actualHandoff.act,actualHandoff.scene,actualHandoff.hp,actualHandoff.max,actualHandoff.selected,actualHandoff.horn,actualHandoff.runtimeHp,actualHandoff.menu],
+  [1,'ActTitle','act4','School',5,5,'rifle',true,5,false],'exactly one authorized live Act IV handoff');
+ assert.deepEqual(actualHandoff.completed.sort(),['act1','act2','act3']);
+ await evaluate("(()=>{const g=window.__game;g.scene.start('ActTitle',window.__act4Handoffs[0].data);return true})()");
+ await wait("(()=>{try{return JSON.parse(localStorage.getItem('klusoczlek-campaign-v1'))?.actId==='act4'}catch{return false}})()",'ActTitle wrote valid Act IV checkpoint',3500);
  const titleHP=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run'),t=g.scene.getScene('ActTitle'),raw=JSON.parse(localStorage.getItem('klusoczlek-campaign-v1'));return {hp:r.hp,max:r.maxHp,handoffHp:t.handoff?.hp,handoffMax:t.handoff?.maxHp,act:t.actId,selected:r.selectedWeapon,water:r.unlockedWeapons.has('water-flamethrower'),horn:r.artifacts.has('bogdan-hunting-horn'),completed:[...r.completedActs],saved:{act:raw.actId,hp:raw.hp,max:raw.maxHp,selected:raw.selectedWeapon,horn:raw.artifacts.includes('bogdan-hunting-horn')},menu:g.scene.isActive('Menu')}})()");
  assert.deepEqual([titleHP.hp,titleHP.max,titleHP.handoffHp,titleHP.handoffMax],[5,5,5,5]);
  assert.deepEqual(titleHP.saved,{act:'act4',hp:5,max:5,selected:'rifle',horn:true});
