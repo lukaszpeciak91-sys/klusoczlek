@@ -75,3 +75,9 @@ test('Bogdan death heart and escape spawn offsets have safe terrain candidates',
  assert.ok(candidates.length>=3,'Need at least three safe escape spawn candidates');
  console.log('ESCAPE SPAWN TERRAIN CANDIDATES',JSON.stringify(candidates));
 });
+
+test('Act III Lawostworki dialogue region lies on production walkable terrain',()=>{
+ const mask=decodeRgbaPng(new URL('../public/assets/arenas/act3-volcano.png',import.meta.url));
+ assert.ok(volcanoFootprintAllowed(mask,510,890,17),'Opening dialogue trigger must be on walkable platform');
+ assert.ok(findMarlenaRoute(mask,VOLCANO_START,{x:510,y:890},{radius:17,cell:12,maxNodes:26000})?.length);
+});
