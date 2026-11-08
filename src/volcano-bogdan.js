@@ -13,7 +13,7 @@ export const APARTMENT=Object.freeze({
 });
 export const MARLENA_BARKS=Object.freeze(['Mama miała rację!','Niech sam w tym smrodzie siedzi, pajac!']);
 export const BOGDAN_HP=80;
-export const BOGDAN_HIT_RADIUS=34;
+export const BOGDAN_HIT_RADIUS=38;
 export function bossRepositionVector(boss,player,now,phase=1){
  const dx=player.x-boss.x,dy=player.y-boss.y,d=Math.max(1,Math.hypot(dx,dy));
  const orbit=Math.sin(now/1100+phase)*.9,close=d>210?1:d<105?-.6:.22;
@@ -131,7 +131,7 @@ export function createBogdanEncounter(scene,Phaser){
     if(actors.some(actor=>Math.hypot(actor.x-p.x,actor.y-p.y)<70)){
      console.warn('[Volcano Boss] apartment actors would overlap: '+key);failed=true;return false;
     }
-    const actor=scene.add.sprite(p.x,p.y,textures[i],2).setOrigin(.5,1).setDepth(12).setScale(.72);
+    const actor=scene.add.sprite(p.x,p.y,textures[i],2).setOrigin(.5,1).setDepth(12).setScale(key==='bogdan'?.79:.72);
     actors.push(actor);
     if(key==='marlena')marlena=actor;else bogdan=actor;
    }
@@ -244,9 +244,9 @@ export function createBogdanEncounter(scene,Phaser){
   const delta=Math.min(50,dt),phase=bossPhase(hp),p=scene.player;
   graphics.clear();
   bossLabel.setPosition(bogdan.x,bogdan.y-120).setText('BOGDAN '+hp+'/'+BOGDAN_HP);
-  bossHealth.clear().fillStyle(0x211319,.95).fillRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3)
-   .fillStyle(0xb53228,1).fillRect(bogdan.x-59,bogdan.y-102,118*bossHpRatio(hp,BOGDAN_HP),7)
-   .lineStyle(2,0xf2ce8b).strokeRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3);
+  bossHealth.clear().fillStyle(0x0e0b10,1).fillRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3)
+   .fillStyle(0xf04835,1).fillRect(bogdan.x-59,bogdan.y-102,118*bossHpRatio(hp,BOGDAN_HP),7)
+   .lineStyle(3,0xffe8aa).strokeRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3);
   syncMonsterBark(bossBark,bossBarkState,now,bogdan.x,bogdan.y-150,scene.finale?.state==='BOGDAN_ACTIVE');
   for(let i=projectiles.length-1;i>=0;i--){
    const shot=projectiles[i];shot.age+=delta;
