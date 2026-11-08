@@ -53,6 +53,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.escapeShockAt=0;
     this.bogdanHeart=null;this.bogdanHeartPoint=null;this.bogdanHeartCollected=false;
     this.preBossHeart=null;this.preBossHeartPoint=null;this.preBossHeartCollected=false;
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{this.preBossHeart?.destroy();this.preBossHeart=null;});
     this.escapeSuccessfulSpawns=0;
     this.escapeCheckpoint=null;this.extractionPoint=null;this.extractionActor=null;this.extractionLoading=false;
     this.dialogueState=createDialogueState();
@@ -716,7 +717,7 @@ export class VolcanoScene extends Phaser.Scene {
       if(Math.hypot(this.player.x-this.lawosTrigger.x,this.player.y-this.lawosTrigger.y)<=this.lawosTrigger.radius)this.startLawosEncounter();
       if(this.dialogueState.id)return;
     }
-    if(this.lawosComplete&&!this.preBossHeartCollected&&!this.preBossHeart)this.spawnPreBossHeart();
+    if(this.lawosComplete&&!this.apartmentComplete&&!this.preBossHeartCollected&&!this.preBossHeart)this.spawnPreBossHeart();
     if(this.finale.state==='BOGDAN_ACTIVE'&&!this.fairyComplete&&this.lawosComplete&&!this.fairyRevealRequested)this.revealFairyAfterLawos();
     if(this.finale.state==='BOGDAN_ACTIVE'&&!this.boss.argumentStarted&&apartmentReached(this.player)){
       this.apartmentPending=true;
