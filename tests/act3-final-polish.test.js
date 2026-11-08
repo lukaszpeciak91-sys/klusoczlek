@@ -30,7 +30,9 @@ test('fairy smaller and Bogdan enlarged without changing Marlena scale',()=>{
 });
 test('opening Lawostworki uses fixed region rather than travel accumulation',()=>{
  const s=read('../src/volcano-scene.js');
- assert.ok(s.includes('this.lawosTrigger.radius'));
+ assert.ok(s.includes('lawosTriggerReached(this.player,this.lawosTrigger)'));
+ assert.ok(s.includes('lawosDialogueTrigger(this.combat.enemies.filter('));
  assert.equal(s.includes('if(this.lawosTravel>=125)'),false);
- assert.ok(s.includes('this.openingSafeUntil=this.time.now+3500'));
+ assert.ok(s.includes('this.openingSafeUntil=this.time.now+1100'));
+ assert.equal(s.includes('this.openingSafeUntil=this.time.now+3500'),false);
 });
