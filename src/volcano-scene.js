@@ -351,7 +351,7 @@ export class VolcanoScene extends Phaser.Scene {
         }
       }
     }
-    this.cameras.main.startFollow(this.player,true,.12,.12);
+    if(id!=='act3-apartment')this.cameras.main.startFollow(this.player,true,.12,.12);
     this.syncControls();return true;
   }
   startLawosDebugDialogue(){
