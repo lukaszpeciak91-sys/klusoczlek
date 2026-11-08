@@ -57,11 +57,18 @@ export function findFairyIslandSpawn(mask,mark=FAIRY_MARK,radius=14,maxDistance=
 // Validate the entire player route, not just a non-lava spawn pixel.
 export function findFairyRouteSpawn(mask,player,routeFinder,{radius=17}={}){
  if(!mask||!player||typeof routeFinder!=='function')return null;
- for(const mark of FAIRY_ROUTE_MARKS){
-  const point=nearestVolcanoSpawn(mask,mark.x,mark.y,radius,0,null,90);
+ // Fixed points are preferred, but the player's own verified walkable corridor
+ // provides a bounded rescue when terrain art changes and all marks fail.
+ const candidates=[...FAIRY_ROUTE_MARKS];
+ const dx=1400-player.x,dy=225-player.y;
+ for(const fraction of [.36,.24,.48,.16,.60]){
+  candidates.push({x:Math.round(player.x+dx*fraction),y:Math.round(player.y+dy*fraction)});
+ }
+ for(const mark of candidates){
+  const point=nearestVolcanoSpawn(mask,mark.x,mark.y,radius,0,null,100);
   if(!point||!volcanoFootprintAllowed(mask,point.x,point.y,radius))continue;
   if(Math.hypot(point.x-1400,point.y-225)<450||Math.hypot(point.x-1500,point.y-235)<450)continue;
-  const route=routeFinder(mask,player,point,{radius,cell:12,maxNodes:22000});
+  const route=routeFinder(mask,player,point,{radius,cell:12,maxNodes:26000});
   if(route?.length&&route.every(p=>volcanoFootprintAllowed(mask,p.x,p.y,radius)))return point;
  }
  return null;
