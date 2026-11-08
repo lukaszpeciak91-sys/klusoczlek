@@ -44,7 +44,7 @@ export function lavaEnemyStep(enemy,player,dt,now=0,mask=null){
  return volcanoStep(enemy,{x:vx,y:vy},elapsed,speed,enemy.radius,mask);
 }
 export function createVolcanoCombat(scene){
- const enemies=[],shots=[],waterState=createContinuousWeaponState(),fireState=createContinuousWeaponState(),stream=scene.add.graphics().setDepth(13);
+ const enemies=[],shots=[],deathBursts=[],waterState=createContinuousWeaponState(),fireState=createContinuousWeaponState(),stream=scene.add.graphics().setDepth(13);
  const pressure=waterState.pressure,waterCooldowns=waterState.cooldowns;
  let active=false;
  const progression=createPlatformProgression();
@@ -143,7 +143,7 @@ export function createVolcanoCombat(scene){
    enemy.dead=true;enemy.bark.destroy();
    if(enemy.zoneId)progression.defeated(enemy.zoneId);
    enemy.sprite.setTint(0x26272b);
-   createPixelBurst(scene,'marcin',enemy.x,enemy.y,enemy.index+137);
+   deathBursts.push(createPixelBurst(scene,'bobrozombi',enemy.x,enemy.y,enemy.index+137,{extinguish:true}));
    scene.tweens.add({targets:enemy.sprite,alpha:0,duration:170,onComplete:()=>enemy.sprite.destroy()});
   }else{
    enemy.sprite.setTint(0x26272b);
@@ -174,6 +174,8 @@ export function createVolcanoCombat(scene){
    const boss=scene.boss;
    if(boss?.active&&boss.bogdan&&inFlameCone(origin,aim,boss.bogdan,tune.range,tune.halfAngle,boss.hitRadius)&&cooldownReady(water?waterCooldowns:flameCooldowns,boss.bogdan,now,tune.damageInterval))boss.damage(tune.damage,now);
   }
+  for(const burst of deathBursts)burst.update(dt);
+  for(let i=deathBursts.length-1;i>=0;i--)if(deathBursts[i].done)deathBursts.splice(i,1);
   updateContinuousParticles(waterState,dt);
   updateContinuousParticles(fireState,dt);
   const count=firingStep(firing,weapon,held&&Math.hypot(aim.x,aim.y)>.5,now);
@@ -209,6 +211,6 @@ export function createVolcanoCombat(scene){
   }
 
  }
- scene.events.once('shutdown',()=>{stopFire();stream.destroy();for(const e of enemies){e.sprite?.destroy();e.bark?.destroy();}});
+ scene.events.once('shutdown',()=>{stopFire();for(const burst of deathBursts)burst.destroy();stream.destroy();for(const e of enemies){e.sprite?.destroy();e.bark?.destroy();}});
  return {start,update,stopFire,activateZone,spawnEscapeEnemy,clearEscapeEnemies,clearTransientShots,get fairyZoneCleared(){return progression.fairyReveal;},get zoneProgress(){return progression;},get enemies(){return enemies;},get pressure(){return scene.weapon==='flamethrower'?firePressure:pressure;}};
 }
