@@ -552,6 +552,9 @@ try{
   assert.ok(p.visible&&p.hp===2&&p.id==='act3-captain-extraction','Act III dialogue must not heal Aloes');
   await touch(p.x,p.y);
  }
+ await sleep(950);
+ const act3Transition=await evaluate("(()=>{const g=window.__game,v=g.scene.getScene('Volcano'),t=g.scene.getScene('ActTitle'),s=g.scene.getScene('School'),r=g.registry.get('campaign-run');return {active:g.scene.getScenes(true).map(a=>a.scene.key),volcano:{state:v.finale?.state,disposed:v.disposed,scene:v.scene.settings?.status},title:{act:t.actId,scene:t.nextScene,handoff:t.handoff?.actId,active:g.scene.isActive('ActTitle')},school:{active:g.scene.isActive('School'),run:s.run?.actId},registry:{act:r.actId,hp:r.hp,completed:[...r.completedActs]},saved:localStorage.getItem('klusoczlek-campaign-v1')?.slice(0,155)}})()");
+ console.log('ACT III/IV DESTINATION TRACE',JSON.stringify(act3Transition));
  await wait("(()=>{const g=window.__game;return g.scene.isActive('ActTitle')||g.scene.isActive('School')})()",'Act III -> Act IV title or School handoff',6000);
  const titleHP=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run'),t=g.scene.getScene('ActTitle'),raw=JSON.parse(localStorage.getItem('klusoczlek-campaign-v1'));return {hp:r.hp,max:r.maxHp,handoffHp:t.handoff?.hp,handoffMax:t.handoff?.maxHp,act:t.actId,selected:r.selectedWeapon,water:r.unlockedWeapons.has('water-flamethrower'),horn:r.artifacts.has('bogdan-hunting-horn'),completed:[...r.completedActs],saved:{act:raw.actId,hp:raw.hp,max:raw.maxHp,selected:raw.selectedWeapon,horn:raw.artifacts.includes('bogdan-hunting-horn')},menu:g.scene.isActive('Menu')}})()");
  assert.deepEqual([titleHP.hp,titleHP.max,titleHP.handoffHp,titleHP.handoffMax],[5,5,5,5]);
