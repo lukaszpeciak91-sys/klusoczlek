@@ -7,8 +7,8 @@ import {applyPlayerContact} from './bobrozombi.js';
 
 export const APARTMENT=Object.freeze({
  trigger:Object.freeze({x:1300,y:370,radius:185}),
- marlena:Object.freeze({x:1400,y:305}),
- bogdan:Object.freeze({x:1500,y:315}),
+ marlena:Object.freeze({x:1400,y:313}),
+ bogdan:Object.freeze({x:1500,y:323}),
  exit:Object.freeze([{x:1350,y:330},{x:1250,y:400},{x:1150,y:440},{x:1030,y:470}])
 });
 export const MARLENA_BARKS=Object.freeze(['Mama miała rację!','Niech sam w tym smrodzie siedzi, pajac!']);
@@ -131,7 +131,7 @@ export function createBogdanEncounter(scene,Phaser){
     if(actors.some(actor=>Math.hypot(actor.x-p.x,actor.y-p.y)<70)){
      console.warn('[Volcano Boss] apartment actors would overlap: '+key);failed=true;return false;
     }
-    const actor=scene.add.sprite(p.x,p.y,textures[i],2).setOrigin(.5,1).setDepth(12).setScale(key==='bogdan'?.79:.72);
+    const actor=scene.add.sprite(p.x,p.y,textures[i],2).setOrigin(.5,1).setDepth(12).setScale(key==='bogdan'?.79:.72).setFrame(playerFrame(key==='marlena'?'e':'w'));
     actors.push(actor);
     if(key==='marlena')marlena=actor;else bogdan=actor;
    }
