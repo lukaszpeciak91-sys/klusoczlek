@@ -13,7 +13,7 @@ test('Act II Captain is nonblocking; deck and wheelhouse collision remain',()=>{
 });
 test('Act III dialogue waits for player travel and has no tiny Lawostworki NPC actors',()=>{
  const s=source('../src/volcano-scene.js');
- assert.match(s,/lawosTravel>=125/);
+ assert.ok(s.includes('this.lawosTrigger.radius'));
  assert.equal(s.includes('this.npcs.place('),false);
  assert.ok(s.includes('this.fairyComplete'));
 });
