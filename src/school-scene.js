@@ -205,6 +205,51 @@ export class SchoolScene extends Phaser.Scene {
     }
     enforceOrientationOnSceneStart(this);
   }
+  createMaciekSebaActors(){
+    // Static, noncombat actors using the *existing* approved enemy renderers.
+    // They never enter combat.enemies, director counts, or the contact pipeline.
+    if(this.maciekSebaActors)return;
+    this.maciekSebaActors=[
+      {type:'bobrozombi',...SCHOOL_PLACES.maciek},
+      {type:'bocianolak',...SCHOOL_PLACES.seba},
+    ].map((point,index)=>{
+      const renderer=this.combat.renderers[point.type];
+      const actor={...point,hp:1,dead:false,facing:'s',seed:200+index,
+        sprite:renderer.create(point.x,point.y)};
+      renderer.update(actor,this.player,0,0);
+      return actor;
+    });
+  }
+  clearMaciekSebaActors(){
+    for(const actor of this.maciekSebaActors??[])if(actor.sprite?.active)actor.sprite.destroy();
+    this.maciekSebaActors=null;
+  }
+  spawnSchoolHeart(id){
+    const state=this.hearts[id];
+    if(!state||!canSpawnSchoolHeart(id,state.spawned)||this.disposed)return false;
+    const point=SCHOOL_HEART_POINTS[id];
+    state.spawned=true;state.point=point;
+    state.token=createHealthToken(this,point.x,point.y);
+    return true;
+  }
+  syncSchoolHearts(){
+    if(!this.combat.started||this.defeated)return;
+    const phase=this.schoolPhase;
+    if(phase==='COMBAT'||phase==='CLEANUP'||phase==='BLAZEJ_PENDING'){
+      if(this.combat.elapsedMs>=SCHOOL_WAVE2_END_MS)this.spawnSchoolHeart('wave2');
+      if(phase==='BLAZEJ_PENDING')this.spawnSchoolHeart('wave4');
+    }
+    if(this.run.hp>=this.run.maxHp)return; // Do not consume at maximum HP.
+    for(const state of Object.values(this.hearts)){
+      if(!state.token?.active||state.collected)continue;
+      const restored=collectSchoolHeart(this.player,state.point,this.run.hp,this.run.maxHp,state.collected);
+      if(restored===null)continue;
+      state.collected=true;this.run.hp=restored;
+      this.hpFace.setHp(restored);
+      this.hpText.setText('HP '+restored+'/'+this.run.maxHp);
+      state.token.destroy();state.token=null;
+    }
+  }
   beginSchoolDialogue(id){
     if(this.disposed||this.defeated||this.storyBusy||this.dialogueState.id||
        !this.controlsAllowed()||!beginDialogue(this.dialogueState,id))return false;
