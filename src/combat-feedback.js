@@ -7,6 +7,8 @@ export const ATTACK_PROFILES=Object.freeze({
 });
 export const DEATH_PROFILES=Object.freeze({
  marcin:Object.freeze({count:88,width:130,height:120,offsetY:-50,duration:650}),
+ 'lawostworek-1':Object.freeze({count:54,width:66,height:70,offsetY:-32,duration:490}),
+ 'lawostworek-2':Object.freeze({count:68,width:82,height:88,offsetY:-42,duration:550}),
  bobrozombi:Object.freeze({count:30,width:30,height:32,offsetY:-9,duration:350}),
  bocianolak:Object.freeze({count:36,width:20,height:57,offsetY:-25,duration:375}),
  zubrokryptyda:Object.freeze({count:58,width:65,height:67,offsetY:-38,duration:430}),
