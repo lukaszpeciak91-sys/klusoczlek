@@ -1,4 +1,5 @@
 import {createBarkState,makeMonsterBark,showMonsterBark,syncMonsterBark,WATER_BARKS,clearBark} from './monster-bark.js';
+import {createPixelBurst} from './pixel-death-vfx.js';
 import {applyEnemyHit,applyPlayerContact} from './bobrozombi.js';
 import {inFlameCone,cooldownReady,COMBAT_TUNING,createFiringState,firingStep,resetFiring} from './weapon-combat.js';
 import {facingOf,playerFrame} from './combat-contract.js';
@@ -134,8 +135,20 @@ export function createVolcanoCombat(scene){
   }
   if(weapon==='water-flamethrower')showMonsterBark(enemy.bark,enemy.barkState,WATER_BARKS,now);
   if(weapon==='water-flamethrower')igniteEnemy(enemy.ignition,enemy.type,now);
+  const applied=Math.min(enemy.hp,damage);
   enemy.hp=applyEnemyHit(enemy.hp,damage);
-  if(enemy.hp<=0){enemy.dead=true;enemy.sprite.destroy();enemy.bark.destroy();if(enemy.zoneId)progression.defeated(enemy.zoneId);}
+  const number=scene.add.text(enemy.x,enemy.y-52,'-'+applied,{fontFamily:'monospace',fontSize:'19px',fontStyle:'bold',color:'#e9f4ff',stroke:'#17232b',strokeThickness:4}).setOrigin(.5).setDepth(24);
+  scene.tweens.add({targets:number,y:number.y-27,alpha:0,duration:580,onComplete:()=>number.destroy()});
+  if(enemy.hp<=0){
+   enemy.dead=true;enemy.bark.destroy();
+   if(enemy.zoneId)progression.defeated(enemy.zoneId);
+   enemy.sprite.setTint(0x26272b);
+   createPixelBurst(scene,'marcin',enemy.x,enemy.y,enemy.index+137);
+   scene.tweens.add({targets:enemy.sprite,alpha:0,duration:170,onComplete:()=>enemy.sprite.destroy()});
+  }else{
+   enemy.sprite.setTint(0x26272b);
+   scene.time.delayedCall(145,()=>{if(enemy.sprite.active&&!enemy.dead)enemy.sprite.clearTint();});
+  }
  }
  function stopFire(){waterState.stop();fireState.stop();resetFiring(firing);stream.clear();for(const state of [waterState,fireState]){for(const p of state.particles)p.object.destroy();state.particles.length=0;state.emissionAt=null;}for(const shot of shots)shot.sprite.destroy();shots.length=0;}
  function start(){if(active)return;active=true;activateZone('entrance');}
