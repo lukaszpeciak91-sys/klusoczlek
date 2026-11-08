@@ -604,7 +604,7 @@ try{
  // Real Act III -> IV handoff QA with deterministic existing Act III escape DEBUG.
  // Its approved extraction dialogue, ActTitle, checkpoint and School scenes run normally.
  await cdp('Page.reload',{ignoreCache:true});
- await wait("window.__game?.scene.isActive('Menu')",'Menu before Act III HP boundary');
+ await wait("typeof window.__createDebugFixture==='function'&&window.__game?.scene.isActive('Menu')",'Menu before Act III HP boundary');
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-escape');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-escape'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Volcano');return s?.finale?.state==='ESCAPE_ACTIVE'&&!!s.extractionPoint&&!!s.dialoguePanel})()",'Act III extraction staged in live Volcano',16000);
  await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !s.cameras.main.fadeEffect?.isRunning})()",'original Act III camera fade-in completes before accelerated extraction',4500);
@@ -657,7 +657,7 @@ try{
  // Approved Act III horn: stage the real Bogdan boss using existing DEBUG,
  // then verify original two-panel finale, award, art and eruption sequence.
  await cdp('Page.reload',{ignoreCache:true});
- await wait("window.__game?.scene.isActive('Menu')",'Menu before approved Bogdan horn QA');
+ await wait("typeof window.__createDebugFixture==='function'&&window.__game?.scene.isActive('Menu')",'Menu before approved Bogdan horn QA');
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-boss');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-boss'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Volcano');return s?.boss?.active&&s.boss.ready&&!!s.walkability&&s.finale.state==='BOGDAN_ACTIVE'})()",'real Volcano boss DEBUG with approved terrain and active Bogdan',16000);
  await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !!s.hornRewardImage?.active&&s.hornRewardImage.texture.key==='artifact-bogdan-horn'})()",'approved Bogdan horn PNG loaded and decoded in Volcano',8500);
