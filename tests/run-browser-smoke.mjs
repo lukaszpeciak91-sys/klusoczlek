@@ -131,7 +131,7 @@ try{
  assert.notEqual(schoolState.selected,'water-flamethrower','water is Act III-only');
  assert.ok(schoolState.owned.includes('water-flamethrower'),'water history retained');
  assert.ok(schoolState.artifacts.includes('bogdan-hunting-horn'),'horn inherited');
- assert.deepEqual(schoolState.obstacles,['chapel','school','bicycleRack','school-tire-pile','school-toi-toi']);
+ assert.deepEqual(schoolState.obstacles,['chapel','school','bicycleRack','school-tire-pile','school-tire-pile-2','school-toi-toi','school-rock-small','school-rock-medium']);
  assert.deepEqual([schoolState.w,schoolState.h],[1800,1200]);
  await wait("!window.__game.scene.getScene('School').introActive",'Captain enters chapel',8000);
  const schoolMenu=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
@@ -172,6 +172,20 @@ try{
  await wait("(()=>{const s=window.__game.scene.getScene('School');return ['background','school','chapel','bicycleRack'].every(id=>s.schoolArt.loaded.has(id))})()",'all four approved Act IV images load (base PNGs)',12000);
  const artwork=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {parts:[...s.schoolArt.loaded].sort(),images:s.schoolArt.images.filter(x=>x.active).length,allOldVisible:[...s.schoolPlacePlaceholders.values()].some(a=>a.some(x=>x.visible)),pitchVisible:s.schoolTerrainPlaceholders.some(o=>o.visible)}})()");
  assert.ok(artwork.images===4&&!artwork.allOldVisible&&!artwork.pitchVisible,'approved schoolyard art replaces provisional blocks '+JSON.stringify(artwork));
+ const schoolArtPlacement=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.schoolArt.images.map(i=>({key:i.texture.key,x:i.x,y:i.y,w:i.displayWidth,h:i.displayHeight,depth:i.depth})).sort((a,b)=>a.key.localeCompare(b.key))})()");
+ assert.deepEqual(schoolArtPlacement,[
+  {key:'schoolyard-approved-bg',x:0,y:0,w:1800,h:1200,depth:-18},
+  {key:'schoolyard-approved-chapel',x:330,y:965,w:235,h:235,depth:12},
+  {key:'schoolyard-approved-rack',x:1510,y:857,w:330,h:255,depth:12},
+  {key:'schoolyard-approved-school',x:1360,y:595,w:610,h:450,depth:12}
+ ].sort((a,b)=>a.key.localeCompare(b.key)),'four original art layers use native PNG dimensions, proper world positions and roof occlusion');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.children.list.filter(o=>o.getData('obstacleArt')).length===5&&s.children.list.filter(o=>o.getData('obstacleArt')).every(o=>!!o.getData('atlasSprite'))})()",'five real Act I approved atlas obstacle frames load',9000);
+ const atlas=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.children.list.filter(o=>o.getData('obstacleArt')).map(o=>({frame:o.getData('obstacleArt').frame,original:!!o.getData('atlasSprite'),fallbackVisible:o.getData('fallback').visible})).sort((a,b)=>a.frame-b.frame)})()");
+ assert.deepEqual(atlas,[0,1,9,10,10].map(frame=>({frame,original:true,fallbackVisible:false})),'two tires, toi-toi and two original rock PNG frames');
+ const solids=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.obstacles.slice(0,3).map(o=>({id:o.id,w:o.footprint.width,h:o.footprint.height}))})()");
+ assert.deepEqual(solids,[{id:'chapel',w:96,h:94},{id:'school',w:500,h:160},{id:'bicycleRack',w:252,h:58}],
+  'actual lower-footprint collision dimensions, never complete PNG canvas');
+ console.log('PASS Act IV Chromium approved art: 1800x1200 terrain, native obstacle PNGs, alpha-based lower footprints, real Act I atlas pieces, occlusion and HUD');
  await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&!s.dialogueState.id&&!s.combat.started})()",'Captain enters chapel; player free to explore schoolyard',25000);
  const optionalBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,maciek:s.maciekSeen,pitch:s.pitchStarted,actors:s.maciekSebaActors?.length}})()");
  assert.deepEqual(optionalBefore,{intro:false,started:false,maciek:false,pitch:false,actors:2},'both NPCs staged, optional encounter not automatic');
@@ -190,6 +204,15 @@ try{
  assert.deepEqual(optionalDone,{id:null,started:false,seen:true},'Maciek/Seba once and no automatic combat');
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1065,870);s.player.body.reset(1065,870);return true})()");
  await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'pitch observer exchange after optional encounter',4000);
+ const staged=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),actors=s.combat.stagedEntourage;window.__schoolStagedEntourage=[...actors];return {types:actors.map(a=>a.type).sort(),alive:actors.filter(a=>a.hp>0&&a.sprite?.active&&a.sprite.visible).length,ordinary:s.combat.enemies.length,spawned:s.combat.totalSpawned,started:s.combat.started,clock:s.combat.elapsedMs,shots:s.combat.projectiles.length,hp:s.run.hp}})()");
+ assert.deepEqual(staged.types,['bobrozombi','bocianolak','zubrokryptyda']);
+ assert.equal(staged.alive,3,'three approved enemy sprites visually surround passive Błażej before conversation');
+ assert.ok(!staged.started&&staged.ordinary===0&&staged.spawned===0&&staged.clock===0&&staged.shots===0);
+ const hpBeforeDialogue=staged.hp;
+ await sleep(350);
+ assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.run.hp,elapsed:s.combat.elapsedMs,spawned:s.combat.totalSpawned,poses:s.combat.stagedEntourage.map(e=>[e.x,e.y])}})()"),
+  {hp:hpBeforeDialogue,elapsed:0,spawned:0,poses:[[1365,945],[1280,1010],[1450,960]]},
+  'staged monsters stay still, do not hurt Aloes, and do not advance wave time');
  for(const [i,line] of ['...i ja wtedy normalnie od razu','Ty to jednak Błażej jesteś gość'].entries())
   await verifyPanel('act4-blazej-observer',i,line);
  await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-confrontation'",'five-panel bike confrontation before waves');
@@ -202,6 +225,9 @@ try{
  ];
  for(let i=0;i<prewaves.length;i++)await verifyPanel('act4-blazej-confrontation',i,prewaves[i]);
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.started&&s.schoolPhase==='COMBAT'&&!s.dialogueState.id})()",'waves start only after fifth confrontation panel',4000);
+ const adopted=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),before=window.__schoolStagedEntourage;return {reused:before.every(e=>s.combat.enemies.includes(e)&&e.sprite?.active),staged:s.combat.stagedEntourage.length,duplicates:new Set(s.combat.enemies.map(e=>e.sprite)).size!==s.combat.enemies.length,count:s.combat.enemies.length,spawned:s.combat.totalSpawned}})()");
+ assert.ok(adopted.reused&&!adopted.duplicates&&adopted.staged===0,'exact same preview sprite/actor objects transferred into capped director '+JSON.stringify(adopted));
+ assert.ok(adopted.count<=6&&adopted.spawned>=3&&adopted.count<=adopted.spawned);
  console.log('PASS Act IV Chromium opening: Captain at chapel, optional Maciek/Seba 3, pitch observer 2, confrontation 5; combat only after approved DALEJ');
  await wait("window.__game.scene.getScene('School').combat.enemies.length>0",'School wave1 spawns',10000);
  const school=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {wave:s.combat.wave,count:s.combat.enemies.length,state:s.schoolPhase,weapon:s.weapon,owned:[...s.run.unlockedWeapons],hp:s.run.hp}})()");
@@ -464,7 +490,32 @@ try{
  const killedBoss=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej;const hit=b.damage(b.actor.hp,s.player,performance.now());return {hit,dead:b.defeated,alive:b.active,phase:s.schoolPhase,burst:b.bursts.length,second:b.damage(1,s.player,performance.now())}})()");
  assert.ok(killedBoss.hit&&killedBoss.dead&&!killedBoss.alive&&killedBoss.burst===1&&!killedBoss.second,'boss death exactly once '+JSON.stringify(killedBoss));
  assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('School').ambientBarks;return [b.state.active.length,b.pool.filter(p=>p.root.visible).length]})()"),[0,0],'no stale boss bubble after death');
- await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_REWARD'&&s.rewardRoot.visible})()",'bicycle artifact reward panel',3000);
+ const immediate=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {phase:s.schoolPhase,awarded:s.run.artifacts.has('blazej-bicycle'),visible:s.rewardRoot.visible,projectiles:s.blazej.projectiles.length}})()");
+ assert.ok(immediate.phase==='BLAZEJ_BOSS'&&!immediate.awarded&&!immediate.visible&&immediate.projectiles===0,'boss pixel death does not immediately award bike '+JSON.stringify(immediate));
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_PICKUP_PENDING'&&!s.storyBusy&&s.objectiveText.text==='PODEJDŹ PO ROWER'&&s.objectiveText.visible})()",'post-boss walkable bicycle pickup phase',3000);
+ const pending=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {bike:s.run.artifacts.has('blazej-bicycle'),panel:s.rewardRoot.visible,collected:s.bicycleCollected,phase:s.schoolPhase,controls:s.joystick.enabled,alive:s.blazej.actor.sprite?.active??false}})()");
+ assert.deepEqual(pending,{bike:false,panel:false,collected:false,phase:'BLAZEJ_PICKUP_PENDING',controls:true,alive:false});
+ const pendingMenu=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
+ await touch(pendingMenu.x,pendingMenu.y);
+ await wait("window.__game.scene.isPaused('School')&&window.__game.scene.isActive('Menu')",'pickup-pending MENU pause');
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('School')",'pending pickup WZNÓW');
+ assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return [s.schoolPhase,s.bicycleCollected,s.run.artifacts.has('blazej-bicycle'),s.rewardRoot.visible]})()"),
+  ['BLAZEJ_PICKUP_PENDING',false,false,false],'pickup stays pending and unawarded through MENU/WZNÓW');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1510,970);s.player.body.reset(1510,970);s.cameras.main.centerOn(1510,970);return true})()");
+ await sleep(160);
+ assert.equal(await evaluate("window.__game.scene.getScene('School').schoolPhase"),'BLAZEJ_PICKUP_PENDING','no auto-reward far from rack');
+ const bikeStick=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.joystick.base.x,y:r.y+s.joystick.base.y,rad:s.hudLayout.joystickRadius}})()");
+ await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:bikeStick.x,y:bikeStick.y,id:45}]});
+ await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:bikeStick.x,y:bikeStick.y-bikeStick.rad*.85,id:45}]});
+ try{
+  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_REWARD'&&s.rewardRoot.visible&&s.bicycleCollected})()",'physical left-joystick approach to the accessible side of the rack',4000);
+ }finally{await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
+ const bikeReached=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {at:[s.player.x,s.player.y],phase:s.schoolPhase,awarded:s.run.artifacts.has('blazej-bicycle'),collected:s.bicycleCollected,panel:s.rewardRoot.visible,objective:s.objectiveText.visible}})()");
+ assert.ok(bikeReached.awarded&&bikeReached.collected&&bikeReached.panel&&!bikeReached.objective,
+  'one physical bicycle pickup from outside solid rack '+JSON.stringify(bikeReached));
+ assert.ok(Math.hypot(bikeReached.at[0]-1510,bikeReached.at[1]-883)<46,'Aloes moved within the accessible collection radius');
+ assert.equal(await evaluate("window.__game.scene.getScene('School').collectBlazejBicycle()"),false,'no duplicate bicycle reward after collection');
  const bicycleReward=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.run.artifacts.has('blazej-bicycle'),all:[...s.run.artifacts],text:s.rewardName.text,third:s.rewardDetail.text,approvedImage:s.bicycleTexture}})()");
  assert.ok(bicycleReward.id&&bicycleReward.all.length===3&&bicycleReward.text==='ROWER BŁAŻEJA'&&bicycleReward.third==='ARTEFAKT 3/3');
  assert.ok(bicycleReward.approvedImage===null||bicycleReward.approvedImage==='artifact-blazej-bicycle','only validated original bike PNG or honest text fallback');

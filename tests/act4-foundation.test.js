@@ -7,7 +7,7 @@ import {createDebugFixture} from '../src/debug-checkpoints.js';
 test('Act IV is an Act I-sized world with safe reachable opening and school checkpoints',()=>{
   assert.deepEqual([SCHOOL_WORLD.width,SCHOOL_WORLD.height],[1800,1200]);
   assert.equal(SCHOOL_WAVE_COUNT,4);
-  assert.deepEqual(SCHOOL_OBSTACLES.map(o=>o.id),['chapel','school','bicycleRack','school-tire-pile','school-toi-toi']);
+  assert.deepEqual(SCHOOL_OBSTACLES.map(o=>o.id),['chapel','school','bicycleRack','school-tire-pile','school-tire-pile-2','school-toi-toi','school-rock-small','school-rock-medium']);
   for(const id of ['act4-opening','act4-school']){
     const p=schoolDebugPoint(id);
     assert.equal(schoolWalkable(p),true,id);
@@ -21,11 +21,11 @@ test('Act IV is an Act I-sized world with safe reachable opening and school chec
 test('Act I swept obstacle movement never tunnels through chapel or bicycle rack',()=>{
   let p={x:SCHOOL_PLACES.chapel.x,y:SCHOOL_PLACES.chapel.y+SCHOOL_PLACES.chapel.height/2+48};
   for(let i=0;i<35;i++)p=schoolStep(p,{x:0,y:-1},50);
-  assert.ok(p.y>=SCHOOL_PLACES.chapel.y+SCHOOL_PLACES.chapel.height/2+17-.5,JSON.stringify(p));
+  assert.ok(p.y>=927+17-.5,JSON.stringify(p));
   assert.equal(schoolWalkable(p),true);
   p={x:SCHOOL_PLACES.bicycleRack.x,y:915};
   for(let i=0;i<35;i++)p=schoolStep(p,{x:0,y:-1},50);
-  assert.ok(p.y>=SCHOOL_PLACES.bicycleRack.y+SCHOOL_PLACES.bicycleRack.height/2+17-.5);
+  assert.ok(p.y>=831+17-.5);
   assert.equal(schoolWalkable(p),true);
   let outer={x:1750,y:1150};
   for(let i=0;i<30;i++)outer=schoolStep(outer,{x:1,y:1},50);

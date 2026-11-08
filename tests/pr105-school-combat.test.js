@@ -120,12 +120,12 @@ test('R10 projectile ordering and flame LOS use the existing solid footprint pre
  const hit=enemyProjectileHit(from,to,enemy,5);
  assert.ok(hit&&wall.t<hit.t,'chapel blocks a projectile before monster hit');
  assert.ok(segmentObstacleHit(from,to,SCHOOL_OBSTACLES,5));
- assert.equal(enemyFlameVisible({x:170,y:840},{x:1,y:0},
-   {type:'bobrozombi',x:300,y:840,hp:3},SCHOOL_OBSTACLES),false);
+ assert.equal(enemyFlameVisible({x:235,y:840},{x:1,y:0},
+   {type:'bobrozombi',x:420,y:840,hp:3},SCHOOL_OBSTACLES),false);
  assert.equal(enemyFlameVisible({x:530,y:840},{x:1,y:0},
    {type:'bobrozombi',x:650,y:840,hp:3},SCHOOL_OBSTACLES),true);
- assert.equal(flameTargetVisible({x:170,y:840},{x:1,y:0},
-   {x:300,y:840},21,SCHOOL_OBSTACLES),false);
+ assert.equal(flameTargetVisible({x:235,y:840},{x:1,y:0},
+   {x:420,y:840},21,SCHOOL_OBSTACLES),false);
 });
 test('R11 contact cooldown, HP zero, kill once and no projectile ghost after death',()=>{
  assert.equal(applyEnemyHit(ENEMY_TYPES.bocianolak.hp,99),0);
@@ -227,7 +227,7 @@ test('PR105 R2 School reuses original Act I bark view and its stable renderers',
  assert.ok(combat.includes("scene.ambientBarks?.hit(enemy,clock.elapsedMs);"));
  assert.ok(combat.includes("scene.ambientBarks?.speakerDied(enemy);"));
  assert.ok(combat.includes("scene.ambientBarks?.suspend();"));
- assert.ok(combat.includes("renderers,get enemies(){return enemies;}"));
+ assert.ok(combat.includes("get stagedEntourage(){return stagedEntourage;},get enemies(){return enemies;}"));
  for(const [type,name] of [['bobrozombi','createBobrozombiRenderer'],['bocianolak','createBocianolakRenderer'],['zubrokryptyda','createZubrokryptydaRenderer']])
   assert.ok(combat.includes(type+':'+name+'(scene,Phaser)'));
  assert.ok(view.includes("scene.enemyRenderers[e.type]?.speechAnchorOf?.(e)"));

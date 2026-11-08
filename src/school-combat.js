@@ -17,7 +17,7 @@ import {createFiringState,resetFiring,firingStep,COMBAT_TUNING,cooldownReady} fr
 import {createContinuousWeaponState,drawContinuousStream,emitContinuousParticle,updateContinuousParticles} from './continuous-weapon.js';
 import {resolveAim,muzzlePoint} from './shooting.js';
 import {availableWeapons,clearPoint} from './weapon-progression.js';
-import {SCHOOL_ENTOURAGE,schoolEntouragePoint} from './school-staging.js';
+import {SCHOOL_ENTOURAGE,schoolEntouragePoint,schoolDirectorSpawnSites} from './school-staging.js';
 import {resolveObstaclePosition,steerObstacleStep,segmentObstacleHit} from './obstacles.js';
 import {firstFootprintHit,reachableCells} from './obstacle-geometry.js';
 import {enemyProjectileHit,enemyFlameVisible} from './enemy-damage.js';
@@ -37,7 +37,7 @@ export function schoolCombatPhase(elapsedMs,ordinaryAlive){
 export const schoolWeaponAllowed=(weapon,unlocked)=>availableWeapons(unlocked,'act4').includes(weapon);
 
 export function createSchoolCombat(scene,Phaser){
- const enemies=[],projectiles=[],bursts=[],director=createDirector(104);
+ const enemies=[],stagedEntourage=[],projectiles=[],bursts=[],director=createDirector(104);
  const renderers={
   bobrozombi:createBobrozombiRenderer(scene,Phaser),
   bocianolak:createBocianolakRenderer(scene,Phaser),
@@ -50,7 +50,7 @@ export function createSchoolCombat(scene,Phaser){
  const stream=scene.add.graphics().setDepth(12);
  const weaponCooldownUntil=new Map();
  let started=false,defeated=false,finished=false,phase='INTRO',phaseChanges=0,wave=0,totalSpawned=0,kills=0,invulnerableUntil=0;
- const PHASE_ORDER=Object.freeze({INTRO:0,COMBAT:1,CLEANUP:2,BLAZEJ_PENDING:3,BLAZEJ_BOSS:4,BLAZEJ_REWARD:5,BICYCLE_RIDE:6,CHAPEL_RETURN:7,ACT_IV_COMPLETE:8,DEFEAT:9});
+ const PHASE_ORDER=Object.freeze({INTRO:0,COMBAT:1,CLEANUP:2,BLAZEJ_PENDING:3,BLAZEJ_BOSS:4,BLAZEJ_PICKUP_PENDING:5,BLAZEJ_REWARD:6,BICYCLE_RIDE:7,CHAPEL_RETURN:8,ACT_IV_COMPLETE:9,DEFEAT:10});
  function transition(next){
   if(phase===next||phase==='DEFEAT'||PHASE_ORDER[next]<=PHASE_ORDER[phase])return false;
   phase=next;phaseChanges++;scene.schoolPhase=next;
@@ -58,13 +58,41 @@ export function createSchoolCombat(scene,Phaser){
  }
  const obstacleBlocked=(from,to)=>Boolean(segmentObstacleHit(from,to,scene.obstacles,0));
  const living=()=>enemies.filter(e=>!e.dead&&e.hp>0);
+ // Passive pre-wave observers are the very same actor and sprite instances
+ // adopted by the original director after the last dialogue DALEJ.
+ function stageEntourage(){
+  if(started||defeated||scene.disposed||stagedEntourage.length)return false;
+  for(const point of SCHOOL_ENTOURAGE){
+   if(!schoolEntouragePoint(point,scene.player,stagedEntourage)||
+      !clearPoint(point,scene.obstacles,ENEMY_TYPES[point.type].radius+4,navigation))continue;
+   const index=stagedEntourage.length;
+   const enemy={...point,type:point.type,seed:index,hp:ENEMY_TYPES[point.type].hp,
+    waveIndex:0,dead:false,hitUntil:0,facing:'s',
+    ignition:createIgnitionState(),burningFx:null,fleeFacingVector:null,
+    sprite:renderers[point.type].create(point.x,point.y)};
+   renderers[point.type].update(enemy,scene.player,0,0);
+   stagedEntourage.push(enemy);
+  }
+  return stagedEntourage.length>0;
+ }
+ function activateEntourage(){
+  const count=stagedEntourage.length;
+  for(const enemy of stagedEntourage){
+   if(living().length>=SCHOOL_WAVES[0].maxAlive){enemy.sprite?.destroy();continue;}
+   enemy.seed=totalSpawned++;enemy.waveIndex=0;
+   enemies.push(enemy);recordDirectorSpawn(director,0,enemy.type);
+  }
+  stagedEntourage.length=0;
+  return count;
+ }
  function start({wave4=false}={}){
   if(started||defeated||scene.introActive||scene.disposed)return false;
+  if(!wave4&&!stagedEntourage.length)stageEntourage();
   started=true;transition('COMBAT');
   if(wave4)clock.elapsedMs=WAVE_TIMING[3].startMs;
   wave=schoolWaveIndex(clock.elapsedMs);
   director.nextMs=clock.elapsedMs;
-  if(!wave4)for(const p of SCHOOL_ENTOURAGE)spawnEnemy({type:p.type,preferred:p});
+  if(!wave4)activateEntourage();
   scene.waveText.setText('⚑ '+(wave+1)+'/'+SCHOOL_WAVE_COUNT);
   return true;
  }
@@ -74,7 +102,8 @@ export function createSchoolCombat(scene,Phaser){
   return transition('BLAZEJ_BOSS');
  }
  function advanceFinale(next){
-  const allowed={BLAZEJ_BOSS:'BLAZEJ_REWARD',BLAZEJ_REWARD:'BICYCLE_RIDE',
+  const allowed={BLAZEJ_BOSS:'BLAZEJ_PICKUP_PENDING',
+   BLAZEJ_PICKUP_PENDING:'BLAZEJ_REWARD',BLAZEJ_REWARD:'BICYCLE_RIDE',
    BICYCLE_RIDE:'CHAPEL_RETURN',CHAPEL_RETURN:'ACT_IV_COMPLETE'};
   return allowed[phase]===next&&transition(next);
  }
@@ -100,6 +129,11 @@ export function createSchoolCombat(scene,Phaser){
    if(enemy.sprite?.active)enemy.sprite.destroy();
   }
   enemies.length=0;
+  for(const enemy of stagedEntourage){
+   enemy.burningFx?.destroy();clearIgnition(enemy.ignition);
+   if(enemy.sprite?.active)enemy.sprite.destroy();
+  }
+  stagedEntourage.length=0;
   destroyBursts(bursts);
   stream.clear();
  }
@@ -117,10 +151,16 @@ export function createSchoolCombat(scene,Phaser){
   const scroll=camera.getScroll(scene.player.x,scene.player.y);
   const view={x:scroll.x,y:scroll.y,width:camera.width,height:camera.height};
   const occupied=population.map(e=>({x:e.x,y:e.y,radius:ENEMY_TYPES[e.type].radius}));
-  const safePreferred=preferred&&schoolEntouragePoint(preferred,scene.player,population)&&
-   clearPoint(preferred,scene.obstacles,radius+4,navigation);
+  // The approved single director owns every opportunity, cap and kill.
+  // Pick school/pitch edge sites most often, with two occasional remote
+  // opportunities per 11 spawns; preserve its original camera/fallback safety.
+  const candidates=preferred?[preferred]:
+   schoolDirectorSpawnSites(totalSpawned).map(p=>({...p,type}));
+  const safePreferred=candidates.find(p=>
+   schoolEntouragePoint(p,scene.player,population)&&
+   clearPoint(p,scene.obstacles,radius+4,navigation));
   if(preferred&&!safePreferred)return false;
-  const result=safePreferred?{point:preferred,mode:'staged'}:
+  const result=safePreferred?{point:safePreferred,mode:'schoolyard'}:
    selectOrdinarySpawn({player:scene.player,obstacles:scene.obstacles,index:totalSpawned,
     radius,view,seed:104,navigation,occupied});
   if(!result.point)return false; // defer rather than overlap a solid footprint
@@ -310,7 +350,8 @@ export function createSchoolCombat(scene,Phaser){
   }
  }):null;
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,destroy);
- return {start,update,suspend,stopFire,enterBoss,advanceFinale,hurtPlayer,qa,renderers,get enemies(){return enemies;},
+ return {start,stageEntourage,update,suspend,stopFire,enterBoss,advanceFinale,hurtPlayer,qa,renderers,
+  get stagedEntourage(){return stagedEntourage;},get enemies(){return enemies;},
   get started(){return started;},get state(){return phase;},get wave(){return wave;},
   get elapsedMs(){return clock.elapsedMs;},get kills(){return kills;},get phaseChanges(){return phaseChanges;},get totalSpawned(){return totalSpawned;},
   get pressure(){return fire.pressure;},get projectiles(){return projectiles;}};

@@ -20,15 +20,28 @@ export const SCHOOL_PLACES=Object.freeze({
   seba:Object.freeze({x:770,y:610}),
   pitchApproach:Object.freeze({x:1065,y:870}),
 });
+// Approved RGBA8 production art has transparent padding. These deliberately
+// follow the lower *visible* body/contact band, not the source PNG canvas.
+// Native art and world placement remain independent of these solid footprints:
+// school 610x450 (alpha x56..564 / y80..379), chapel 235x235
+// (alpha x74..160 / y47..182), rack 330x255 (alpha x33..300 / y44..214).
+export const SCHOOL_VISIBLE_FOOTPRINTS=Object.freeze({
+  school:Object.freeze({x:1360,y:450,width:500,height:160}),
+  chapel:Object.freeze({x:330,y:880,width:96,height:94}),
+  bicycleRack:Object.freeze({x:1510,y:802,width:252,height:58}),
+});
 export const SCHOOL_OBSTACLES=Object.freeze([
   ...['chapel','school','bicycleRack'].map(id=>{
-    const p=SCHOOL_PLACES[id];
+    const p=SCHOOL_VISIBLE_FOOTPRINTS[id];
     return Object.freeze({id,x:p.x,y:p.y,alive:true,gameplayClass:'solid',
       footprint:Object.freeze({shape:'box',x:p.x,y:p.y,width:p.width,height:p.height,angle:0})});
   }),
   ...createAuthoredObstacles([
    {id:'school-tire-pile',type:'tire_pile',x:975,y:695},
-   {id:'school-toi-toi',type:'toi_toi',x:1185,y:675}
+   {id:'school-tire-pile-2',type:'tire_pile',x:680,y:1140},
+   {id:'school-toi-toi',type:'toi_toi',x:1185,y:675},
+   {id:'school-rock-small',type:'rock',variant:'small',x:505,y:760},
+   {id:'school-rock-medium',type:'rock',variant:'medium',x:1165,y:1095}
   ])
 ]);
 export function schoolWalkable(point,radius=PLAYER_RADIUS){

@@ -18,6 +18,24 @@ export const SCHOOL_ENTOURAGE=Object.freeze([
  Object.freeze({type:'bocianolak',x:1280,y:1010}),
  Object.freeze({type:'zubrokryptyda',x:1450,y:960}),
 ]);
+// All placements feed the single School wave director, never an extra timer.
+// Two consecutive later opportunities occasionally choose quiet outdoor areas.
+export const SCHOOL_SPAWN_PITCH=Object.freeze([
+ Object.freeze({x:1140,y:990}),Object.freeze({x:1340,y:1050}),
+ Object.freeze({x:1590,y:980}),Object.freeze({x:1490,y:1080}),
+ Object.freeze({x:1370,y:680}),Object.freeze({x:1060,y:690}),
+ Object.freeze({x:1690,y:945}),
+]);
+export const SCHOOL_SPAWN_REMOTE=Object.freeze([
+ Object.freeze({x:600,y:900}),Object.freeze({x:450,y:550}),
+ Object.freeze({x:850,y:450}),Object.freeze({x:1600,y:1110}),
+]);
+export function schoolDirectorSpawnSites(spawnIndex){
+ const remote=spawnIndex%11===8||spawnIndex%11===9;
+ const sites=remote?SCHOOL_SPAWN_REMOTE:SCHOOL_SPAWN_PITCH;
+ const first=spawnIndex%sites.length;
+ return [...sites.slice(first),...sites.slice(0,first)];
+}
 export const maciekSebaNearby=player=>player&&
  Math.hypot(player.x-SCHOOL_PLACES.maciek.x,player.y-SCHOOL_PLACES.maciek.y)<=MACIEK_SEBA_RADIUS;
 export const pitchNearby=player=>player&&
