@@ -135,12 +135,12 @@ try{
  assert.deepEqual([schoolState.w,schoolState.h],[1800,1200]);
  // Actual Captain arrival, six untouched panels and departure in real Chromium.
  const captainOpeningText=[
-  ['KAPITAN MARIAN','No i jesteśmy! Szkoła zawodowa!\\nTu znajdziesz Błażeja i jego rower!','dialogue-captain'],
+  ['KAPITAN MARIAN','No i jesteśmy! Szkoła zawodowa!\nTu znajdziesz Błażeja i jego rower!','dialogue-captain'],
   ['ALOES','A pan dokąd?','dialogue-aloes'],
-  ['KAPITAN MARIAN','Ja wezmę dwa pierwsze artefakty\\ni muszę załatwić pewną bardzo ważną\\nsprawę w tej kaplicy...','dialogue-captain'],
-  ['KAPITAN MARIAN','By móc odesłać Cię do domu oczywiście,\\nprzecież parostatkiem nie polecimy\\ndo innego wymiaru','dialogue-captain'],
+  ['KAPITAN MARIAN','Ja wezmę dwa pierwsze artefakty\ni muszę załatwić pewną bardzo ważną\nsprawę w tej kaplicy...','dialogue-captain'],
+  ['KAPITAN MARIAN','By móc odesłać Cię do domu oczywiście,\nprzecież parostatkiem nie polecimy\ndo innego wymiaru','dialogue-captain'],
   ['ALOES','Ach rozumiem','dialogue-aloes'],
-  ['KAPITAN MARIAN','Nie stój jak widły w gnoju!\\nLeć po rower!','dialogue-captain']
+  ['KAPITAN MARIAN','Nie stój jak widły w gnoju!\nLeć po rower!','dialogue-captain']
  ];
  const finishCaptainOpening=async({pauseMidway=false}={})=>{
   await wait("(()=>{const s=window.__game.scene.getScene('School');return s.introActive&&s.captainArrival.arrived&&s.captainDialogueStarted&&s.dialogueState.id==='act4-captain-opening'})()",'Captain stops beside Aloes and begins approved dialogue',9000);
