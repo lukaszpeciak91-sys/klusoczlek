@@ -113,7 +113,7 @@ export class SchoolScene extends Phaser.Scene {
     this.enemyRenderers=this.combat.renderers;
     this.episode={ended:false,state:'active'};
     this.narrativeEvents=new Set(); // Act I story beats do not run in School.
-    this.canResume=()=>this.controlsAllowed()&&!this.introActive&&!this.defeated&&
+    this.canResume=()=>this.controlsAllowed()&&!this.introActive&&!this.defeated&&!this.storyBusy&&
       this.run.hp>0&&!this.dialogueLoading&&!this.dialogueState?.id&&
       (this.schoolPhase==='COMBAT'||this.schoolPhase==='CLEANUP'||this.schoolPhase==='BLAZEJ_BOSS');
     this.ambientBarks=createAmbientBarks(this,seededRandom((104^0x46babc)>>>0),{
