@@ -17,7 +17,7 @@ import {seededRandom} from './arena-layout.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {createSchoolBlazej} from './school-blazej.js';
-import {BLAZEJ_BICYCLE_ID,BLAZEJ_START,BLAZEJ_CONFRONT_RADIUS,CHAPEL_RETURN,BLAZEJ_OBSERVER_BARKS,BLAZEJ_BOSS_BARKS,blazejConfrontationReady} from './school-finale.js';
+import {BLAZEJ_BICYCLE_ID,BLAZEJ_START,BLAZEJ_CONFRONT_RADIUS,CHAPEL_RETURN,BLAZEJ_OBSERVER_BARKS,BLAZEJ_BOSS_BARKS,blazejConfrontationReady,blazejBicycleCollectible} from './school-finale.js';
 import {SCHOOL_COMBAT_MS} from './school-combat.js';
 import {createHealthToken} from './health-token.js';
 import {createObstacleVisual} from './obstacle-renderer.js';
@@ -46,7 +46,7 @@ export class SchoolScene extends Phaser.Scene {
     this.storyBusy=false;this.maciekSeen=false;this.pitchStarted=false;
     this.pendingObserved=false;this.pendingApproachArmed=false;this.bossConfronted=false;
     this.hearts={wave2:{spawned:false,collected:false,token:null},wave4:{spawned:false,collected:false,token:null}};
-    this.bossDefeatHandled=false;this.actCompleted=false;this.rewardArmedAt=0;this.bicycleTexture=null;
+    this.bossDefeatHandled=false;this.bicycleCollected=false;this.actCompleted=false;this.rewardArmedAt=0;this.bicycleTexture=null;
     this.dialogueState=createDialogueState();
     this.cameras.main.setBackgroundColor('#283c32');
     this.cameras.main.setBounds(0,0,SCHOOL_WORLD.width,SCHOOL_WORLD.height);
@@ -135,6 +135,9 @@ export class SchoolScene extends Phaser.Scene {
       }
     });
     this.blazej=createSchoolBlazej(this,Phaser);
+    // Stage once: visible approved sprites, not yet in combat.enemies/AI.
+    // The original School director adopts these exact actors on final DALEJ.
+    if(this.introActive||this.debugCheckpoint==='act4-school')this.combat.stageEntourage();
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>this.onSchoolDialogueEnded(id));
     if(this.introActive||this.debugCheckpoint==='act4-school')this.createMaciekSebaActors();
     this.createBicycleRewardUi();
@@ -284,11 +287,27 @@ export class SchoolScene extends Phaser.Scene {
        this.schoolPhase!=='BLAZEJ_BOSS')return;
     this.bossDefeatHandled=true;this.storyBusy=true;
     this.combat.stopFire();this.ambientBarks.suspend();this.resetMovement();this.syncControls();
-    // The existing Żubrokryptyda pixel burst completes before the reward.
+    // Keep approved pixel death feedback. Only then allow Aloes to walk to
+    // the real rack; the artifact is neither granted nor shown at boss HP 0.
     this.time.delayedCall(470,()=>{
-      if(!this.disposed&&!this.defeated&&this.combat.advanceFinale('BLAZEJ_REWARD'))
-        this.showBicycleReward();
+      if(this.disposed||this.defeated||
+         !this.combat.advanceFinale('BLAZEJ_PICKUP_PENDING'))return;
+      this.objectiveText.setText('PODEJDŹ PO ROWER').setVisible(true);
+      this.storyBusy=false;this.syncControls();
     });
+  }
+  collectBlazejBicycle(){
+    if(this.disposed||this.defeated||this.storyBusy||this.bicycleCollected||
+       !this.bossDefeatHandled||!this.blazej.defeated||
+       !this.controlsAllowed()||
+       !blazejBicycleCollectible(this.schoolPhase,this.player,this.obstacles))return false;
+    if(!this.combat.advanceFinale('BLAZEJ_REWARD'))return false;
+    this.bicycleCollected=true;this.storyBusy=true;
+    this.combat.suspend();this.ambientBarks.suspend();this.resetMovement();
+    this.objectiveText.setVisible(false);
+    this.showBicycleReward(); // one existing awardRunArtifact() and UI panel
+    this.syncControls();
+    return true;
   }
   createBicycleRewardUi(){
     const w=()=>this.scale.width,h=()=>this.scale.height;
@@ -539,6 +558,13 @@ export class SchoolScene extends Phaser.Scene {
     if(Math.hypot(aim.x,aim.y)>.05)this.facing=facingOf(aim.x,aim.y,this.facing);
     else if(Math.hypot(input.x,input.y)>.05)this.facing=facingOf(input.x,input.y,this.facing);
     this.playerVisual.update(this.facing,Math.hypot(input.x,input.y)>.05,Math.min(50,delta));
+    if(this.schoolPhase==='BLAZEJ_PICKUP_PENDING'){
+      // Player may move, but the ordinary weapon/projectile clock stays off.
+      this.combat.suspend();
+      this.collectBlazejBicycle();
+      this.hpFace.update(delta);
+      return;
+    }
     const now=performance.now();
     if(this.schoolPhase==='INTRO'&&!this.pitchStarted){
       if(!this.maciekSeen&&maciekSebaNearby(this.player)){
