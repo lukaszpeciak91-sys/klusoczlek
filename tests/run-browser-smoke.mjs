@@ -169,6 +169,9 @@ try{
  await wait("window.__game.scene.isActive('School')",'School scene starts');
  const schoolIntro=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,enemies:s.combat.enemies.length,weapon:s.weapon,hp:s.run.hp}})()");
  assert.ok(schoolIntro.intro&&!schoolIntro.started&&schoolIntro.enemies===0,'no enemies during Captain cinematic '+JSON.stringify(schoolIntro));
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return ['background','school','chapel','bicycleRack'].every(id=>s.schoolArt.loaded.has(id))})()",'all four approved Act IV images load (base PNGs)',12000);
+ const artwork=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {parts:[...s.schoolArt.loaded].sort(),images:s.schoolArt.images.filter(x=>x.active).length,allOldVisible:[...s.schoolPlacePlaceholders.values()].some(a=>a.some(x=>x.visible)),pitchVisible:s.schoolTerrainPlaceholders.some(o=>o.visible)}})()");
+ assert.ok(artwork.images===4&&!artwork.allOldVisible&&!artwork.pitchVisible,'approved schoolyard art replaces provisional blocks '+JSON.stringify(artwork));
  await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&!s.dialogueState.id&&!s.combat.started})()",'Captain enters chapel; player free to explore schoolyard',25000);
  const optionalBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,maciek:s.maciekSeen,pitch:s.pitchStarted,actors:s.maciekSebaActors?.length}})()");
  assert.deepEqual(optionalBefore,{intro:false,started:false,maciek:false,pitch:false,actors:2},'both NPCs staged, optional encounter not automatic');
@@ -218,6 +221,29 @@ try{
  await tapMenu('WZNÓW');
  await wait("window.__game.scene.isActive('School')",'School WZNÓW resume');
  assert.equal(await evaluate("window.__game.scene.getScene('School').combat.enemies.length"),enemiesBeforeResume,'no duplicate enemies on resume');
+ // Wave 2 heart using existing DEBUG active-play clock; max HP must not eat it.
+ const atWave2=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.hp=s.run.maxHp;s.hpFace.setHp(s.run.hp);s.combat.qa.setElapsedMs(75000);return true})()");
+ await wait("(()=>{const h=window.__game.scene.getScene('School').hearts.wave2;return h.spawned&&h.token?.active})()",'one existing-style healing heart at 75000ms',3000);
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(930,1015);s.player.body.reset(930,1015);return true})()");
+ await sleep(140);
+ assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.run.hp,heart:s.hearts.wave2.token?.active,collected:s.hearts.wave2.collected}})()"),
+  {hp:5,heart:true,collected:false},'full HP does not waste wave2 heart');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.hp=3;s.hpFace.setHp(3);return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.hearts.wave2.collected&&s.run.hp===5})()",'wave2 heart heals exactly once and clamps',3000);
+ const onceHeart=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {spawned:s.hearts.wave2.spawned,collected:s.hearts.wave2.collected,token:s.hearts.wave2.token}})()");
+ assert.deepEqual(onceHeart,{spawned:true,collected:true,token:null},'no duplicate wave2 heart');
+ console.log('PASS Act IV Chromium: wave2 healing heart at 75s, full HP retention, clamped +2 and one-shot pickup');
+ // Fresh DEBUG School stage bypasses Maciek/Seba, but not mandatory pitch conversation.
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'menu before optional bypass');
+ await bootSchool('act4-school');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&!s.combat.started&&!s.dialogueState.id})()",'free School DEBUG staging before pitch');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1065,870);s.player.body.reset(1065,870);return true})()");
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'bypassed optional Maciek/Seba; pitch continues');
+ assert.equal(await evaluate("window.__game.scene.getScene('School').maciekSeen"),false,'Maciek bypass is truly optional');
+ for(let i=0;i<7;i++)await dialogueNext();
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.started&&s.schoolPhase==='COMBAT'})()",'bypassing optional encounter still starts four waves');
+ console.log('PASS Act IV Chromium: Maciek/Seba bypass leaves pitch encounter and ordinary combat reachable');
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'menu before wave4 DEBUG');
  await bootSchool('act4-wave4');
@@ -326,6 +352,16 @@ try{
  assert.equal(stable.transitions,3);
  assert.equal(stable.spawns,finalState.spawns);
  assert.equal(stable.act,'act4');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.hearts.wave4.spawned&&s.hearts.wave4.token?.active})()",'wave4 heart after last ordinary enemy',3000);
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.hp=3;s.hpFace.setHp(3);s.player.setPosition(1035,1050);s.player.body.reset(1035,1050);return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.hearts.wave4.collected&&s.run.hp===5})()",'wave4 heart collected before Błażej activates',3000);
+ const preBossHeart=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {collected:s.hearts.wave4.collected,token:s.hearts.wave4.token,phase:s.schoolPhase,boss:s.blazej.active,pending:s.pendingApproachArmed}})()");
+ assert.ok(preBossHeart.collected&&preBossHeart.token===null&&preBossHeart.phase==='BLAZEJ_PENDING'&&!preBossHeart.boss&&preBossHeart.pending,
+  'heart available and boss passive until player chooses to reapproach '+JSON.stringify(preBossHeart));
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1240,785);s.player.body.reset(1240,785);return true})()");
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-final'",'post-wave final Błażej panel after deliberate re-approach',3000);
+ assert.equal(await evaluate("window.__game.scene.getScene('School').blazej.active"),false,'boss gated behind final dialogue DALEJ');
+ console.log('PASS Act IV Chromium: wave4 post-cleanup heart heals once, full 170s preserved, boss only after re-approach and DALEJ');
  console.log('PASS R1 real Chromium: 170000ms CLEANUP, no spawns, remaining damage, final enemy exactly once, BLAZEJ_PENDING, objective, MENU time exclusion');
  // R1: defeat must use Arena's same Menu pixel burst at the actual location.
  await cdp('Page.reload',{ignoreCache:true});
