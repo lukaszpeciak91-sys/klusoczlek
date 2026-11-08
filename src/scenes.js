@@ -82,8 +82,8 @@ export class MenuScene extends Phaser.Scene {
     const sessionKey=['School','Volcano','Airship','Arena'].find(key=>this.scene.isPaused(key))??'Arena';
     const hasSession = this.scene.isPaused(sessionKey);
     const savedCheckpoint=readCampaignCheckpoint();
-    const terminal = hasSession && ((sessionKey==='Arena' && this.scene.get('Arena').episode?.ended) || (sessionKey==='Volcano' && this.scene.get('Volcano').defeated));
-    const defeated = terminal && (sessionKey==='Volcano'||(sessionKey==='Arena'&&this.scene.get('Arena').episode.state==='defeat'));
+    const terminal = hasSession && ((sessionKey==='Arena' && this.scene.get('Arena').episode?.ended) || (sessionKey==='Volcano' && this.scene.get('Volcano').defeated) || (sessionKey==='School' && this.scene.get('School').defeated));
+    const defeated = terminal && (sessionKey==='Volcano'||sessionKey==='School'||(sessionKey==='Arena'&&this.scene.get('Arena').episode.state==='defeat'));
     const victorious=terminal&&!defeated;
     const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
     const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
