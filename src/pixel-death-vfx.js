@@ -1,6 +1,6 @@
 import {DEATH_PROFILES,fragmentSpec} from './combat-feedback.js';
 // One Graphics display object for the entire active burst; no fragment physics or timers.
-export function createPixelBurst(scene,type,x,y,seed=0){
+export function createPixelBurst(scene,type,x,y,seed=0,options={}){
  const profile=DEATH_PROFILES[type],graphics=scene.add.graphics().setDepth(120);
  const fragments=Array.from({length:profile.count},(_,i)=>fragmentSpec(type,seed,i));
  let age=0,done=false;
@@ -11,12 +11,12 @@ export function createPixelBurst(scene,type,x,y,seed=0){
   graphics.clear();
   if(age<65){
    const flash=1-age/65;
-   graphics.fillStyle(0xff192b,0.9*flash).fillEllipse(x,y+profile.offsetY,profile.width*0.95,profile.height*0.9);
+   graphics.fillStyle(options.extinguish?0x26272b:0xff192b,0.9*flash).fillEllipse(x,y+profile.offsetY,profile.width*0.95,profile.height*0.9);
   }
   for(const f of fragments){
    const px=x+f.x*(1-t)+f.vx*t*profile.duration/1000;
    const py=y+f.y*(1-t)+f.vy*t*profile.duration/1000+23*t*t;
-   graphics.fillStyle(f.color,Math.max(0,1-t*t)).fillRect(Math.round(px),Math.round(py),f.size,f.size);
+   graphics.fillStyle(options.extinguish?0x30343b:f.color,Math.max(0,1-t*t)).fillRect(Math.round(px),Math.round(py),f.size,f.size);
   }
   if(age>=profile.duration){destroy();return false;}
   return true;
