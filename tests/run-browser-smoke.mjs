@@ -163,6 +163,15 @@ try{
   assert.equal(p.boss,false,'boss passive during opening');
   assert.equal(p.enabled,false,'movement disabled while dialogue visible');
   assert.equal(p.bubble,false,'speech bubbles suppressed during dialogue');
+  if(id.startsWith('act4-blazej-')){
+   await wait("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.loaded.has('blazej')&&d.loaded.has('zubrokryptyda')})()",'both approved boss and ordinary portraits loaded',3500);
+   const portrait=await evaluate("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.shell.list.filter(o=>o.type==='Image'&&o.visible).map(o=>o.texture.key)})()");
+   const blazej=id==='act4-blazej-final'||id==='act4-blazej-observer'&&index===0||
+     id==='act4-blazej-confrontation'&&index!==2;
+   assert.deepEqual(portrait,[blazej?'dialogue-blazej':
+     id==='act4-blazej-observer'?'dialogue-bobrozombi':'dialogue-aloes'],
+     'portrait changes only for Błażej, speech and DALEJ unchanged');
+  }
   await dialogueNext();
  };
  await bootSchool('act4-opening');
@@ -172,6 +181,11 @@ try{
  await wait("(()=>{const s=window.__game.scene.getScene('School');return ['background','school','chapel','bicycleRack'].every(id=>s.schoolArt.loaded.has(id))})()",'all four approved Act IV images load (base PNGs)',12000);
  const artwork=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {parts:[...s.schoolArt.loaded].sort(),images:s.schoolArt.images.filter(x=>x.active).length,allOldVisible:[...s.schoolPlacePlaceholders.values()].some(a=>a.some(x=>x.visible)),pitchVisible:s.schoolTerrainPlaceholders.some(o=>o.visible)}})()");
  assert.ok(artwork.images===4&&!artwork.allOldVisible&&!artwork.pitchVisible,'approved schoolyard art replaces provisional blocks '+JSON.stringify(artwork));
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.blazej.renderer.loaded&&s.combat.renderers.zubrokryptyda.loaded})()",'approved Błażej and untouched ordinary heavy world sheets loaded',10000);
+ const approvedBoss=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),a=s.blazej.actor.sprite,art=a.getData('zubrokryptyda-art');return {texture:art?.texture.key,frames:Array.from({length:8},(_,i)=>art?.texture.has(String(i))),frame:art?.frame.name,scale:art?.scaleX,y:art?.y,depth:a.depth,original:s.combat.renderers.zubrokryptyda.loaded,ordinaryTexture:s.textures.exists('enemy-zubrokryptyda-v2'),actors:s.children.list.filter(o=>o===a).length}})()");
+ assert.deepEqual([approvedBoss.texture,approvedBoss.scale,approvedBoss.depth,approvedBoss.original,approvedBoss.ordinaryTexture,approvedBoss.actors],
+  ['enemy-blazej-v1',.55,9,true,true,1],'dedicated Błażej actor texture, original mechanical size and only one boss actor');
+ assert.ok(approvedBoss.frames.every(Boolean)&&String(approvedBoss.frame)==='2'&&Number.isFinite(approvedBoss.y),'eight approved facing frames and ground alignment');
  const schoolArtPlacement=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.schoolArt.images.map(i=>({key:i.texture.key,x:i.x,y:i.y,w:i.displayWidth,h:i.displayHeight,depth:i.depth})).sort((a,b)=>a.key.localeCompare(b.key))})()");
  assert.deepEqual(schoolArtPlacement,[
   {key:'schoolyard-approved-bg',x:0,y:0,w:1800,h:1200,depth:-18},
@@ -443,6 +457,9 @@ try{
  await dialogueNext();
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_BOSS'&&s.blazej.active&&!s.dialogueState.id})()",'Błażej boss begins only after confrontation',3500);
  const bossStart=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,ordinary:s.combat.enemies.length,wave:s.combat.wave,boss:s.blazej.active,water:s.weapon==='water-flamethrower'}})()");
+ const bossHitArt=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej,a=b.actor,prev=a.hp,hit=b.damage(1,s.player,s.time.now);b.renderer.update(a,s.player,0,0);const art=a.sprite.getData('zubrokryptyda-art');return {hit,hpLost:prev-a.hp,tint:art.tintTopLeft,texture:art.texture.key,scale:art.scaleX}})()");
+ assert.deepEqual(bossHitArt,{hit:true,hpLost:1,tint:0xff5a5a,texture:'enemy-blazej-v1',scale:.55},
+  'real Błażej damage tints the dedicated approved sprite without changing mechanics');
  // Test three approved Błażej boss barks through exactly the same view.
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1170,660);s.player.body.reset(1170,660);s.cameras.main.centerOn(1170,660);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.cameras.main.worldView.y>410&&s.cameras.main.worldView.y<490&&s.cameras.main.worldView.x>720})()",'Phaser smoothed camera settles on Błażej viewport',3500);
@@ -480,6 +497,8 @@ try{
  const jumped=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej;return {x:b.actor.x,y:b.actor.y,shock:b.jumps,alive:s.run.hp>0,phase:s.schoolPhase}})()");
  assert.ok(jumped.alive&&jumped.phase==='BLAZEJ_BOSS');
  assert.ok(Math.hypot(jumped.x-jumpLanding.x,jumped.y-jumpLanding.y)<1);
+ assert.equal(await evaluate("window.__game.scene.getScene('School').blazej.actor.sprite.getData('zubrokryptyda-art').texture.key"),
+  'enemy-blazej-v1','dedicated Błażej sprite remains attached after existing collision-safe jump');
  // Boss MENU/WZNÓW preserves live state without duplicating boss actor.
  const bossMenu=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
  await touch(bossMenu.x,bossMenu.y);
@@ -589,6 +608,43 @@ try{
  assert.ok(savedHP.intro||savedHP.departing||savedHP.arrived,'Captain intro retained after checkpoint reload');
  assert.deepEqual(savedHP.completed.sort(),['act1','act2','act3']);
  console.log('PASS Act III -> IV real Chromium: 2/5 during escape/extraction, 5/5 live title, 5/5 autosave reload, horn, rifle, Marian and MENU/WZNÓW');
+ // Approved Act III horn: stage the real Bogdan boss using existing DEBUG,
+ // then verify original two-panel finale, award, art and eruption sequence.
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'Menu before approved Bogdan horn QA');
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-boss');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-boss'});return true})()");
+ await wait("(()=>{const s=window.__game?.scene.getScene('Volcano');return s?.boss?.active&&s.boss.ready&&!!s.walkability&&s.finale.state==='BOGDAN_ACTIVE'})()",'real Volcano boss DEBUG with approved terrain and active Bogdan',16000);
+ await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !!s.hornRewardImage?.active&&s.hornRewardImage.texture.key==='artifact-bogdan-horn'})()",'approved Bogdan horn PNG loaded and decoded in Volcano',8500);
+ const loadedHorn=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),i=s.hornRewardImage,t=s.textures.get('artifact-bogdan-horn');return {texture:i.texture.key,width:t.source[0].width,height:t.source[0].height,index:s.rewardRoot.list.indexOf(i),visible:s.rewardRoot.visible,owner:s.run.artifacts.has('bogdan-hunting-horn')}})()");
+ assert.deepEqual(loadedHorn,{texture:'artifact-bogdan-horn',width:192,height:192,index:2,visible:false,owner:false},
+  'validated approved horn image is embedded, without awarding before boss defeat');
+ const bogdanDefeat=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),b=s.boss;const hit=b.damage(b.hp,s.time.now);return {hit,defeated:b.defeated,pending:b.defeatPending,artifacts:[...s.run.artifacts]}})()");
+ assert.ok(bogdanDefeat.hit&&bogdanDefeat.defeated&&bogdanDefeat.pending&&!bogdanDefeat.artifacts.includes('bogdan-hunting-horn'));
+ await wait("window.__game.scene.getScene('Volcano').dialogueState.id==='act3-bogdan-final'",'two-panel Bogdan finale dialogue',4000);
+ const volcanoDialogueNext=async expected=>{
+  await sleep(230);
+  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),b=s.dialoguePanel.button,r=window.__game.canvas.getBoundingClientRect();return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,id:s.dialogueState.id,index:s.dialogueState.index,caption:s.dialoguePanel.text.text}})()");
+  assert.ok(p.visible&&p.id===expected&&p.caption.length>0,'approved Bogdan final dialogue and DALEJ '+JSON.stringify(p));
+  await touch(p.x,p.y);
+ };
+ await volcanoDialogueNext('act3-bogdan-final');
+ assert.equal(await evaluate("window.__game.scene.getScene('Volcano').dialogueState.index"),1,'second original Bogdan panel not skipped');
+ await volcanoDialogueNext('act3-bogdan-final');
+ await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return s.finale.state==='ARTIFACT_REWARD'&&s.rewardRoot.visible&&s.rewardButton.visible})()",'approved horn reward after both Bogdan panels',3000);
+ const hornPanel=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),h=s.scale.height,w=s.scale.width,i=s.hornRewardImage,t=s.rewardRoot.list.filter(o=>o.type==='Text').map(o=>({text:o.text,y:o.y}));return {artifacts:[...s.run.artifacts],image:{key:i.texture.key,x:i.x,y:i.y,w:i.displayWidth,h:i.displayHeight,visible:i.visible},texts:t,button:s.rewardButton.visible,width:w,height:h,layout:s.rewardRoot.visible}})()");
+ assert.ok(hornPanel.artifacts.includes('bogdan-hunting-horn')&&hornPanel.layout&&hornPanel.button);
+ assert.ok(['ZDOBYŁEŚ ARTEFAKT','RÓG MYŚLIWSKI BOGDANA','ARTEFAKT 2/3'].every(x=>hornPanel.texts.some(t=>t.text===x)));
+ assert.ok(hornPanel.image.visible&&hornPanel.image.w===hornPanel.image.h&&hornPanel.image.w<=110);
+ assert.ok(Math.abs(hornPanel.image.x-hornPanel.width/2)<1&&Math.abs(hornPanel.image.y-hornPanel.height*.44)<1);
+ assert.ok(hornPanel.texts.find(t=>t.text==='RÓG MYŚLIWSKI BOGDANA').y>hornPanel.image.y+hornPanel.image.h/2,
+  'landscape reward image sits above name and DALEJ without cropping');
+ const nextHorn=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.rewardButton.x,y:r.y+s.rewardButton.y}})()");
+ await sleep(250);await touch(nextHorn.x,nextHorn.y);
+ await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return s.finale.state==='BOGDAN_EXPLOSION'||s.dialogueState?.id==='act3-eruption-warning'})()",'horn DALEJ advances to existing eruption',3500);
+ await wait("window.__game.scene.getScene('Volcano').dialogueState.id==='act3-eruption-warning'",'approved eruption warning retained',5000);
+ await volcanoDialogueNext('act3-eruption-warning');
+ await wait("window.__game.scene.getScene('Volcano').finale.state==='ESCAPE_ACTIVE'",'existing eruption escape begins',4000);
+ console.log('PASS approved Act III horn Chromium: real boss defeat, 2 finale panels, decoded 192x192 PNG, responsive artifact 2/3, DALEJ and eruption escape');
  assert.deepEqual(exceptions,[],'uncaught Chromium exceptions');
  console.log('PASS FAST real Chromium: menu, DEBUG Act II/IV, handoffs, school placeholders, Act IV pause/resume and water filtering');
  console.log('FAST runtime ms',Date.now()-started);

@@ -16,18 +16,18 @@ test('Act IV has only the exact approved narrative, in the exact pre-wave and po
   ['bocianolak','SEBA','Ty to Maciek jednak głupi jesteś...\nA to nie jest czasem on? Do ataku!']
  ]);
  assert.deepEqual(DIALOGUES['act4-blazej-observer'],[
-  ['zubrokryptyda','BŁAŻEJ','...i ja wtedy normalnie od razu'],
+  ['blazej','BŁAŻEJ','...i ja wtedy normalnie od razu'],
   ['bobrozombi','BOBROZOMBI','Ty to jednak Błażej jesteś gość']
  ]);
  assert.deepEqual(DIALOGUES['act4-blazej-confrontation'],[
-  ['zubrokryptyda','BŁAŻEJ','Kazał pan, musiał sam!'],
-  ['zubrokryptyda','BŁAŻEJ','Nie wiem kim jesteś ale mam ochotę Cię rozgnieść'],
+  ['blazej','BŁAŻEJ','Kazał pan, musiał sam!'],
+  ['blazej','BŁAŻEJ','Nie wiem kim jesteś ale mam ochotę Cię rozgnieść'],
   ['aloes','ALOES','Potrzebuję na chwilę Twojego roweru, dasz się karnąć?'],
-  ['zubrokryptyda','BŁAŻEJ','Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać'],
-  ['zubrokryptyda','BŁAŻEJ','Zostaw mój rower, ty kutwo!\nChłopaki, na niego!']
+  ['blazej','BŁAŻEJ','Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać'],
+  ['blazej','BŁAŻEJ','Zostaw mój rower, ty kutwo!\nChłopaki, na niego!']
  ]);
  assert.deepEqual(DIALOGUES['act4-blazej-final'],[
-  ['zubrokryptyda','BŁAŻEJ','Ech, kazał pan, musiał sam!']
+  ['blazej','BŁAŻEJ','Ech, kazał pan, musiał sam!']
  ]);
  assert.equal(Object.values(DIALOGUES).flat().some(x=>x[2].includes('na pierwszą komunię')),false);
  const state=createDialogueState();

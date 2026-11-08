@@ -5,18 +5,18 @@ export const DIALOGUES=Object.freeze({
   ['bocianolak','SEBA','Ty to Maciek jednak głupi jesteś...\nA to nie jest czasem on? Do ataku!']
  ],
  'act4-blazej-observer':[
-  ['zubrokryptyda','BŁAŻEJ','...i ja wtedy normalnie od razu'],
+  ['blazej','BŁAŻEJ','...i ja wtedy normalnie od razu'],
   ['bobrozombi','BOBROZOMBI','Ty to jednak Błażej jesteś gość']
  ],
  'act4-blazej-confrontation':[
-  ['zubrokryptyda','BŁAŻEJ','Kazał pan, musiał sam!'],
-  ['zubrokryptyda','BŁAŻEJ','Nie wiem kim jesteś ale mam ochotę Cię rozgnieść'],
+  ['blazej','BŁAŻEJ','Kazał pan, musiał sam!'],
+  ['blazej','BŁAŻEJ','Nie wiem kim jesteś ale mam ochotę Cię rozgnieść'],
   ['aloes','ALOES','Potrzebuję na chwilę Twojego roweru, dasz się karnąć?'],
-  ['zubrokryptyda','BŁAŻEJ','Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać'],
-  ['zubrokryptyda','BŁAŻEJ','Zostaw mój rower, ty kutwo!\nChłopaki, na niego!']
+  ['blazej','BŁAŻEJ','Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać'],
+  ['blazej','BŁAŻEJ','Zostaw mój rower, ty kutwo!\nChłopaki, na niego!']
  ],
  'act4-blazej-final':[
-  ['zubrokryptyda','BŁAŻEJ','Ech, kazał pan, musiał sam!']
+  ['blazej','BŁAŻEJ','Ech, kazał pan, musiał sam!']
  ],
  'act4-chapel-ending':[
   ['chapel','KAPLICA','Łuuuuuu...'],

@@ -41,7 +41,7 @@ test('PR106 Błażej is a passive, invulnerable visual observer until authoritat
  assert.equal(blazejConfrontationReady('BLAZEJ_PENDING',{x:100,y:100}),false);
  assert.equal(blazejConfrontationReady('BLAZEJ_PENDING',BLAZEJ_START),true);
  assert.ok(BLAZEJ_CONFRONT_RADIUS<300);
- assert.ok(boss.includes('scene.combat.renderers.zubrokryptyda'));
+ assert.ok(boss.includes('createBlazejRenderer(scene,Phaser)'));
  assert.ok(boss.includes('renderer.create(BLAZEJ_START.x,BLAZEJ_START.y)'));
  assert.ok(boss.includes("if(active||defeated||disposed||scene.schoolPhase!=='BLAZEJ_BOSS')return false;"));
  assert.ok(boss.includes("if(!active||defeated||disposed"));
@@ -100,7 +100,7 @@ test('PR106 only approved dialogue lines and Act I portrait presentation; no sto
   'Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać'])
   assert.ok(confrontation.includes(text),text);
  assert.equal(confrontation.length,5);
- assert.deepEqual(DIALOGUES['act4-blazej-final'],[['zubrokryptyda','BŁAŻEJ','Ech, kazał pan, musiał sam!']]);
+ assert.deepEqual(DIALOGUES['act4-blazej-final'],[['blazej','BŁAŻEJ','Ech, kazał pan, musiał sam!']]);
  assert.equal(confrontation.some(text=>text.includes('na pierwszą komunię')),false);
  const ending=DIALOGUES['act4-chapel-ending'];
  assert.deepEqual(ending.slice(0,3).map(x=>x[2]),['Łuuuuuu...','Łeeee...','Łuuuuu...']);
