@@ -274,7 +274,7 @@ export class SchoolScene extends Phaser.Scene {
     this.rewardBg.setSize(w,h);
     this.rewardTitle.setPosition(x,h*.23).setFontSize(Math.min(23,h*.065));
     this.rewardName.setPosition(x,this.rewardImage?h*.70:h*.48)
-      .setWordWrapWidth(w()-30).setFontSize(Math.min(22,h*.058));
+      .setWordWrapWidth(w-30).setFontSize(Math.min(22,h*.058));
     this.rewardDetail.setPosition(x,this.rewardImage?h*.83:h*.68);
     this.rewardImage?.setPosition(x,h*.44)
       .setDisplaySize(Math.min(110,h*.32),Math.min(110,h*.32));
