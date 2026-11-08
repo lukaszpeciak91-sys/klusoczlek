@@ -144,6 +144,11 @@ test('PR106 optional bicycle asset is honestly absent; no fake bike and DEBUG ne
  assert.ok(school.includes('Without approved bike art the intended ride remains an honest fade.'));
  assert.ok(chapelReturnValid());
  assert.ok(schoolWalkable(CHAPEL_RETURN));
+ for(let i=0;i<=100;i++){
+  const t=i/100,p={x:BLAZEJ_START.x+(CHAPEL_RETURN.x-BLAZEJ_START.x)*t,
+   y:BLAZEJ_START.y+(CHAPEL_RETURN.y-BLAZEJ_START.y)*t};
+  assert.ok(schoolWalkable(p),'approved bicycle route must not cross School solids');
+ }
  const fixture=createDebugFixture('act4-finale');
  fixture.run.isDebugRun=true;
  assert.equal(serializeCampaignCheckpoint(fixture.run),null);
