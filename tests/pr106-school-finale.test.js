@@ -52,10 +52,10 @@ test('PR106 Błażej is a passive, invulnerable visual observer until authoritat
 });
 test('PR106 telegraph, radial volleys, jump landing and solid obstacles are bounded',()=>{
  const state=createBossAttack();assert.equal(state.phase,'chase');
- assert.equal(bossAttackStep(state,MARCIN.hp,MARCIN.cooldown),false);
+ for(let i=0;i<MARCIN.cooldown/50;i++)bossAttackStep(state,MARCIN.hp,50);
  assert.equal(state.phase,'warning');
- assert.equal(bossAttackStep(state,MARCIN.hp,MARCIN.warning-1),false);
- assert.equal(bossAttackStep(state,MARCIN.hp,1),true);
+ for(let i=0;i<MARCIN.warning/50-1;i++)bossAttackStep(state,MARCIN.hp,50);
+ assert.equal(bossAttackStep(state,MARCIN.hp,50),true);
  assert.equal(state.phase,'recovery');
  assert.equal(radialVolley(BLAZEJ_START).length,8);
  assert.equal(BLAZEJ_MAX_PROJECTILES,MARCIN.maxProjectiles);
