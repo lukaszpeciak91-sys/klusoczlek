@@ -93,7 +93,9 @@ export function createVolcanoNpcs(scene,Phaser){
  const actors=[];
  async function load(key){
   const def=SHEETS[key],texture='volcano-npc-'+key;
-  if(scene.textures.exists(texture))return {texture,frame:scene.textures.get(texture).source[0].height};
+  if(scene.textures.exists(texture))return {texture,frame:scene.textures.get(texture).source[0].height,
+   frames:key==='swinia-wrozka'?fairyTextureLayout(scene.textures.get(texture).source[0].width,
+    scene.textures.get(texture).source[0].height)?.frames:8};
   const response=await fetch(assetUrl(import.meta.env.BASE_URL,def.path),{cache:'no-cache'});
   if(!response.ok)throw Error('HTTP '+response.status);
   const bytes=new Uint8Array(await response.arrayBuffer());
