@@ -227,7 +227,7 @@ test('PR105 R2 School reuses original Act I bark view and its stable renderers',
  assert.ok(combat.includes("scene.ambientBarks?.hit(enemy,clock.elapsedMs);"));
  assert.ok(combat.includes("scene.ambientBarks?.speakerDied(enemy);"));
  assert.ok(combat.includes("scene.ambientBarks?.suspend();"));
- assert.ok(combat.includes("renderers,get enemies(){return enemies;}"));
+ assert.ok(combat.includes("get stagedEntourage(){return stagedEntourage;},get enemies(){return enemies;}"));
  for(const [type,name] of [['bobrozombi','createBobrozombiRenderer'],['bocianolak','createBocianolakRenderer'],['zubrokryptyda','createZubrokryptydaRenderer']])
   assert.ok(combat.includes(type+':'+name+'(scene,Phaser)'));
  assert.ok(view.includes("scene.enemyRenderers[e.type]?.speechAnchorOf?.(e)"));
