@@ -23,12 +23,15 @@ test('hit feedback throttles repeated events and fades',()=>{
 });
 test('red fragment profiles deterministic, bounded and distinct',()=>{
  for(const [type,p] of Object.entries(DEATH_PROFILES)){
-  assert.ok(p.count<=(type==='marcin'?88:65)&&p.duration>=300&&p.duration<=(type==='marcin'?650:450));
+  const volcanic=type==='lawostworek-1'||type==='lawostworek-2';
+  assert.ok(p.count<=(type==='marcin'?88:volcanic?68:65)&&p.duration>=300&&p.duration<=(type==='marcin'?650:volcanic?550:450));
   const points=Array.from({length:p.count},(_,i)=>fragmentSpec(type,7,i));
   assert.deepEqual(points[0],fragmentSpec(type,7,0));
   assert.ok(points.every(n=>Number.isFinite(n.x)&&Number.isFinite(n.y)&&n.size>0));
  }
- assert.deepEqual(Object.values(DEATH_PROFILES).map(p=>p.count),[88,30,36,58,36]);
+ assert.deepEqual([DEATH_PROFILES.marcin.count,DEATH_PROFILES.bobrozombi.count,DEATH_PROFILES.bocianolak.count,DEATH_PROFILES.zubrokryptyda.count,DEATH_PROFILES.aloes.count],[88,30,36,58,36]);
+ assert.equal(DEATH_PROFILES['lawostworek-2'].count,68);
+ assert.equal(DEATH_PROFILES['lawostworek-2'].duration,550);
 });
 test('six timed waves, healing and flamethrower tuning unchanged',()=>{
  assert.equal(WAVES.length,6);assert.equal(WAVES.length,6);
