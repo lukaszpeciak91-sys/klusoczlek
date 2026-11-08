@@ -54,6 +54,7 @@ test('apartment actors move down to reachable walkable terrain without overlap',
  const mask=decodeRgbaPng(new URL('../public/assets/arenas/act3-volcano.png',import.meta.url));
  const marlena=nearestVolcanoSpawn(mask,APARTMENT.marlena.x,APARTMENT.marlena.y,18,0,[],70);
  const bogdan=nearestVolcanoSpawn(mask,APARTMENT.bogdan.x,APARTMENT.bogdan.y,18,0,marlena?[{x:marlena.x,y:marlena.y,radius:44}]:[],70);
+ if(!marlena){const choices=[];for(let y=240;y<=550;y+=20)for(let x=1150;x<=1650;x+=25)if(volcanoFootprintAllowed(mask,x,y,18))choices.push({x,y});console.log('VALID LOWER APARTMENT SAMPLES',JSON.stringify(choices.slice(0,60)));}
  assert.ok(marlena,'Marlena has no valid lower position');
  assert.ok(bogdan,'Bogdan has no valid lower position');
  assert.ok(volcanoFootprintAllowed(mask,marlena.x,marlena.y,18));
