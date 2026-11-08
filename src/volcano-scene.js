@@ -209,6 +209,7 @@ export class VolcanoScene extends Phaser.Scene {
     document.addEventListener('visibilitychange',focus);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
       this.disposed=true;
+      this.cancelApartmentCameraRecovery();
       for(const controller of this.pendingLoads)controller.abort();
       this.pendingLoads.clear();
       this.scale.off(Phaser.Scale.Events.RESIZE,resize);
@@ -322,18 +323,35 @@ export class VolcanoScene extends Phaser.Scene {
   frameApartmentCamera(){
     const camera=this.cameras.main;
     if(!this.boss.marlena?.active||!this.boss.bogdan?.active)return;
+    this.cancelApartmentCameraRecovery();
     const a=this.boss.marlena,b=this.boss.bogdan;
     const target={x:(a.x+b.x)/2,y:(a.y+b.y)/2+65};
     camera.stopFollow();camera.pan(target.x,target.y,850,'Sine.easeInOut');
     this.apartmentCameraFramed=true;
   }
+  cancelApartmentCameraRecovery(){
+    if(this.apartmentCameraComplete){
+      this.cameras.main.off('camerapancomplete',this.apartmentCameraComplete);
+      this.apartmentCameraComplete=null;
+    }
+  }
   restoreApartmentCamera(){
     if(!this.apartmentCameraFramed)return;
     this.apartmentCameraFramed=false;
     const camera=this.cameras.main;
-    camera.pan(this.player.x,this.player.y,650,'Sine.easeInOut',false,(_cam,progress)=>{
-      if(progress===1&&!this.disposed)camera.startFollow(this.player,true,.12,.12);
-    });
+    this.cancelApartmentCameraRecovery();
+    const resume=()=>{
+      this.cancelApartmentCameraRecovery();
+      if(!this.disposed)camera.startFollow(this.player,true,.12,.12);
+    };
+    this.apartmentCameraComplete=resume;
+    camera.once('camerapancomplete',resume);
+    camera.pan(this.player.x,this.player.y,650,'Sine.easeInOut');
+  }
+  ensureApartmentCameraRecovery(){
+    if(this.apartmentCameraComplete&&!this.cameras.main.panEffect.isRunning){
+      const resume=this.apartmentCameraComplete;resume();
+    }
   }
   tryApartmentEncounter(){
     if(!this.openingComplete||!this.lawosComplete||!this.fairyComplete||this.dialogueState.id||this.defeated||!this.boss.ready)return false;
@@ -589,6 +607,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.scene.bringToTop('Menu');
   }
   update(_time,delta){
+    this.ensureApartmentCameraRecovery();
     if(this.finale.state==='ESCAPE_RETRY')return;
     if(this.run.hp<=0){if(this.finale.state==='ESCAPE_ACTIVE'){this.escapeFailed();return;}this.lockDeath();return;}
     this.syncControls();
