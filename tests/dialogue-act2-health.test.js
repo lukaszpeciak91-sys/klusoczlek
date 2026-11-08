@@ -12,7 +12,7 @@ test('portrait scales to 108 on large landscape, remains responsive on smaller s
  assert.ok(dialoguePortraitSize(390,300)<=64);
  const s=read('../src/dialogue-ui.js');
  assert.ok(s.includes('setDisplaySize(portrait,portrait)'));
- assert.ok(s.includes('text.setWordWrapWidth(tw)'));
+ assert.ok(s.includes('setWordWrapWidth(tw)'));
  assert.ok(s.includes('button.setPosition(bx,by)'));
 });
 test('90-second pickup clock excludes cinematic/dialogue and only spawns once',()=>{
