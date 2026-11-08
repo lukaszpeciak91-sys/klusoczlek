@@ -1,12 +1,15 @@
-import {createCampaignRun,MARCIN_MOHAWK_ID,snapshotCampaignRun} from './campaign-run.js';
+import {createCampaignRun,MARCIN_MOHAWK_ID,snapshotCampaignRun,WATER_FLAMETHROWER_ID} from './campaign-run.js';
 import {FIRST_ACT_ID,getAct,sceneForAct} from './campaign.js';
+import {HORN_ID} from './volcano-finale.js';
 import {ENCOUNTER} from './bobrozombi.js';
-import {WEAPON_ORDER} from './weapon-progression.js';
+import {WEAPON_ORDER,availableWeapons} from './weapon-progression.js';
 
-// Only stable act-entry checkpoints are persisted. The active scene and combat
-// state are intentionally never serialized.
+// Backwards-compatible v1: only stable act-entry checkpoints are persisted.
+// Runtime HP, live combat, DEBUG and the temporary Act III water selection
+// are never fabricated by the loader.
 export const CAMPAIGN_SAVE_KEY='klusoczlek-campaign-v1';
 export const CAMPAIGN_SAVE_VERSION=1;
+const STAGES=Object.freeze(['act1','act2','act3','act4']);
 const MAX_SAFE=Number.MAX_SAFE_INTEGER;
 const validInteger=(n,max=MAX_SAFE)=>Number.isSafeInteger(n)&&n>=0&&n<=max;
 const validNumber=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
@@ -14,27 +17,33 @@ const validList=items=>Array.isArray(items)&&items.every(x=>typeof x==='string'&
 
 function parseCheckpoint(raw){
   if(!raw||typeof raw!=='object'||Array.isArray(raw)||raw.version!==CAMPAIGN_SAVE_VERSION)return null;
-  const act=getAct(raw.actId);
-  if(!act||!sceneForAct(raw.actId)||!['act1','act2'].includes(act.id))return null;
+  const act=getAct(raw.actId),stage=STAGES.indexOf(raw.actId);
+  if(!act||!sceneForAct(raw.actId)||stage<0)return null;
   if(raw.maxHp!==ENCOUNTER.playerMaxHp||raw.hp!==raw.maxHp)return null;
   const lists=['unlockedWeapons','artifacts','completedActs','upgrades'];
   if(!lists.every(key=>validList(raw[key])))return null;
   const owned=new Set(raw.unlockedWeapons),completed=new Set(raw.completedActs),artifacts=new Set(raw.artifacts);
-  if(!owned.has('blunderbuss')||[...owned].some(id=>!WEAPON_ORDER.includes(id)))return null;
-  if(raw.upgrades.length!==0)return null; // No implemented upgrade rewards in the playable acts.
-  if(raw.selectedWeapon!==null&&(!owned.has(raw.selectedWeapon)||typeof raw.selectedWeapon!=='string'))return null;
-  if(raw.actId==='act1'&&(completed.size||artifacts.size||raw.unlockedWeapons.length!==1||raw.selectedWeapon!==null))return null;
-  if(raw.actId==='act2'&&(!completed.has(FIRST_ACT_ID)||completed.size!==1||
-    !artifacts.has(MARCIN_MOHAWK_ID)||artifacts.size!==1))return null;
+  if(!owned.has('blunderbuss')||[...owned].some(id=>![...WEAPON_ORDER,WATER_FLAMETHROWER_ID].includes(id)))return null;
+  if(raw.upgrades.length!==0)return null;
+  if(raw.selectedWeapon!==null&&
+    (typeof raw.selectedWeapon!=='string'||!availableWeapons(owned,act.id).includes(raw.selectedWeapon)))return null;
+  // The water gun is awarded only *inside* Act III, not in an Act III entry save.
+  if(stage<3&&owned.has(WATER_FLAMETHROWER_ID))return null;
+  if(stage===0&&(raw.unlockedWeapons.length!==1||raw.selectedWeapon!==null))return null;
+  const requiredCompleted=STAGES.slice(0,stage);
+  if(completed.size!==requiredCompleted.length||requiredCompleted.some(id=>!completed.has(id)))return null;
+  const requiredArtifacts=stage>=3?[MARCIN_MOHAWK_ID,HORN_ID]:stage>=1?[MARCIN_MOHAWK_ID]:[];
+  if(artifacts.size!==requiredArtifacts.length||requiredArtifacts.some(id=>!artifacts.has(id)))return null;
   const s=raw.stats;
   if(!s||typeof s!=='object'||Array.isArray(s)||!validInteger(s.kills)||!validNumber(s.activeCombatMs)||
     !s.byAct||typeof s.byAct!=='object'||Array.isArray(s.byAct))return null;
   const entries=Object.entries(s.byAct);
-  if(entries.length!==completed.size||entries.some(([id,v])=>!completed.has(id)||!v||!validInteger(v.kills)||!validNumber(v.activeCombatMs)))return null;
+  if(entries.length!==completed.size||
+    entries.some(([id,v])=>!completed.has(id)||!v||!validInteger(v.kills)||!validNumber(v.activeCombatMs)))return null;
   const sumKills=entries.reduce((n,[,v])=>n+v.kills,0);
   const sumMs=entries.reduce((n,[,v])=>n+v.activeCombatMs,0);
   if(sumKills!==s.kills||Math.abs(sumMs-s.activeCombatMs)>0.01)return null;
-  if(raw.actId==='act1'&&(s.kills!==0||s.activeCombatMs!==0))return null;
+  if(stage===0&&(s.kills!==0||s.activeCombatMs!==0))return null;
   const run=createCampaignRun();
   run.actId=raw.actId;run.hp=raw.hp;run.maxHp=raw.maxHp;
   run.unlockedWeapons=owned;run.selectedWeapon=raw.selectedWeapon;

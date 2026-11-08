@@ -8,14 +8,14 @@ import {ARENA,PLAYER_SPEED,PLAYER_RADIUS,normalizeInput} from './movement.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl} from './character-visual.js';
 import {createJoystick} from './joystick.js';
-import {currentCampaignRun,prepareActStart,grantWaterFlamethrower,awardRunArtifact,completeCampaignAct} from './campaign-run.js';
+import {currentCampaignRun,prepareActStart,grantWaterFlamethrower,awardRunArtifact,completeCampaignAct,nextActHandoff} from './campaign-run.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {arenaHudLayout} from './ui-layout.js';
 import {createHpFaceHud} from './hp-face-hud.js';
-import {WEAPONS,availableWeapons,cycleUnlockedWeapon} from './weapon-progression.js';
+import {WEAPONS,availableWeapons,cycleUnlockedWeapon,selectUnlockedWeapon} from './weapon-progression.js';
 import {resolveAim} from './shooting.js';
 import {facingOf} from './combat-contract.js';
 import {createVolcanoCombat} from './volcano-combat.js';
@@ -652,8 +652,20 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.disposed||this.finale.state!=='ACT_III_COMPLETE')return;
     this.resetMovement();this.combat.clearEscapeEnemies();this.escapeClock.setVisible(false);
     this.resetEruption();
-    completeCampaignAct(this.run,'act3',{hp:this.run.hp,maxHp:this.run.maxHp,unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,kills:0,activeCombatMs:0});
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{if(!this.disposed)this.scene.start('Menu');});
+    if(!completeCampaignAct(this.run,'act3',{hp:this.run.hp,maxHp:this.run.maxHp,
+      unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,kills:0,activeCombatMs:0}))return;
+    // Water is Act III-only. Keep the historical entitlement, but hand off
+    // a valid Act IV weapon (prefer the previously unlocked rifle).
+    const allowed=availableWeapons(this.run.unlockedWeapons,'act4');
+    this.run.selectedWeapon=selectUnlockedWeapon(this.run.selectedWeapon,this.run.unlockedWeapons,'act4')
+      ??(allowed.includes('rifle')?'rifle':allowed[0]??'blunderbuss');
+    const handoff=nextActHandoff(this.run,new Set(Object.keys(this.scene.manager.keys)));
+    if(!handoff||handoff.actId!=='act4')console.error('[Volcano] Act IV handoff unavailable');
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
+      if(this.disposed)return;
+      if(handoff)this.scene.start('ActTitle',{actId:'act4',handoff});
+      else this.scene.start('Menu');
+    });
     this.cameras.main.fadeOut(550,0,0,0);
   }
   refreshWeaponHud(){

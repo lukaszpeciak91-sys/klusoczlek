@@ -107,12 +107,48 @@ test('PR79 malformed JSON, storage errors and missing storage cannot crash start
   assert.equal(readCampaignCheckpoint(null),null);
   assert.equal(writeCampaignCheckpoint(createCampaignRun(),'act1',null),false);
 });
-test('PR79 no Act II completion can silently become a fake Act III checkpoint',()=>{
+test('Act III entry checkpoint requires real Act II completion and remains resumable',()=>{
   const run=completedAct1();
+  assert.equal(serializeCampaignCheckpoint(run,'act3'),null,'cannot jump over Act II');
   run.actId='act2';
   assert.equal(completeCampaignAct(run,'act2',{hp:3,maxHp:5,unlockedWeapons:run.unlockedWeapons,
     selectedWeapon:run.selectedWeapon,kills:35,activeCombatMs:180000}),true);
-  assert.equal(serializeCampaignCheckpoint(run,'act3'),null);
   assert.equal(serializeCampaignCheckpoint(run,'act2'),null,
-    'completed Act II is not a start-of-Act-II checkpoint; retain prior valid save instead');
+    'completed Act II is not a start-of-Act-II checkpoint');
+  const store=memoryStorage();
+  assert.equal(writeCampaignCheckpoint(run,'act3',store),true);
+  const restored=readCampaignCheckpoint(store);
+  assert.equal(restored?.actId,'act3');
+  assert.deepEqual([...restored.completedActs],['act1','act2']);
+  assert.equal(restored.selectedWeapon,'rifle');
+  assert.equal(restored.hp,5);
+});
+test('Act IV checkpoint preserves horn and water history but never equips water',()=>{
+  const run=completedAct1();
+  run.actId='act2';
+  assert.equal(completeCampaignAct(run,'act2',{hp:5,maxHp:5,unlockedWeapons:run.unlockedWeapons,
+    selectedWeapon:'rifle',kills:12,activeCombatMs:180000}),true);
+  run.actId='act3';
+  run.unlockedWeapons.add('water-flamethrower');
+  run.selectedWeapon='water-flamethrower';
+  awardRunArtifact(run,'bogdan-hunting-horn');
+  assert.equal(completeCampaignAct(run,'act3',{hp:2,maxHp:5,unlockedWeapons:run.unlockedWeapons,
+    selectedWeapon:run.selectedWeapon,kills:0,activeCombatMs:85000}),true);
+  assert.equal(serializeCampaignCheckpoint(run,'act4'),null,'water may not be equipped in Act IV');
+  run.selectedWeapon='rifle';
+  const store=memoryStorage();
+  assert.equal(writeCampaignCheckpoint(run,'act4',store),true);
+  const restored=readCampaignCheckpoint(store);
+  assert.equal(restored?.actId,'act4');
+  assert.equal(restored.hp,5);
+  assert.equal(restored.unlockedWeapons.has('water-flamethrower'),true);
+  assert.equal(restored.selectedWeapon,'rifle');
+  assert.deepEqual([...restored.artifacts],['marcin-mohawk','bogdan-hunting-horn']);
+  assert.deepEqual([...restored.completedActs],['act1','act2','act3']);
+  const history=JSON.parse(store.items.get(CAMPAIGN_SAVE_KEY));
+  for(const patch of [{selectedWeapon:'water-flamethrower'},{artifacts:['marcin-mohawk']},
+    {completedActs:['act1','act2']},{unlockedWeapons:['blunderbuss','unknown']}]){
+    store.setItem(CAMPAIGN_SAVE_KEY,JSON.stringify({...history,...patch}));
+    assert.equal(readCampaignCheckpoint(store),null,JSON.stringify(patch));
+  }
 });

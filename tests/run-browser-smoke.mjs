@@ -102,8 +102,46 @@ try{
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'saved menu after DEBUG');
  assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'),'real saved WZNÓW survives DEBUG');
+
+ // PR104: exercise the REAL new Phaser scene, not just a pure school contract.
+ await tapMenu('DEBUG');
+ await sleep(300);
+ const schoolTarget=DEBUG_CHECKPOINTS.find(c=>c.id==='act4-opening');
+ assert.ok(schoolTarget,'Act IV opening checkpoint missing');
+ const locateSchool=()=>evaluate(`(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect(),o=m.children.list.find(o=>o.type==='Text'&&o.visible&&o.text===${JSON.stringify(schoolTarget.label)});return o?{x:r.x+o.x,y:r.y+o.y}:null})()`);
+ let schoolPoint=await locateSchool();
+ for(let k=0;k<25&&!schoolPoint;k++){
+   const r=await evaluate("(()=>{const r=window.__game.canvas.getBoundingClientRect();return {x:r.x+r.width/2,top:r.y+r.height*.28,bottom:r.y+r.height*.73}})()");
+   await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:r.x,y:r.bottom,id:2}]});
+   for(let j=1;j<=5;j++)await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:r.x,y:r.bottom+(r.top-r.bottom)*j/5,id:2}]});
+   await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+   await sleep(70);schoolPoint=await locateSchool();
+ }
+ assert.ok(schoolPoint,'DEBUG checkpoint scroll did not reach Act IV opening');
+ await touch(schoolPoint.x,schoolPoint.y);
+ await wait("window.__game.scene.isActive('ActTitle')",'Act IV title',3200);
+ try{
+   await wait("window.__game.scene.isActive('School')",'Act IV school scene',6000);
+ }catch(error){
+   const diagnostic=await evaluate("(()=>{const g=window.__game;return {scenes:Object.keys(g.scene.keys).map(id=>({id,active:g.scene.isActive(id),paused:g.scene.isPaused(id)})),act:g.registry.get('campaign-run')?.actId}})()");
+   throw new Error(error.message+' '+JSON.stringify({diagnostic,exceptions}));
+ }
+ const schoolState=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=s.run;return {act:r.actId,selected:r.selectedWeapon,owned:[...r.unlockedWeapons],artifacts:[...r.artifacts],player:{x:s.player.x,y:s.player.y},obstacles:s.obstacles.map(o=>o.id),w:s.physics.world.bounds.width,h:s.physics.world.bounds.height}})()");
+ assert.equal(schoolState.act,'act4','DEBUG handoff reached Act IV');
+ assert.notEqual(schoolState.selected,'water-flamethrower','water is Act III-only');
+ assert.ok(schoolState.owned.includes('water-flamethrower'),'water history retained');
+ assert.ok(schoolState.artifacts.includes('bogdan-hunting-horn'),'horn inherited');
+ assert.deepEqual(schoolState.obstacles,['chapel','school','bicycleRack']);
+ assert.deepEqual([schoolState.w,schoolState.h],[1800,1200]);
+ await wait("!window.__game.scene.getScene('School').introActive",'Captain enters chapel',8000);
+ const schoolMenu=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
+ await touch(schoolMenu.x,schoolMenu.y);
+ await wait("window.__game.scene.isActive('Menu')",'Act IV MENU button',3000);
+ assert.equal(await evaluate("window.__game.scene.isPaused('School')"),true);
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('School')",'Act IV in-memory WZNÓW',3000);
  assert.deepEqual(exceptions,[],'uncaught Chromium exceptions');
- console.log('PASS FAST real Chromium: menu, DEBUG touch/scroll/checkpoint, Act II -> title -> Volcano, handoff invariants, saved WZNÓW');
+ console.log('PASS FAST real Chromium: menu, DEBUG Act II/IV, handoffs, school placeholders, Act IV pause/resume and water filtering');
  console.log('FAST runtime ms',Date.now()-started);
 }finally{
  socket?.close();chrome?.kill('SIGKILL');vite.kill('SIGTERM');await sleep(150);
