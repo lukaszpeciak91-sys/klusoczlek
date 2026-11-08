@@ -637,12 +637,16 @@ try{
  const directHP=await evaluate("(()=>{const g=window.__game,s=g.scene.getScene('School');return {hp:s.run.hp,max:s.run.maxHp,weapon:s.weapon,label:s.hpText.text,intro:s.introActive,captain:!!s.captainArrival,arrival:s.captainArrival?.arrived,departing:s.captainDeparting,menu:g.scene.isActive('Menu')}})()");
  assert.deepEqual([directHP.hp,directHP.max,directHP.weapon,directHP.label,directHP.captain,directHP.menu],[5,5,'rifle','HP 5/5',true,false]);
  assert.ok(directHP.intro||directHP.departing||directHP.arrival,'approved Captain Marian chapel introduction');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.dialogueState.id==='act4-captain-opening'&&s.captainDialogueStarted&&s.captainArrival.arrived})()",'direct Act III -> IV handoff starts approved Captain dialogue',5000);
+ assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return [s.dialogueState.index,s.introActive,s.captainDeparting,s.combat.started,s.run.artifacts.has('bogdan-hunting-horn')]})()"),
+  [0,true,false,false,true],'one opening after direct title handoff; Captain remains stopped and horn remains');
  const pause=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
  await touch(pause.x,pause.y);
  await wait("window.__game.scene.isPaused('School')&&window.__game.scene.isActive('Menu')",'Act IV MENU after direct handoff',3000);
  await tapMenu('WZNÓW');
  await wait("window.__game.scene.isActive('School')",'Act IV WZNÓW after direct handoff',3000);
- assert.equal(await evaluate("window.__game.scene.getScene('School').run.hp"),5);
+ assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return [s.run.hp,s.dialogueState.id,s.dialogueState.index,s.captainDialogueStarted,s.captainDeparting]})()"),
+  [5,'act4-captain-opening',0,true,false],'MENU/WZNÓW preserves first Captain dialogue panel and HP');
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'Menu after saved Act IV reload');
  assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'));
@@ -653,6 +657,9 @@ try{
  assert.deepEqual([savedHP.hp,savedHP.max,savedHP.weapon,savedHP.label,savedHP.horn,savedHP.captain,savedHP.menu],[5,5,'rifle','HP 5/5',true,true,false]);
  assert.ok(savedHP.intro||savedHP.departing||savedHP.arrived,'Captain intro retained after checkpoint reload');
  assert.deepEqual(savedHP.completed.sort(),['act1','act2','act3']);
+ await finishCaptainOpening();
+ assert.equal(await evaluate("window.__game.scene.getScene('School').captainDialogueStarted"),true,
+  'autosave resume played exactly one Captain intro for its new scene entry');
  console.log('PASS Act III -> IV real Chromium: 2/5 during escape/extraction, 5/5 live title, 5/5 autosave reload, horn, rifle, Marian and MENU/WZNÓW');
  // Approved Act III horn: stage the real Bogdan boss using existing DEBUG,
  // then verify original two-panel finale, award, art and eruption sequence.
