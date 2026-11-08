@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {LAVA_BARKS,LAVA_INEFFECTIVE_BARKS,LAVA_TYPES,lavaDamage} from '../src/volcano-combat.js';
+import {createLavaEnemy,lavaEnemyStep,LAVA_BARKS,LAVA_INEFFECTIVE_BARKS,LAVA_TYPES,lavaDamage} from '../src/volcano-combat.js';
 import {VOLCANO_ZONES,createPlatformProgression} from '../src/volcano-platforms.js';
 import {CONTINUOUS_PALETTES,continuousDamageAllowed} from '../src/continuous-weapon.js';
 import {shouldSpawnAct2Health,collectAct2Health} from '../src/act2-health-pickup.js';
@@ -56,4 +56,20 @@ test('eruption pulses are bounded to escape and cleanup restores camera/lava',()
  assert.ok(s.includes('this.cameras.main.shake(strong?340:230,strong?.005:.003)'));
  assert.ok(s.includes('this.cameras.main.shakeEffect.reset();this.lava.setAlpha(1).clearTint()'));
  assert.ok(s.includes('this.combat.prepareZones()'));
+});
+
+test('volcano combat imports and staged enemies remain gated until activated',async()=>{
+ const module=await import('../src/volcano-combat.js');
+ assert.equal(typeof module.createVolcanoCombat,'function');
+ const s=source('../src/volcano-combat.js');
+ assert.ok(s.includes('enemy.zoneId=null;enemy.engaged=true'));
+ assert.ok(s.includes('if(enemy.dead||enemy.engaged===false)continue'));
+ assert.ok(s.includes('enemy.engaged=true;'));
+ assert.ok(s.includes('enemy.engaged!==false&&inFlameCone'));
+ assert.ok(s.includes('e.engaged!==false&&Math.hypot'));
+ assert.ok(!s.includes("'-'+applied"));
+ assert.ok(!s.includes('const number=scene.add.text('));
+ const enemy=createLavaEnemy('lawostworek-1',300,300,1);
+ assert.equal(enemy.hp,3);
+ assert.equal(lavaDamage('water-flamethrower',1),1);
 });
