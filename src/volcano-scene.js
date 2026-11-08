@@ -609,7 +609,7 @@ export class VolcanoScene extends Phaser.Scene {
         }
       }
     }
-    // World-space eruption only: screen-space HUD and touch controls never move.
+    // Short camera impulses are capped for touch readability; lava brightness follows each peak.
     this.updateEruption();
   }
   resetEruption(){
