@@ -106,7 +106,9 @@ export function createVolcanoCombat(scene){
     const def=LAVA_TYPES[type],preferred=zone.spawns[i];
     const avoid=[{x:scene.player.x,y:scene.player.y,radius:110},
      ...enemies.filter(e=>!e.dead).map(e=>({x:e.x,y:e.y,radius:e.radius}))];
-    const point=findZoneSpawn(scene.walkability,zone,preferred,def.radius,avoid,zone.id==='fairy'?260:125);
+    // Keep the entrance pre-stage on the higher platform, never near the start.
+     const point=findZoneSpawn(scene.walkability,zone,preferred,def.radius,avoid,
+      zone.id==='entrance'?65:zone.id==='fairy'?260:125);
     if(!point){console.warn('[Volcano] pre-stage invalid '+zone.id+' '+i);continue;}
     const enemy=createLavaEnemy(type,point.x,point.y,VOLCANO_ZONES.indexOf(zone)*10+i);
     enemy.zoneId=zone.id;enemy.engaged=false;
@@ -170,7 +172,7 @@ export function createVolcanoCombat(scene){
  function stopFire(){waterState.stop();fireState.stop();resetFiring(firing);stream.clear();for(const state of [waterState,fireState]){for(const p of state.particles)p.object.destroy();state.particles.length=0;state.emissionAt=null;}for(const shot of shots)shot.sprite.destroy();shots.length=0;}
  function start(){if(active)return;active=true;activateZone('entrance');}
  function update(dt,now,aim,held,weapon){
-  if(!active||scene.defeated||scene.run.hp<=0){stopFire();return;}
+  if(!active||scene.defeated||scene.run.hp<=0||scene.dialogueState.id){stopFire();return;}
   const zoneId=zoneForPosition(scene.player);
   if(scene.finale?.state!=='ESCAPE_ACTIVE'&&zoneId&&zoneId!=='entrance')activateZone(zoneId);
   const sec=Math.min(50,dt)/1000;
@@ -212,13 +214,13 @@ export function createVolcanoCombat(scene){
   }
   for(const enemy of enemies){
    if(enemy.dead||enemy.engaged===false)continue;
-   if(openingSafe){clearBark(enemy.barkState,enemy.bark);continue;}
+   if(openingSafe)clearBark(enemy.barkState,enemy.bark); // no damage; movement still runs
    advanceIgnition(enemy.ignition,now);
    const p=lavaEnemyStep(enemy,scene.player,dt,now,scene.walkability);
    const dx=p.x-enemy.x,dy=p.y-enemy.y;
    enemy.x=p.x;enemy.y=p.y;enemy.sprite.setPosition(p.x,p.y);
    if(Math.hypot(dx,dy)>.01){enemy.facing=facingOf(dx,dy,enemy.facing);if(sprites[enemy.type]===enemy.type)enemy.sprite.setFrame(playerFrame(enemy.facing));}
-   const speechAllowed=!scene.dialogueState.id&&['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(scene.finale?.state);
+   const speechAllowed=!openingSafe&&!scene.dialogueState.id&&['BOGDAN_ACTIVE','ESCAPE_ACTIVE'].includes(scene.finale?.state);
    const speaking=enemies.some(e=>e!==enemy&&!e.dead&&e.bark?.visible);
    if(ordinaryLavaBarkDue(enemy,now,!speechAllowed,Number(speaking))){
      showMonsterBark(enemy.bark,enemy.barkState,LAVA_BARKS,now,{cooldown:6000,duration:1700});
