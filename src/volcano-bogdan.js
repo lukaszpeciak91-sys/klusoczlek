@@ -232,7 +232,6 @@ export function createBogdanEncounter(scene,Phaser){
  function damage(amount,now){
   if(!active||defeated||now-lastHit<150)return false;
   lastHit=now;const applied=Math.min(hp,Math.max(0,amount));hp=Math.max(0,hp-applied);
-  if(applied>0)showDamageNumber(applied);
   if(bogdan?.active){bogdan.setTintFill(0xffffff);scene.time.delayedCall(110,()=>{if(!disposed&&bogdan?.active)bogdan.clearTint();});}
   if(hp>0&&scene.finale?.state==='BOGDAN_ACTIVE'&&!scene.dialogueState.id)
    showMonsterBark(bossBark,bossBarkState,BOGDAN_BARKS.damage,now,{cooldown:5600});
