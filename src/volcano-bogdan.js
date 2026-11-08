@@ -195,6 +195,16 @@ export function createBogdanEncounter(scene,Phaser){
   };
   return true;
  }
+ function debugBeginBoss(){
+  if(!ready||disposed||active||!bogdan?.active)return false;
+  started=true;departing=false;departed=true;leftApartment=true;confrontation=true;
+  if(marlena?.active)marlena.destroy();
+  return activate();
+ }
+ function debugDefeatBoss(){
+  if(!debugBeginBoss())return false;
+  return damage(hp,scene.time.now+200);
+ }
  function beginConfrontation(){
   if(!leftApartment||!ready||confrontation||scene.defeated||scene.dialogueState.id)return false;
   confrontation=true;return true;
@@ -316,7 +326,7 @@ export function createBogdanEncounter(scene,Phaser){
   disposed=true;bossPresentation.dispose();departureTick=null;projectiles.length=0;graphics.destroy();bossLabel.destroy();bossHealth.destroy();bark.destroy();bossBark.destroy();
   for(const actor of actors)if(actor.active)actor.destroy();
  });
- return {prepare,beginArgument,depart,beginConfrontation,activate,damage,update,consumeDefeat,removeDefeatedSprite,
+ return {prepare,beginArgument,depart,beginConfrontation,activate,debugBeginBoss,debugDefeatBoss,damage,update,consumeDefeat,removeDefeatedSprite,
   get ready(){return ready;},get failed(){return failed;},get argumentStarted(){return started;},
   get leftApartment(){return leftApartment;},get departed(){return departed;},get active(){return active;},get defeated(){return defeated;},
   get hp(){return hp;},get deathPoint(){return bogdan?.active?{x:bogdan.x,y:bogdan.y}:null;},get hitRadius(){return BOGDAN_HIT_RADIUS;},get hostileProjectileCount(){return projectiles.length;},get defeatPending(){return defeatPending;},get bogdan(){return bogdan;},get marlena(){return marlena;}};
