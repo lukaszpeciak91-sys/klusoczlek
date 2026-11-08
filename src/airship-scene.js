@@ -653,7 +653,8 @@ export class AirshipScene extends Phaser.Scene {
     // Segment-based wall collision prevents crossing the solid building.
     if(this.wheelhouse.visible)point=stepAroundWheelhouse(this.player,point);
     // Marian's small feet-only collision never enters the enemy physics path.
-    point=resolveCaptainFeet(this.player,point,this.captainActor);
+    // Marian is a visual/story companion, not a physical deck obstacle.
+    // Keep wheelhouse and railing collision unchanged.
     this.player.setPosition(point.x,point.y);
     this.player.body.reset(point.x,point.y);
     // Roof must occlude Aloes when he walks behind the building, but not
