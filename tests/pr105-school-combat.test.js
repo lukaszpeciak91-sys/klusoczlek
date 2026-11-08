@@ -52,7 +52,7 @@ test('R4-R5 gameplay clock excludes intro, MENU pause, hidden, portrait and dial
  assert.equal(advanceGameplayClock(clock,200000,true),1000);
  assert.equal(advanceGameplayClock(clock,201000,true),2000);
  const school=source('../src/school-scene.js'),combat=source('../src/school-combat.js');
- assert.ok(school.includes('this.introActive=false;\n          this.openingPending=true;'));
+ assert.ok(school.includes('this.introActive=false;\n          this.syncControls();'));
  assert.ok(school.includes("this.combat.start(); // The first ordinary wave begins only after DALEJ."));
  assert.ok(school.includes('if(!this.controlsAllowed()||this.introActive||this.defeated){this.combat.suspend();return;}'));
  assert.ok(school.includes("this.events.on(Phaser.Scenes.Events.PAUSE,reset)"));
@@ -78,7 +78,7 @@ test('R6 spawn selection uses camera-aware Act I candidates, connected navigatio
 });
 test('R7 enemies retain Act I pursuit and swept steering around chapel, school and bicycle rack',()=>{
  for(const [x,y,direction] of [
-  [330,500,{x:0,y:-1}],[1360,660,{x:0,y:-1}],[1510,915,{x:0,y:-1}]
+  [330,1000,{x:0,y:-1}],[1360,660,{x:0,y:-1}],[1510,915,{x:0,y:-1}]
  ]){
   let e={type:'bobrozombi',x,y,hp:3,seed:2};
   assert.ok(schoolWalkable(e,ENEMY_TYPES.bobrozombi.radius));
@@ -90,7 +90,7 @@ test('R7 enemies retain Act I pursuit and swept steering around chapel, school a
    assert.ok(schoolWalkable(e,ENEMY_TYPES.bobrozombi.radius),'enemy entered solid footprint');
   }
  }
- const player={x:330,y:480};
+ const player={x:330,y:990};
  const after=schoolStep(player,{x:0,y:-1},50);
  assert.ok(schoolWalkable(after,PLAYER_RADIUS));
 });
@@ -113,19 +113,19 @@ test('R8-R9 all three approved weapons work, water history is never selected or 
  assert.equal(combat.includes("drawContinuousStream(stream,origin,aim,now,'water-flamethrower'"),false);
 });
 test('R10 projectile ordering and flame LOS use the existing solid footprint predicates',()=>{
- const from={x:120,y:300},to={x:700,y:300};
+ const from={x:120,y:840},to={x:700,y:840};
  const wall=firstFootprintHit(from,to,SCHOOL_OBSTACLES,5);
  assert.ok(wall&&wall.obstacle.id==='chapel');
- const enemy={type:'bobrozombi',x:600,y:300,hp:3};
+ const enemy={type:'bobrozombi',x:600,y:840,hp:3};
  const hit=enemyProjectileHit(from,to,enemy,5);
  assert.ok(hit&&wall.t<hit.t,'chapel blocks a projectile before monster hit');
  assert.ok(segmentObstacleHit(from,to,SCHOOL_OBSTACLES,5));
- assert.equal(enemyFlameVisible({x:170,y:300},{x:1,y:0},
-   {type:'bobrozombi',x:300,y:300,hp:3},SCHOOL_OBSTACLES),false);
- assert.equal(enemyFlameVisible({x:500,y:300},{x:1,y:0},
-   {type:'bobrozombi',x:600,y:300,hp:3},SCHOOL_OBSTACLES),true);
- assert.equal(flameTargetVisible({x:170,y:300},{x:1,y:0},
-   {x:300,y:300},21,SCHOOL_OBSTACLES),false);
+ assert.equal(enemyFlameVisible({x:170,y:840},{x:1,y:0},
+   {type:'bobrozombi',x:300,y:840,hp:3},SCHOOL_OBSTACLES),false);
+ assert.equal(enemyFlameVisible({x:530,y:840},{x:1,y:0},
+   {type:'bobrozombi',x:650,y:840,hp:3},SCHOOL_OBSTACLES),true);
+ assert.equal(flameTargetVisible({x:170,y:840},{x:1,y:0},
+   {x:300,y:840},21,SCHOOL_OBSTACLES),false);
 });
 test('R11 contact cooldown, HP zero, kill once and no projectile ghost after death',()=>{
  assert.equal(applyEnemyHit(ENEMY_TYPES.bocianolak.hp,99),0);
