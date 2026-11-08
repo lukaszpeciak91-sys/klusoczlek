@@ -6,7 +6,7 @@ import {FAIRY_MARK} from './volcano-npcs.js';
 export const VOLCANO_ZONES=Object.freeze([
  Object.freeze({id:'entrance',bounds:Object.freeze({minX:55,maxX:625,minY:720,maxY:1180}),
   enemies:Object.freeze(['lawostworek-1','lawostworek-2']),
-  spawns:Object.freeze([{x:320,y:880},{x:430,y:945},{x:250,y:920},{x:405,y:815}])}),
+  spawns:Object.freeze([{x:355,y:815},{x:480,y:820},{x:250,y:920},{x:405,y:815}])}),
  Object.freeze({id:'middle',bounds:Object.freeze({minX:625,maxX:1420,minY:560,maxY:1170}),
   enemies:Object.freeze(['lawostworek-1','lawostworek-1','lawostworek-2']),
   spawns:Object.freeze([{x:900,y:920},{x:1030,y:850},{x:760,y:760},{x:1110,y:940}])}),
@@ -17,6 +17,16 @@ export const VOLCANO_ZONES=Object.freeze([
   enemies:Object.freeze(['lawostworek-1','lawostworek-1','lawostworek-2','lawostworek-2']),
   spawns:Object.freeze([{x:315,y:300},{x:455,y:280},{x:220,y:225},{x:530,y:315},{x:360,y:185}])})
 ]);
+// Trigger tracks actual, terrain-validated pre-staged enemies (including small fallback offsets).
+export const LAWOS_OPENING_TRIGGER_RADIUS=135;
+export function lawosDialogueTrigger(enemies){
+ if(enemies.length!==2)return null;
+ return Object.freeze({x:Math.round((enemies[0].x+enemies[1].x)/2),
+  y:Math.round((enemies[0].y+enemies[1].y)/2),radius:LAWOS_OPENING_TRIGGER_RADIUS});
+}
+export function lawosTriggerReached(player,trigger){
+ return Boolean(trigger&&Math.hypot(player.x-trigger.x,player.y-trigger.y)<=trigger.radius);
+}
 export function inVolcanoZone(zone,point){
  const b=zone.bounds;
  return point.x>=b.minX&&point.x<=b.maxX&&point.y>=b.minY&&point.y<=b.maxY;
