@@ -20,6 +20,33 @@ export function drawContinuousStream(graphics,origin,aim,now,weapon,blocked=()=>
  graphics.clear();
  if(!palette)return;
  const normal={x:-aim.y,y:aim.x};
+ if(weapon==='water-flamethrower'){
+  // A coherent pressurized jet, not the fire weapon's expanding triangles.
+  const range=tune.range,segments=12;
+  let previous=origin;
+  for(let i=1;i<=segments;i++){
+   const distance=range*i/segments;
+   const wobble=Math.sin(now*.014+i*.85)*Math.min(2.8,distance*.018);
+   const point={x:origin.x+aim.x*distance+normal.x*wobble,
+    y:origin.y+aim.y*distance+normal.y*wobble};
+   if(blocked(previous,point))break;
+   graphics.lineStyle(10,0x1376b5,.78).lineBetween(previous.x,previous.y,point.x,point.y);
+   graphics.lineStyle(5,0x45d4f8,.9).lineBetween(previous.x,previous.y,point.x,point.y);
+   graphics.lineStyle(2,0xd9fbff,.83).lineBetween(previous.x,previous.y,point.x,point.y);
+   previous=point;
+  }
+  for(let i=0;i<12;i++){
+   const d=(i*41+now*.21)%range;
+   const sideways=Math.sin(i*3.7+now*.017)*Math.min(7,d*.045);
+   const point={x:origin.x+aim.x*d+normal.x*sideways,y:origin.y+aim.y*d+normal.y*sideways};
+   if(!blocked(origin,point))graphics.fillStyle(i%3?0x5bd9ff:0xe2fcff,.9).fillCircle(point.x,point.y,1.8+i%3);
+  }
+  if(!blocked(origin,previous)){
+   graphics.lineStyle(2,0xc7f9ff,.8).strokeCircle(previous.x,previous.y,5+Math.sin(now*.02)*2);
+  }
+  graphics.fillStyle(0xd9fbff,.96).fillCircle(origin.x,origin.y,4);
+  return;
+ }
  for(const [color,factor,alpha] of palette.layers){
   graphics.fillStyle(color,alpha);
   let last=origin;

@@ -12,7 +12,7 @@ export const VOLCANO_ZONES=Object.freeze([
   spawns:Object.freeze([{x:900,y:920},{x:1030,y:850},{x:760,y:760},{x:1110,y:940}])}),
  Object.freeze({id:'apartment-approach',bounds:Object.freeze({minX:1080,maxX:1740,minY:250,maxY:560}),
   enemies:Object.freeze(['lawostworek-1','lawostworek-2','lawostworek-1']),
-  spawns:Object.freeze([{x:1190,y:510},{x:1270,y:475},{x:1135,y:440}])}),
+  spawns:Object.freeze([{x:1135,y:535},{x:1220,y:535},{x:1095,y:500}])}),
  Object.freeze({id:'fairy',bounds:Object.freeze({minX:65,maxX:680,minY:105,maxY:470}),
   enemies:Object.freeze(['lawostworek-1','lawostworek-1','lawostworek-2','lawostworek-2']),
   spawns:Object.freeze([{x:315,y:300},{x:455,y:280},{x:220,y:225},{x:530,y:315},{x:360,y:185}])})

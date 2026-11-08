@@ -50,6 +50,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.defeated=false;
     this.finale=createVolcanoFinaleState();
     this.openingSafeUntil=0;
+    this.escapePulseIndex=0;
     this.escapeBurst=null;this.escapeSpawnAt=0;this.escapeSpawned=0;this.escapeEnemies=[];
     this.escapeShockAt=0;
     this.bogdanHeart=null;this.bogdanHeartPoint=null;this.bogdanHeartCollected=false;
@@ -282,6 +283,7 @@ export class VolcanoScene extends Phaser.Scene {
         const playerStart=nearestVolcanoSpawn(mask,this.player.x,this.player.y,PLAYER_RADIUS);
         if(!playerStart)throw Error('no valid player spawn in terrain mask');
         this.walkability=mask;
+        this.combat.prepareZones();
         this.player.setPosition(playerStart.x,playerStart.y);
         this.player.body.reset(playerStart.x,playerStart.y);
         void this.boss.prepare().then(ready=>{
@@ -550,7 +552,7 @@ export class VolcanoScene extends Phaser.Scene {
     if(!this.finale.advance('ALOES_WARNING'))return;
     this.escapeSpawned=0;this.escapeSuccessfulSpawns=0;
     this.escapeSpawnAt=this.time.now+1800;
-    this.escapeShockAt=this.time.now+3500;
+    this.escapeShockAt=this.time.now+1200;this.escapePulseIndex=0;
     this.escapeClock.setVisible(true).setText('UCIEKAJ! '+formatEscape(this.finale.remaining));
     void this.spawnExtractionCaptain();
     this.syncControls();
@@ -602,20 +604,21 @@ export class VolcanoScene extends Phaser.Scene {
         }
       }
     }
-    // World-only lava pulse: HUD remains stable; never use camera flash/shake on controls.
-    this.lava.setAlpha(.86+.14*Math.sin(this.time.now/850));
+    // World-space eruption only: screen-space HUD and touch controls never move.
+    this.lava.setAlpha(.83+.17*Math.sin(this.time.now/290));
     if(this.time.now>=this.escapeShockAt){
-      this.escapeShockAt=this.time.now+7200;
-      this.cameras.main.shake(260,.0018);
-      this.lava.setTint(0xffaa79);
-      this.time.delayedCall(450,()=>{if(!this.disposed&&this.lava?.active)this.lava.clearTint();});
+      const strong=this.escapePulseIndex++%3===2;
+      this.escapeShockAt=this.time.now+(strong?5600:4100);
+      this.cameras.main.shake(strong?340:230,strong?.005:.003);
+      this.lava.setTint(strong?0xff7044:0xffbc72);
+      this.time.delayedCall(strong?500:300,()=>{if(!this.disposed&&this.lava?.active&&this.finale.state==='ESCAPE_ACTIVE')this.lava.clearTint();});
     }
   }
   escapeFailed(){
     if(this.finale.state==='ESCAPE_ACTIVE')this.finale.fail();
     if(this.finale.state!=='ESCAPE_RETRY')return;
     this.resetMovement();this.combat.clearTransientShots();this.combat.clearEscapeEnemies();this.escapeClock.setVisible(false);this.retryRoot.setVisible(true);
-    this.lava.setAlpha(1).clearTint();
+    this.cameras.main.shakeEffect.reset();this.lava.setAlpha(1).clearTint();
   }
   retryEscape(){
     if(this.finale.state==='ALOES_WARNING'){this.retryRoot.setVisible(false);this.startEscape();return;}
