@@ -5,6 +5,12 @@ import {SCHOOL_OBSTACLES,SCHOOL_PLACES,schoolWalkable} from './school-contract.j
 import {resolveObstaclePosition} from './obstacles.js';
 import {firstFootprintHit} from './obstacle-geometry.js';
 
+export const BLAZEJ_OBSERVER_BARKS=Object.freeze([
+ 'Szybciej!','Na niego!','Co z wami?','Do ataku!'
+]);
+export const BLAZEJ_BOSS_BARKS=Object.freeze([
+ 'Nie oddam roweru!','Zniszczę Cię!','To je moje!'
+]);
 export const BLAZEJ_BICYCLE_ID='blazej-bicycle';
 export const BLAZEJ_START=Object.freeze({x:1335,y:785});
 export const BLAZEJ_CONFRONT_RADIUS=225;

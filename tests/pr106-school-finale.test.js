@@ -48,7 +48,7 @@ test('PR106 Błażej is a passive, invulnerable visual observer until authoritat
  assert.ok(combat.includes("phase!=='BLAZEJ_PENDING'||living().length"));
  assert.ok(combat.includes("get target(){return active&&!defeated?actor:null;}")===false);
  assert.ok(combat.includes('scene.blazej?.target'));
- assert.ok(scene.includes("blazejConfrontationReady(this.schoolPhase,this.player,this.blazej.actor)"));
+ assert.ok(scene.includes("this.bossConfronted=this.beginSchoolDialogue('act4-blazej-final')"));
 });
 test('PR106 telegraph, radial volleys, jump landing and solid obstacles are bounded',()=>{
  const state=createBossAttack();assert.equal(state.phase,'chase');
@@ -97,9 +97,11 @@ test('PR106 only approved dialogue lines and Act I portrait presentation; no sto
  const confrontation=DIALOGUES['act4-blazej-confrontation'].map(line=>line[2]);
  for(const text of ['Kazał pan, musiał sam!','Nie wiem kim jesteś ale mam ochotę Cię rozgnieść',
   'Potrzebuję na chwilę Twojego roweru, dasz się karnąć?',
-  'O Ty kutwo! Ten rower, który ukradłem na pierwszą komunię!'])
+  'Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać'])
   assert.ok(confrontation.includes(text),text);
- assert.equal(confrontation.length,6);
+ assert.equal(confrontation.length,5);
+ assert.deepEqual(DIALOGUES['act4-blazej-final'],[['zubrokryptyda','BŁAŻEJ','Ech, kazał pan, musiał sam!']]);
+ assert.equal(confrontation.some(text=>text.includes('na pierwszą komunię')),false);
  const ending=DIALOGUES['act4-chapel-ending'];
  assert.deepEqual(ending.slice(0,3).map(x=>x[2]),['Łuuuuuu...','Łeeee...','Łuuuuu...']);
  assert.ok(ending.at(-1)[2].includes('Mam nadzieję, że z Marianem'));

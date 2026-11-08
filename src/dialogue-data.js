@@ -1,4 +1,9 @@
 export const DIALOGUES=Object.freeze({
+ 'act4-maciek-seba':[
+  ['bobrozombi','MACIEK','Najpierw Marcin...potem Bogdan...\no co chodzi temu Kłusoczłeku?'],
+  ['bobrozombi','MACIEK','I w ogóle Sebuś, czemu Kłusoczłek,\nże kłusuje jak koń?'],
+  ['bocianolak','SEBA','Ty to Maciek jednak głupi jesteś...\nA to nie jest czasem on? Do ataku!']
+ ],
  'act4-blazej-observer':[
   ['zubrokryptyda','BŁAŻEJ','...i ja wtedy normalnie od razu'],
   ['bobrozombi','BOBROZOMBI','Ty to jednak Błażej jesteś gość']
@@ -7,9 +12,11 @@ export const DIALOGUES=Object.freeze({
   ['zubrokryptyda','BŁAŻEJ','Kazał pan, musiał sam!'],
   ['zubrokryptyda','BŁAŻEJ','Nie wiem kim jesteś ale mam ochotę Cię rozgnieść'],
   ['aloes','ALOES','Potrzebuję na chwilę Twojego roweru, dasz się karnąć?'],
-  ['zubrokryptyda','BŁAŻEJ','Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem!'],
-  ['zubrokryptyda','BŁAŻEJ','O Ty kutwo! Ten rower, który ukradłem na pierwszą komunię!'],
+  ['zubrokryptyda','BŁAŻEJ','Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać'],
   ['zubrokryptyda','BŁAŻEJ','Zostaw mój rower, ty kutwo!\nChłopaki, na niego!']
+ ],
+ 'act4-blazej-final':[
+  ['zubrokryptyda','BŁAŻEJ','Ech, kazał pan, musiał sam!']
  ],
  'act4-chapel-ending':[
   ['chapel','KAPLICA','Łuuuuuu...'],
