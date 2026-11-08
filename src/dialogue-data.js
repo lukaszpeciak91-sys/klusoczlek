@@ -1,4 +1,22 @@
 export const DIALOGUES=Object.freeze({
+ 'act4-blazej-observer':[
+  ['zubrokryptyda','BŁAŻEJ','...i ja wtedy normalnie od razu'],
+  ['bobrozombi','BOBROZOMBI','Ty to jednak Błażej jesteś gość']
+ ],
+ 'act4-blazej-confrontation':[
+  ['zubrokryptyda','BŁAŻEJ','Kazał pan, musiał sam!'],
+  ['zubrokryptyda','BŁAŻEJ','Nie wiem kim jesteś ale mam ochotę Cię rozgnieść'],
+  ['aloes','ALOES','Potrzebuję na chwilę Twojego roweru, dasz się karnąć?'],
+  ['zubrokryptyda','BŁAŻEJ','Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem!'],
+  ['zubrokryptyda','BŁAŻEJ','O Ty kutwo! Ten rower, który ukradłem na pierwszą komunię!'],
+  ['zubrokryptyda','BŁAŻEJ','Zostaw mój rower, ty kutwo!\nChłopaki, na niego!']
+ ],
+ 'act4-chapel-ending':[
+  ['chapel','KAPLICA','Łuuuuuu...'],
+  ['chapel','KAPLICA','Łeeee...'],
+  ['chapel','KAPLICA','Łuuuuu...'],
+  ['aloes','ALOES','Co to za dziwne dźwięki?\nMam nadzieję, że z Marianem\nwszystko w porządku...']
+ ],
  'act3-bogdan-final':[
   ['bogdan','BOGDAN','GŁUPCZE! Przez ciebie przypadkiem WŁĄCZYŁEM główny zawór lawy!'],
   ['bogdan','BOGDAN','Powiedz Marlenie... Niech ją piekło pochłonie... Bleee... *zdechł*']
