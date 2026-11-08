@@ -217,7 +217,7 @@ export class VolcanoScene extends Phaser.Scene {
       if(this.fullscreenButton)this.fullscreenButton.hidden=this.fullscreenPreviousHidden;
       this.pressureBar.destroy();this.playerVisual.destroy();this.hpFace.destroy();
       this.escapeBurst?.destroy();this.bogdanHeart?.destroy();
-      if(this.extractionActor!==this.captainArrival.actor)this.extractionActor?.destroy();
+      // CaptainArrival owns and destroys its actor on scene shutdown.
     });
     resize();
     enforceOrientationOnSceneStart(this);
@@ -431,14 +431,14 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.extractionLoading||this.disposed||!this.extractionPoint)return;
     this.extractionLoading=true;
     try{
-      const key='npc-captain',point=this.extractionPoint;
-      if(!this.textures.exists(key))await this.captainArrival.loading;
-      if(this.disposed||!this.extractionPoint)return;
-      // Reposition the original Captain; never create a second world instance.
+      await this.captainArrival.loading;
+      if(this.disposed||!this.extractionPoint||this.finale.state!=='ESCAPE_ACTIVE')return;
+      // Only CaptainArrival owns a world actor. Never create a finale clone.
+      if(!this.captainArrival.actor?.active)this.captainArrival.start();
       const existing=this.captainArrival.actor;
-      if(existing?.active){existing.setPosition(point.x,point.y).setDepth(13);this.extractionActor=existing;}
-      else if(this.textures.exists(key))this.extractionActor=this.add.sprite(point.x,point.y,key,2).setOrigin(.5,1).setScale(.75).setDepth(13);
-      else this.extractionActor=this.add.circle(point.x,point.y-35,23,0x477b8e).setDepth(13);
+      if(!existing?.active){console.error('[Volcano Finale] Captain actor unavailable');return;}
+      existing.setPosition(this.extractionPoint.x,this.extractionPoint.y).setDepth(13);
+      this.extractionActor=existing;
     }finally{this.extractionLoading=false;}
   }
   updateEscape(delta){
