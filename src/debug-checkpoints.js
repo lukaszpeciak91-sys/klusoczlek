@@ -22,6 +22,9 @@ export const DEBUG_CHECKPOINTS=Object.freeze([
   Object.freeze({id:'act4-school',actId:'act4',scene:'School',label:'AKT IV — PRZY SZKOLE'}),
   Object.freeze({id:'act4-combat',actId:'act4',scene:'School',label:'AKT IV — WALKA 1/4'}),
   Object.freeze({id:'act4-wave4',actId:'act4',scene:'School',label:'AKT IV — FALA 4/4'}),
+  Object.freeze({id:'act4-blazej',actId:'act4',scene:'School',label:'AKT IV — BŁAŻEJ ROZMOWA'}),
+  Object.freeze({id:'act4-boss',actId:'act4',scene:'School',label:'AKT IV — BŁAŻEJ BOSS'}),
+  Object.freeze({id:'act4-finale',actId:'act4',scene:'School',label:'AKT IV — ROWER / FINAŁ'}),
 ]);
 export const DEBUG_IDS=new Set(DEBUG_CHECKPOINTS.map(item=>item.id));
 
