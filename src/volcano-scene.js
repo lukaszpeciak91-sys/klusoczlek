@@ -100,6 +100,7 @@ export class VolcanoScene extends Phaser.Scene {
         this.syncControls();
         // Dialogue now begins after meaningful player travel, not at first input.
       }else if(id==='act3-lawostworki'){
+        this.openingSafeUntil=this.time.now+3000;
         this.lawosComplete=true;
         this.npcs.finishLawos();
         this.revealFairyAfterLawos();
