@@ -253,11 +253,13 @@ export function createBogdanEncounter(scene,Phaser){
   if(!active||defeated||!bogdan?.active){clearBark(bossBarkState,bossBark);return;}
   const delta=Math.min(50,dt),phase=bossPhase(hp),p=scene.player;
   graphics.clear();
-  bossLabel.setPosition(bogdan.x,bogdan.y-120).setText('BOGDAN '+hp+'/'+BOGDAN_HP);
-  bossHealth.clear().fillStyle(0x0e0b10,1).fillRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3)
-   .fillStyle(0xf04835,1).fillRect(bogdan.x-59,bogdan.y-102,118*bossHpRatio(hp,BOGDAN_HP),7)
-   .lineStyle(3,0xffe8aa).strokeRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3);
-  syncMonsterBark(bossBark,bossBarkState,now,bogdan.x,bogdan.y-150,scene.finale?.state==='BOGDAN_ACTIVE');
+  const spriteTop=bogdan.y-bogdan.displayHeight;
+  const barTop=spriteTop-24;
+  bossLabel.setPosition(bogdan.x,barTop-18).setText('BOGDAN '+hp+'/'+BOGDAN_HP);
+  bossHealth.clear().fillStyle(0x0e0b10,1).fillRoundedRect(bogdan.x-62,barTop,124,13,3)
+   .fillStyle(0xf04835,1).fillRect(bogdan.x-59,barTop+3,118*bossHpRatio(hp,BOGDAN_HP),7)
+   .lineStyle(3,0xffe8aa).strokeRoundedRect(bogdan.x-62,barTop,124,13,3);
+  syncMonsterBark(bossBark,bossBarkState,now,bogdan.x,barTop-46,scene.finale?.state==='BOGDAN_ACTIVE');
   for(let i=projectiles.length-1;i>=0;i--){
    const shot=projectiles[i];shot.age+=delta;
    const nx=shot.x+shot.vx*delta/1000,ny=shot.y+shot.vy*delta/1000;
