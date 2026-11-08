@@ -8,7 +8,8 @@ test('debug destinations cover implemented Acts I–IV',()=>{
   'act1-opening','act1-marcin','act1-ending','act1-results',
   'act2-opening','act2-defense','act2-last15','act2-results',
   'act3-opening','act3-lawos','act3-fairy','act3-apartment','act3-boss','act3-escape',
-  'act4-opening','act4-school','act4-combat','act4-wave4']);
+  'act4-opening','act4-school','act4-combat','act4-wave4',
+  'act4-blazej','act4-boss','act4-finale']);
  assert.equal(DEBUG_IDS.size,DEBUG_CHECKPOINTS.length);
  assert.ok(DEBUG_CHECKPOINTS.every(x=>['Arena','Airship','Volcano','School'].includes(x.scene)));
  assert.equal(createDebugFixture('act3-opening')?.handoff.scene,'Volcano');
@@ -52,7 +53,7 @@ test('Airship debug fixtures satisfy actual PR61 handoff and do not complete Act
 });
 
 test('Act IV DEBUG uses a real Act III -> IV handoff without importing water as current weapon',()=>{
- for(const id of ['act4-opening','act4-school','act4-combat','act4-wave4']){
+ for(const id of ['act4-opening','act4-school','act4-combat','act4-wave4','act4-blazej','act4-boss','act4-finale']){
   const fixture=createDebugFixture(id);
   assert.ok(fixture);
   const {run,handoff}=fixture;
