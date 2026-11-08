@@ -7,8 +7,8 @@ import {applyPlayerContact} from './bobrozombi.js';
 
 export const APARTMENT=Object.freeze({
  trigger:Object.freeze({x:1300,y:370,radius:185}),
- marlena:Object.freeze({x:1400,y:305}),
- bogdan:Object.freeze({x:1500,y:315}),
+ marlena:Object.freeze({x:1400,y:313}),
+ bogdan:Object.freeze({x:1500,y:323}),
  exit:Object.freeze([{x:1350,y:330},{x:1250,y:400},{x:1150,y:440},{x:1030,y:470}])
 });
 export const MARLENA_BARKS=Object.freeze(['Mama miała rację!','Niech sam w tym smrodzie siedzi, pajac!']);
@@ -131,7 +131,7 @@ export function createBogdanEncounter(scene,Phaser){
     if(actors.some(actor=>Math.hypot(actor.x-p.x,actor.y-p.y)<70)){
      console.warn('[Volcano Boss] apartment actors would overlap: '+key);failed=true;return false;
     }
-    const actor=scene.add.sprite(p.x,p.y,textures[i],2).setOrigin(.5,1).setDepth(12).setScale(key==='bogdan'?.79:.72);
+    const actor=scene.add.sprite(p.x,p.y,textures[i],2).setOrigin(.5,1).setDepth(12).setScale(key==='bogdan'?.79:.72).setFrame(playerFrame(key==='marlena'?'e':'w'));
     actors.push(actor);
     if(key==='marlena')marlena=actor;else bogdan=actor;
    }
@@ -253,11 +253,13 @@ export function createBogdanEncounter(scene,Phaser){
   if(!active||defeated||!bogdan?.active){clearBark(bossBarkState,bossBark);return;}
   const delta=Math.min(50,dt),phase=bossPhase(hp),p=scene.player;
   graphics.clear();
-  bossLabel.setPosition(bogdan.x,bogdan.y-120).setText('BOGDAN '+hp+'/'+BOGDAN_HP);
-  bossHealth.clear().fillStyle(0x0e0b10,1).fillRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3)
-   .fillStyle(0xf04835,1).fillRect(bogdan.x-59,bogdan.y-102,118*bossHpRatio(hp,BOGDAN_HP),7)
-   .lineStyle(3,0xffe8aa).strokeRoundedRect(bogdan.x-62,bogdan.y-105,124,13,3);
-  syncMonsterBark(bossBark,bossBarkState,now,bogdan.x,bogdan.y-150,scene.finale?.state==='BOGDAN_ACTIVE');
+  const spriteTop=bogdan.y-bogdan.displayHeight;
+  const barTop=spriteTop-24;
+  bossLabel.setPosition(bogdan.x,barTop-18).setText('BOGDAN '+hp+'/'+BOGDAN_HP);
+  bossHealth.clear().fillStyle(0x0e0b10,1).fillRoundedRect(bogdan.x-62,barTop,124,13,3)
+   .fillStyle(0xf04835,1).fillRect(bogdan.x-59,barTop+3,118*bossHpRatio(hp,BOGDAN_HP),7)
+   .lineStyle(3,0xffe8aa).strokeRoundedRect(bogdan.x-62,barTop,124,13,3);
+  syncMonsterBark(bossBark,bossBarkState,now,bogdan.x,barTop-46,scene.finale?.state==='BOGDAN_ACTIVE');
   for(let i=projectiles.length-1;i>=0;i--){
    const shot=projectiles[i];shot.age+=delta;
    const nx=shot.x+shot.vx*delta/1000,ny=shot.y+shot.vy*delta/1000;

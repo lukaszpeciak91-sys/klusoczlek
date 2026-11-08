@@ -13,7 +13,7 @@ export const shouldRevealFairy=(tenantsDialogueComplete,revealRequested)=>Boolea
 const SHEETS=Object.freeze({
  'lawostworek-1':Object.freeze({path:'enemies/lawostworek-1.png',width:768,height:96,frame:96,scale:.75}),
  'lawostworek-2':Object.freeze({path:'enemies/lawostworek-2.png',width:1024,height:128,frame:128,scale:.68}),
- 'swinia-wrozka':Object.freeze({path:'npcs/swinia-wrozka.png',frame:null,scale:.50})
+ 'swinia-wrozka':Object.freeze({path:'npcs/swinia-wrozka.png',frame:null,scale:.35})
 });
 export function fairyTrigger(player,position=FAIRY_MARK,radius=FAIRY_TRIGGER_RADIUS){
  return Math.hypot(player.x-position.x,player.y-position.y)<=radius;

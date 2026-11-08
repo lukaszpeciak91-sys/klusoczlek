@@ -34,7 +34,7 @@ test('escape reinforcements count successful spawns and respect population cap',
  const s=read('../src/volcano-scene.js');
  assert.ok(s.includes('this.escapeSuccessfulSpawns++'));
  assert.ok(s.includes('living.length<6'));
- assert.ok(s.includes('this.escapeSuccessfulSpawns<3?1100:4200'));
+ assert.ok(s.includes('this.escapeSuccessfulSpawns<3?2100:4200'));
  assert.ok(s.includes('this.escapeSuccessfulSpawns=0'));
 });
 test('Bogdan damage numbers use actual applied damage',()=>{
