@@ -6,7 +6,7 @@ import {createHealthToken} from './health-token.js';
 import Phaser from 'phaser';
 import {ARENA,PLAYER_SPEED,PLAYER_RADIUS,normalizeInput} from './movement.js';
 import {createPlayer} from './player.js';
-import {createPlayerVisual,assetUrl} from './character-visual.js';
+import {createPlayerVisual,assetUrl,validPngHeader} from './character-visual.js';
 import {createJoystick} from './joystick.js';
 import {currentCampaignRun,prepareActStart,grantWaterFlamethrower,awardRunArtifact,completeCampaignAct,updateRunHealth,nextActHandoff} from './campaign-run.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
@@ -443,6 +443,7 @@ export class VolcanoScene extends Phaser.Scene {
     const horn=this.add.text(w()/2,h()*.48,'RÓG MYŚLIWSKI BOGDANA',{fontFamily:'monospace',fontSize:'22px',fontStyle:'bold',color:'#f3e9d5',align:'center',wordWrap:{width:w()-30}}).setOrigin(.5);
     const detail=this.add.text(w()/2,h()*.68,'ARTEFAKT 2/3',{fontFamily:'monospace',fontSize:'17px',color:'#f2d18c'}).setOrigin(.5);
     this.rewardRoot.add([bg,title,horn,detail]);
+    this.hornRewardImage=null; // Existing text-only panel remains a safe loading fallback.
     this.rewardButton=this.add.rectangle(w()/2,h()-28,135,40,0x655039).setStrokeStyle(2,0xd9bd80).setScrollFactor(0).setDepth(212).setInteractive({useHandCursor:true}).setVisible(false);
     this.rewardButtonLabel=this.add.text(w()/2,h()-28,'DALEJ',{fontFamily:'monospace',fontSize:'18px',color:'#fff2d6'}).setOrigin(.5).setScrollFactor(0).setDepth(213).setVisible(false);
     this.rewardButton.on('pointerdown',()=>{if(this.finale.state!=='ARTIFACT_REWARD'||this.game.loop.time<this.rewardArmedAt)return;
@@ -456,13 +457,51 @@ export class VolcanoScene extends Phaser.Scene {
     const retryLabel=this.add.text(w()/2,h()*.70,'PONÓW UCIECZKĘ',{fontFamily:'monospace',fontSize:'15px',color:'#fff2d6'}).setOrigin(.5);
     this.retryRoot.add([retryBg,retryText,retryButton,retryLabel]);
     retryButton.on('pointerdown',()=>this.retryEscape());
-    const resize=()=>{const x=w()/2,y=h();this.escapeClock.setPosition(x,12);this.finaleShade.setSize(w(),h());bg.setSize(w(),h());
-      title.setPosition(x,y*.22).setFontSize(Math.min(23,y*.065));horn.setPosition(x,y*.47).setWordWrapWidth(w()-30).setFontSize(Math.min(22,y*.058));detail.setPosition(x,y*.66);
+    const resize=()=>{const x=w()/2,y=h(),hasArt=Boolean(this.hornRewardImage?.active);
+      this.escapeClock.setPosition(x,12);this.finaleShade.setSize(w(),h());bg.setSize(w(),h());
+      title.setPosition(x,y*.23).setFontSize(Math.min(23,y*.065));
+      horn.setPosition(x,hasArt?y*.70:y*.47).setWordWrapWidth(w()-30).setFontSize(Math.min(22,y*.058));
+      detail.setPosition(x,hasArt?y*.83:y*.66);
+      if(hasArt){const size=Math.min(110,y*.32);this.hornRewardImage.setPosition(x,y*.44).setDisplaySize(size,size);}
       this.rewardButton.setPosition(x,y-26);this.rewardButtonLabel.setPosition(x,y-26);
       retryBg.setPosition(x,y/2).setSize(w(),h());retryText.setPosition(x,y*.42);retryButton.setPosition(x,y*.70);retryLabel.setPosition(x,y*.70);};
     this.scale.on(Phaser.Scale.Events.RESIZE,resize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.scale.off(Phaser.Scale.Events.RESIZE,resize));
     resize();
+    void this.loadHornRewardImage(resize);
+  }
+  async loadHornRewardImage(resize){
+    // Approved production PNG is optional at runtime; never block DALEJ or the
+    // existing award/eruption sequence while art decodes.
+    const controller=new AbortController();this.pendingLoads.add(controller);
+    let objectUrl=null;
+    try{
+      const response=await fetch(assetUrl(import.meta.env.BASE_URL,
+        'artifacts/artifact-bogdan-horn.png'),{cache:'no-cache',signal:controller.signal});
+      if(!response.ok)return false;
+      const bytes=new Uint8Array(await response.arrayBuffer());
+      if(!validPngHeader(bytes,{width:192,height:192}))return false;
+      objectUrl=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
+      const image=new Image();
+      await new Promise((resolve,reject)=>{
+        image.onload=resolve;image.onerror=reject;image.src=objectUrl;
+      });
+      if(controller.signal.aborted||this.disposed||
+         image.naturalWidth!==192||image.naturalHeight!==192)return false;
+      const key='artifact-bogdan-horn';
+      if(!this.textures.exists(key))this.textures.addImage(key,image);
+      this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+      this.hornRewardImage=this.add.image(0,0,key).setOrigin(.5);
+      this.rewardRoot.addAt(this.hornRewardImage,2);
+      resize();return true;
+    }catch(error){
+      if(!this.disposed&&!controller.signal.aborted)
+        console.info('[Volcano] horn PNG unavailable; text-only reward retained');
+      return false;
+    }finally{
+      if(objectUrl)URL.revokeObjectURL(objectUrl);
+      this.pendingLoads.delete(controller);
+    }
   }
   spawnPreBossHeart(){
     if(this.disposed||this.preBossHeart||this.preBossHeartCollected||!this.walkability)return false;

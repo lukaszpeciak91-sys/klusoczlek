@@ -10,6 +10,9 @@ export const BOCIANOLAK_VISUAL_SCALE=0.65;
 export const BOCIANOLAK_FEET_OFFSET=-47;
 export const BOBROZOMBI_FEET_OFFSET=-13;
 export const ZUBROKRYPTYDA_ASSET=Object.freeze({path:'enemies/zubrokryptyda.png',key:'enemy-zubrokryptyda-v2',width:1536,height:192,frameWidth:192,frameHeight:192});
+// Błażej shares the Żubrokryptyda's physical type, frames and animation;
+// only his 8-direction world texture is different.
+export const BLAZEJ_ASSET=Object.freeze({path:'enemies/blazej.png',key:'enemy-blazej-v1',width:1536,height:192,frameWidth:192,frameHeight:192});
 export const ZUBROKRYPTYDA_VISUAL_SCALE=0.55;
 // (184-96)*0.55 => 48.4 pixels above sprite-frame center.
 export const ZUBROKRYPTYDA_FEET_OFFSET=-48.4;
@@ -19,9 +22,10 @@ export function bobrozombiFrame(x,y,playerX,playerY,lastFacing='s'){
 export function createBobrozombiRenderer(scene,Phaser){return createEnemyRenderer(scene,Phaser,'bobrozombi');}
 export function createBocianolakRenderer(scene,Phaser){return createEnemyRenderer(scene,Phaser,'bocianolak');}
 export function createZubrokryptydaRenderer(scene,Phaser){return createEnemyRenderer(scene,Phaser,'zubrokryptyda');}
-function createEnemyRenderer(scene,Phaser,type){
+export function createBlazejRenderer(scene,Phaser){return createEnemyRenderer(scene,Phaser,'zubrokryptyda',BLAZEJ_ASSET);}
+function createEnemyRenderer(scene,Phaser,type,visualAsset=null){
   const stork=type==='bocianolak',heavy=type==='zubrokryptyda';
-  const asset=heavy?ZUBROKRYPTYDA_ASSET:stork?BOCIANOLAK_ASSET:BOBROZOMBI_ASSET;
+  const asset=visualAsset??(heavy?ZUBROKRYPTYDA_ASSET:stork?BOCIANOLAK_ASSET:BOBROZOMBI_ASSET);
   const scale=heavy?ZUBROKRYPTYDA_VISUAL_SCALE:stork?BOCIANOLAK_VISUAL_SCALE:BOBROZOMBI_VISUAL_SCALE;
   const offset=heavy?ZUBROKRYPTYDA_FEET_OFFSET:stork?BOCIANOLAK_FEET_OFFSET:BOBROZOMBI_FEET_OFFSET;
   const artKey=type+'-art',facingKey=type+'-facing',gaitKey=type+'-gait',feedbackKey=type+'-feedback';

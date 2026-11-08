@@ -1,7 +1,7 @@
-// Błażej encounter: one approved Żubrokryptyda renderer, the existing
-// School weapon/damage pipeline and Marcin radial/projectile scheduler.
-// No ordinary-enemy spawn, second weapon loop or replacement PNG.
+// Błażej uses the approved dedicated PNG with the existing Żubrokryptyda
+// gait, hit feedback and mechanical type; combat and Marcin attacks stay shared.
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
+import {createBlazejRenderer} from './enemy-visual.js';
 import {PLAYER_RADIUS} from './movement.js';
 import {applyEnemyHit} from './bobrozombi.js';
 import {recordHit} from './combat-feedback.js';
@@ -19,7 +19,7 @@ export const BLAZEJ_SHOCKWAVE_RADIUS=95;
 export const BLAZEJ_MAX_PROJECTILES=MARCIN.maxProjectiles;
 
 export function createSchoolBlazej(scene,Phaser){
- const renderer=scene.combat.renderers.zubrokryptyda;
+ const renderer=createBlazejRenderer(scene,Phaser);
  const actor={type:'zubrokryptyda',seed:106,x:BLAZEJ_START.x,y:BLAZEJ_START.y,
   hp:BLAZEJ_HP,dead:false,facing:'s',hitUntil:0,sprite:renderer.create(BLAZEJ_START.x,BLAZEJ_START.y)};
  const presentation=createBossPresentationState(),attack=createBossAttack();
@@ -135,7 +135,7 @@ export function createSchoolBlazej(scene,Phaser){
   if(actor.sprite?.active)actor.sprite.destroy();
  }
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,destroy);
- return {actor,activate,damage,ignite,update,updateVfx,clearAttacks,destroy,
+ return {actor,renderer,activate,damage,ignite,update,updateVfx,clearAttacks,destroy,
   get target(){return active&&!defeated?actor:null;},get active(){return active;},
   get defeated(){return defeated;},get projectiles(){return projectiles;},
   get attack(){return attack;},get kind(){return kind;},get warningTarget(){return landing;},

@@ -6,7 +6,7 @@ export function validDialoguePng(bytes){
  return value(16)===192&&value(20)===192&&bytes[24]===8&&(bytes[25]===2||bytes[25]===6);
 }
 import {currentDialogue,advanceDialogue} from './dialogue-data.js';
-const PORTRAITS=['aloes','bobrozombi','bocianolak','zubrokryptyda','marcin','captain','lawostworek-1','lawostworek-2','swinia-wrozka','marlena','bogdan'];
+const PORTRAITS=['aloes','bobrozombi','bocianolak','zubrokryptyda','blazej','marcin','captain','lawostworek-1','lawostworek-2','swinia-wrozka','marlena','bogdan'];
 export function dialoguePortraitSize(width,height){
  const compact=width<400;
  return Math.round(Math.min(compact?64:108,Math.max(43,height*(compact?.23:.32))));
