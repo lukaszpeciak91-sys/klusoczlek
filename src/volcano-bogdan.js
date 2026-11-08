@@ -205,9 +205,19 @@ export function createBogdanEncounter(scene,Phaser){
   clearBark(bossBarkState,bossBark);
   bossPresentation.activate();bossLabel.setVisible(true);bossHealth.setVisible(true);return true;
  }
+ function showDamageNumber(amount){
+  if(!bogdan?.active||disposed)return;
+  const label=scene.add.text(bogdan.x,bogdan.y-145,'-'+amount,{
+   fontFamily:'monospace',fontSize:'23px',fontStyle:'bold',color:'#ffe5a0',
+   stroke:'#34130d',strokeThickness:4
+  }).setOrigin(.5).setDepth(24);
+  scene.tweens.add({targets:label,y:label.y-34,alpha:0,duration:620,
+   onComplete:()=>label.destroy()});
+ }
  function damage(amount,now){
   if(!active||defeated||now-lastHit<150)return false;
-  lastHit=now;hp=Math.max(0,hp-amount);
+  lastHit=now;const applied=Math.min(hp,Math.max(0,amount));hp=Math.max(0,hp-applied);
+  if(applied>0)showDamageNumber(applied);
   if(bogdan?.active){bogdan.setTintFill(0xffffff);scene.time.delayedCall(110,()=>{if(!disposed&&bogdan?.active)bogdan.clearTint();});}
   if(hp>0&&scene.finale?.state==='BOGDAN_ACTIVE'&&!scene.dialogueState.id)
    showMonsterBark(bossBark,bossBarkState,BOGDAN_BARKS.damage,now,{cooldown:5600});
@@ -309,5 +319,5 @@ export function createBogdanEncounter(scene,Phaser){
  return {prepare,beginArgument,depart,beginConfrontation,activate,damage,update,consumeDefeat,removeDefeatedSprite,
   get ready(){return ready;},get failed(){return failed;},get argumentStarted(){return started;},
   get leftApartment(){return leftApartment;},get departed(){return departed;},get active(){return active;},get defeated(){return defeated;},
-  get hp(){return hp;},get hitRadius(){return BOGDAN_HIT_RADIUS;},get hostileProjectileCount(){return projectiles.length;},get defeatPending(){return defeatPending;},get bogdan(){return bogdan;},get marlena(){return marlena;}};
+  get hp(){return hp;},get deathPoint(){return bogdan?.active?{x:bogdan.x,y:bogdan.y}:null;},get hitRadius(){return BOGDAN_HIT_RADIUS;},get hostileProjectileCount(){return projectiles.length;},get defeatPending(){return defeatPending;},get bogdan(){return bogdan;},get marlena(){return marlena;}};
 }
