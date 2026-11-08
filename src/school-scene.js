@@ -28,7 +28,7 @@ export class SchoolScene extends Phaser.Scene {
     this.disposed=false;
     this.obstacles=SCHOOL_OBSTACLES;
     this.introActive=!['act4-school','act4-combat','act4-wave4'].includes(this.debugCheckpoint);
-    this.schoolPhase='INTRO';this.defeated=false;
+    this.schoolPhase='INTRO';this.defeated=false;this.defeatVisualAt=null;
     this.captainDeparting=false;
     this.cameras.main.setBackgroundColor('#283c32');
     this.cameras.main.setBounds(0,0,SCHOOL_WORLD.width,SCHOOL_WORLD.height);
@@ -191,6 +191,19 @@ export class SchoolScene extends Phaser.Scene {
     this.joystick?.setEnabled(false);
     this.aimJoystick?.setEnabled(false);
     this.input.keyboard?.resetKeys();
+  }
+  captureSchoolDefeat(){
+    if(this.defeated)return false;
+    // Match ArenaScene: convert actual world death position to the Menu's
+    // screen-space pixel burst coordinates before pausing the camera.
+    const camera=this.cameras.main,origin=camera.getWorldPoint(0,0);
+    this.defeatVisualAt={x:(this.player.x-origin.x)*camera.zoom,
+      y:(this.player.y-origin.y)*camera.zoom};
+    this.defeated=true;
+    this.playerVisual.sprite?.setVisible(false);
+    this.playerVisual.shadow?.setVisible(false);
+    this.player.setVisible(false);
+    return true;
   }
   openMenu(){
     if(this.scene.isPaused()||this.scene.isActive('Menu')||!this.controlsAllowed())return;
