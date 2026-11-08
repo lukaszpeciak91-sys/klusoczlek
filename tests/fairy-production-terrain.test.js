@@ -60,5 +60,7 @@ test('apartment actors move down to reachable walkable terrain without overlap',
  assert.ok(volcanoFootprintAllowed(mask,marlena.x,marlena.y,18));
  assert.ok(volcanoFootprintAllowed(mask,bogdan.x,bogdan.y,18));
  assert.ok(Math.hypot(marlena.x-bogdan.x,marlena.y-bogdan.y)>=70);
+ assert.ok(findMarlenaRoute(mask,VOLCANO_START,marlena,{radius:17,cell:12,maxNodes:26000})?.length);
+ assert.ok(findMarlenaRoute(mask,VOLCANO_START,bogdan,{radius:17,cell:12,maxNodes:26000})?.length);
  console.log('VERIFIED APARTMENT ACTORS',JSON.stringify({marlena,bogdan}));
 });
