@@ -53,8 +53,10 @@ test('Act II reuses health token without changing heal and timing',()=>{
 test('eruption pulses are bounded to escape and cleanup restores camera/lava',()=>{
  const s=source('../src/volcano-scene.js');
  assert.ok(s.includes("this.finale.state==='ESCAPE_ACTIVE'"));
- assert.ok(s.includes('this.cameras.main.shake(strong?340:230,strong?.005:.003)'));
- assert.ok(s.includes('this.cameras.main.shakeEffect.reset();this.lava.setAlpha(1).clearTint()'));
+ assert.ok(s.includes('this.cameras.main.shake(frame.shake.duration,frame.shake.intensity)'));
+ assert.ok(s.includes('this.updateEruption();'))
+ assert.ok(s.includes('this.cameras.main.shakeEffect.reset();'));
+ assert.ok(s.includes('if(this.lava?.active)this.lava.setAlpha(1).clearTint();'))
  assert.ok(s.includes('this.combat.prepareZones()'));
 });
 
