@@ -143,10 +143,9 @@ try{
  // PR105: real SchoolScene interaction, not just imports/unit assertions.
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'menu before School gameplay');
- const bootSchool=async id=>evaluate(`(async()=>{
+ const bootSchool=async id=>evaluate(`(()=>{
    const g=window.__game,m=g.scene.getScene('Menu');
-   const {createDebugFixture}=await import('/src/debug-checkpoints.js');
-   const fixture=createDebugFixture(${JSON.stringify(id)});
+   const fixture=window.__createDebugFixture(${JSON.stringify(id)});
    fixture.run.isDebugRun=true;g.registry.set('campaign-run',fixture.run);
    m.scene.start('School',{handoff:fixture.handoff,debugCheckpoint:${JSON.stringify(id)}});
    return true;
