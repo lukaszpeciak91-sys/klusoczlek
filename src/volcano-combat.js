@@ -16,6 +16,7 @@ export const LAVA_TYPES=Object.freeze({
  'lawostworek-1':Object.freeze({hp:3,speed:115,radius:21,frame:96,width:768,height:96,color:0xffa51f}),
  'lawostworek-2':Object.freeze({hp:6,speed:48,radius:25,frame:128,width:1024,height:128,color:0xe0441b})
 });
+export const lawosContactProtected=(now,safeUntil)=>now<safeUntil;
 export const LAVA_BARKS=Object.freeze(['I co mi zrobisz?!','Ale groźny!','HA! HA! HA!']);
 export const LAVA_INEFFECTIVE_BARKS=Object.freeze(['Łaskocze!','Spróbuj wodą, geniuszu!']);
 export function ordinaryLavaBarkDue(enemy,now,dialogueActive,visibleBarks=0){
@@ -176,7 +177,7 @@ export function createVolcanoCombat(scene){
   const zoneId=zoneForPosition(scene.player);
   if(scene.finale?.state!=='ESCAPE_ACTIVE'&&zoneId&&zoneId!=='entrance')activateZone(zoneId);
   const sec=Math.min(50,dt)/1000;
-  const openingSafe=now<(scene.openingSafeUntil??0);
+  const openingSafe=lawosContactProtected(now,scene.openingSafeUntil??0);
   const water=weapon==='water-flamethrower',fire=weapon==='flamethrower';
   const flowing=water&&waterState.step(held,dt);
   const flaming=fire&&fireState.step(held,dt);
