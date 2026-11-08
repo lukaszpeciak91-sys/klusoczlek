@@ -237,7 +237,7 @@ try{
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'menu before optional bypass');
  await bootSchool('act4-school');
- await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&!s.combat.started&&!s.dialogueState.id})()",'free School DEBUG staging before pitch');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s?.combat&&!s.introActive&&!s.combat.started&&!s.dialogueState?.id})()",'free School DEBUG staging before pitch');
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1065,870);s.player.body.reset(1065,870);return true})()");
  await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'bypassed optional Maciek/Seba; pitch continues');
  assert.equal(await evaluate("window.__game.scene.getScene('School').maciekSeen"),false,'Maciek bypass is truly optional');
