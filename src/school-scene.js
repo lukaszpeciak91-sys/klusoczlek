@@ -17,8 +17,14 @@ import {seededRandom} from './arena-layout.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {createSchoolBlazej} from './school-blazej.js';
-import {BLAZEJ_BICYCLE_ID,BLAZEJ_START,CHAPEL_RETURN,BLAZEJ_OBSERVER_BARKS,BLAZEJ_BOSS_BARKS} from './school-finale.js';
+import {BLAZEJ_BICYCLE_ID,BLAZEJ_START,BLAZEJ_CONFRONT_RADIUS,CHAPEL_RETURN,BLAZEJ_OBSERVER_BARKS,BLAZEJ_BOSS_BARKS,blazejConfrontationReady} from './school-finale.js';
 import {SCHOOL_COMBAT_MS} from './school-combat.js';
+import {createHealthToken} from './health-token.js';
+import {createObstacleVisual} from './obstacle-renderer.js';
+import {createSchoolyardArt} from './schoolyard-art.js';
+import {MACIEK_SEBA_RADIUS,PITCH_ENCOUNTER_RADIUS,SCHOOL_WAVE2_END_MS,
+  SCHOOL_HEART_POINTS,maciekSebaNearby,pitchNearby,canSpawnSchoolHeart,
+  collectSchoolHeart} from './school-staging.js';
 import {SCHOOL_WORLD,SCHOOL_PLACES,SCHOOL_OBSTACLES,SCHOOL_WAVE_COUNT,schoolStep,schoolDebugPoint} from './school-contract.js';
 
 // PR105 attaches approved Act I combat via the small School adapter.
@@ -37,7 +43,9 @@ export class SchoolScene extends Phaser.Scene {
     this.introActive=!['act4-school','act4-combat','act4-wave4','act4-blazej','act4-boss','act4-finale'].includes(this.debugCheckpoint);
     this.schoolPhase='INTRO';this.defeated=false;this.defeatVisualAt=null;
     this.captainDeparting=false;
-    this.storyBusy=false;this.openingPending=false;this.openingDialogueStarted=false;this.bossConfronted=false;
+    this.storyBusy=false;this.maciekSeen=false;this.pitchStarted=false;
+    this.pendingObserved=false;this.pendingApproachArmed=false;this.bossConfronted=false;
+    this.hearts={wave2:{spawned:false,collected:false,token:null},wave4:{spawned:false,collected:false,token:null}};
     this.bossDefeatHandled=false;this.actCompleted=false;this.rewardArmedAt=0;this.bicycleTexture=null;
     this.dialogueState=createDialogueState();
     this.cameras.main.setBackgroundColor('#283c32');
@@ -45,6 +53,7 @@ export class SchoolScene extends Phaser.Scene {
     this.physics.world.setBounds(0,0,SCHOOL_WORLD.width,SCHOOL_WORLD.height);
     createArenaGround(this,SCHOOL_WORLD.width,SCHOOL_WORLD.height,Phaser,{border:0x6c6150});
     this.drawPrototypePlaces();
+    this.schoolArt=createSchoolyardArt(this);
 
     const spawn=schoolDebugPoint(this.debugCheckpoint);
     this.player=createPlayer(this,spawn.x,spawn.y);
@@ -127,6 +136,7 @@ export class SchoolScene extends Phaser.Scene {
     });
     this.blazej=createSchoolBlazej(this,Phaser);
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>this.onSchoolDialogueEnded(id));
+    if(this.introActive||this.debugCheckpoint==='act4-school')this.createMaciekSebaActors();
     this.createBicycleRewardUi();
     this.fullscreenButton=document.getElementById('fullscreen-button');
     this.fullscreenPreviousHidden=this.fullscreenButton?.hidden??false;
@@ -169,11 +179,14 @@ export class SchoolScene extends Phaser.Scene {
       this.input.keyboard.off('keydown',weaponKey);
       if(this.fullscreenButton)this.fullscreenButton.hidden=this.fullscreenPreviousHidden;
       this.playerVisual.destroy();this.hpFace.destroy();
+      this.clearMaciekSebaActors();
+      for(const heart of Object.values(this.hearts))heart.token?.destroy();
       this.bicycleWorld?.destroy();
     });
     this.captainArrival=createCaptainArrival(this);
     resize();
-    if(!this.introActive){
+    if(!this.introActive&&this.debugCheckpoint!=='act4-school'){
+      this.pitchStarted=true;
       const stage=['act4-blazej','act4-boss','act4-finale'].includes(this.debugCheckpoint);
       this.combat.start({wave4:stage||this.debugCheckpoint==='act4-wave4'});
       if(stage&&this.run.isDebugRun){
@@ -188,11 +201,56 @@ export class SchoolScene extends Phaser.Scene {
       void this.captainArrival.loading.then(()=>{
         if(this.disposed)return;
         if(!this.captainArrival.start()){
-          this.introActive=false;this.openingPending=true;this.syncControls();
+          this.introActive=false;this.syncControls();
         }
       });
     }
     enforceOrientationOnSceneStart(this);
+  }
+  createMaciekSebaActors(){
+    // Static, noncombat actors using the *existing* approved enemy renderers.
+    // They never enter combat.enemies, director counts, or the contact pipeline.
+    if(this.maciekSebaActors)return;
+    this.maciekSebaActors=[
+      {type:'bobrozombi',...SCHOOL_PLACES.maciek},
+      {type:'bocianolak',...SCHOOL_PLACES.seba},
+    ].map((point,index)=>{
+      const renderer=this.combat.renderers[point.type];
+      const actor={...point,hp:1,dead:false,facing:'s',seed:200+index,
+        sprite:renderer.create(point.x,point.y)};
+      renderer.update(actor,this.player,0,0);
+      return actor;
+    });
+  }
+  clearMaciekSebaActors(){
+    for(const actor of this.maciekSebaActors??[])if(actor.sprite?.active)actor.sprite.destroy();
+    this.maciekSebaActors=null;
+  }
+  spawnSchoolHeart(id){
+    const state=this.hearts[id];
+    if(!state||!canSpawnSchoolHeart(id,state.spawned)||this.disposed)return false;
+    const point=SCHOOL_HEART_POINTS[id];
+    state.spawned=true;state.point=point;
+    state.token=createHealthToken(this,point.x,point.y);
+    return true;
+  }
+  syncSchoolHearts(){
+    if(!this.combat.started||this.defeated)return;
+    const phase=this.schoolPhase;
+    if(phase==='COMBAT'||phase==='CLEANUP'||phase==='BLAZEJ_PENDING'){
+      if(this.combat.elapsedMs>=SCHOOL_WAVE2_END_MS)this.spawnSchoolHeart('wave2');
+      if(phase==='BLAZEJ_PENDING')this.spawnSchoolHeart('wave4');
+    }
+    if(this.run.hp>=this.run.maxHp)return; // Do not consume at maximum HP.
+    for(const state of Object.values(this.hearts)){
+      if(!state.token?.active||state.collected)continue;
+      const restored=collectSchoolHeart(this.player,state.point,this.run.hp,this.run.maxHp,state.collected);
+      if(restored===null)continue;
+      state.collected=true;this.run.hp=restored;
+      this.hpFace.setHp(restored);
+      this.hpText.setText('HP '+restored+'/'+this.run.maxHp);
+      state.token.destroy();state.token=null;
+    }
   }
   beginSchoolDialogue(id){
     if(this.disposed||this.defeated||this.storyBusy||this.dialogueState.id||
@@ -206,13 +264,13 @@ export class SchoolScene extends Phaser.Scene {
   onSchoolDialogueEnded(id){
     if(this.disposed||this.defeated)return;
     if(id==='act4-maciek-seba'){
-      this.storyBusy=false;
-      this.beginSchoolDialogue('act4-blazej-observer');
+      this.storyBusy=false;this.syncControls();
     }else if(id==='act4-blazej-observer'){
       this.storyBusy=false;
       this.beginSchoolDialogue('act4-blazej-confrontation');
     }else if(id==='act4-blazej-confrontation'){
       this.storyBusy=false;
+      this.clearMaciekSebaActors();
       this.combat.start(); // The first ordinary wave begins only after DALEJ.
       this.combat.suspend();this.syncControls();
     }else if(id==='act4-blazej-final'){
@@ -368,28 +426,41 @@ export class SchoolScene extends Phaser.Scene {
     return true;
   }
   drawPrototypePlaces(){
-    // These labels and blocks are disposable visual placeholders, NOT PNG masks.
+    // Hide each old placeholder only after its actual approved PNG is decoded.
+    this.schoolPlacePlaceholders=new Map();this.schoolTerrainPlaceholders=[];
     const colors={chapel:0x86725d,school:0x706a5f,bicycleRack:0x837c56};
     for(const obstacle of this.obstacles){
       const p=SCHOOL_PLACES[obstacle.id];
-      this.add.rectangle(p.x,p.y,p.width,p.height,colors[obstacle.id])
+      if(!p)continue;
+      const rect=this.add.rectangle(p.x,p.y,p.width,p.height,colors[obstacle.id])
         .setStrokeStyle(5,0x272923).setDepth(-9);
-      this.add.text(p.x,p.y,p.label,{fontFamily:'monospace',fontSize:'28px',
+      const title=this.add.text(p.x,p.y,p.label,{fontFamily:'monospace',fontSize:'28px',
         fontStyle:'bold',color:'#f8e6c3',align:'center'}).setOrigin(.5).setDepth(-8);
+      this.schoolPlacePlaceholders.set(obstacle.id,[rect,title]);
     }
     const pitch=SCHOOL_PLACES.pitch;
-    this.add.rectangle(pitch.x,pitch.y,pitch.width,pitch.height,0x426a50,.73)
-      .setStrokeStyle(5,0xd9dfcb).setDepth(-10);
-    this.add.line(pitch.x,pitch.y,0,-pitch.height/2,0,pitch.height/2,0xd9dfcb,.7)
-      .setLineWidth(3).setDepth(-9);
-    this.add.circle(pitch.x,pitch.y,66).setStrokeStyle(4,0xd9dfcb,.7).setDepth(-9);
-    this.add.text(pitch.x,pitch.y-120,'BOISKO',{fontFamily:'monospace',fontSize:'28px',color:'#ffffff'})
-      .setOrigin(.5).setDepth(-8);
+    this.schoolTerrainPlaceholders.push(
+      this.add.rectangle(pitch.x,pitch.y,pitch.width,pitch.height,0x426a50,.73)
+        .setStrokeStyle(5,0xd9dfcb).setDepth(-10),
+      this.add.line(pitch.x,pitch.y,0,-pitch.height/2,0,pitch.height/2,0xd9dfcb,.7)
+        .setLineWidth(3).setDepth(-9),
+      this.add.circle(pitch.x,pitch.y,66).setStrokeStyle(4,0xd9dfcb,.7).setDepth(-9),
+      this.add.text(pitch.x,pitch.y-120,'BOISKO',{fontFamily:'monospace',fontSize:'28px',color:'#ffffff'})
+        .setOrigin(.5).setDepth(-8)
+    );
     const entrance=SCHOOL_PLACES.schoolEntrance;
-    this.add.text(entrance.x,entrance.y,'WEJŚCIE DO SZKOŁY',
-      {fontFamily:'monospace',fontSize:'16px',color:'#f6e9b9'}).setOrigin(.5).setDepth(-7);
+    this.schoolTerrainPlaceholders.push(this.add.text(entrance.x,entrance.y,'WEJŚCIE DO SZKOŁY',
+      {fontFamily:'monospace',fontSize:'16px',color:'#f6e9b9'}).setOrigin(.5).setDepth(-7));
     const chapelDoor=SCHOOL_PLACES.chapelDoor;
-    this.add.rectangle(chapelDoor.x,chapelDoor.y,85,12,0xaa8c5e).setDepth(-7);
+    this.schoolTerrainPlaceholders.push(
+      this.add.rectangle(chapelDoor.x,chapelDoor.y,85,12,0xaa8c5e).setDepth(-7));
+    // These two are approved Act I atlas sprites, never invented replacement art.
+    // The original atlas renderer can create a temporary shape; hide it until
+    // the verified original texture is ready (or leave invisible if unavailable).
+    for(const o of this.obstacles.filter(o=>o.type==='tire_pile'||o.type==='toi_toi')){
+      const c=createObstacleVisual(this,o);
+      c.getData('fallback')?.setVisible(false);
+    }
   }
   controlsAllowed(){
     return !this.disposed&&!document.hidden&&document.hasFocus()&&
@@ -443,13 +514,8 @@ export class SchoolScene extends Phaser.Scene {
           if(this.disposed)return;
           actor?.destroy();
           this.introActive=false;
-          this.openingPending=true;
           this.syncControls();
         }});
-    }
-    if(this.openingPending&&!this.openingDialogueStarted&&this.controlsAllowed()){
-      this.openingDialogueStarted=this.beginSchoolDialogue('act4-maciek-seba');
-      if(this.openingDialogueStarted)this.openingPending=false;
     }
     this.syncControls();
     if(!this.controlsAllowed()||this.introActive||this.defeated){this.combat.suspend();return;}
@@ -474,9 +540,28 @@ export class SchoolScene extends Phaser.Scene {
     else if(Math.hypot(input.x,input.y)>.05)this.facing=facingOf(input.x,input.y,this.facing);
     this.playerVisual.update(this.facing,Math.hypot(input.x,input.y)>.05,Math.min(50,delta));
     const now=performance.now();
+    if(this.schoolPhase==='INTRO'&&!this.pitchStarted){
+      if(!this.maciekSeen&&maciekSebaNearby(this.player)){
+        this.maciekSeen=this.beginSchoolDialogue('act4-maciek-seba');
+      }else if(pitchNearby(this.player)){
+        this.pitchStarted=this.beginSchoolDialogue('act4-blazej-observer');
+      }
+      this.hpFace.update(delta);
+      return;
+    }
     this.combat.update(delta,now,aim,this.aimJoystick.held);
+    this.syncSchoolHearts();
     if(this.schoolPhase==='BLAZEJ_PENDING'&&!this.bossConfronted){
-      this.bossConfronted=this.beginSchoolDialogue('act4-blazej-final');
+      const near=blazejConfrontationReady(this.schoolPhase,this.player,this.blazej.actor);
+      if(!this.pendingObserved){
+        this.pendingObserved=true;
+        this.pendingApproachArmed=this.run.isDebugRun&&this.debugCheckpoint==='act4-blazej'
+          ?true:!near;
+      }
+      if(!near)this.pendingApproachArmed=true;
+      if(near&&this.pendingApproachArmed){
+        this.bossConfronted=this.beginSchoolDialogue('act4-blazej-final');
+      }
     }
     if(this.schoolPhase==='BLAZEJ_BOSS')this.blazej.update(delta,now);
     if(this.defeated)return;

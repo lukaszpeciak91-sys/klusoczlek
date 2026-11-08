@@ -16,7 +16,8 @@ import {createGameplayClock,advanceGameplayClock} from './gameplay-clock.js';
 import {createFiringState,resetFiring,firingStep,COMBAT_TUNING,cooldownReady} from './weapon-combat.js';
 import {createContinuousWeaponState,drawContinuousStream,emitContinuousParticle,updateContinuousParticles} from './continuous-weapon.js';
 import {resolveAim,muzzlePoint} from './shooting.js';
-import {availableWeapons} from './weapon-progression.js';
+import {availableWeapons,clearPoint} from './weapon-progression.js';
+import {SCHOOL_ENTOURAGE,schoolEntouragePoint} from './school-staging.js';
 import {resolveObstaclePosition,steerObstacleStep,segmentObstacleHit} from './obstacles.js';
 import {firstFootprintHit,reachableCells} from './obstacle-geometry.js';
 import {enemyProjectileHit,enemyFlameVisible} from './enemy-damage.js';
@@ -63,6 +64,7 @@ export function createSchoolCombat(scene,Phaser){
   if(wave4)clock.elapsedMs=WAVE_TIMING[3].startMs;
   wave=schoolWaveIndex(clock.elapsedMs);
   director.nextMs=clock.elapsedMs;
+  if(!wave4)for(const p of SCHOOL_ENTOURAGE)spawnEnemy({type:p.type,preferred:p});
   scene.waveText.setText('⚑ '+(wave+1)+'/'+SCHOOL_WAVE_COUNT);
   return true;
  }
@@ -105,18 +107,22 @@ export function createSchoolCombat(scene,Phaser){
   clearCombat();stream.destroy();
   for(const renderer of Object.values(renderers))renderer.shutdown();
  }
- function spawnEnemy(){
+ function spawnEnemy({type:stagedType=null,preferred=null}={}){
   const population=living();
   if(population.length>=SCHOOL_WAVES[wave].maxAlive)return false;
   const heavy=population.some(e=>e.type==='zubrokryptyda');
-  const type=nextDirectorType(director,wave,heavy?['zubrokryptyda']:[]);
+  const type=stagedType??nextDirectorType(director,wave,heavy?['zubrokryptyda']:[]);
   if(!type)return false;
   const radius=ENEMY_TYPES[type].radius,camera=scene.cameras.main;
   const scroll=camera.getScroll(scene.player.x,scene.player.y);
   const view={x:scroll.x,y:scroll.y,width:camera.width,height:camera.height};
   const occupied=population.map(e=>({x:e.x,y:e.y,radius:ENEMY_TYPES[e.type].radius}));
-  const result=selectOrdinarySpawn({player:scene.player,obstacles:scene.obstacles,index:totalSpawned,
-   radius,view,seed:104,navigation,occupied});
+  const safePreferred=preferred&&schoolEntouragePoint(preferred,scene.player,population)&&
+   clearPoint(preferred,scene.obstacles,radius+4,navigation);
+  if(preferred&&!safePreferred)return false;
+  const result=safePreferred?{point:preferred,mode:'staged'}:
+   selectOrdinarySpawn({player:scene.player,obstacles:scene.obstacles,index:totalSpawned,
+    radius,view,seed:104,navigation,occupied});
   if(!result.point)return false; // defer rather than overlap a solid footprint
   const point=result.point,index=totalSpawned++;
   const enemy={...point,type,seed:index,hp:ENEMY_TYPES[type].hp,waveIndex:wave,

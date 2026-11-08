@@ -15,7 +15,7 @@ export const BLAZEJ_BICYCLE_ID='blazej-bicycle';
 export const BLAZEJ_START=Object.freeze({x:1335,y:785});
 export const BLAZEJ_CONFRONT_RADIUS=225;
 export const BLAZEJ_RADIUS=ENEMY_TYPES.zubrokryptyda.radius;
-export const CHAPEL_RETURN=Object.freeze({x:465,y:535});
+export const CHAPEL_RETURN=Object.freeze({x:525,y:1000});
 export function blazejConfrontationReady(phase,player,boss=BLAZEJ_START){
  return phase==='BLAZEJ_PENDING'&&!!player&&
   Math.hypot(player.x-boss.x,player.y-boss.y)<=BLAZEJ_CONFRONT_RADIUS;
