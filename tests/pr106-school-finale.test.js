@@ -139,6 +139,7 @@ test('PR106 optional bicycle asset is honestly absent; no fake bike and DEBUG ne
  assert.equal(existsSync(new URL('../public/assets/artifacts/artifact-blazej-bicycle.png',import.meta.url)),false);
  const school=source('../src/school-scene.js');
  assert.ok(school.includes("artifacts/artifact-blazej-bicycle.png"));
+ assert.ok(school.includes("artifacts/artifact-blazej-bike.png"));
  assert.ok(school.includes("validPngHeader(bytes,{width:192,height:192})"));
  assert.ok(school.includes('Without approved bike art the intended ride remains an honest fade.'));
  assert.ok(chapelReturnValid());
