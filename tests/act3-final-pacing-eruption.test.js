@@ -44,7 +44,7 @@ function productionAlphaMask(){
 const mask=productionAlphaMask();
 function stageAll(){
  const staged=[];const avoid=[{...VOLCANO_START,radius:110}];
- for(const zone of VOLCANO_ZONES){
+ for(const zone of VOLCANO_ZONES.filter(z=>z.id!=='fairy')){
   for(const [i,type] of zone.enemies.entries()){
    const radius=LAVA_TYPES[type].radius;
    const search=zone.id==='entrance'?65:zone.id==='apartment-approach'?80:zone.id==='fairy'?260:125;
