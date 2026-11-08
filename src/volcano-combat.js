@@ -6,7 +6,7 @@ import {inFlameCone,cooldownReady,COMBAT_TUNING,createFiringState,firingStep,res
 import {facingOf,playerFrame} from './combat-contract.js';
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
 import {volcanoStep,volcanoFootprintAllowed} from './volcano-contract.js';
-import {VOLCANO_ZONES,findZoneSpawn,createPlatformProgression,zoneForPosition} from './volcano-platforms.js';
+import {VOLCANO_ZONES,findZoneSpawn,createPlatformProgression,zoneForPosition,approachEngagementDue} from './volcano-platforms.js';
 import {BOBROZOMBI_ASSET,BOBROZOMBI_VISUAL_SCALE} from './enemy-visual.js';
 import {muzzlePoint} from './shooting.js';
 import {createIgnitionState,igniteEnemy,advanceIgnition,isBurning} from './enemy-panic.js';
@@ -109,7 +109,7 @@ export function createVolcanoCombat(scene){
      ...enemies.filter(e=>!e.dead).map(e=>({x:e.x,y:e.y,radius:e.radius}))];
     // Keep the entrance pre-stage on the higher platform, never near the start.
      const point=findZoneSpawn(scene.walkability,zone,preferred,def.radius,avoid,
-      zone.id==='entrance'?65:zone.id==='fairy'?260:125);
+      zone.id==='entrance'?65:zone.id==='apartment-approach'?80:zone.id==='fairy'?260:125);
     if(!point){console.warn('[Volcano] pre-stage invalid '+zone.id+' '+i);continue;}
     const enemy=createLavaEnemy(type,point.x,point.y,VOLCANO_ZONES.indexOf(zone)*10+i);
     enemy.zoneId=zone.id;enemy.engaged=false;
@@ -175,7 +175,12 @@ export function createVolcanoCombat(scene){
  function update(dt,now,aim,held,weapon){
   if(!active||scene.defeated||scene.run.hp<=0||scene.dialogueState.id){stopFire();return;}
   const zoneId=zoneForPosition(scene.player);
-  if(scene.finale?.state!=='ESCAPE_ACTIVE'&&zoneId&&zoneId!=='entrance')activateZone(zoneId);
+  if(scene.finale?.state!=='ESCAPE_ACTIVE'&&zoneId&&zoneId!=='entrance'&&zoneId!=='apartment-approach')activateZone(zoneId);
+   // The overlapping middle/approach bounds are not activation gates: real
+   // pre-staged actors wake ahead of Aloes before the apartment cinematic.
+   if(scene.finale?.state==='BOGDAN_ACTIVE'&&scene.lawosComplete&&!scene.apartmentPending&&
+      !scene.boss?.argumentStarted&&approachEngagementDue(scene.player,enemies.filter(e=>e.zoneId==='apartment-approach')))
+    activateZone('apartment-approach');
   const sec=Math.min(50,dt)/1000;
   const openingSafe=lawosContactProtected(now,scene.openingSafeUntil??0);
   const water=weapon==='water-flamethrower',fire=weapon==='flamethrower';
