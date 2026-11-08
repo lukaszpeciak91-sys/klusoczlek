@@ -1,5 +1,6 @@
 import {createBarkState,makeMonsterBark,showMonsterBark,syncMonsterBark,WATER_BARKS,clearBark} from './monster-bark.js';
 import {createPixelBurst} from './pixel-death-vfx.js';
+import {bogdanCombatHit,bogdanConeTarget} from './volcano-bogdan.js';
 import {applyEnemyHit,applyPlayerContact} from './bobrozombi.js';
 import {inFlameCone,cooldownReady,COMBAT_TUNING,createFiringState,firingStep,resetFiring} from './weapon-combat.js';
 import {facingOf,playerFrame} from './combat-contract.js';
@@ -146,7 +147,7 @@ export function createVolcanoCombat(scene){
    enemy.dead=true;enemy.bark.destroy();
    if(enemy.zoneId)progression.defeated(enemy.zoneId);
    enemy.sprite.setTint(0x26272b);
-   deathBursts.push(createPixelBurst(scene,'bobrozombi',enemy.x,enemy.y,enemy.index+137,{extinguish:true}));
+   deathBursts.push(createPixelBurst(scene,enemy.type==='lawostworek-2'?'lawostworek-2':'lawostworek-1',enemy.x,enemy.y,enemy.index+137,{extinguish:true}));
    scene.tweens.add({targets:enemy.sprite,alpha:0,duration:170,onComplete:()=>enemy.sprite.destroy()});
   }else{
    enemy.sprite.setTint(0x26272b);
@@ -175,7 +176,7 @@ export function createVolcanoCombat(scene){
    emitContinuousParticle(scene,state,origin,aim,now,weapon);
    for(const enemy of enemies)if(!enemy.dead&&inFlameCone(origin,aim,enemy,tune.range,tune.halfAngle,enemy.radius)&&cooldownReady(water?waterCooldowns:flameCooldowns,enemy,now,tune.damageInterval))hit(enemy,weapon,tune.damage,now);
    const boss=scene.boss;
-   if(boss?.active&&boss.bogdan&&inFlameCone(origin,aim,boss.bogdan,tune.range,tune.halfAngle,boss.hitRadius)&&cooldownReady(water?waterCooldowns:flameCooldowns,boss.bogdan,now,tune.damageInterval))boss.damage(tune.damage,now);
+   if(boss?.active&&boss.bogdan&&inFlameCone(origin,aim,bogdanConeTarget(boss.bogdan),tune.range,tune.halfAngle,boss.bogdan.displayWidth*.38)&&cooldownReady(water?waterCooldowns:flameCooldowns,boss.bogdan,now,tune.damageInterval))boss.damage(tune.damage,now);
   }
   for(const burst of deathBursts)burst.update(dt);
   for(let i=deathBursts.length-1;i>=0;i--)if(deathBursts[i].done)deathBursts.splice(i,1);
@@ -192,7 +193,7 @@ export function createVolcanoCombat(scene){
    const shot=shots[i];shot.age+=dt;shot.x+=shot.vx*sec;shot.y+=shot.vy*sec;shot.sprite.setPosition(shot.x,shot.y);
    const enemy=enemies.find(e=>!e.dead&&Math.hypot(e.x-shot.x,e.y-shot.y)<e.radius+5);
    if(enemy)hit(enemy,shot.weapon,1,now);
-   const bossHit=!enemy&&scene.boss?.active&&scene.boss.bogdan&&Math.hypot(scene.boss.bogdan.x-shot.x,scene.boss.bogdan.y-shot.y)<scene.boss.hitRadius+5;
+   const bossHit=!enemy&&scene.boss?.active&&scene.boss.bogdan&&bogdanCombatHit(scene.boss.bogdan,shot.x,shot.y,5);
    if(bossHit)scene.boss.damage(1,now);
    if(enemy||bossHit||shot.age>550){shot.sprite.destroy();shots.splice(i,1);}
   }

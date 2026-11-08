@@ -14,6 +14,21 @@ export const APARTMENT=Object.freeze({
 export const MARLENA_BARKS=Object.freeze(['Mama miała rację!','Niech sam w tym smrodzie siedzi, pajac!']);
 export const BOGDAN_HP=80;
 export const BOGDAN_HIT_RADIUS=38;
+export function bogdanCombatBounds(actor,padding=5){
+ if(!actor)return null;
+ const width=actor.displayWidth,height=actor.displayHeight;
+ return {left:actor.x-width/2-padding,right:actor.x+width/2+padding,
+  top:actor.y-height-padding,bottom:actor.y+padding};
+}
+export function bogdanCombatHit(actor,x,y,radius=0){
+ const b=bogdanCombatBounds(actor,radius+3);
+ return Boolean(b&&x>=b.left&&x<=b.right&&y>=b.top&&y<=b.bottom);
+}
+export function bogdanConeTarget(actor){
+ const b=bogdanCombatBounds(actor,0);
+ return b?{x:actor.x,y:(b.top+b.bottom)/2}:null;
+}
+
 export function bossRepositionVector(boss,player,now,phase=1){
  const dx=player.x-boss.x,dy=player.y-boss.y,d=Math.max(1,Math.hypot(dx,dy));
  const orbit=Math.sin(now/1100+phase)*.9,close=d>210?1:d<105?-.6:.22;
@@ -90,10 +105,9 @@ export function createBogdanEncounter(scene,Phaser){
   departed=false,leftApartment=false,confrontation=false,active=false,defeated=false,attackIndex=0,attack=null,
   hp=BOGDAN_HP,lastHit=-Infinity,projectiles=[],actors=[],marlena=null,bogdan=null,defeatPending=false;
  const graphics=scene.add.graphics().setDepth(17);
- const bossLabel=scene.add.text(0,0,'',{fontFamily:'monospace',fontSize:'16px',color:'#ffce85',
-  stroke:'#281018',strokeThickness:4}).setOrigin(.5).setDepth(22).setVisible(false);
+ const bossLabel=scene.add.text(0,0,'BOGDAN',{fontFamily:'monospace',fontSize:'12px',color:'#ffb4a1'}).setOrigin(.5).setScrollFactor(0).setDepth(101).setVisible(false);
  const bossPresentation=createBossPresentationState();
- const bossHealth=scene.add.graphics().setDepth(23).setVisible(false);
+ const bossHealth=scene.add.graphics().setScrollFactor(0).setDepth(100).setVisible(false);
  const bark=makeMonsterBark(scene,0,0);
  const bossBark=makeMonsterBark(scene,0,0);
  const bossBarkState=createBarkState();
@@ -215,19 +229,9 @@ export function createBogdanEncounter(scene,Phaser){
   clearBark(bossBarkState,bossBark);
   bossPresentation.activate();bossLabel.setVisible(true);bossHealth.setVisible(true);return true;
  }
- function showDamageNumber(amount){
-  if(!bogdan?.active||disposed)return;
-  const label=scene.add.text(bogdan.x,bogdan.y-145,'-'+amount,{
-   fontFamily:'monospace',fontSize:'23px',fontStyle:'bold',color:'#ffe5a0',
-   stroke:'#34130d',strokeThickness:4
-  }).setOrigin(.5).setDepth(24);
-  scene.tweens.add({targets:label,y:label.y-34,alpha:0,duration:620,
-   onComplete:()=>label.destroy()});
- }
  function damage(amount,now){
   if(!active||defeated||now-lastHit<150)return false;
   lastHit=now;const applied=Math.min(hp,Math.max(0,amount));hp=Math.max(0,hp-applied);
-  if(applied>0)showDamageNumber(applied);
   if(bogdan?.active){bogdan.setTintFill(0xffffff);scene.time.delayedCall(110,()=>{if(!disposed&&bogdan?.active)bogdan.clearTint();});}
   if(hp>0&&scene.finale?.state==='BOGDAN_ACTIVE'&&!scene.dialogueState.id)
    showMonsterBark(bossBark,bossBarkState,BOGDAN_BARKS.damage,now,{cooldown:5600});
@@ -235,7 +239,7 @@ export function createBogdanEncounter(scene,Phaser){
    defeated=true;active=false;attack=null;projectiles.length=0;graphics.clear();
    clearBark(bossBarkState,bossBark);
    defeatPending=true;bossPresentation.defeat();bossHealth.clear().setVisible(false);
-   bossLabel.setText('BOGDAN POKONANY — '+hp+'/'+BOGDAN_HP);
+   bossLabel.setVisible(false);
   }
   return true;
  }
@@ -253,13 +257,16 @@ export function createBogdanEncounter(scene,Phaser){
   if(!active||defeated||!bogdan?.active){clearBark(bossBarkState,bossBark);return;}
   const delta=Math.min(50,dt),phase=bossPhase(hp),p=scene.player;
   graphics.clear();
+  const hudWidth=Math.min(210,scene.scale.width*.38),hudX=(scene.scale.width-hudWidth)/2,hudY=Math.min(80,scene.scale.height*.23);
+  const visible=!scene.dialogueState.id&&bossPresentation.visible;
+  bossLabel.setVisible(visible).setPosition(scene.scale.width/2,hudY-10);
+  bossHealth.clear().setVisible(visible);
+  if(visible){
+   bossHealth.fillStyle(0x241d20,.9).fillRect(hudX,hudY,hudWidth,7);
+   bossHealth.fillStyle(0xd64b44).fillRect(hudX,hudY,hudWidth*bossHpRatio(hp,BOGDAN_HP),7);
+  }
   const spriteTop=bogdan.y-bogdan.displayHeight;
-  const barTop=spriteTop-24;
-  bossLabel.setPosition(bogdan.x,barTop-18).setText('BOGDAN '+hp+'/'+BOGDAN_HP);
-  bossHealth.clear().fillStyle(0x0e0b10,1).fillRoundedRect(bogdan.x-62,barTop,124,13,3)
-   .fillStyle(0xf04835,1).fillRect(bogdan.x-59,barTop+3,118*bossHpRatio(hp,BOGDAN_HP),7)
-   .lineStyle(3,0xffe8aa).strokeRoundedRect(bogdan.x-62,barTop,124,13,3);
-  syncMonsterBark(bossBark,bossBarkState,now,bogdan.x,barTop-46,scene.finale?.state==='BOGDAN_ACTIVE');
+  syncMonsterBark(bossBark,bossBarkState,now,bogdan.x,spriteTop-24,visible);
   for(let i=projectiles.length-1;i>=0;i--){
    const shot=projectiles[i];shot.age+=delta;
    const nx=shot.x+shot.vx*delta/1000,ny=shot.y+shot.vy*delta/1000;

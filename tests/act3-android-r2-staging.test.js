@@ -29,12 +29,16 @@ test('apartment desired coordinates and initial facing are exact',()=>{
  assert.ok(s.includes("setScale(key==='bogdan'?.79:.72)"));
  assert.ok(s.includes('playerFrame(facingOf(mx,my'));
 });
-test('Bogdan 80 HP boss bar is above rendered sprite and separated from bark',()=>{
+test('Bogdan 80 HP boss uses screen-space Marcin-style HUD and separate world bark',()=>{
  assert.equal(BOGDAN_HP,80);
  const s=source('../src/volcano-bogdan.js');
  assert.ok(s.includes('const spriteTop=bogdan.y-bogdan.displayHeight'));
- assert.ok(s.includes('const barTop=spriteTop-24'));
- assert.ok(s.includes('barTop-18'));
- assert.ok(s.includes('barTop-46'));
+ assert.ok(s.includes('setScrollFactor(0)'));
+ assert.ok(s.includes("'BOGDAN'"));
+ assert.ok(s.includes('fillStyle(0xd64b44)'));
+ assert.ok(s.includes('bossPresentation.visible'));
+ assert.ok(s.includes('bossPresentation.defeat()'));
+ assert.ok(s.includes('syncMonsterBark(bossBark'));
+ assert.ok(!s.includes("setText('BOGDAN '+hp"));
  assert.ok(s.includes('bossHpRatio(hp,BOGDAN_HP)'));
 });

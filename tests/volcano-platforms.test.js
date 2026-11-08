@@ -4,11 +4,11 @@ import {VOLCANO_ZONES,FAIRY_ZONE,zoneForPosition,inVolcanoZone,findZoneSpawn,cre
 import {FAIRY_MARK} from '../src/volcano-npcs.js';
 import {VOLCANO_START} from '../src/volcano-contract.js';
 
-test('three explicit zones, 2/3/4 enemies, 9 total',()=>{
- assert.deepEqual(VOLCANO_ZONES.map(z=>z.id),['entrance','middle','fairy']);
- assert.deepEqual(VOLCANO_ZONES.map(z=>z.enemies.length),[2,3,4]);
- assert.equal(VOLCANO_ZONES.reduce((sum,z)=>sum+z.enemies.length,0),9);
- assert.deepEqual(VOLCANO_ZONES[2].enemies,['lawostworek-1','lawostworek-1','lawostworek-2','lawostworek-2']);
+test('four explicit zones, 2/3/3/4 enemies, 12 total',()=>{
+ assert.deepEqual(VOLCANO_ZONES.map(z=>z.id),['entrance','middle','apartment-approach','fairy']);
+ assert.deepEqual(VOLCANO_ZONES.map(z=>z.enemies.length),[2,3,3,4]);
+ assert.equal(VOLCANO_ZONES.reduce((sum,z)=>sum+z.enemies.length,0),12);
+ assert.deepEqual(VOLCANO_ZONES[3].enemies,['lawostworek-1','lawostworek-1','lawostworek-2','lawostworek-2']);
  assert.equal(zoneForPosition(VOLCANO_START),'entrance');
  assert.equal(zoneForPosition(FAIRY_MARK),'fairy');
  assert.equal(inVolcanoZone(FAIRY_ZONE,{x:1000,y:900}),false);
@@ -19,8 +19,11 @@ test('zone activation is one-shot and leaving/re-entering does not duplicate ene
  assert.equal(p.activate('entrance',()=>{throw Error('duplicate');}),false);
  assert.equal(p.get('entrance').alive,2);
  assert.equal(p.activate('middle',(z,t,i)=>{spawned.push([z.id,t,i]);return true;}),true);
+ assert.equal(p.activate('apartment-approach',(z,t,i)=>{spawned.push([z.id,t,i]);return true;}),true);
+ assert.equal(p.activate('apartment-approach',()=>{throw Error('duplicate apartment activation');}),false);
+ assert.equal(p.get('apartment-approach').alive,3);
  assert.equal(p.activate('fairy',(z,t,i)=>{spawned.push([z.id,t,i]);return true;}),true);
- assert.equal(spawned.length,9);
+ assert.equal(spawned.length,12);
  assert.equal(p.fairyReveal,false);
  assert.equal(p.defeated('middle'),false);
  assert.equal(p.defeated('middle'),false);
