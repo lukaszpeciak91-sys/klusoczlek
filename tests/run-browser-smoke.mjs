@@ -172,6 +172,20 @@ try{
  await wait("(()=>{const s=window.__game.scene.getScene('School');return ['background','school','chapel','bicycleRack'].every(id=>s.schoolArt.loaded.has(id))})()",'all four approved Act IV images load (base PNGs)',12000);
  const artwork=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {parts:[...s.schoolArt.loaded].sort(),images:s.schoolArt.images.filter(x=>x.active).length,allOldVisible:[...s.schoolPlacePlaceholders.values()].some(a=>a.some(x=>x.visible)),pitchVisible:s.schoolTerrainPlaceholders.some(o=>o.visible)}})()");
  assert.ok(artwork.images===4&&!artwork.allOldVisible&&!artwork.pitchVisible,'approved schoolyard art replaces provisional blocks '+JSON.stringify(artwork));
+ const schoolArtPlacement=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.schoolArt.images.map(i=>({key:i.texture.key,x:i.x,y:i.y,w:i.displayWidth,h:i.displayHeight,depth:i.depth})).sort((a,b)=>a.key.localeCompare(b.key))})()");
+ assert.deepEqual(schoolArtPlacement,[
+  {key:'schoolyard-approved-bg',x:0,y:0,w:1800,h:1200,depth:-18},
+  {key:'schoolyard-approved-chapel',x:330,y:965,w:235,h:235,depth:12},
+  {key:'schoolyard-approved-rack',x:1510,y:857,w:330,h:255,depth:12},
+  {key:'schoolyard-approved-school',x:1360,y:595,w:610,h:450,depth:12}
+ ].sort((a,b)=>a.key.localeCompare(b.key)),'four original art layers use native PNG dimensions, proper world positions and roof occlusion');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.children.list.filter(o=>o.getData('obstacleArt')).length===5&&s.children.list.filter(o=>o.getData('obstacleArt')).every(o=>!!o.getData('atlasSprite'))})()",'five real Act I approved atlas obstacle frames load',9000);
+ const atlas=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.children.list.filter(o=>o.getData('obstacleArt')).map(o=>({frame:o.getData('obstacleArt').frame,original:!!o.getData('atlasSprite'),fallbackVisible:o.getData('fallback').visible})).sort((a,b)=>a.frame-b.frame)})()");
+ assert.deepEqual(atlas,[0,1,9,10,10].map(frame=>({frame,original:true,fallbackVisible:false})),'two tires, toi-toi and two original rock PNG frames');
+ const solids=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.obstacles.slice(0,3).map(o=>({id:o.id,w:o.footprint.width,h:o.footprint.height}))})()");
+ assert.deepEqual(solids,[{id:'chapel',w:96,h:94},{id:'school',w:500,h:160},{id:'bicycleRack',w:252,h:58}],
+  'actual lower-footprint collision dimensions, never complete PNG canvas');
+ console.log('PASS Act IV Chromium approved art: 1800x1200 terrain, native obstacle PNGs, alpha-based lower footprints, real Act I atlas pieces, occlusion and HUD');
  await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&!s.dialogueState.id&&!s.combat.started})()",'Captain enters chapel; player free to explore schoolyard',25000);
  const optionalBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,maciek:s.maciekSeen,pitch:s.pitchStarted,actors:s.maciekSebaActors?.length}})()");
  assert.deepEqual(optionalBefore,{intro:false,started:false,maciek:false,pitch:false,actors:2},'both NPCs staged, optional encounter not automatic');
