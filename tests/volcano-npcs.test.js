@@ -1,19 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue} from '../src/dialogue-data.js';
-import {FAIRY_MARK,FAIRY_TRIGGER_RADIUS,FAIRY_DEPARTURE_MS,fairyTrigger,findFairyIslandSpawn,findFairyRouteSpawn,FAIRY_ROUTE_MARKS,createNpcReadiness,shouldRevealFairy} from '../src/volcano-npcs.js';
+import {FAIRY_MARK,FAIRY_TRIGGER_RADIUS,FAIRY_DEPARTURE_MS,fairyTrigger,findFairyIslandSpawn,findFairyRouteSpawn,FAIRY_ROUTE_MARKS,createNpcReadiness,shouldRevealFairy,fairyTextureLayout} from '../src/volcano-npcs.js';
 import {VOLCANO_START} from '../src/volcano-contract.js';
 
 test('Act III tenants dialogue has the approved exact sequence',()=>{
  assert.deepEqual(DIALOGUES['act3-lawostworki'],[
-  ['lawostworek-1','KRZYŚ','Ja już mam dosyć tych dzikich lokatorów! Wchodzą bez pytania, rozbijają się po całym wulkanie!'],
-  ['lawostworek-2','ANDRZEJEK','A widziałeś ceny najmu? Za dwa pokoje przy kraterze chcą trzy tysiące! Bez czynszu!'],
-  ['lawostworek-1','KRZYŚ','Ale oni nawet nie płacą!'],
-  ['lawostworek-2','ANDRZEJEK','To akurat rozumiem.'],
-  ['lawostworek-1','KRZYŚ','Czekaj... A ten tam to kto?!'],
-  ['lawostworek-2','ANDRZEJEK','NASTĘPNY?!'],
+  ['lawostworek-2','KRZYŚ','Ja już mam dosyć tych dzikich lokatorów! Wchodzą bez pytania, rozbijają się po całym wulkanie!'],
+  ['lawostworek-1','ANDRZEJEK','A widziałeś ceny najmu? Za dwa pokoje przy kraterze chcą trzy tysiące! Bez czynszu!'],
+  ['lawostworek-2','KRZYŚ','Ale oni nawet nie płacą!'],
+  ['lawostworek-1','ANDRZEJEK','To akurat rozumiem.'],
+  ['lawostworek-2','KRZYŚ','Czekaj... A ten tam to kto?!'],
+  ['lawostworek-1','ANDRZEJEK','NASTĘPNY?!'],
   ['aloes','ALOES','Ja tylko przechodzę!'],
-  ['lawostworek-1','KRZYŚ','BEZ KAUCJI NIE WEJDZIESZ!']
+  ['lawostworek-2','KRZYŚ','BEZ KAUCJI NIE WEJDZIESZ!']
  ]);
 });
 test('fairy has exactly three approved panels, distinct from Marlena',()=>{
@@ -111,4 +111,10 @@ test('fairy route candidate requires walkable ground and player reachability',()
  const fallback=findFairyRouteSpawn(mask,player,reachable);
  assert.ok(fallback);
  assert.notDeepEqual(fallback,FAIRY_ROUTE_MARKS[0]);
+});
+
+test('approved fairy PNG accepts static artwork or eight horizontal frames',()=>{
+ assert.deepEqual(fairyTextureLayout(192,192),{frameWidth:192,frameHeight:192,frames:1});
+ assert.deepEqual(fairyTextureLayout(1024,128),{frameWidth:128,frameHeight:128,frames:8});
+ assert.equal(fairyTextureLayout(800,120),null);
 });
