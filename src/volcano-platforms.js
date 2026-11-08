@@ -10,9 +10,9 @@ export const VOLCANO_ZONES=Object.freeze([
  Object.freeze({id:'middle',bounds:Object.freeze({minX:625,maxX:1420,minY:560,maxY:1170}),
   enemies:Object.freeze(['lawostworek-1','lawostworek-1','lawostworek-2']),
   spawns:Object.freeze([{x:900,y:920},{x:1030,y:850},{x:760,y:760},{x:1110,y:940}])}),
- Object.freeze({id:'apartment-approach',bounds:Object.freeze({minX:1080,maxX:1740,minY:250,maxY:560}),
+ Object.freeze({id:'apartment-approach',bounds:Object.freeze({minX:920,maxX:1400,minY:565,maxY:935}),
   enemies:Object.freeze(['lawostworek-1','lawostworek-2','lawostworek-1']),
-  spawns:Object.freeze([{x:1135,y:535},{x:1220,y:535},{x:1095,y:500}])}),
+  spawns:Object.freeze([{x:1010,y:790},{x:1120,y:705},{x:1195,y:620}])}),
  Object.freeze({id:'fairy',bounds:Object.freeze({minX:65,maxX:680,minY:105,maxY:470}),
   enemies:Object.freeze(['lawostworek-1','lawostworek-1','lawostworek-2','lawostworek-2']),
   spawns:Object.freeze([{x:315,y:300},{x:455,y:280},{x:220,y:225},{x:530,y:315},{x:360,y:185}])})
@@ -33,6 +33,12 @@ export function inVolcanoZone(zone,point){
 }
 export function zoneForPosition(point){
  return VOLCANO_ZONES.find(zone=>inVolcanoZone(zone,point))?.id??null;
+}
+// Stage at terrain load; activate when Aloes nears the lower connecting route.
+export const APPROACH_WAKE_DISTANCE=245;
+export function approachEngagementDue(player,staged,range=APPROACH_WAKE_DISTANCE){
+ return Boolean(player&&staged?.some(enemy=>!enemy.dead&&enemy.engaged===false&&
+  Math.hypot(player.x-enemy.x,player.y-enemy.y)<=range));
 }
 export function findZoneSpawn(mask,zone,preferred,radius,avoid=[],maxDistance=105){
  const allowed=(x,y)=>inVolcanoZone(zone,{x,y})&&volcanoFootprintAllowed(mask,x,y,radius)&&
