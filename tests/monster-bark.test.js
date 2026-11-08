@@ -31,6 +31,9 @@ test('bark visibility and cleanup on death or despawn',()=>{
 });
 test('shared monster style retains retro typography and outline',()=>{
  assert.equal(MONSTER_BARK_STYLE.fontFamily,'monospace');
- assert.ok(MONSTER_BARK_STYLE.strokeThickness>=3);
- assert.ok(Number.parseInt(MONSTER_BARK_STYLE.fontSize)>=14);
+ assert.equal(MONSTER_BARK_STYLE.fontSize,'13px');
+ assert.equal(MONSTER_BARK_STYLE.fontStyle,'bold');
+ assert.equal(MONSTER_BARK_STYLE.color,'#fff1c9');
+ assert.equal(MONSTER_BARK_STYLE.backgroundColor,'#1c2028');
+ assert.deepEqual(MONSTER_BARK_STYLE.padding,{x:5,y:3});
 });
