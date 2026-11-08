@@ -246,6 +246,31 @@ try{
  const restarted=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {listeners:s.scale.listenerCount('resize'),oldDestroyed:!window.__r2OldRoot.active,poolHidden:s.ambientBarks.pool.every(p=>!p.root.visible)}})()");
  assert.ok(restarted.listeners===listeners&&restarted.oldDestroyed&&restarted.poolHidden,'no duplicate bark listeners on restart '+JSON.stringify(restarted));
  console.log('PASS R2 real Chromium: eight-direction sprites and gait for three approved enemies; spontaneous/hit bark; moving attachment; HUD exclusion; pause and in-place restart cleanup');
+ // New narrative guest shares the original bubbles (not a second bubble UI).
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.renderers.zubrokryptyda.loaded&&s.combat.enemies.length>0})()",'Błażej approved sprite and wave4 enemies');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1170,660);s.player.body.reset(1170,660);s.cameras.main.centerOn(1170,660);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return !!s.combat.renderers.zubrokryptyda.speechAnchorOf(s.blazej.actor)})()",'existing Żubrokryptyda speech anchor');
+ const expectedObserver=['Szybciej!','Na niego!','Co z wami?','Do ataku!'];
+ for(const phrase of expectedObserver){
+  const v=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks;b.state.active.length=0;b.guestState.nextAt=Number.MAX_SAFE_INTEGER;b.tick(s.combat.elapsedMs);b.guestState.nextAt=0;b.tick(s.combat.elapsedMs);const p=b.pool.find(x=>x.root.visible&&x.event?.kind==='blazej-observer');const h=s.hudLayout,a=p?.bounds;return {phrase:p?.event?.phrase,visible:!!p,bounds:a,active:b.state.active.length,next:b.guestState.nextAt-s.combat.elapsedMs,shown:b.guestState.shown,hudMin:h.panelY+h.panelHeight+6}})()");
+  assert.equal(v.phrase,phrase,'approved observer bark phrase '+JSON.stringify(v));
+  assert.ok(v.visible&&v.active<=2&&v.bounds.y>=v.hudMin,'same approved bubble HUD exclusions');
+  assert.ok(v.next>=4500&&v.next<=7500,'barks are occasional and cooldown bounded');
+ }
+ const observed=await evaluate("(()=>{const b=window.__game.scene.getScene('School').ambientBarks;return {history:b.guestState.history,mode:b.guestState.mode,shown:b.guestState.shown}})()");
+ assert.deepEqual(observed.history,expectedObserver);
+ assert.equal(observed.mode,'observer');
+ assert.equal(observed.shown,4);
+ const hiddenGuest=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks,actor=s.blazej.actor;actor.sprite.setVisible(false);b.tick(s.combat.elapsedMs);const hidden=b.pool.every(p=>!p.root.visible||p.event?.speaker!==actor);actor.sprite.setVisible(true);return hidden})()");
+ assert.equal(hiddenGuest,true,'invisible Błażej cannot retain speech bubble');
+ const barkPause=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
+ await touch(barkPause.x,barkPause.y);
+ await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'observer bark MENU pause');
+ assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('School').ambientBarks;return [b.state.active.length,b.pool.filter(p=>p.root.visible).length]})()"),[0,0],'guest bubbles gone on MENU');
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('School')",'resume after observer bark pause');
+ console.log('PASS Act IV Chromium: all four passive observer barks, approved two-bubble layout, rate limit, invisibility and MENU cleanup');
+
  // R1: use the approved DEBUG run only to stage the existing active-play
  // clock. The real SchoolCombat.update owns all transitions and rendering.
  await wait("window.__game.scene.getScene('School').combat.enemies.length>0",'wave4 real active enemy for timed completion');
@@ -338,6 +363,22 @@ try{
  await dialogueNext();
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_BOSS'&&s.blazej.active&&!s.dialogueState.id})()",'Błażej boss begins only after confrontation',3500);
  const bossStart=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,ordinary:s.combat.enemies.length,wave:s.combat.wave,boss:s.blazej.active,water:s.weapon==='water-flamethrower'}})()");
+ // Test three approved Błażej boss barks through exactly the same view.
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1170,660);s.player.body.reset(1170,660);s.cameras.main.centerOn(1170,660);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
+ const bossBarkBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,phase:s.blazej.attack.phase,volley:s.blazej.volleys,jump:s.blazej.jumps}})()");
+ const bossPhrases=['Nie oddam roweru!','Zniszczę Cię!','To je moje!'];
+ for(const phrase of bossPhrases){
+  const v=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks;b.state.active.length=0;b.guestState.nextAt=Number.MAX_SAFE_INTEGER;b.tick(s.combat.elapsedMs);b.guestState.nextAt=0;b.tick(s.combat.elapsedMs);const p=b.pool.find(x=>x.root.visible&&x.event?.kind==='blazej-boss');return {phrase:p?.event?.phrase,active:b.state.active.length,shown:b.guestState.shown,kind:p?.event?.kind}})()");
+  assert.equal(v.phrase,phrase,'approved boss bark '+JSON.stringify(v));
+  assert.ok(v.active<=2&&v.kind==='blazej-boss');
+ }
+ const bossBarkAfter=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,phase:s.blazej.attack.phase,volley:s.blazej.volleys,jump:s.blazej.jumps,history:s.ambientBarks.guestState.history}})()");
+ assert.deepEqual(bossBarkAfter.history,bossPhrases,'all three boss phrases shown');
+ assert.equal(bossBarkAfter.hp,bossBarkBefore.hp,'cosmetic barks never alter boss HP');
+ assert.equal(bossBarkAfter.volley,bossBarkBefore.volley,'no radial attack generated by bark');
+ assert.equal(bossBarkAfter.jump,bossBarkBefore.jump,'no jump generated by bark');
+ console.log('PASS Act IV Chromium: all three boss barks with shared original bubbles and no gameplay-side effects');
+
  assert.ok(bossStart.hp>0&&bossStart.boss&&bossStart.ordinary===0&&!bossStart.water);
  // Short-circuit only the existing debug boss scheduler, never change player-facing timing.
  await evaluate("(()=>{const a=window.__game.scene.getScene('School').blazej.attack;a.elapsed=5999;return true})()");
@@ -367,6 +408,7 @@ try{
  await wait("window.__game.scene.isActive('School')",'boss WZNÓW');
  const killedBoss=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej;const hit=b.damage(b.actor.hp,s.player,performance.now());return {hit,dead:b.defeated,alive:b.active,phase:s.schoolPhase,burst:b.bursts.length,second:b.damage(1,s.player,performance.now())}})()");
  assert.ok(killedBoss.hit&&killedBoss.dead&&!killedBoss.alive&&killedBoss.burst===1&&!killedBoss.second,'boss death exactly once '+JSON.stringify(killedBoss));
+ assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('School').ambientBarks;return [b.state.active.length,b.pool.filter(p=>p.root.visible).length]})()"),[0,0],'no stale boss bubble after death');
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_REWARD'&&s.rewardRoot.visible})()",'bicycle artifact reward panel',3000);
  const bicycleReward=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.run.artifacts.has('blazej-bicycle'),all:[...s.run.artifacts],text:s.rewardName.text,third:s.rewardDetail.text,approvedImage:s.bicycleTexture}})()");
  assert.ok(bicycleReward.id&&bicycleReward.all.length===3&&bicycleReward.text==='ROWER BŁAŻEJA'&&bicycleReward.third==='ARTEFAKT 3/3');
