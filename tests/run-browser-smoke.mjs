@@ -248,8 +248,8 @@ try{
  console.log('PASS R2 real Chromium: eight-direction sprites and gait for three approved enemies; spontaneous/hit bark; moving attachment; HUD exclusion; pause and in-place restart cleanup');
  // New narrative guest shares the original bubbles (not a second bubble UI).
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.renderers.zubrokryptyda.loaded&&s.combat.enemies.length>0})()",'Błażej approved sprite and wave4 enemies');
- await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1010,560);s.player.body.reset(1010,560);s.cameras.main.centerOn(1010,560);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
- await wait("(()=>{const s=window.__game.scene.getScene('School');return s.cameras.main.worldView.y<500&&s.cameras.main.worldView.x>540})()",'Phaser smoothed camera settles on Błażej viewport',3500);
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1170,660);s.player.body.reset(1170,660);s.cameras.main.centerOn(1170,660);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.cameras.main.worldView.y>410&&s.cameras.main.worldView.y<490&&s.cameras.main.worldView.x>720})()",'Phaser smoothed camera settles on Błażej viewport',3500);
  await wait("(()=>{const s=window.__game.scene.getScene('School');return !!s.combat.renderers.zubrokryptyda.speechAnchorOf(s.blazej.actor)})()",'existing Żubrokryptyda speech anchor');
  const expectedObserver=['Szybciej!','Na niego!','Co z wami?','Do ataku!'];
  for(const phrase of expectedObserver){
@@ -365,8 +365,8 @@ try{
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_BOSS'&&s.blazej.active&&!s.dialogueState.id})()",'Błażej boss begins only after confrontation',3500);
  const bossStart=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,ordinary:s.combat.enemies.length,wave:s.combat.wave,boss:s.blazej.active,water:s.weapon==='water-flamethrower'}})()");
  // Test three approved Błażej boss barks through exactly the same view.
- await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1010,560);s.player.body.reset(1010,560);s.cameras.main.centerOn(1010,560);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
- await wait("(()=>{const s=window.__game.scene.getScene('School');return s.cameras.main.worldView.y<500&&s.cameras.main.worldView.x>540})()",'Phaser smoothed camera settles on Błażej viewport',3500);
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1170,660);s.player.body.reset(1170,660);s.cameras.main.centerOn(1170,660);s.ambientBarks.state.remaining=Number.MAX_SAFE_INTEGER;return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.cameras.main.worldView.y>410&&s.cameras.main.worldView.y<490&&s.cameras.main.worldView.x>720})()",'Phaser smoothed camera settles on Błażej viewport',3500);
  const bossBarkBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.blazej.actor.hp,phase:s.blazej.attack.phase,volley:s.blazej.volleys,jump:s.blazej.jumps}})()");
  const bossPhrases=['Nie oddam roweru!','Zniszczę Cię!','To je moje!'];
  for(const phrase of bossPhrases){
