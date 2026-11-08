@@ -38,11 +38,14 @@ test('fairy sprite is 70% of previous scale and departure retains scale',()=>{
  assert.ok(s.includes("frame:null,scale:.35"));
  assert.ok(s.includes("setScale(SHEETS['swinia-wrozka'].scale)"));
 });
-test('Bogdan HP bar uses rendered height and separates bark',()=>{
+test('Bogdan HP bar uses screen coordinates and preserves world-space barks',()=>{
  const s=read('../src/volcano-bogdan.js');
  assert.ok(s.includes('bogdan.y-bogdan.displayHeight'));
- assert.ok(s.includes('const barTop=spriteTop-24'));
- assert.ok(s.includes('barTop-46'));
+ assert.ok(s.includes('setScrollFactor(0)'));
+ assert.ok(s.includes('bossPresentation.visible'));
+ assert.ok(s.includes('fillStyle(0xd64b44)'));
+ assert.ok(s.includes('syncMonsterBark(bossBark'));
+ assert.ok(!s.includes('showDamageNumber('));
 });
 test('pre-boss +2 HP pickup and existing post-boss +1 remain independent',()=>{
  const s=read('../src/volcano-scene.js');
