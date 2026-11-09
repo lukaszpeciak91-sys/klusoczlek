@@ -5,6 +5,10 @@ import {SCHOOL_WORLD} from './school-contract.js';
 
 export const SCHOOL_ART=Object.freeze({
  background:Object.freeze({path:'backgrounds/act4-schoolyard.png',key:'schoolyard-approved-bg'}),
+ // Background contains the tiled school foundation, not the building itself.
+ // Preserve the approved native 610×450 building PNG; scale only its display.
+ school:Object.freeze({path:'obstacles/act4-school.png',key:'schoolyard-approved-school',
+  width:520,height:384,sourceWidth:610,sourceHeight:450,x:1480,bottomY:420}),
  chapel:Object.freeze({path:'obstacles/act4-chapel.png',key:'schoolyard-approved-chapel',width:235,height:235,x:330,bottomY:965}),
  bicycleRack:Object.freeze({path:'obstacles/act4-bicycle-rack.png',key:'schoolyard-approved-rack',width:287,height:222,sourceWidth:330,sourceHeight:255,x:1510,bottomY:857}),
 });
@@ -38,8 +42,8 @@ export function createSchoolyardArt(scene){
    }
    if(disposed)return;
    scene.textures.get(def.key).setFilter(1);
-   // School is already painted into the native 1800x1200 terrain layer.
-   // Only the chapel/rack are additional visible PNGs; solids stay independent.
+   // Native school is not baked into the terrain: only its tiled pad is.
+   // Building overlays that pad; compact ground contacts define physical solids.
    const image=id==='background'?
      scene.add.image(0,0,def.key).setOrigin(0)
        .setDisplaySize(SCHOOL_WORLD.width,SCHOOL_WORLD.height).setDepth(-18):
