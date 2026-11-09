@@ -32,6 +32,23 @@ test('diagnostic: actual approved background color map, upper-right region',()=>
  console.log('SCHOOL_BG_MAP: x=900..1800 in 15px cells, y=0..720 in 15px cells; # dark G green B blue R red Y yellow o brown s grey W light');
  for(let y=0;y<720;y+=15){let line='';for(let x=900;x<1800;x+=15)line+=label(bg.pixel(x+7,y+7));console.log('BG '+String(y).padStart(3,'0')+' '+line);}
  const school=decode('obstacles/act4-school.png');console.log('SCHOOL PNG RGBA:',school.w,school.h);
+ const samples=[];
+ for(let y=100;y<school.h-30;y+=25)for(let x=45;x<school.w-35;x+=25){
+  let p=school.pixel(x,y);if(p[3]>200)samples.push([x,y,p]);
+ }
+ let matches=[];
+ for(const scale of [.5,.6,.7,.8,.9,1,1.1])for(let top=0;top<=460;top+=10)for(let left=850;left<=1580;left+=10){
+  if(left+school.w*scale>1800||top+school.h*scale>690)continue;
+  let score=0;
+  for(const [x,y,p] of samples){
+   const q=bg.pixel(Math.round(left+x*scale),Math.round(top+y*scale));
+   score+=(p[0]-q[0])**2+(p[1]-q[1])**2+(p[2]-q[2])**2;
+  }
+  matches.push({left,top,scale,mse:Math.round(score/(samples.length*3))});
+ }
+ matches.sort((a,b)=>a.mse-b.mse);
+ console.log('SCHOOL_BAKED_TEMPLATE_BEST:',JSON.stringify(matches.slice(0,15)));
+
  // Quantized color palette of each 20px world cell in upper-right background.
  // Same RGB mapping across rows: each symbol corresponds to fixed 64-unit RGB bin.
  const entries=new Map();for(let y=50;y<610;y+=20)for(let x=1120;x<1780;x+=20){
