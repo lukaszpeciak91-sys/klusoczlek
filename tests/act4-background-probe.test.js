@@ -38,15 +38,15 @@ function pngChunk(name,data){
  return Buffer.concat([size,type,data,n]);
 }
 function cropPreview(bg){
- const w=300,h=240,raw=Buffer.alloc(h*(w*4+1));
+ const w=120,h=100,raw=Buffer.alloc(h*(w*4+1));
  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-  const p=bg.pixel(900+x*3,y*3),i=y*(w*4+1)+1+x*4;
+  const p=bg.pixel(Math.round(900+x*7.5),Math.round(y*7.2)),i=y*(w*4+1)+1+x*4;
   raw[i]=p[0];raw[i+1]=p[1];raw[i+2]=p[2];raw[i+3]=255;
  }
  const header=Buffer.alloc(13);header.writeUInt32BE(w,0);header.writeUInt32BE(h,4);header[8]=8;header[9]=6;
  const png=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),pngChunk('IHDR',header),pngChunk('IDAT',deflateSync(raw)),pngChunk('IEND',Buffer.alloc(0))]);
  const b64=png.toString('base64');console.log('BGPNG_START '+b64.length);
- for(let i=0;i<b64.length;i+=1500)console.log('BGPNG_PART '+b64.slice(i,i+1500));
+ for(let i=0;i<b64.length;i+=500)console.log('BGPNG_PART '+b64.slice(i,i+500));
  console.log('BGPNG_END');
 }
 
