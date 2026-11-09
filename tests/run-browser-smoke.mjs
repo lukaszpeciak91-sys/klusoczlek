@@ -1033,8 +1033,8 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  await tapMenu('WZNÓW');
  await wait("window.__game.scene.isActive('Catacombs')",'Marian boss WZNÓW',3000);
 
- const shield=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hit:s.damageBoss(18),phase:s.boss.phase,n:s.boss.summons.length,hp:s.boss.hp,second:s.damageBoss(10)}})()");
- assert.deepEqual(shield,{hit:true,phase:'summon',n:3,hp:44,second:false},'horn summons 3 while Marian invulnerable');
+ const shield=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),before=s.boss.hp;return {before,hit:s.damageBoss(18),phase:s.boss.phase,n:s.boss.summons.length,hp:s.boss.hp,second:s.damageBoss(10)}})()");
+ assert.deepEqual(shield,{before:shield.before,hit:true,phase:'summon',n:3,hp:shield.before-18,second:false},'horn summons 3 while Marian invulnerable');
  const cleared=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');for(const e of [...s.summons])s.damageEnemy(e,e.hp);return {phase:s.boss.phase,n:s.summons.length}})()");
  assert.deepEqual(cleared,{phase:'gun',n:0},'defeating all summoned enemies restores vulnerability');
  await sleep(240);
