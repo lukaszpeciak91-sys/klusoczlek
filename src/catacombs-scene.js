@@ -208,7 +208,7 @@ export class CatacombsScene extends Phaser.Scene{
   const effective=this.textures.exists(key)?key:this.textures.exists(MARIAN_FINAL_ASSETS.normal.key)?
    MARIAN_FINAL_ASSETS.normal.key:null;
   if(effective){
-   this.bossArt.setTexture(effective,playerFrame('s')).setScale(effective===MARIAN_FINAL_ASSETS.transformed.key?.84:.72).setVisible(true);
+   this.bossArt.setTexture(effective,playerFrame('s')).setScale(effective===MARIAN_FINAL_ASSETS.transformed.key?.62:.72).setVisible(true);
    this.bossFallback.setVisible(false);this.bossFallbackHat.setVisible(false);
   }else{
    this.bossArt.setVisible(false);this.bossFallback.setVisible(true);this.bossFallbackHat.setVisible(true);
