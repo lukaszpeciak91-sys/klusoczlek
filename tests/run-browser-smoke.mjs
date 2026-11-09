@@ -37,7 +37,7 @@ try{
  await cdp('Runtime.enable');
  await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:3});
  const evaluate=async expression=>{const r=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result?.value;};
- const wait=async(expression,label,timeout=12000)=>{const end=Date.now()+timeout;while(Date.now()<end){try{if(await evaluate(expression))return;}catch(error){if(!/Inspected target navigated|Execution context was destroyed|Cannot find context/.test(String(error)))throw error;}await sleep(80);}let detail='';try{detail=JSON.stringify(await evaluate("(()=>{const g=window.__game;return {active:g?.scene?.getScenes(true)?.map(s=>s.scene.key),title:(()=>{const t=g?.scene?.getScene('ActTitle');return t?.assetGate?{act:t.actId,next:t.nextScene,...t.assetGate,progress:t.assetProgress,attempts:t.preparationAttempts,error:t.lastPreparationError,retry:t.children.list.some(x=>x.text==='PONÓW'&&x.visible)}:null})(),school:(()=>{const s=g?.scene?.getScene('School');return s?{phase:s.schoolPhase,intro:s.introActive,dialogue:s.dialogueState,storyBusy:s.storyBusy,started:s.combat?.started,pitch:s.pitchStarted,entryGateReady:s.entryGateReady,allowed:s.controlsAllowed(),focus:document.hasFocus(),hidden:document.hidden,landscape:innerWidth>=innerHeight,shield:s.entryGate?.visible,menuButton:{visible:s.menuButton?.visible,x:s.menuButton?.x,y:s.menuButton?.y}}:null})(),airship:g?.scene?.getScene('Airship')?.openingPhase}})()"));}catch{}throw Error('Timeout '+label+' '+detail);};
+ const wait=async(expression,label,timeout=12000)=>{const end=Date.now()+timeout;while(Date.now()<end){try{if(await evaluate(expression))return;}catch(error){if(!/Inspected target navigated|Execution context was destroyed|Cannot find context/.test(String(error)))throw error;}await sleep(80);}let detail='';try{detail=JSON.stringify(await evaluate("(()=>{const g=window.__game;return {active:g?.scene?.getScenes(true)?.map(s=>s.scene.key),title:(()=>{const t=g?.scene?.getScene('ActTitle');return t?.assetGate?{act:t.actId,next:t.nextScene,...t.assetGate,progress:t.assetProgress,attempts:t.preparationAttempts,error:t.lastPreparationError,retry:t.children.list.some(x=>x.text==='PONÓW'&&x.visible)}:null})(),school:(()=>{const s=g?.scene?.getScene('School');return s?{phase:s.schoolPhase,intro:s.introActive,dialogue:s.dialogueState,storyBusy:s.storyBusy,started:s.combat?.started,pitch:s.pitchStarted,entryGateReady:s.entryGateReady,allowed:s.controlsAllowed(),focus:document.hasFocus(),hidden:document.hidden,landscape:innerWidth>=innerHeight,shield:s.entryGate?.visible,menuButton:{visible:s.menuButton?.visible,x:s.menuButton?.x,y:s.menuButton?.y}}:null})(),catacombs:(()=>{const s=g?.scene?.getScene('Catacombs');return s?{phase:s.phase,dialogue:s.dialogueState,ready:s.entryGateReady,boss:s.boss?.phase,hp:s.run?.hp}:null})(),airship:g?.scene?.getScene('Airship')?.openingPhase}})()"));}catch{}throw Error('Timeout '+label+' '+detail);};
  const touch=async(x,y)=>{await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
  const geometry=()=>evaluate("(()=>{const g=window.__game,m=g.scene.getScene('Menu'),r=g.canvas.getBoundingClientRect();return {rect:{x:r.x,y:r.y},active:g.scene.isActive('Menu'),debug:m.debugOpen,buttons:m.children.list.filter(o=>o.type==='Text'&&o.visible&&['NOWA GRA','DEBUG','WZNÓW','WRÓĆ'].includes(o.text)).map(o=>({text:o.text,x:o.x,y:o.y}))}})()");
  const tapMenu=async label=>{const g=await geometry();const b=g.buttons.find(b=>b.text===label);assert.ok(b,'Missing '+label+' '+JSON.stringify(g));await touch(g.rect.x+b.x,g.rect.y+b.y);};
@@ -833,9 +833,17 @@ try{
  assert.equal(opening5.phase,'opening');assert.equal(opening5.controls,false);
  assert.notEqual(opening5.weapon,'water-flamethrower');
  const next5=async()=>{
-  await sleep(235);
-  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.dialoguePanel.button.x,y:r.y+s.dialoguePanel.button.y,visible:s.dialoguePanel.button.visible}})()");
-  assert.ok(p.visible,'Act V DALEJ');await touch(p.x,p.y);
+  const initial=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
+  assert.ok(initial.id,'Act V dialogue is active');
+  for(let attempt=0;attempt<3;attempt++){
+   await sleep(235);
+   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.dialoguePanel.button.x,y:r.y+s.dialoguePanel.button.y,visible:s.dialoguePanel.button.visible}})()");
+   assert.ok(p.visible,'Act V DALEJ');
+   await touch(p.x,p.y);await sleep(90);
+   const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
+   if(actual.id!==initial.id||actual.index!==initial.index)return;
+  }
+  throw Error('Act V DALEJ did not advance '+JSON.stringify(initial));
  };
  for(let i=0;i<8;i++)await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian evolution blinks',3000);
