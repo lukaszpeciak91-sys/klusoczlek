@@ -109,7 +109,8 @@ export class RetroAudio {
     if(old){old.pause();old.currentTime=0;}
     try{
       const audio=new Audio(import.meta.env?.BASE_URL?import.meta.env.BASE_URL+'assets/music/'+id+'.ogg':'/assets/music/'+id+'.ogg');
-      audio.loop=id!=='credits';audio.preload='auto';audio.volume=0;
+      // Credits are deliberately long and the final dedication has no timeout.
+      audio.loop=true;audio.preload='auto';audio.volume=0;
       audio.addEventListener('error',()=>{ /* sound is optional */ });
       this.music=audio;this.syncMusic();this.playCurrent();
     }catch{this.music=null;}

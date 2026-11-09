@@ -81,6 +81,19 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.background);
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
+    // Console-era graphics only: crisp rails, restrained scanlines and a
+    // pulsing selection cursor. All actions remain instantly tappable.
+    const trim=this.add.graphics().setDepth(-20);
+    const brand=label(this,0,0,'NEPAHU STUDIOS  © 2026',12)
+      .setColor('#93815f').setDepth(-1);
+    const selection=this.add.text(0,0,'▶',{
+      fontFamily:'monospace',fontSize:'21px',color:'#f3ca76'
+    }).setOrigin(.5).setDepth(2);
+    let selectedMenuIndex=0;
+    title.setAlpha(0).setScale(.93);
+    this.tweens.add({targets:title,alpha:1,scale:1,duration:450,ease:'Sine.Out'});
+    this.tweens.add({targets:selection,alpha:.48,duration:680,yoyo:true,repeat:-1});
+
     const sessionKey=['Catacombs','School','Volcano','Airship','Arena'].find(key=>this.scene.isPaused(key))??'Arena';
     const hasSession = this.scene.isPaused(sessionKey);
     if(hasSession)retroAudio.pauseForMenu();else retroAudio.enter('Menu');
@@ -213,14 +226,36 @@ export class MenuScene extends Phaser.Scene {
       subtitle.setPosition(layout.centerX,layout.subtitleY).setFontSize(layout.subtitleSize);
       const showMain=!this.debugOpen&&!this.optionsOpen;
       const controls=[newGame,resume,debug,optionsButton].filter(Boolean);
+      selection.setVisible(showMain);
+      selectedMenuIndex=Math.min(selectedMenuIndex,controls.length-1);
+      trim.clear();
+      trim.lineStyle(2,0x755c34,.67);
+      trim.lineBetween(Math.max(12,w*.11),h*.105,w-Math.max(12,w*.11),h*.105);
+      trim.lineBetween(Math.max(12,w*.11),h*.93,w-Math.max(12,w*.11),h*.93);
+      trim.lineStyle(1,0x28283a,.4);
+      for(let y=7;y<h;y+=7)trim.lineBetween(0,y,w,y);
+      brand.setPosition(Math.max(85,w*.18),h*.963)
+        .setFontSize(Math.max(9,Math.min(12,h*.027)))
+        .setVisible(showMain);
+
       const gap=Math.min(54,Math.max(38,h*.12));
       const base=h*(resume?.49:.53);
       const menuHeight=Math.min(47,Math.max(32,h*.095));
       controls.forEach((control,index)=>{
         const y=base+index*gap;
+        if(index===selectedMenuIndex){
+          selection.setPosition(layout.centerX-layout.startWidth/2-Math.max(15,Math.min(24,w*.027)),y)
+            .setFontSize(Math.max(14,Math.min(23,h*.06)));
+        }
         control.background.setPosition(layout.centerX,y).setSize(layout.startWidth,menuHeight).setVisible(showMain);
         control.caption.setPosition(layout.centerX,y).setFontSize(Math.max(13,Math.min(22,h*.055))).setVisible(showMain);
         control.background.input.enabled=showMain;
+      });
+      controls.forEach((control,index)=>{
+        if(!control.background.getData('selectionMarkerBound')){
+          control.background.setData('selectionMarkerBound',true);
+          control.background.on('pointerover',()=>{selectedMenuIndex=index;resize();});
+        }
       });
       optionsTitle.setPosition(w/2,h*.13).setFontSize(Math.max(20,Math.min(32,h*.085))).setVisible(this.optionsOpen);
       audioHeading.setPosition(w/2,h*.265).setFontSize(Math.max(15,Math.min(21,h*.055))).setVisible(this.optionsOpen);

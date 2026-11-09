@@ -6,6 +6,8 @@ import { AirshipScene } from './airship-scene.js';
 import { VolcanoScene } from './volcano-scene.js';
 import { SchoolScene } from './school-scene.js';
 import { CatacombsScene } from './catacombs-scene.js';
+import { StudioIntroScene } from './studio-intro-scene.js';
+import { CreditsScene } from './credits-scene.js';
 import { GAME_WIDTH, GAME_HEIGHT, setupViewport } from './viewport.js';
 import './style.css';
 import { toggleFullscreen } from './fullscreen.js';
@@ -22,7 +24,7 @@ const game = new Phaser.Game({
   },
   render: { pixelArt: true, antialias: false },
   physics: { default: 'arcade', arcade: { debug: false } },
-  scene: [MenuScene, ActTitleScene, ArenaScene, AirshipScene, VolcanoScene, SchoolScene, CatacombsScene],
+  scene: [StudioIntroScene, MenuScene, ActTitleScene, ArenaScene, AirshipScene, VolcanoScene, SchoolScene, CatacombsScene, CreditsScene],
   input: { activePointers: 3 },
 });
 

@@ -24,7 +24,7 @@ test('final chapter is registered, reached through original ActTitle flow and te
  const school=src('../src/school-scene.js'),main=src('../src/main.js');
  assert.ok(school.includes("this.scene.start('ActTitle',{actId:'act5',handoff})"));
  assert.ok(school.includes('updateRunHealth(this.run,this.run.maxHp)'));
- assert.ok(main.includes('CatacombsScene]'));
+ assert.ok(main.includes('CatacombsScene, CreditsScene]'));
 });
 test('three Act V DEBUG checkpoints have full HP, correct predecessor and artifacts',()=>{
  for(const id of ['act5-opening','act5-boss','act5-ending']){
@@ -195,7 +195,7 @@ test('full HP after Act IV, Act V save entry, finale completion and menu reset',
   selectedWeapon:'rifle',kills:3,activeCombatMs:85000}),false);
  assert.ok(clearCampaignCheckpoint(storage));assert.equal(readCampaignCheckpoint(storage),null);
  const scene=src('../src/catacombs-scene.js');
- assert.ok(scene.includes("this.scene.start('Menu')"));
+ assert.ok(scene.includes("this.scene.start('Credits')"));
  assert.ok(scene.includes('if(!this.run.isDebugRun)clearCampaignCheckpoint()'));
 });
 test('Act V uses five approved production PNGs and scoped ActTitle preparation',()=>{
