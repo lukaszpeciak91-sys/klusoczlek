@@ -22,6 +22,10 @@ test('approved school artwork is east of the pitch and entrance stays walkable',
 test('rack visual scales 13% and accessible ground-footprint pickup remains valid',()=>{
  const rack=SCHOOL_ART.bicycleRack;
  assert.equal(rack.width,287);assert.equal(rack.height,222);
+ assert.deepEqual([rack.sourceWidth,rack.sourceHeight],[330,255]);
+ const loader=source('../src/schoolyard-art.js');
+ assert.ok(loader.includes('def.sourceWidth??def.width'));
+ assert.ok(loader.includes('def.sourceHeight??def.height'));
  assert.ok(SCHOOL_VISIBLE_FOOTPRINTS.bicycleRack.width<rack.width);
  assert.ok(schoolWalkable(BICYCLE_COLLECTION_POINT));
  assert.ok(blazejBicycleCollectible('BLAZEJ_PICKUP_PENDING',BICYCLE_COLLECTION_POINT));
