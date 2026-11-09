@@ -56,12 +56,12 @@ test('Act IV background is exact native 1800x1200 and separate assets retain nat
  const bg=asset(SCHOOL_ART.background.path),head=pngHeader(bg);
  assert.deepEqual([head.width,head.height,head.depth],[1800,1200,8]);
  assert.equal(validSchoolyardBackground(bg),true);
- for(const [id,w,h,x,bottom] of [
-  ['school',610,450,1360,595],['chapel',235,235,330,965],
-  ['bicycleRack',330,255,1510,857]]){
+ for(const [id,w,h,x,bottom,dw=w,dh=h] of [
+  ['school',610,450,1420,595],['chapel',235,235,330,965],
+  ['bicycleRack',330,255,1510,857,287,222]]){
   const def=SCHOOL_ART[id],header=pngHeader(asset(def.path));
   assert.deepEqual([header.width,header.height,header.color],[w,h,6]);
-  assert.deepEqual([def.width,def.height,def.x,def.bottomY],[w,h,x,bottom]);
+  assert.deepEqual([def.width,def.height,def.x,def.bottomY],[dw,dh,x,bottom]);
  }
  const source=readFileSync(new URL('../src/schoolyard-art.js',import.meta.url),'utf8');
  assert.ok(source.includes('.setDisplaySize(def.width,def.height).setDepth(12)'));
@@ -74,8 +74,10 @@ test('school, chapel and bicycle rack collision boxes follow actual lower opaque
  const bands={school:330,chapel:142,bicycleRack:163};
  for(const id of ['school','chapel','bicycleRack']){
   const a=SCHOOL_ART[id],o=SCHOOL_VISIBLE_FOOTPRINTS[id],alpha=alphaBounds(asset(a.path),bands[id]);
+  const native=pngHeader(asset(a.path)),scaleX=a.width/native.width,scaleY=a.height/native.height;
   const left=a.x-a.width/2,top=a.bottomY-a.height;
-  const x0=left+alpha.minX,x1=left+alpha.maxX,y0=top+alpha.minY,y1=top+alpha.maxY;
+  const x0=left+alpha.minX*scaleX,x1=left+alpha.maxX*scaleX;
+  const y1=top+alpha.maxY*scaleY;
   assert.ok(o.width<a.width&&o.height<a.height,'transparent PNG margins are non-solid: '+id);
   assert.ok(o.x-o.width/2>=x0-22&&o.x+o.width/2<=x1+22,'ground-contact width matches visible alpha '+id);
   assert.ok(o.y+o.height/2>=y1-7&&o.y+o.height/2<=y1+24,'ground-contact bottom follows visible alpha '+id);

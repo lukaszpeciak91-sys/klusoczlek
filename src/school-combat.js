@@ -1,7 +1,7 @@
 // Act IV adapter around the approved Act I encounter, movement, rendering and
 // weapon contracts. No new enemy rules, damage tuning or combat director.
 import {WAVES,WAVE_TIMING} from './episode.js';
-import {SCHOOL_WAVE_COUNT,SCHOOL_WORLD} from './school-contract.js';
+import {SCHOOL_WAVE_COUNT,SCHOOL_WORLD,SCHOOL_PLACES} from './school-contract.js';
 import {ENCOUNTER,applyEnemyHit,applyPlayerContact} from './bobrozombi.js';
 import {PLAYER_RADIUS} from './movement.js';
 import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
@@ -37,7 +37,7 @@ export function schoolCombatPhase(elapsedMs,ordinaryAlive){
 export const schoolWeaponAllowed=(weapon,unlocked)=>availableWeapons(unlocked,'act4').includes(weapon);
 
 export function createSchoolCombat(scene,Phaser){
- const enemies=[],stagedEntourage=[],projectiles=[],bursts=[],director=createDirector(104);
+ const enemies=[],stagedEntourage=[],optionalActors=[],projectiles=[],bursts=[],director=createDirector(104);
  const renderers={
   bobrozombi:createBobrozombiRenderer(scene,Phaser),
   bocianolak:createBocianolakRenderer(scene,Phaser),
@@ -49,6 +49,7 @@ export function createSchoolCombat(scene,Phaser){
  const clock=createGameplayClock(),firing=createFiringState(),fire=createContinuousWeaponState();
  const stream=scene.add.graphics().setDepth(12);
  const weaponCooldownUntil=new Map();
+ let optionalHostile=false;const reinforcementTriggers=new Set();
  let started=false,defeated=false,finished=false,phase='INTRO',phaseChanges=0,wave=0,totalSpawned=0,kills=0,invulnerableUntil=0;
  const PHASE_ORDER=Object.freeze({INTRO:0,COMBAT:1,CLEANUP:2,BLAZEJ_PENDING:3,BLAZEJ_BOSS:4,BLAZEJ_PICKUP_PENDING:5,BLAZEJ_REWARD:6,BICYCLE_RIDE:7,CHAPEL_RETURN:8,ACT_IV_COMPLETE:9,DEFEAT:10});
  function transition(next){
@@ -60,6 +61,28 @@ export function createSchoolCombat(scene,Phaser){
  const living=()=>enemies.filter(e=>!e.dead&&e.hp>0);
  // Passive pre-wave observers are the very same actor and sprite instances
  // adopted by the original director after the last dialogue DALEJ.
+ // Maciek and Seba are staged with the SAME sprite objects later adopted by
+ // School's ordinary enemy damage, movement, rendering and contact loop.
+ function stageOptionalActors(){
+  if(optionalActors.length||started||scene.disposed)return optionalActors;
+  for(const point of [SCHOOL_PLACES.maciek,SCHOOL_PLACES.seba]){
+   const type=optionalActors.length?'bocianolak':'bobrozombi';
+   const enemy={...point,type,seed:200+optionalActors.length,hp:ENEMY_TYPES[type].hp,
+    dead:false,hitUntil:0,facing:'s',optionalEncounter:true,
+    ignition:createIgnitionState(),burningFx:null,fleeFacingVector:null,
+    sprite:renderers[type].create(point.x,point.y)};
+   renderers[type].update(enemy,scene.player,0,0);
+   optionalActors.push(enemy);
+  }
+  return optionalActors;
+ }
+ function activateOptionalActors(){
+  if(optionalHostile||!optionalActors.length)return false;
+  optionalHostile=true;
+  for(const enemy of optionalActors)if(!enemies.includes(enemy))enemies.push(enemy);
+  optionalActors.length=0;
+  return true;
+ }
  function stageEntourage(){
   if(started||defeated||scene.disposed||stagedEntourage.length)return false;
   for(const point of SCHOOL_ENTOURAGE){
@@ -129,6 +152,11 @@ export function createSchoolCombat(scene,Phaser){
    if(enemy.sprite?.active)enemy.sprite.destroy();
   }
   enemies.length=0;
+  for(const enemy of optionalActors){
+   enemy.burningFx?.destroy();clearIgnition(enemy.ignition);
+   if(enemy.sprite?.active)enemy.sprite.destroy();
+  }
+  optionalActors.length=0;
   for(const enemy of stagedEntourage){
    enemy.burningFx?.destroy();clearIgnition(enemy.ignition);
    if(enemy.sprite?.active)enemy.sprite.destroy();
@@ -141,9 +169,9 @@ export function createSchoolCombat(scene,Phaser){
   clearCombat();stream.destroy();
   for(const renderer of Object.values(renderers))renderer.shutdown();
  }
- function spawnEnemy({type:stagedType=null,preferred=null}={}){
+ function spawnEnemy({type:stagedType=null,preferred=null,bossHelper=false}={}){
   const population=living();
-  if(population.length>=SCHOOL_WAVES[wave].maxAlive)return false;
+  if(bossHelper ? (phase!=='BLAZEJ_BOSS'||population.filter(e=>e.bossHelper).length>=4) : population.length>=SCHOOL_WAVES[wave].maxAlive)return false;
   const heavy=population.some(e=>e.type==='zubrokryptyda');
   const type=stagedType??nextDirectorType(director,wave,heavy?['zubrokryptyda']:[]);
   if(!type)return false;
@@ -165,12 +193,33 @@ export function createSchoolCombat(scene,Phaser){
     radius,view,seed:104,navigation,occupied});
   if(!result.point)return false; // defer rather than overlap a solid footprint
   const point=result.point,index=totalSpawned++;
-  const enemy={...point,type,seed:index,hp:ENEMY_TYPES[type].hp,waveIndex:wave,
+  const enemy={...point,type,seed:index,hp:ENEMY_TYPES[type].hp,waveIndex:wave,bossHelper,
    sprite:renderers[type].create(point.x,point.y),dead:false,hitUntil:0,facing:'s',
    ignition:createIgnitionState(),burningFx:null,fleeFacingVector:null};
   enemies.push(enemy);
-  recordDirectorSpawn(director,wave,type);
+  if(!bossHelper)recordDirectorSpawn(director,wave,type);
   return true;
+ }
+ function spawnBossReinforcements(hpRatio){
+  if(phase!=='BLAZEJ_BOSS'||defeated||scene.blazej?.defeated)return 0;
+  let spawned=0;
+  for(const [threshold,group] of [[.65,0],[.30,1]]){
+   if(hpRatio>threshold||reinforcementTriggers.has(group))continue;
+   reinforcementTriggers.add(group);
+   for(const type of group===0?['bobrozombi','bocianolak']:['bobrozombi','bobrozombi']){
+    if(spawnEnemy({type,bossHelper:true}))spawned++;
+   }
+  }
+  return spawned;
+ }
+ function clearBossReinforcements(){
+  for(let i=enemies.length-1;i>=0;i--){
+   const enemy=enemies[i];
+   if(!enemy.bossHelper)continue;
+   enemy.burningFx?.destroy();clearIgnition(enemy.ignition);
+   if(enemy.sprite?.active)enemy.sprite.destroy();
+   enemies.splice(i,1);
+  }
  }
  function kill(enemy){
   if(enemy.dead||enemy.hp>0)return false;
@@ -292,8 +341,9 @@ export function createSchoolCombat(scene,Phaser){
   for(let i=enemies.length-1;i>=0;i--)if(enemies[i].dead)enemies.splice(i,1);
  }
  function update(delta,now=performance.now(),aimInput={x:0,y:0},held=false){
-  if(!started||defeated||scene.introActive||scene.disposed)return;
-  const elapsed=advanceGameplayClock(clock,now,true);
+  if((!started&&!optionalHostile)||defeated||scene.introActive||scene.disposed)return;
+  // Optional Maciek/Seba combat must not bill time to the four ordinary waves.
+  const elapsed=advanceGameplayClock(clock,now,started);
   wave=schoolWaveIndex(elapsed);
   if(phase==='COMBAT'&&elapsed>=SCHOOL_COMBAT_MS)transition('CLEANUP');
   if(phase==='COMBAT'){
@@ -350,8 +400,10 @@ export function createSchoolCombat(scene,Phaser){
   }
  }):null;
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,destroy);
- return {start,stageEntourage,update,suspend,stopFire,enterBoss,advanceFinale,hurtPlayer,qa,renderers,
-  get stagedEntourage(){return stagedEntourage;},get enemies(){return enemies;},
+ return {start,stageEntourage,stageOptionalActors,activateOptionalActors,spawnBossReinforcements,clearBossReinforcements,
+  update,suspend,stopFire,enterBoss,advanceFinale,hurtPlayer,qa,renderers,
+  get stagedEntourage(){return stagedEntourage;},get optionalActors(){return optionalActors;},
+  get optionalHostile(){return optionalHostile;},get enemies(){return enemies;},
   get started(){return started;},get state(){return phase;},get wave(){return wave;},
   get elapsedMs(){return clock.elapsedMs;},get kills(){return kills;},get phaseChanges(){return phaseChanges;},get totalSpawned(){return totalSpawned;},
   get pressure(){return fire.pressure;},get projectiles(){return projectiles;}};

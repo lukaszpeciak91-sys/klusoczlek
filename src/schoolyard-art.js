@@ -5,9 +5,9 @@ import {SCHOOL_WORLD} from './school-contract.js';
 
 export const SCHOOL_ART=Object.freeze({
  background:Object.freeze({path:'backgrounds/act4-schoolyard.png',key:'schoolyard-approved-bg'}),
- school:Object.freeze({path:'obstacles/act4-school.png',key:'schoolyard-approved-school',width:610,height:450,x:1360,bottomY:595}),
+ school:Object.freeze({path:'obstacles/act4-school.png',key:'schoolyard-approved-school',width:610,height:450,x:1420,bottomY:595}),
  chapel:Object.freeze({path:'obstacles/act4-chapel.png',key:'schoolyard-approved-chapel',width:235,height:235,x:330,bottomY:965}),
- bicycleRack:Object.freeze({path:'obstacles/act4-bicycle-rack.png',key:'schoolyard-approved-rack',width:330,height:255,x:1510,bottomY:857}),
+ bicycleRack:Object.freeze({path:'obstacles/act4-bicycle-rack.png',key:'schoolyard-approved-rack',width:287,height:222,sourceWidth:330,sourceHeight:255,x:1510,bottomY:857}),
 });
 export function validSchoolyardBackground(bytes){
  if(bytes.length<26||![137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v))return false;
@@ -27,13 +27,13 @@ export function createSchoolyardArt(scene){
      {cache:'no-cache',signal:controller.signal});
     if(!response.ok)return;
     const bytes=new Uint8Array(await response.arrayBuffer());
-    if(!(id==='background'?validSchoolyardBackground(bytes):validPngHeader(bytes,def)))return;
+    if(!(id==='background'?validSchoolyardBackground(bytes):validPngHeader(bytes,{width:def.sourceWidth??def.width,height:def.sourceHeight??def.height})))return;
     const blob=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
     try{
      const image=new Image();
      await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=blob;});
      if(disposed||id==='background'&&(image.naturalWidth!==SCHOOL_WORLD.width||image.naturalHeight!==SCHOOL_WORLD.height)||
-         id!=='background'&&(image.naturalWidth!==def.width||image.naturalHeight!==def.height))return;
+         id!=='background'&&(image.naturalWidth!==(def.sourceWidth??def.width)||image.naturalHeight!==(def.sourceHeight??def.height)))return;
      scene.textures.addImage(def.key,image);
     }finally{URL.revokeObjectURL(blob);}
    }

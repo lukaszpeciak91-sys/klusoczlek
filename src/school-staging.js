@@ -14,9 +14,9 @@ export const SCHOOL_HEART_POINTS=Object.freeze({
  wave4:Object.freeze({x:1035,y:1050}),
 });
 export const SCHOOL_ENTOURAGE=Object.freeze([
- Object.freeze({type:'bobrozombi',x:1365,y:945}),
- Object.freeze({type:'bocianolak',x:1280,y:1010}),
- Object.freeze({type:'zubrokryptyda',x:1450,y:960}),
+ Object.freeze({type:'bobrozombi',x:1220,y:785}),
+ Object.freeze({type:'bocianolak',x:1430,y:720}),
+ Object.freeze({type:'zubrokryptyda',x:1320,y:900}),
 ]);
 // All placements feed the single School wave director, never an extra timer.
 // Two consecutive later opportunities occasionally choose quiet outdoor areas.

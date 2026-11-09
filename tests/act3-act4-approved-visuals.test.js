@@ -123,5 +123,5 @@ test('Błażej dialogue has his approved portrait; ordinary enemy portrait and a
  }
  assert.deepEqual(DIALOGUES['act4-blazej-final'],[['blazej','BŁAŻEJ','Ech, kazał pan, musiał sam!']]);
  assert.deepEqual(DIALOGUES['act4-blazej-observer'][1],['bobrozombi','BOBROZOMBI','Ty to jednak Błażej jesteś gość']);
- assert.equal(DIALOGUES['act4-blazej-confrontation'].length,5);
+ assert.equal(DIALOGUES['act4-blazej-confrontation'].length,4);
 });

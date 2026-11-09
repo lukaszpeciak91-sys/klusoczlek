@@ -58,7 +58,7 @@ test('R1: one unchanged director alternates pitch-facing and modest remote oppor
 
 test('R1: bicycle pickup is outside the approved rack, physically reachable and requires post-boss phase',()=>{
  assert.equal(BLAZEJ_BICYCLE_ID,'blazej-bicycle');
- assert.deepEqual(BICYCLE_COLLECTION_POINT,{x:1510,y:883});
+ assert.deepEqual(BICYCLE_COLLECTION_POINT,{x:1510,y:880});
  assert.ok(BICYCLE_COLLECTION_RADIUS<55);
  assert.ok(schoolWalkable(BICYCLE_COLLECTION_POINT,PLAYER_RADIUS));
  const from={x:1510,y:970};

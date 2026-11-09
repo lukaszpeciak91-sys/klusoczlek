@@ -204,7 +204,7 @@ try{
   assert.equal(p.text,phrase,'approved literal panel');
   assert.equal(p.started,false,'waves cannot start before confrontation');
   assert.equal(p.bullets,0,'no attacks during dialogue');
-  assert.equal(p.alive,0,'no ordinary enemies during dialogue');
+  assert.ok(p.alive<=(id==='act4-maciek-seba'?0:2),'only previously activated optional NPCs remain; no wave spawns during dialogue');
   assert.equal(p.clock,0,'no background/dialogue combat time');
   assert.equal(p.boss,false,'boss passive during opening');
   assert.equal(p.enabled,false,'movement disabled while dialogue visible');
@@ -213,7 +213,7 @@ try{
    await wait("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.loaded.has('blazej')&&d.loaded.has('zubrokryptyda')})()",'both approved boss and ordinary portraits loaded',3500);
    const portrait=await evaluate("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.shell.list.filter(o=>o.type==='Image'&&o.visible).map(o=>o.texture.key)})()");
    const blazej=id==='act4-blazej-final'||id==='act4-blazej-observer'&&index===0||
-     id==='act4-blazej-confrontation'&&index!==2;
+     id==='act4-blazej-confrontation'&&index!==1;
    assert.deepEqual(portrait,[blazej?'dialogue-blazej':
      id==='act4-blazej-observer'?'dialogue-bobrozombi':'dialogue-aloes'],
      'portrait changes only for Błażej, speech and DALEJ unchanged');
@@ -236,18 +236,18 @@ try{
  assert.deepEqual(schoolArtPlacement,[
   {key:'schoolyard-approved-bg',x:0,y:0,w:1800,h:1200,depth:-18},
   {key:'schoolyard-approved-chapel',x:330,y:965,w:235,h:235,depth:12},
-  {key:'schoolyard-approved-rack',x:1510,y:857,w:330,h:255,depth:12},
-  {key:'schoolyard-approved-school',x:1360,y:595,w:610,h:450,depth:12}
- ].sort((a,b)=>a.key.localeCompare(b.key)),'four original art layers use native PNG dimensions, proper world positions and roof occlusion');
+  {key:'schoolyard-approved-rack',x:1510,y:857,w:287,h:222,depth:12},
+  {key:'schoolyard-approved-school',x:1420,y:595,w:610,h:450,depth:12}
+ ].sort((a,b)=>a.key.localeCompare(b.key)),'four approved art layers retain native PNG textures, scaled rack and clear pitch');
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.children.list.filter(o=>o.getData('obstacleArt')).length===5&&s.children.list.filter(o=>o.getData('obstacleArt')).every(o=>!!o.getData('atlasSprite'))})()",'five real Act I approved atlas obstacle frames load',9000);
  const atlas=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.children.list.filter(o=>o.getData('obstacleArt')).map(o=>({frame:o.getData('obstacleArt').frame,original:!!o.getData('atlasSprite'),fallbackVisible:o.getData('fallback').visible})).sort((a,b)=>a.frame-b.frame)})()");
  assert.deepEqual(atlas,[0,1,9,10,10].map(frame=>({frame,original:true,fallbackVisible:false})),'two tires, toi-toi and two original rock PNG frames');
  const solids=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.obstacles.slice(0,3).map(o=>({id:o.id,w:o.footprint.width,h:o.footprint.height}))})()");
- assert.deepEqual(solids,[{id:'chapel',w:96,h:94},{id:'school',w:500,h:160},{id:'bicycleRack',w:252,h:58}],
+ assert.deepEqual(solids,[{id:'chapel',w:96,h:94},{id:'school',w:500,h:160},{id:'bicycleRack',w:220,h:52}],
   'actual lower-footprint collision dimensions, never complete PNG canvas');
  console.log('PASS Act IV Chromium approved art: 1800x1200 terrain, native obstacle PNGs, alpha-based lower footprints, real Act I atlas pieces, occlusion and HUD');
  await finishCaptainOpening(); // Second scene entry gets exactly one new opening; combat remains gated.
- const optionalBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,maciek:s.maciekSeen,pitch:s.pitchStarted,actors:s.maciekSebaActors?.length}})()");
+ const optionalBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,maciek:s.maciekSeen,pitch:s.pitchStarted,actors:s.combat.optionalActors.length}})()");
  assert.deepEqual(optionalBefore,{intro:false,started:false,maciek:false,pitch:false,actors:2},'both NPCs staged, optional encounter not automatic');
  const approachMaciek=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(695,620);s.player.body.reset(695,620);return true})()");
  await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-maciek-seba'",'optional dialogue on actual approach',4000);
@@ -267,28 +267,27 @@ try{
  const staged=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),actors=s.combat.stagedEntourage;window.__schoolStagedEntourage=[...actors];return {types:actors.map(a=>a.type).sort(),alive:actors.filter(a=>a.hp>0&&a.sprite?.active&&a.sprite.visible).length,ordinary:s.combat.enemies.length,spawned:s.combat.totalSpawned,started:s.combat.started,clock:s.combat.elapsedMs,shots:s.combat.projectiles.length,hp:s.run.hp}})()");
  assert.deepEqual(staged.types,['bobrozombi','bocianolak','zubrokryptyda']);
  assert.equal(staged.alive,3,'three approved enemy sprites visually surround passive Błażej before conversation');
- assert.ok(!staged.started&&staged.ordinary===0&&staged.spawned===0&&staged.clock===0&&staged.shots===0);
+ assert.ok(!staged.started&&staged.ordinary===2&&staged.spawned===0&&staged.clock===0&&staged.shots===0);
  const hpBeforeDialogue=staged.hp;
  await sleep(350);
  assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.run.hp,elapsed:s.combat.elapsedMs,spawned:s.combat.totalSpawned,poses:s.combat.stagedEntourage.map(e=>[e.x,e.y])}})()"),
-  {hp:hpBeforeDialogue,elapsed:0,spawned:0,poses:[[1365,945],[1280,1010],[1450,960]]},
+  {hp:hpBeforeDialogue,elapsed:0,spawned:0,poses:[[1220,785],[1430,720],[1320,900]]},
   'staged monsters stay still, do not hurt Aloes, and do not advance wave time');
  for(const [i,line] of ['...i ja wtedy normalnie od razu','Ty to jednak Błażej jesteś gość'].entries())
   await verifyPanel('act4-blazej-observer',i,line);
- await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-confrontation'",'five-panel bike confrontation before waves');
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-confrontation'",'four-panel bike confrontation before waves');
  const prewaves=[
-  'Kazał pan, musiał sam!',
   'Nie wiem kim jesteś ale mam ochotę Cię rozgnieść',
   'Potrzebuję na chwilę Twojego roweru, dasz się karnąć?',
   'Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać',
   'Zostaw mój rower, ty kutwo!\nChłopaki, na niego!'
  ];
  for(let i=0;i<prewaves.length;i++)await verifyPanel('act4-blazej-confrontation',i,prewaves[i]);
- await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.started&&s.schoolPhase==='COMBAT'&&!s.dialogueState.id})()",'waves start only after fifth confrontation panel',4000);
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.started&&s.schoolPhase==='COMBAT'&&!s.dialogueState.id})()",'waves start only after fourth confrontation panel',4000);
  const adopted=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),before=window.__schoolStagedEntourage;return {reused:before.every(e=>s.combat.enemies.includes(e)&&e.sprite?.active),staged:s.combat.stagedEntourage.length,duplicates:new Set(s.combat.enemies.map(e=>e.sprite)).size!==s.combat.enemies.length,count:s.combat.enemies.length,spawned:s.combat.totalSpawned}})()");
  assert.ok(adopted.reused&&!adopted.duplicates&&adopted.staged===0,'exact same preview sprite/actor objects transferred into capped director '+JSON.stringify(adopted));
- assert.ok(adopted.count<=6&&adopted.spawned>=3&&adopted.count<=adopted.spawned);
- console.log('PASS Act IV Chromium opening: Captain at chapel, optional Maciek/Seba 3, pitch observer 2, confrontation 5; combat only after approved DALEJ');
+ assert.ok(adopted.count<=6&&adopted.spawned>=3&&adopted.count<=adopted.spawned+2);
+ console.log('PASS Act IV Chromium opening: Captain at chapel, optional Maciek/Seba 3, pitch observer 2, confrontation 4; combat only after approved DALEJ');
  await wait("window.__game.scene.getScene('School').combat.enemies.length>0",'School wave1 spawns',10000);
  const school=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {wave:s.combat.wave,count:s.combat.enemies.length,state:s.schoolPhase,weapon:s.weapon,owned:[...s.run.unlockedWeapons],hp:s.run.hp}})()");
  assert.equal(school.wave,0);assert.ok(school.count<=6&&school.count>0,'wave1 cap');
@@ -337,7 +336,7 @@ try{
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1065,870);s.player.body.reset(1065,870);return true})()");
  await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'bypassed optional Maciek/Seba; pitch continues');
  assert.equal(await evaluate("window.__game.scene.getScene('School').maciekSeen"),false,'Maciek bypass is truly optional');
- for(let i=0;i<7;i++)await dialogueNext();
+ for(let i=0;i<6;i++)await dialogueNext();
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.started&&s.schoolPhase==='COMBAT'})()",'bypassing optional encounter still starts four waves');
  console.log('PASS Act IV Chromium: Maciek/Seba bypass leaves pitch encounter and ordinary combat reachable');
  await cdp('Page.reload',{ignoreCache:true});

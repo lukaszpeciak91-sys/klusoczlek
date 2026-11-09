@@ -1,6 +1,6 @@
 // Błażej uses the approved dedicated PNG with the existing Żubrokryptyda
 // gait, hit feedback and mechanical type; combat and Marcin attacks stay shared.
-import {ENEMY_TYPES,moveEnemy} from './enemy-types.js';
+import {ENEMY_TYPES} from './enemy-types.js';
 import {createBlazejRenderer} from './enemy-visual.js';
 import {PLAYER_RADIUS} from './movement.js';
 import {applyEnemyHit} from './bobrozombi.js';
@@ -15,6 +15,8 @@ import {createBurningFx} from './enemy-fire-vfx.js';
 import {BLAZEJ_START,BLAZEJ_RADIUS,blazejJumpLanding} from './school-finale.js';
 
 export const BLAZEJ_HP=MARCIN.hp;
+export const BLAZEJ_SPEED=ENEMY_TYPES.zubrokryptyda.speed*1.3;
+export const BLAZEJ_ATTACK=Object.freeze({...MARCIN,cooldown:4500,lowCooldown:3000});
 export const BLAZEJ_SHOCKWAVE_RADIUS=95;
 export const BLAZEJ_MAX_PROJECTILES=MARCIN.maxProjectiles;
 
@@ -44,7 +46,10 @@ export function createSchoolBlazej(scene,Phaser){
   if(!active||defeated||disposed||!Number.isFinite(amount)||amount<=0)return false;
   const before=actor.hp;actor.hp=applyEnemyHit(before,amount);
   if(actor.hp===before)return false;
-  if(actor.hp>0){recordHit(renderer.feedbackOf(actor),now,source,actor);actor.hitUntil=now+120;}
+  if(actor.hp>0){
+   scene.combat?.spawnBossReinforcements(bossHpRatio(actor.hp,BLAZEJ_HP));
+   recordHit(renderer.feedbackOf(actor),now,source,actor);actor.hitUntil=now+120;
+  }
   else{
    defeated=true;active=false;actor.dead=true;presentation.defeat();clearAttacks();
    burningFx?.destroy();burningFx=null;clearIgnition(ignition);
@@ -52,6 +57,7 @@ export function createSchoolBlazej(scene,Phaser){
    const at={x:actor.x,y:actor.y};
    if(actor.sprite.active)actor.sprite.destroy();
    bursts.push(createPixelBurst(scene,'zubrokryptyda',at.x,at.y,actor.seed));
+   scene.combat?.clearBossReinforcements();
    scene.onBlazejDefeated();
   }
   return true;
@@ -89,14 +95,17 @@ export function createSchoolBlazej(scene,Phaser){
    shockwaveMs=Math.max(0,shockwaveMs-dt);
    graphics.lineStyle(4,0xffaa47,shockwaveMs/210).strokeCircle(impactPoint.x,impactPoint.y,BLAZEJ_SHOCKWAVE_RADIUS);
   }
-  const previous=attack.phase,fire=bossAttackStep(attack,actor.hp,dt);
+  const previous=attack.phase,fire=bossAttackStep(attack,actor.hp,dt,BLAZEJ_ATTACK);
   if(previous!=='warning'&&attack.phase==='warning'){
    kind=(volleyCount+jumpCount)%2===0?'radial':'jump';
    landing=kind==='jump'?blazejJumpLanding(actor,scene.player,scene.obstacles):null;
   }
   if(attack.phase==='chase'){
    const from={x:actor.x,y:actor.y};
-   const desired=moveEnemy(actor,scene.player,seconds,now/1000);
+   // Błażej-only chase movement: no changes to ordinary Żubrokryptyda.
+   const dx=scene.player.x-actor.x,dy=scene.player.y-actor.y;
+   const distance=Math.hypot(dx,dy),step=Math.min(distance,BLAZEJ_SPEED*seconds);
+   const desired=distance?{...actor,x:actor.x+dx/distance*step,y:actor.y+dy/distance*step}:{...actor};
    const next=steerObstacleStep(actor,desired,scene.player,BLAZEJ_RADIUS,scene.obstacles);
    actor.x=next.x;actor.y=next.y;
    renderer.update(actor,scene.player,Math.hypot(next.x-from.x,next.y-from.y),seconds);
