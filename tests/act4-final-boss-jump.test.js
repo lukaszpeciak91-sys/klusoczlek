@@ -45,7 +45,7 @@ test('jump landing and full swept segment never cross school/rack solids',()=>{
  for(const [start,player] of [
   [{x:1335,y:785},{x:1200,y:780}],
   [{x:1335,y:830},{x:1660,y:830}],
-  [{x:980,y:450},{x:1500,y:450}],
+  [{x:980,y:317},{x:1500,y:317}],
  ]){
   const dest=blazejJumpLanding(start,player);
   assert.ok(dest&&schoolWalkable(dest,BLAZEJ_RADIUS));
