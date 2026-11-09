@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {retroAudio} from './retro-audio.js';
 import { ArenaScene, MenuScene } from './scenes.js';
 import { ActTitleScene } from './act-title-scene.js';
 import { AirshipScene } from './airship-scene.js';
@@ -26,5 +27,6 @@ const game = new Phaser.Game({
 });
 
 setupViewport(game);
+retroAudio.init(game);
 
 document.getElementById('fullscreen-button').addEventListener('click', () => toggleFullscreen(document.getElementById('game-shell'), () => game.scale.refresh()));
