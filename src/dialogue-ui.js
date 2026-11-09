@@ -110,5 +110,7 @@ export function createDialoguePanel(scene,Phaser,onFinish,onAdvance=null){
  });
  layout();
  return {loading,loaded,get active(){return active;},show(state){active=true;blockedUntil=scene.game.loop.time+180;render(state);layout();shell.setVisible(true);button.setVisible(true);caption.setVisible(true);},
+  suspend(){active=false;button.setVisible(false);caption.setVisible(false);},
+  resume(){if(disposed||!scene.dialogueState?.id)return false;active=true;blockedUntil=scene.game.loop.time+240;render(scene.dialogueState);shell.setVisible(true);button.setVisible(true);caption.setVisible(true);return true;},
   hide(){active=false;shell.setVisible(false);button.setVisible(false);caption.setVisible(false);},get shell(){return shell;},get button(){return button;},get text(){return text;}};
 }
