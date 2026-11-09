@@ -3,12 +3,13 @@ import {FIRST_ACT_ID,getAct,sceneForAct} from './campaign.js';
 import {currentCampaignRun} from './campaign-run.js';
 import {writeCampaignCheckpoint} from './campaign-save.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
-import {ACT_TITLE_MIN_MS,prepareActAssets} from './act-asset-preparation.js';
+import {ACT_TITLE_MIN_MS,prepareActAssets,actAssetProgress} from './act-asset-preparation.js';
 
 // Short opaque intertitle; the playable Arena is not constructed until completion.
 export class ActTitleScene extends Phaser.Scene {
   constructor(){super('ActTitle');}
   init(data={}){this.actId=data.actId??FIRST_ACT_ID;this.nextScene=sceneForAct(this.actId);this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
+  get assetProgress(){return actAssetProgress(this.game);}
   create(){
     const act=getAct(this.actId);
     if(!act||!this.nextScene){this.scene.start('Menu');return;}
