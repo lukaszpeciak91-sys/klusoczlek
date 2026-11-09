@@ -155,6 +155,14 @@ export class MenuScene extends Phaser.Scene {
       if(!allowed())return;
       this.debugOpen=false;debugGesture=null;debugOpeningPointer=null;resize();
     });
+    // Compact audio controls live beside the existing central menu buttons.
+    const audioControls=[
+      button(this,0,0,90,30,'M -',()=>{retroAudio.volume('music',retroAudio.settings.music-.1);resize();}),
+      button(this,0,0,90,30,'M +',()=>{retroAudio.volume('music',retroAudio.settings.music+.1);resize();}),
+      button(this,0,0,90,30,'S -',()=>{retroAudio.volume('sfx',retroAudio.settings.sfx-.1);resize();}),
+      button(this,0,0,90,30,'S +',()=>{retroAudio.volume('sfx',retroAudio.settings.sfx+.1);resize();}),
+      button(this,0,0,90,30,'MUTE',()=>{retroAudio.mute();resize();})
+    ];
     const resize = () => {
       const layout = menuLayout(this.scale.width, this.scale.height);
       const w=this.scale.width,h=this.scale.height;
@@ -172,6 +180,21 @@ export class MenuScene extends Phaser.Scene {
         control.caption.setPosition(layout.centerX,y).setFontSize(Math.max(14,Math.min(24,h*.058))).setVisible(!this.debugOpen);
         control.background.input.enabled=!this.debugOpen;
       }
+      const text=[
+        'M − '+Math.round(retroAudio.settings.music*100)+'%',
+        'M + '+Math.round(retroAudio.settings.music*100)+'%',
+        'S − '+Math.round(retroAudio.settings.sfx*100)+'%',
+        'S + '+Math.round(retroAudio.settings.sfx*100)+'%',
+        retroAudio.settings.muted?'DŹW. OFF':'DŹW. ON'
+      ];
+      audioControls.forEach((control,i)=>{
+        const x=i<2?w*.105:w*.895,y=i===4?h*.94:h*(i%2===0?.62:.79);
+        const bw=Math.min(105,w*.195),bh=Math.min(32,h*.105);
+        const visible=!this.debugOpen;
+        control.background.setPosition(x,y).setSize(bw,bh).setVisible(visible);
+        control.caption.setText(text[i]).setPosition(x,y).setFontSize(Math.max(9,Math.min(13,bw/8))).setVisible(visible);
+        control.background.input.enabled=visible;
+      });
       const margin=Math.max(18,Math.min(42,w*.045));
       const buttonWidth=Math.min(650,w-2*margin);
       const rowGap=Math.max(48,Math.min(60,h*.155));
