@@ -57,6 +57,17 @@ test('diagnostic: actual approved background color map, upper-right region',()=>
  console.log('SCHOOL_BG_MAP: x=900..1800 in 15px cells, y=0..720 in 15px cells; # dark G green B blue R red Y yellow o brown s grey W light');
  for(let y=0;y<720;y+=15){let line='';for(let x=900;x<1800;x+=15)line+=label(bg.pixel(x+7,y+7));console.log('BG '+String(y).padStart(3,'0')+' '+line);}
  const school=decode('obstacles/act4-school.png');console.log('SCHOOL PNG RGBA:',school.w,school.h);
+ const pw=120,ph=95,pr=Buffer.alloc(ph*(pw*4+1));
+ for(let y=0;y<ph;y++)for(let x=0;x<pw;x++){
+  const p=school.pixel(Math.min(school.w-1,Math.floor(x*school.w/pw)),Math.min(school.h-1,Math.floor(y*school.h/ph)));
+  const i=y*(pw*4+1)+1+x*4;
+  pr[i]=p[0];pr[i+1]=p[1];pr[i+2]=p[2];pr[i+3]=p[3];
+ }
+ const sh=Buffer.alloc(13);sh.writeUInt32BE(pw,0);sh.writeUInt32BE(ph,4);sh[8]=8;sh[9]=6;
+ const sb=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),pngChunk('IHDR',sh),pngChunk('IDAT',deflateSync(pr)),pngChunk('IEND',Buffer.alloc(0))]).toString('base64');
+ console.log('SCHOOLPNG_START '+sb.length);
+ for(let i=0;i<sb.length;i+=500)console.log('SCHOOLPNG_PART '+sb.slice(i,i+500));
+ console.log('SCHOOLPNG_END');
  const samples=[];
  for(let y=100;y<school.h-30;y+=25)for(let x=45;x<school.w-35;x+=25){
   let p=school.pixel(x,y);if(p[3]>200)samples.push([x,y,p]);
