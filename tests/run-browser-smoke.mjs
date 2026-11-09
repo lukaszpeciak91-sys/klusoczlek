@@ -584,11 +584,44 @@ try{
  const bicycleReward=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.run.artifacts.has('blazej-bicycle'),all:[...s.run.artifacts],text:s.rewardName.text,third:s.rewardDetail.text,approvedImage:s.bicycleTexture}})()");
  assert.ok(bicycleReward.id&&bicycleReward.all.length===3&&bicycleReward.text==='ROWER BŁAŻEJA'&&bicycleReward.third==='ARTEFAKT 3/3');
  assert.ok(bicycleReward.approvedImage===null||bicycleReward.approvedImage==='artifact-blazej-bicycle','only validated original bike PNG or honest text fallback');
+ const bikeAssetStatus=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),t=s.textures;return {movieReady:s.bicycleCinematic.ready,movieStarted:s.bicycleCinematic.started,movieTexture:t.exists('act4-aloes-bicycle-cinematic'),movieFrames:t.exists('act4-aloes-bicycle-cinematic')?t.get('act4-aloes-bicycle-cinematic').frameTotal:null,artifact:s.bicycleTexture,artifactTexture:t.exists('artifact-blazej-bicycle'),phase:s.schoolPhase}})()");
+ console.log('ACT IV BICYCLE ASSET STATUS',JSON.stringify(bikeAssetStatus));
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.bicycleCinematic.ready&&s.bicycleTexture==='artifact-blazej-bicycle'})()",'both actual approved bicycle images decoded in browser',4500);
  const rewardPoint=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.rewardButton.x,y:r.y+s.rewardButton.y}})()");
  await sleep(250);await touch(rewardPoint.x,rewardPoint.y);
- await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='CHAPEL_RETURN'&&s.dialogueState?.id==='act4-chapel-ending'})()",'bicycle fade and chapel return',5000);
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BICYCLE_RIDE'&&s.bicycleRideStarted&&s.storyBusy&&!s.rewardRoot.visible})()",'reward DALEJ opens one cinematic transition',2000);
+ assert.equal(await evaluate("window.__game.scene.getScene('School').startBicycleRide()"),false,'rapid second DALEJ cannot start a duplicate movie');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.bicycleCinematic.sprite?.active&&s.bicycleCinematic.backdrop?.active})()",'approved cinematic screen replaces schoolyard after first black fade',3500);
+ const cinemaStart=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),c=s.bicycleCinematic,a=c.sprite,p=s.player;const qa=window.__bikeCinematicQA={frames:[0],repeats:0,completions:0,startedAt:0,endedAt:0};a.on('animationstart',()=>{qa.startedAt=performance.now();});a.on('animationupdate',(_animation,frame)=>qa.frames.push(Number(frame.textureFrame)));a.on('animationrepeat',()=>qa.repeats++);a.on('animationcomplete',()=>{qa.completions++;qa.endedAt=performance.now();});return {ready:c.ready,started:c.started,playing:c.playing,texture:a.texture.key,width:a.displayWidth,height:a.displayHeight,depth:a.depth,black:c.backdrop.fillColor,blackDepth:c.backdrop.depth,scroll:a.scrollFactorX,player:[p.x,p.y],phase:s.schoolPhase,size:[s.scale.width,s.scale.height],artifacts:[...s.run.artifacts]}})()");
+ console.log('ACT IV CINEMATIC FIT',JSON.stringify(cinemaStart));
+ assert.ok(cinemaStart.ready&&cinemaStart.started&&cinemaStart.texture==='act4-aloes-bicycle-cinematic'&&cinemaStart.depth===301&&cinemaStart.black===0&&cinemaStart.blackDepth===300&&cinemaStart.scroll===0);
+ assert.ok(cinemaStart.width<=cinemaStart.size[0]+1e-6&&cinemaStart.height<=cinemaStart.size[1]+1e-6&&Math.abs(cinemaStart.width/cinemaStart.height-16/9)<.001,'16:9 768x432 frame is centred, fitted and letterboxed');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.bicycleCinematic.playing&&window.__bikeCinematicQA.frames.length>=2})()",'native 12fps pedalling actually advances frames',2200);
+ const animationConfig=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),a=s.bicycleCinematic.sprite,anim=a.anims.currentAnim;return {key:anim.key,rate:anim.frameRate,repeat:anim.repeat,frames:anim.frames.map(f=>Number(f.textureFrame)),playing:a.anims.isPlaying,player:[s.player.x,s.player.y],phase:s.schoolPhase,controls:s.joystick.enabled,aim:s.aimJoystick.enabled}})()");
+ assert.deepEqual(animationConfig.frames,Array.from({length:12},(_,i)=>i),'approved exact 0..11 row-major native frames');
+ assert.deepEqual([animationConfig.key,animationConfig.rate,animationConfig.repeat,animationConfig.playing,animationConfig.controls,animationConfig.aim],
+  ['act4-aloes-bicycle-three-cycles',12,2,true,false,false]);
+ assert.deepEqual(animationConfig.player,cinemaStart.player,'top-down Aloes does not move during full-screen film');
+ const movieMenu=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
+ await touch(movieMenu.x,movieMenu.y);
+ await wait("window.__game.scene.isPaused('School')&&window.__game.scene.isActive('Menu')",'MENU safely pauses active cinematic',2500);
+ const frozen=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return [s.bicycleCinematic.cycles,s.bicycleCinematic.sprite.anims.currentFrame.textureFrame,s.bicycleRideStarted]})()");
+ await sleep(250);
+ assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return [s.bicycleCinematic.cycles,s.bicycleCinematic.sprite.anims.currentFrame.textureFrame,s.bicycleRideStarted]})()"),
+  frozen,'paused film does not advance frames or duplicate transition');
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('School')",'MENU resumes existing film from same animation frame',2500);
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='CHAPEL_RETURN'&&s.dialogueState?.id==='act4-chapel-ending'})()",'three full 12fps cycles then second black fade and chapel return',8500);
+ const cinematicOutcome=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),qa=window.__bikeCinematicQA,world=s.bicycleWorld;return {cycles:s.bicycleCinematic.cycles,completed:s.bicycleCinematic.completed,stillSprite:!!s.bicycleCinematic.sprite,stillBackdrop:!!s.bicycleCinematic.backdrop,frames:qa.frames,repeatEvents:qa.repeats,completeEvents:qa.completions,animationMs:qa.endedAt-qa.startedAt,staticBike:{active:world?.active??false,key:world?.texture.key,x:world?.x,y:world?.y,width:world?.displayWidth},normalPlayer:s.playerVisual.sprite?.visible&&s.playerVisual.sprite?.active,phase:s.schoolPhase,dialogue:s.dialogueState.id,artifacts:[...s.run.artifacts]}})()");
+ assert.deepEqual([cinematicOutcome.cycles,cinematicOutcome.completed,cinematicOutcome.stillSprite,cinematicOutcome.stillBackdrop,cinematicOutcome.repeatEvents,cinematicOutcome.completeEvents],
+  [3,true,false,false,2,1],'exactly three native full cycles with one completion and cleaned film');
+ assert.deepEqual([...new Set(cinematicOutcome.frames)].sort((a,b)=>a-b),Array.from({length:12},(_,i)=>i),'all twelve approved frames played in browser');
+ assert.ok(cinematicOutcome.animationMs>2750&&cinematicOutcome.animationMs<3550,'3 cycles of 12fps run approximately 3000ms '+cinematicOutcome.animationMs);
+ assert.ok(cinematicOutcome.staticBike.active&&cinematicOutcome.staticBike.key==='artifact-blazej-bicycle'&&cinematicOutcome.staticBike.width===96,'original standalone bicycle decorates chapel return');
+ assert.ok(cinematicOutcome.normalPlayer&&cinematicOutcome.dialogue==='act4-chapel-ending'&&cinematicOutcome.artifacts.length===3);
  const chapel=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {x:s.player.x,y:s.player.y,captain:s.captainArrival.actor?.active??false,bike:s.run.artifacts.has('blazej-bicycle'),dialogue:s.dialogueState.id,phase:s.schoolPhase}})()");
  assert.ok(Math.hypot(chapel.x-525,chapel.y-1000)<2&&chapel.captain===false&&chapel.bike);
+ console.log('PASS Act IV approved bicycle Chromium: 3072x1296 RGBA decoded, 12 frames at 12fps x3, letterboxing, MENU/WZNÓW freeze, two black fades, static bike and chapel finale');
  for(let i=0;i<4;i++)await dialogueNext();
  await wait("window.__game.scene.isActive('Menu')&&!window.__game.scene.isActive('School')",'Act IV completed and returned to Menu',4500);
  const campaign=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run');return {hp:r.hp,completed:[...r.completedActs],artifacts:[...r.artifacts],selected:r.selectedWeapon,water:r.unlockedWeapons.has('water-flamethrower'),stat:r.stats.byAct.act4,title:g.scene.isActive('ActTitle'),cave:g.scene.keys.Cave??null,debug:r.isDebugRun}})()");

@@ -22,10 +22,11 @@ import {SCHOOL_COMBAT_MS} from './school-combat.js';
 import {createHealthToken} from './health-token.js';
 import {createObstacleVisual} from './obstacle-renderer.js';
 import {createSchoolyardArt} from './schoolyard-art.js';
+import {createSchoolBicycleCinematic} from './school-bicycle-cinematic.js';
 import {MACIEK_SEBA_RADIUS,PITCH_ENCOUNTER_RADIUS,SCHOOL_WAVE2_END_MS,
   SCHOOL_HEART_POINTS,maciekSebaNearby,pitchNearby,canSpawnSchoolHeart,
   collectSchoolHeart} from './school-staging.js';
-import {SCHOOL_WORLD,SCHOOL_PLACES,SCHOOL_OBSTACLES,SCHOOL_WAVE_COUNT,schoolStep,schoolDebugPoint} from './school-contract.js';
+import {SCHOOL_WORLD,SCHOOL_PLACES,SCHOOL_OBSTACLES,SCHOOL_WAVE_COUNT,schoolStep,schoolDebugPoint,schoolWalkable} from './school-contract.js';
 
 // PR105 attaches approved Act I combat via the small School adapter.
 export class SchoolScene extends Phaser.Scene {
@@ -47,6 +48,7 @@ export class SchoolScene extends Phaser.Scene {
     this.pendingObserved=false;this.pendingApproachArmed=false;this.bossConfronted=false;
     this.hearts={wave2:{spawned:false,collected:false,token:null},wave4:{spawned:false,collected:false,token:null}};
     this.bossDefeatHandled=false;this.bicycleCollected=false;this.actCompleted=false;this.rewardArmedAt=0;this.bicycleTexture=null;
+    this.bicycleRideStarted=false;this.bicycleFadeListener=null;
     this.dialogueState=createDialogueState();
     this.cameras.main.setBackgroundColor('#283c32');
     this.cameras.main.setBounds(0,0,SCHOOL_WORLD.width,SCHOOL_WORLD.height);
@@ -141,6 +143,7 @@ export class SchoolScene extends Phaser.Scene {
     this.dialoguePanel=createDialoguePanel(this,Phaser,id=>this.onSchoolDialogueEnded(id));
     if(this.introActive||this.debugCheckpoint==='act4-school')this.createMaciekSebaActors();
     this.createBicycleRewardUi();
+    this.bicycleCinematic=createSchoolBicycleCinematic(this,Phaser);
     this.fullscreenButton=document.getElementById('fullscreen-button');
     this.fullscreenPreviousHidden=this.fullscreenButton?.hidden??false;
     if(this.fullscreenButton)this.fullscreenButton.hidden=true;
@@ -160,6 +163,7 @@ export class SchoolScene extends Phaser.Scene {
       this.objectiveText.setPosition(this.scale.width/2,waveY+20);
       this.hpFace.resize(l);this.hpText.setPosition(l.hpX,l.hpY);
       this.resizeBicycleRewardUi();
+      this.bicycleCinematic?.resize();
       this.syncControls();
     };
     const reset=()=>{this.combat?.suspend();this.ambientBarks?.suspend();this.resetMovement();};
@@ -184,6 +188,8 @@ export class SchoolScene extends Phaser.Scene {
       this.playerVisual.destroy();this.hpFace.destroy();
       this.clearMaciekSebaActors();
       for(const heart of Object.values(this.hearts))heart.token?.destroy();
+      this.cancelBicycleFade();
+      this.bicycleCinematic?.destroy();
       this.bicycleWorld?.destroy();
     });
     this.captainArrival=createCaptainArrival(this);
@@ -366,15 +372,18 @@ export class SchoolScene extends Phaser.Scene {
       try{
         // The approved upload appeared on main as artifact-blazej-bike.png
         // after the audited base; keep the contracted future name too.
-        let response=null;
-        for(const path of ['artifacts/artifact-blazej-bicycle.png',
-          'artifacts/artifact-blazej-bike.png']){
+        let bytes=null;
+        // Try the actual approved production name first. Vite may respond
+        // with index.html (HTTP 200) for a missing legacy filename, so only
+        // accept candidates *after* checking their PNG header.
+        for(const path of ['artifacts/artifact-blazej-bike.png',
+          'artifacts/artifact-blazej-bicycle.png']){
           const candidate=await fetch(assetUrl(import.meta.env.BASE_URL,path),{cache:'no-cache'});
-          if(candidate.ok){response=candidate;break;}
+          if(!candidate.ok)continue;
+          const data=new Uint8Array(await candidate.arrayBuffer());
+          if(validPngHeader(data,{width:192,height:192})){bytes=data;break;}
         }
-        if(!response)return;
-        const bytes=new Uint8Array(await response.arrayBuffer());
-        if(!validPngHeader(bytes,{width:192,height:192}))return;
+        if(!bytes)return;
         const blob=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
         try{
           const image=new Image();
@@ -414,37 +423,77 @@ export class SchoolScene extends Phaser.Scene {
     this.rewardRoot.setVisible(true);this.rewardButton.setVisible(true);
     this.rewardButtonLabel.setVisible(true);this.syncControls();return true;
   }
+  cancelBicycleFade(){
+    const listener=this.bicycleFadeListener;
+    if(listener)this.cameras.main.off(listener.event,listener.callback);
+    this.bicycleFadeListener=null;
+  }
+  afterBicycleFade(event,action){
+    this.cancelBicycleFade();
+    const callback=()=>{
+      this.bicycleFadeListener=null;
+      if(!this.disposed&&!this.defeated&&this.schoolPhase==='BICYCLE_RIDE')action();
+    };
+    this.bicycleFadeListener={event,callback};
+    this.cameras.main.once(event,callback);
+  }
   startBicycleRide(){
-    if(this.disposed||this.schoolPhase!=='BICYCLE_RIDE')return;
-    this.storyBusy=true;this.resetMovement();this.combat.suspend();
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
-      if(this.disposed||this.schoolPhase!=='BICYCLE_RIDE')return;
-      if(this.bicycleTexture){
-        // Stage on a known-safe outdoor route beside the bicycle rack; never
-        // tween through the school even if the boss died on its far side.
-        this.player.setPosition(BLAZEJ_START.x,BLAZEJ_START.y);
-        this.player.body.reset(this.player.x,this.player.y);
-        // Approved PNG alone; no replacement bike, rider sheet or riding controls.
-        this.bicycleWorld=this.add.image(this.player.x,this.player.y+10,this.bicycleTexture)
-          .setScale(.48).setDepth(10);
-        this.cameras.main.fadeIn(150,0,0,0);
-        this.tweens.add({targets:this.player,x:CHAPEL_RETURN.x,y:CHAPEL_RETURN.y,
-          duration:1100,ease:'Sine.easeInOut',onComplete:()=>this.returnToChapel()});
-      }else{
-        // Without approved bike art the intended ride remains an honest fade.
-        this.player.setPosition(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
-        this.player.body.reset(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
-        this.cameras.main.centerOn(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
-        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_IN_COMPLETE,
-          ()=>this.returnToChapel());
-        this.cameras.main.fadeIn(350,0,0,0);
-      }
+    if(this.disposed||this.defeated||this.schoolPhase!=='BICYCLE_RIDE'||
+       this.bicycleRideStarted)return false;
+    this.bicycleRideStarted=true;this.storyBusy=true;
+    this.resetMovement();this.combat.suspend();this.ambientBarks.suspend();
+    // The School scene is preserved underneath an opaque, fixed-screen
+    // cinematic. Never animate normal top-down Aloes or the bicycle artifact.
+    this.afterBicycleFade(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
+      void this.bicycleCinematic.loading.then(ready=>{
+        if(this.disposed||this.defeated||this.schoolPhase!=='BICYCLE_RIDE')return;
+        if(!ready||!this.bicycleCinematic.show()){
+          // Missing/corrupt approved sheet: complete the existing finale
+          // through the black fade, without inventing a replacement image.
+          this.restoreBicycleChapel();
+          return;
+        }
+        this.afterBicycleFade(Phaser.Cameras.Scene2D.Events.FADE_IN_COMPLETE,()=>{
+          this.bicycleCinematic.play(()=>this.finishBicycleCinematic());
+        });
+        this.cameras.main.fadeIn(220,0,0,0);
+      });
     });
     this.cameras.main.fadeOut(280,0,0,0);
+    return true;
+  }
+  finishBicycleCinematic(){
+    if(this.disposed||this.defeated||this.schoolPhase!=='BICYCLE_RIDE'||
+       !this.bicycleCinematic.completed)return;
+    this.afterBicycleFade(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,
+      ()=>this.restoreBicycleChapel());
+    this.cameras.main.fadeOut(260,0,0,0);
+  }
+  spawnChapelBicycle(){
+    if(this.bicycleWorld?.active||!this.bicycleTexture)return false;
+    // The approved 192x192 artifact image depicts a standalone bicycle, not
+    // another Aloes. Decorative only, on open ground beside CHAPEL_RETURN.
+    const point={x:CHAPEL_RETURN.x+76,y:CHAPEL_RETURN.y+15};
+    if(!schoolWalkable(point))return false;
+    this.bicycleWorld=this.add.image(point.x,point.y,this.bicycleTexture)
+      .setOrigin(.5,1).setDisplaySize(96,96).setDepth(10);
+    return true;
+  }
+  restoreBicycleChapel(){
+    if(this.disposed||this.defeated||this.schoolPhase!=='BICYCLE_RIDE')return;
+    this.bicycleCinematic.hide(); // Remove all 12-frame rider visuals/listeners.
+    this.player.setPosition(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
+    this.player.body.reset(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
+    this.cameras.main.centerOn(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
+    this.playerVisual.update(this.facing,false,0);
+    this.spawnChapelBicycle();
+    this.afterBicycleFade(Phaser.Cameras.Scene2D.Events.FADE_IN_COMPLETE,
+      ()=>this.returnToChapel());
+    this.cameras.main.fadeIn(350,0,0,0);
   }
   returnToChapel(){
     if(this.disposed||this.defeated||this.schoolPhase!=='BICYCLE_RIDE')return false;
-    this.bicycleWorld?.destroy();this.bicycleWorld=null;
+    this.bicycleCinematic.hide();
     this.player.setPosition(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
     this.player.body.reset(CHAPEL_RETURN.x,CHAPEL_RETURN.y);
     this.playerVisual.update(this.facing,false,0);
@@ -560,11 +609,7 @@ export class SchoolScene extends Phaser.Scene {
     if(!this.controlsAllowed()||this.introActive||this.defeated){this.combat.suspend();return;}
     if(this.storyBusy||this.dialogueState.id){
       this.combat.suspend();
-      if(this.schoolPhase==='BICYCLE_RIDE'){
-        this.player.body.reset(this.player.x,this.player.y);
-        this.playerVisual.update(this.facing,true,Math.min(50,delta));
-        this.bicycleWorld?.setPosition(this.player.x,this.player.y+10);
-      }
+      if(this.schoolPhase==='BICYCLE_RIDE')this.player.body.reset(this.player.x,this.player.y);
       return;
     }
     const k=this.keys;
