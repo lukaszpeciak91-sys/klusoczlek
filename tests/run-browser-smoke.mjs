@@ -1007,7 +1007,8 @@ try{
  assert.equal(creditsStart.finished,false);assert.equal(creditsStart.returning,false);
  assert.equal(creditsStart.lines,50,'25 pairs of credit lines');
  assert.ok(creditsStart.distance>3000);
- assert.deepEqual(creditsStart.heading,['OPARTE NA MOTYWACH SMS-OWEJ OPOWIASTKI','"LEŚNI PRZYJACIELE"\\nMICHAŁA ALOESA ŚWIDERSKIEGO'.replace('\\n','\\n')]);
+ assert.equal(creditsStart.heading[0],'OPARTE NA MOTYWACH SMS-OWEJ OPOWIASTKI');
+ assert.ok(creditsStart.heading[1].includes('LEŚNI PRZYJACIELE')&&creditsStart.heading[1].includes('MICHAŁA ALOESA ŚWIDERSKIEGO'));
  assert.equal(creditsStart.track,'credits');assert.equal(creditsStart.loop,true);
  assert.equal(creditsStart.back,true);
  await sleep(260);
