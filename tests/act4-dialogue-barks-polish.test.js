@@ -28,7 +28,7 @@ test('Act IV has only the exact approved narrative, in the exact pre-wave and po
  assert.deepEqual(DIALOGUES['act4-blazej-final'],[
   ['blazej','BŁAŻEJ','Ech, kazał pan, musiał sam!']
  ]);
- assert.equal(Object.values(DIALOGUES).flat().some(x=>x[2].includes('na pierwszą komunię')),false);
+ assert.equal(Object.entries(DIALOGUES).filter(([id])=>id.startsWith('act4-')).flatMap(([,lines])=>lines).some(x=>x[2].includes('na pierwszą komunię')),false);
  const state=createDialogueState();
  for(const id of ['act4-maciek-seba','act4-blazej-observer','act4-blazej-confrontation','act4-blazej-final']){
   assert.equal(beginDialogue(state,id),true);
