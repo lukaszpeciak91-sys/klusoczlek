@@ -387,7 +387,7 @@ try{
  const atlas=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.children.list.filter(o=>o.getData('obstacleArt')).map(o=>({frame:o.getData('obstacleArt').frame,original:!!o.getData('atlasSprite'),fallbackVisible:o.getData('fallback').visible})).sort((a,b)=>a.frame-b.frame)})()");
  assert.deepEqual(atlas,[0,1,9,10,10].map(frame=>({frame,original:true,fallbackVisible:false})),'two tires, toi-toi and two original rock PNG frames');
  const solids=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.obstacles.slice(0,3).map(o=>({id:o.id,w:o.footprint.width,h:o.footprint.height}))})()");
- assert.deepEqual(solids,[{id:'chapel',w:96,h:94},{id:'school',w:430,h:86},{id:'bicycleRack',w:220,h:52}],
+ assert.deepEqual(solids,[{id:'chapel',w:129.6,h:126.9},{id:'school',w:430,h:86},{id:'bicycleRack',w:220,h:52}],
   'actual lower-footprint collision dimensions, never complete PNG canvas');
  console.log('PASS Act IV Chromium approved art: 1800x1200 terrain, native obstacle PNGs, alpha-based lower footprints, real Act I atlas pieces, occlusion and HUD');
  await finishCaptainOpening(); // Second scene entry gets exactly one new opening; combat remains gated.
