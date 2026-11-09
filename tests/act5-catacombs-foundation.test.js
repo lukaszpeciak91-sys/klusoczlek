@@ -195,7 +195,7 @@ test('full HP after Act IV, Act V save entry, finale completion and menu reset',
   selectedWeapon:'rifle',kills:3,activeCombatMs:85000}),false);
  assert.ok(clearCampaignCheckpoint(storage));assert.equal(readCampaignCheckpoint(storage),null);
  const scene=src('../src/catacombs-scene.js');
- assert.ok(scene.includes("this.scene.start('Menu')"));
+ assert.ok(scene.includes("this.scene.start('Credits')"));
  assert.ok(scene.includes('if(!this.run.isDebugRun)clearCampaignCheckpoint()'));
 });
 test('Act V uses five approved production PNGs and scoped ActTitle preparation',()=>{
