@@ -27,11 +27,8 @@ export function beginSceneReveal(scene,preparation,{critical=()=>true,onReady=()
  function release(){
   if(disposed||revealed)return;
   revealed=true;ready=true;
-  // Settle the camera at the final physical position before removing black.
-  if(scene.player?.body&&scene.cameras?.main?.followOffset){
-   scene.player.body.reset(scene.player.x,scene.player.y);
-   scene.cameras.main.centerOn(scene.player.x,scene.player.y);
-  }
+  // Scene-specific cameras (especially the Act II overview) are preserved.
+  // The volcano applies its final physics spawn and camera inside onReady.
   onReady();
   scene.entryGateReady=true;
   notice.setVisible(false);retry.setVisible(false);
@@ -41,13 +38,14 @@ export function beginSceneReveal(scene,preparation,{critical=()=>true,onReady=()
  async function run(task){
   const id=++attempt;
   notice.setVisible(false);retry.setVisible(false);
-  let timedOut=false;
-  const timeout=new Promise(resolve=>setTimeout(()=>{timedOut=true;resolve(null);},12000));
+  let timedOut=false,timeoutId=null;
+  const timeout=new Promise(resolve=>{timeoutId=setTimeout(()=>{timedOut=true;resolve(null);},12000);});
   try{
    await Promise.race([Promise.resolve(typeof task==='function'?task():task),timeout]);
    if(disposed||id!==attempt)return;
    if(critical()&&(!timedOut||!onRetry)){release();return;}
   }catch(error){if(!disposed)console.warn('[Scene ready] required preparation:',error.message);}
+  finally{clearTimeout(timeoutId);}
   if(disposed||id!==attempt)return;
   if(critical()){release();return;}
   notice.setText('NIE MOŻNA BEZPIECZNIE WCZYTAĆ PLANSZY.');
