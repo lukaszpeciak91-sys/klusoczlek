@@ -648,7 +648,7 @@ try {
   for(let i=0;i<20;i++){
     await clickControl('hud');
     let state=await waitFor(s=>s.menu&&s.arenaPaused&&s.actions.length===3,'Menu three buttons '+i);
-    assert.deepEqual(state.actions.map(a=>a.label),['NOWA GRA','AKTY','WZNÓW']);
+    assert.deepEqual(state.actions.map(a=>a.label),['NOWA GRA','WZNÓW','AKTY']);
     assert.equal(state.menuOverArena,true);
     assert.equal(state.fullscreenVisible,true);
     assert.equal(state.physics,true);
@@ -747,7 +747,7 @@ try {
   assert.equal((await snapshot()).controls.hp,4,'Invulnerability failed on continuous overlap');
   await waitFor(s=>s.menu&&s.arenaPaused&&s.controls.defeated,'Defeat opens existing Menu');
   const defeat=await snapshot();
-  assert.deepEqual(defeat.actions.map(a=>a.label),['NOWA GRA','AKTY','WZNÓW'],'PR79 defeat may offer safe checkpoint resume, never live defeated session');
+  assert.deepEqual(defeat.actions.map(a=>a.label),['NOWA GRA','WZNÓW','AKTY'],'PR79 defeat may offer safe checkpoint resume, never live defeated session');
   await clickControl('NOWA GRA');
   const revived=await waitFor(s=>s.arena&&!s.menu&&!s.controls.defeated,'New game after defeat');
   assert.equal(revived.controls.hp,5);
