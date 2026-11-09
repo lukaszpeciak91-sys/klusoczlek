@@ -51,7 +51,7 @@ test('Marian waits until arrival and the final DALEJ before a single ground-base
  assert.ok(scene.includes('this.captainDeparting=true;this.storyBusy=false;'));
  assert.ok(scene.includes('!this.captainDialogueStarted||this.captainDeparting'));
  assert.ok(scene.includes("if(actor.active)actor.destroy();"));
- assert.ok(scene.includes('this.introActive=false;this.captainDeparting=false;'));
+ assert.ok(scene.includes('this.introActive=false; // One-shot departure stays recorded'));
  assert.ok(scene.includes("const door=SCHOOL_PLACES.chapelDoor;"));
  assert.ok(scene.includes('this.updateCaptainDeparture(delta);'));
  assert.ok(scene.includes('const step=captainWalkStep(actor,door,delta);'));

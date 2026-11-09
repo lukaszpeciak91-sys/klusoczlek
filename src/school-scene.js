@@ -299,7 +299,7 @@ export class SchoolScene extends Phaser.Scene {
     }
     if(step.arrived){
       if(actor.active)actor.destroy();
-      this.introActive=false;this.captainDeparting=false;
+      this.introActive=false; // One-shot departure stays recorded after reaching the door.
       this.syncControls();
     }
   }
