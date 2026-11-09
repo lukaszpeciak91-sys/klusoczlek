@@ -135,7 +135,7 @@ export function createSchoolCombat(scene,Phaser){
   scene.ambientBarks?.suspend();
   stopFire();
  }
- function stopFire(){
+ function stopFire(){retroAudio.stopStream();
   resetFiring(firing);
   fire.stop();
   stream.clear();
@@ -223,7 +223,7 @@ export function createSchoolCombat(scene,Phaser){
  }
  function kill(enemy){
   if(enemy.dead||enemy.hp>0)return false;
-  enemy.dead=true;kills++;
+  enemy.dead=true;kills++;retroAudio.enemyDeath();
   scene.ambientBarks?.speakerDied(enemy);
   bursts.push(createPixelBurst(scene,enemy.type,enemy.x,enemy.y,enemy.seed));
   enemy.burningFx?.destroy();enemy.burningFx=null;
@@ -249,7 +249,7 @@ export function createSchoolCombat(scene,Phaser){
   invulnerableUntil=result.invulnerableUntil;
   if(result.hp===scene.run.hp)return;
   recordAttack(renderers[enemy.type].feedbackOf(enemy),enemy.type,now,enemy,scene.player);
-  scene.run.hp=result.hp;
+  retroAudio.hurt();if(result.hp===0)retroAudio.death();scene.run.hp=result.hp;
   scene.hpFace.setHp(result.hp);
   scene.hpText.setText('HP '+result.hp+'/'+scene.run.maxHp);
   scene.playerVisual.hit(enemy);
@@ -265,7 +265,7 @@ export function createSchoolCombat(scene,Phaser){
  function spawnShot(aim,weapon,now){
   const tune=COMBAT_TUNING[weapon],origin=muzzlePoint(scene.player.x,scene.player.y,aim);
   const object=scene.add.circle(origin.x,origin.y,tune.radius,tune.color).setDepth(13);
-  projectiles.push({object,vx:aim.x*tune.speed,vy:aim.y*tune.speed,
+  retroAudio.shot(weapon);projectiles.push({object,vx:aim.x*tune.speed,vy:aim.y*tune.speed,
    radius:tune.radius,damage:tune.damage});
   if(weapon==='rifle')scene.playerVisual.recoil();
  }
@@ -363,7 +363,7 @@ export function createSchoolCombat(scene,Phaser){
    (firing.burstShots===0?COMBAT_TUNING.rifle.burstPause:COMBAT_TUNING.rifle.shotInterval));
   for(let i=0;i<count;i++)spawnShot(aim,weapon,now);
   const flame=weapon==='flamethrower'&&fire.step(firingHeld,delta);
-  if(flame)applyFlame(aim,now);else{
+  retroAudio.stream('flamethrower',flame);if(flame)applyFlame(aim,now);else{
    if(weapon!=='flamethrower')fire.step(false,delta);
    stream.clear();
   }
