@@ -140,6 +140,7 @@ try{
  assert.equal(unlockCompleted,true,'normal completion unlocks Act II');
  const savedBeforeReplay=await evaluate("localStorage.getItem('klusoczlek-campaign-v1')");
  await cdp('Page.reload',{ignoreCache:true});
+ await sleep(250); // The old context may still be active immediately after CDP reload.
  await wait("window.__game?.scene.isActive('Menu')",'AKTY persisted after reload');
  await tapMenu('AKTY');
  const actTwo=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect();const t=m.children.list.find(x=>x.type==='Text'&&x.visible&&x.text.includes('AKT II')&&x.text.includes('ODBLOKOWANY'));return t?{x:r.x+t.x,y:r.y+t.y}:null})()");
@@ -152,6 +153,7 @@ try{
  assert.equal(replay.weapon,'rifle');
  assert.equal(await evaluate("localStorage.getItem('klusoczlek-campaign-v1')"),savedBeforeReplay,'replay cannot overwrite WZNÓW');
  await cdp('Page.reload',{ignoreCache:true});
+ await sleep(250); // The old context may still be active immediately after CDP reload.
  await wait("window.__game?.scene.isActive('Menu')",'menu after replay reload');
  assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'),'replay retains independent WZNÓW');
  console.log('PASS real Chromium AKTY: normal Act I completion, persistent Act II unlock, touch replay via ActTitle, separate autosave');
