@@ -41,6 +41,15 @@ try{
  const touch=async(x,y)=>{await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
  const geometry=()=>evaluate("(()=>{const g=window.__game,m=g.scene.getScene('Menu'),r=g.canvas.getBoundingClientRect();return {rect:{x:r.x,y:r.y},active:g.scene.isActive('Menu'),debug:m.debugOpen,buttons:m.children.list.filter(o=>o.type==='Text'&&o.visible&&['NOWA GRA','DEBUG','WZNÓW','WRÓĆ','OPCJE'].includes(o.text)).map(o=>({text:o.text,x:o.x,y:o.y}))}})()");
  const tapMenu=async label=>{const g=await geometry();const b=g.buttons.find(b=>b.text===label);assert.ok(b,'Missing '+label+' '+JSON.stringify(g));await touch(g.rect.x+b.x,g.rect.y+b.y);};
+ const introBoot=await evaluate("(()=>{const g=window.__game;return {active:g?.scene.isActive('StudioIntro'),exists:!!g?.scene.getScene('StudioIntro')}})()");
+ assert.equal(introBoot.exists,true,'boot scene is registered');
+ if(introBoot.active){
+  const brand=await evaluate("(()=>{const s=window.__game.scene.getScene('StudioIntro');return s.children.list.filter(x=>x.type==='Text').map(x=>x.text)})()");
+  assert.deepEqual(brand,['NEPAHU STUDIOS','PRESENTS']);
+  await touch(25,25);
+  await wait("window.__game.scene.isActive('Menu')",'touch skip boot intro',2000);
+  assert.equal(await evaluate("window.__game.scene.isActive('StudioIntro')"),false,'intro stopped on skip');
+ }
  await wait("window.__game?.scene.isActive('Menu')",'menu boot');
  const menu=await geometry();assert.ok(menu.buttons.some(b=>b.text==='NOWA GRA')&&menu.buttons.some(b=>b.text==='DEBUG'),'menu buttons');
  // Chromium touches actual Phaser controls, not storage-only assertions.
@@ -993,9 +1002,30 @@ try{
  for(let i=0;i<3;i++)await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='magic'",'fairy MYK magic particles',3000);
  assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').dialogueState.id"),null,'no home dialogue');
- await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='ending'&&s.completed&&s.run.completedActs.has('act5')})()",'KONIEC and campaign completion',3000);
- await wait("window.__game.scene.isActive('Menu')",'Act V ending returns to Menu',4500);
- console.log('PASS Act V real Chromium Android landscape: Act IV chapel handoff, 5 HP, betrayal, Marian blinking evolution, rotating gun, horn immunity, fairy and KONIEC');
+ await wait("(()=>{const g=window.__game,c=g.scene.getScene('Catacombs');return g.scene.isActive('Credits')&&c.completed&&c.run.completedActs.has('act5')})()",'Act V MYK completes campaign and enters credits',3000);
+ const creditsStart=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {finished:s.finished,returning:s.returning,lines:s.lines.length,distance:s.scrollDistance,elapsed:s.elapsedScroll,track:window.__retroAudio.track,loop:window.__retroAudio.music?.loop,heading:s.lines.slice(0,2).map(x=>x.text),back:s.backButton.visible}})()");
+ assert.equal(creditsStart.finished,false);assert.equal(creditsStart.returning,false);
+ assert.equal(creditsStart.lines,50,'25 pairs of credit lines');
+ assert.ok(creditsStart.distance>3000);
+ assert.deepEqual(creditsStart.heading,['OPARTE NA MOTYWACH SMS-OWEJ OPOWIASTKI','"LEŚNI PRZYJACIELE"\\nMICHAŁA ALOESA ŚWIDERSKIEGO'.replace('\\n','\\n')]);
+ assert.equal(creditsStart.track,'credits');assert.equal(creditsStart.loop,true);
+ assert.equal(creditsStart.back,true);
+ await sleep(260);
+ const beforeScroll=await evaluate("window.__game.scene.getScene('Credits').elapsedScroll");
+ assert.ok(beforeScroll>creditsStart.elapsedScroll,'credits scroll by frame delta');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');s.elapsedScroll=s.scrollDistance-.5;s.update(0,50);return true})()");
+ const endCredits=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {finished:s.finished,dedication:s.dedication.text,visible:s.dedication.visible,back:s.backButton.visible,track:window.__retroAudio.track,elapsed:s.elapsedScroll}})()");
+ assert.equal(endCredits.finished,true);assert.equal(endCredits.visible,true);
+ assert.equal(endCredits.dedication,'WSZYSTKIEGO NAJLEPSZEGO MICHAŁ!');
+ assert.equal(endCredits.back,true);assert.equal(endCredits.track,'credits');
+ await sleep(900);
+ assert.equal(await evaluate("window.__game.scene.isActive('Credits')"),true,'final dedication remains static');
+ const backCredits=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.backButton.x,y:r.y+s.backButton.y}})()");
+ await touch(backCredits.x,backCredits.y);
+ await wait("window.__game.scene.isActive('Menu')",'WRÓĆ returns from credits to menu',3000);
+ assert.equal(await evaluate("window.__game.scene.isActive('StudioIntro')"),false,'studio intro does not repeat');
+ assert.equal(await evaluate("window.__retroAudio.track"),'menu','menu music takes over from credits');
+ console.log('PASS Act V real Chromium Android landscape: approved fairy, Credits scroll and WRÓĆ, birthday dedication, HUD, boss and DEBUG');
  // Remaining final-chapter DEBUG entries must start at their actual stages.
  for(const [id,phase] of [['act5-boss','boss'],['act5-ending','fairy']]){
   await cdp('Page.reload',{ignoreCache:true});
