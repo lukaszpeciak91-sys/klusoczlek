@@ -20,7 +20,6 @@ test('Act IV has only the exact approved narrative, in the exact pre-wave and po
   ['bobrozombi','BOBROZOMBI','Ty to jednak Błażej jesteś gość']
  ]);
  assert.deepEqual(DIALOGUES['act4-blazej-confrontation'],[
-  ['blazej','BŁAŻEJ','Kazał pan, musiał sam!'],
   ['blazej','BŁAŻEJ','Nie wiem kim jesteś ale mam ochotę Cię rozgnieść'],
   ['aloes','ALOES','Potrzebuję na chwilę Twojego roweru, dasz się karnąć?'],
   ['blazej','BŁAŻEJ','Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać'],
@@ -60,7 +59,7 @@ test('only approved 4+3 Błażej guest barks; original ordinary vocabulary and t
  assert.ok(school.includes("phase:()=>['COMBAT','CLEANUP'].includes(this.schoolPhase)?'observer':"));
  assert.ok(school.includes("this.schoolPhase==='BLAZEJ_BOSS'?'boss':null"));
 });
-test('Captain -> Maciek/Seba -> observer -> five-panel confrontation -> waves; post-wave one panel -> boss',()=>{
+test('Captain -> Maciek/Seba -> observer -> four-panel confrontation -> waves; post-wave one panel -> boss',()=>{
  const school=code('../src/school-scene.js');
  assert.ok(school.includes("this.captainDialogueStarted=this.beginSchoolDialogue('act4-captain-opening')"));
  assert.ok(school.includes('startCaptainDeparture(){'));
