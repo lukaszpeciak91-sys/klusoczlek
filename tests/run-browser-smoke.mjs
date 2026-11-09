@@ -1012,10 +1012,10 @@ try{
  assert.ok(creditsStart.heading[1].includes('LEŚNI PRZYJACIELE')&&creditsStart.heading[1].includes('MICHAŁA ALOESA ŚWIDERSKIEGO'));
  assert.equal(creditsStart.track,'credits');assert.equal(creditsStart.loop,true);
  assert.equal(creditsStart.back,true);
- await wait("window.__game.scene.getScene('Credits').elapsedScroll>0",'credits progress on normal Phaser frames',6000);
+ await wait("window.__game.scene.getScene('Credits').elapsedScroll>"+creditsStart.elapsedScroll,'credits progress on normal Phaser frames',6000);
  const scrollStatus=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {elapsed:s.elapsedScroll,hidden:document.hidden,active:s.scene.isActive(),paused:s.scene.isPaused(),finished:s.finished}})()");
  assert.equal(scrollStatus.finished,false);
- assert.ok(scrollStatus.elapsed>0,'credits scroll by frame delta');
+ assert.ok(scrollStatus.elapsed>creditsStart.elapsedScroll,'credits scroll by frame delta');
  await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');s.elapsedScroll=s.scrollDistance-.5;s.update(0,50);return true})()");
  const endCredits=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {finished:s.finished,dedication:s.dedication.text,visible:s.dedication.visible,back:s.backButton.visible,track:window.__retroAudio.track,elapsed:s.elapsedScroll}})()");
  assert.equal(endCredits.finished,true);assert.equal(endCredits.visible,true);
