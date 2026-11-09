@@ -41,7 +41,8 @@ try{
  const touch=async(x,y)=>{await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
  const geometry=()=>evaluate("(()=>{const g=window.__game,m=g.scene.getScene('Menu'),r=g.canvas.getBoundingClientRect();return {rect:{x:r.x,y:r.y},active:g.scene.isActive('Menu'),debug:m.debugOpen,buttons:m.children.list.filter(o=>o.type==='Text'&&o.visible&&['NOWA GRA','DEBUG','WZNÓW','WRÓĆ','OPCJE'].includes(o.text)).map(o=>({text:o.text,x:o.x,y:o.y}))}})()");
  const tapMenu=async label=>{const g=await geometry();const b=g.buttons.find(b=>b.text===label);assert.ok(b,'Missing '+label+' '+JSON.stringify(g));await touch(g.rect.x+b.x,g.rect.y+b.y);};
- const introBoot=await evaluate("(()=>{const g=window.__game;return {active:g?.scene.isActive('StudioIntro'),exists:!!g?.scene.getScene('StudioIntro')}})()");
+ await wait("window.__game?.scene.getScene('StudioIntro')?.sys",'Phaser game and boot scene initialized',7000);
+ const introBoot=await evaluate("(()=>{const g=window.__game;return {active:g.scene.isActive('StudioIntro'),exists:!!g.scene.getScene('StudioIntro')}})()");
  assert.equal(introBoot.exists,true,'boot scene is registered');
  if(introBoot.active){
   const brand=await evaluate("(()=>{const s=window.__game.scene.getScene('StudioIntro');return s.children.list.filter(x=>x.type==='Text').map(x=>x.text)})()");
