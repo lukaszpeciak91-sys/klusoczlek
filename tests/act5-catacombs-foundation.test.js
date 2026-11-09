@@ -24,7 +24,7 @@ test('final chapter is registered, reached through original ActTitle flow and te
  const school=src('../src/school-scene.js'),main=src('../src/main.js');
  assert.ok(school.includes("this.scene.start('ActTitle',{actId:'act5',handoff})"));
  assert.ok(school.includes('updateRunHealth(this.run,this.run.maxHp)'));
- assert.ok(main.includes('CatacombsScene]'));
+ assert.ok(main.includes('CatacombsScene, CreditsScene]'));
 });
 test('three Act V DEBUG checkpoints have full HP, correct predecessor and artifacts',()=>{
  for(const id of ['act5-opening','act5-boss','act5-ending']){
