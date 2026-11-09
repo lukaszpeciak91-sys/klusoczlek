@@ -38,10 +38,12 @@ export class CatacombsScene extends Phaser.Scene{
   updateRunHealth(this.run,this.run.maxHp);
   this.physics.world.setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
   this.cameras.main.setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
-  // Scale the entire compact chamber into landscape without changing physics.
+  // The existing joystick/HUD dialogue controls use unzoomed screen pixels.
+  // Preserve zoom=1 as in Acts I–IV; crop the compact chamber naturally.
   this.resizeCamera=()=>{
-   const zoom=Math.min(this.scale.width/CATACOMBS.width,this.scale.height/CATACOMBS.height);
-   this.cameras.main.setZoom(Math.max(.1,zoom)).centerOn(CATACOMBS.width/2,CATACOMBS.height/2);
+   this.cameras.main.setZoom(1);
+   if(this.phase==='opening'||this.phase==='transform'||this.phase==='fairy'||this.phase==='home')
+    this.cameras.main.centerOn(CATACOMBS.width/2,350);
   };
   this.drawCatacombs();
   const start=CATACOMBS.playerStart;
@@ -247,6 +249,7 @@ export class CatacombsScene extends Phaser.Scene{
  startBoss(){
   if(this.disposed||this.phase==='boss'||this.boss.defeated)return false;
   this.phase='boss';this.selectMarianAppearance(true);
+  this.cameras.main.startFollow(this.player,true,.12,.12);
   this.transitionVeil.setAlpha(0);
   finalBossStart(this.boss);
   this.objective.setText('POKONAJ KŁUSOCZŁEKA!');
@@ -303,6 +306,7 @@ export class CatacombsScene extends Phaser.Scene{
   if(debug)this.boss.defeatEvents=1;
   this.clearShots();this.clearSummons();this.resetMovement();
   this.phase='fairy';this.objective.setText('ŚWINIA-WRÓŻKA');
+  this.cameras.main.stopFollow();this.cameras.main.centerOn(CATACOMBS.width/2,350);
   this.bossActor.setVisible(false);this.bossHp.clear();
   const key='act5-fairy';
   if(this.textures.exists(key)){
