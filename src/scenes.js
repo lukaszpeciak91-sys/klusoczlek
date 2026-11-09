@@ -4,6 +4,7 @@ import {createIntroEvidence,rememberOrdinaryDeath,introductionEvidence,claimIntr
 import {createDirector,directorPopulation,directorOpportunity,nextDirectorType,recordDirectorSpawn} from './encounter-director.js';
 import {createAmbientBarks} from './ambient-bark-view.js';
 import Phaser from 'phaser';
+import {retroAudio} from './retro-audio.js';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
@@ -77,6 +78,7 @@ export class MenuScene extends Phaser.Scene {
 
   create() {
     this.navigating = false;
+    retroAudio.enter('Menu');
     this.cameras.main.setBackgroundColor(COLORS.background);
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
@@ -260,6 +262,7 @@ export class ArenaScene extends Phaser.Scene {
   constructor() { super('Arena'); }
 
   create(data={}) {
+    retroAudio.enter('Arena');
     this.debugCheckpoint=data.debugCheckpoint??null;
     this.entryGateReady=false;
     document.getElementById('fullscreen-button').hidden = true;
@@ -679,6 +682,7 @@ export class ArenaScene extends Phaser.Scene {
     this.playerHp=Math.max(0,Math.min(ENCOUNTER.playerMaxHp,Math.floor(next)));
     updateRunHealth(this.campaignRun,this.playerHp,ENCOUNTER.playerMaxHp);
     if(this.playerHp!==before)this.hpFace.setHp(this.playerHp);
+    if(this.playerHp<before){retroAudio.hurt();if(this.playerHp===0)retroAudio.death();}
     if(this.playerHp<before)this.playerVisual?.hit(this.lastDamageSource||{x:this.player.x,y:this.player.y-1});
     this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
     if(this.playerHp===0&&!this.episode.ended&&!this.finalResolution)this.endEpisode('defeat');
@@ -1016,6 +1020,7 @@ export class ArenaScene extends Phaser.Scene {
     g.fillStyle(this.flamePressure.value<20?0x9b3932:0xee903a,1).fillRect(x,y,w*this.flamePressure.value/100,h);
   }
   stopWeaponFire(){
+    retroAudio.stopStream();
     resetFiring(this.firingState,this.weapon);
     this.lastShotAt=null;
     this.flameEmissionAt=null;
@@ -1027,6 +1032,7 @@ export class ArenaScene extends Phaser.Scene {
     const bullet=this.add.circle(origin.x,origin.y,tune.radius,tune.color).setDepth(8);
     this.projectiles.push({object:bullet,vx:aim.x*tune.speed,vy:aim.y*tune.speed,radius:tune.radius,damage:tune.damage});
     this.lastShotAt=now;
+    retroAudio.shot(weapon);
     if(weapon==='rifle')this.playerVisual.recoil();
   }
 
@@ -1158,6 +1164,7 @@ export class ArenaScene extends Phaser.Scene {
     this.deathBursts.push(createPixelBurst(this,enemy.type,enemy.x,enemy.y,enemy.seed));
     enemy.burningFx?.destroy();enemy.burningFx=null;
     clearIgnition(enemy.ignition);
+    retroAudio.enemyDeath();
     this.flameCooldowns.delete(enemy);
     enemy.sprite.destroy();
     if(enemy.type==='marcin'){this.kills++;this.refreshWeaponHud();this.beginMarcinVictory();return true;}
@@ -1351,6 +1358,7 @@ export class ArenaScene extends Phaser.Scene {
       (this.firingState.burstShots===0?COMBAT_TUNING.rifle.burstPause:COMBAT_TUNING.rifle.shotInterval));
     for(let i=0;i<count;i++)this.spawnShot(aiming,this.weapon,now);
     const flameActive=this.weapon==='flamethrower'&&stepPressure(this.flamePressure,aimingHeld,this.game.loop.delta);
+    retroAudio.stream('flamethrower',flameActive);
     if(flameActive)this.applyFlame(aiming,now);
     else this.flameStream.clear();
     this.renderPressureBar();
