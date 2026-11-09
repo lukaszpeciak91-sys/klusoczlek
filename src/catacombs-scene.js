@@ -370,7 +370,7 @@ export class CatacombsScene extends Phaser.Scene{
  }
  completeEnding(){
   if(this.phase!=='magic'||this.completed)return false;
-  this.completed=true;this.phase='ending';this.resetMovement();retroAudio.credits();
+  this.completed=true;this.phase='ending';this.resetMovement();
   const result=completeCampaignAct(this.run,'act5',{
    hp:this.run.hp,maxHp:this.run.maxHp,
    unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,
@@ -379,17 +379,9 @@ export class CatacombsScene extends Phaser.Scene{
   if(!result&&!this.run.completedActs.has('act5'))return false;
   if(!this.run.isDebugRun)clearCampaignCheckpoint();
   this.dialoguePanel.hide();
-  this.transitionVeil.setFillStyle(0x080609,1).setAlpha(1).setDepth(180);
-  this.finaleText?.destroy();
-  // Camera is fully black after MYK fadeOut; reveal KONIEC over the opaque veil.
-  this.cameras.main.fadeIn(320,0,0,0);
-  this.finaleText=this.add.text(this.scale.width/2,this.scale.height/2,'KONIEC',{
-   fontFamily:'monospace',fontSize:'46px',color:'#f3d69d'
-  }).setOrigin(.5).setScrollFactor(0).setDepth(181);
-  this.time.delayedCall(2200,()=>{
-   if(this.disposed||this.phase!=='ending')return;
-   this.scene.start('Menu');
-  });
+  // The camera is already black after MYK. Credits owns the final
+  // presentation and its music, avoiding a short KONIEC screen/menu flash.
+  this.scene.start('Credits');
   return true;
  }
  controlsAllowed(){return !this.disposed&&this.entryGateReady&&!document.hidden&&
