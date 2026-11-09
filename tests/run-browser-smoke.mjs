@@ -645,7 +645,9 @@ try{
  assert.ok(bicycleReward.approvedImage===null||bicycleReward.approvedImage==='artifact-blazej-bicycle','only validated original bike PNG or honest text fallback');
  const bikeAssetStatus=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),t=s.textures;return {movieReady:s.bicycleCinematic.ready,movieStarted:s.bicycleCinematic.started,movieTexture:t.exists('act4-aloes-bicycle-cinematic'),movieFrames:t.exists('act4-aloes-bicycle-cinematic')?t.get('act4-aloes-bicycle-cinematic').frameTotal:null,artifact:s.bicycleTexture,artifactTexture:t.exists('artifact-blazej-bicycle'),phase:s.schoolPhase}})()");
  console.log('ACT IV BICYCLE ASSET STATUS',JSON.stringify(bikeAssetStatus));
- await wait("(()=>{const s=window.__game.scene.getScene('School');return s.bicycleCinematic.ready&&s.bicycleTexture==='artifact-blazej-bicycle'})()",'both actual approved bicycle images decoded in browser',4500);
+ assert.ok(!bikeAssetStatus.movieTexture&&!bikeAssetStatus.movieReady&&!bikeAssetStatus.movieStarted,
+   'large 3072x1296 bicycle film stays lazy until reward DALEJ');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.bicycleTexture==='artifact-blazej-bicycle'})()",'approved bicycle artifact decoded, film intentionally deferred',4500);
  const rewardPoint=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.rewardButton.x,y:r.y+s.rewardButton.y}})()");
  await sleep(250);await touch(rewardPoint.x,rewardPoint.y);
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BICYCLE_RIDE'&&s.bicycleRideStarted&&s.storyBusy&&!s.rewardRoot.visible})()",'reward DALEJ opens one cinematic transition',2000);
