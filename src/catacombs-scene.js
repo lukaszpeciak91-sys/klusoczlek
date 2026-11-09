@@ -8,11 +8,13 @@ import {arenaHudLayout} from './ui-layout.js';
 import {normalizeInput,PLAYER_RADIUS} from './movement.js';
 import {playerFrame,facingOf,resolvePose} from './combat-contract.js';
 import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
-import {segmentRudolfHit,rudolfFlameTarget,FAIRY_ARRIVAL,RUDOLF_DAMAGE_BOX} from './act5-final-visuals.js';
+import {segmentRudolfHit,rudolfFlameVisible,FAIRY_ARRIVAL} from './act5-final-visuals.js';
+import {createContinuousWeaponState,drawContinuousStream,emitContinuousParticle,updateContinuousParticles} from './continuous-weapon.js';
+import {muzzlePoint,resolveAim} from './shooting.js';
 import {currentCampaignRun,prepareActStart,completeCampaignAct,updateRunHealth} from './campaign-run.js';
 import {clearCampaignCheckpoint} from './campaign-save.js';
 import {availableWeapons,selectUnlockedWeapon,cycleUnlockedWeapon,WEAPONS} from './weapon-progression.js';
-import {COMBAT_TUNING,createFiringState,firingStep,resetFiring,inFlameCone} from './weapon-combat.js';
+import {COMBAT_TUNING,createFiringState,firingStep,resetFiring,inFlameCone,cooldownReady} from './weapon-combat.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {beginSceneReveal} from './scene-reveal-gate.js';
@@ -65,6 +67,9 @@ export class CatacombsScene extends Phaser.Scene{
   this.joystick=createJoystick(this,'left');
   this.aimJoystick=createJoystick(this,'right');
   this.firing=createFiringState();
+  this.fire=createContinuousWeaponState();
+  this.flameStream=this.add.graphics().setDepth(17);
+  this.flameBlocked=(from,to)=>Boolean(segmentObstacleHit(from,to,CATACOMBS_OBSTACLES,0));
   this.weaponToken=this.add.container(0,0).setScrollFactor(0).setDepth(66);
   this.weaponBody=this.add.circle(0,0,21,0x303b2b,.92).setStrokeStyle(2,0xb9a16b);
   this.weaponLabel=this.add.text(0,0,WEAPONS[this.weapon].symbol,{
@@ -109,6 +114,7 @@ export class CatacombsScene extends Phaser.Scene{
    this.weaponLabel.setText(WEAPONS[next].symbol);
    this.weaponBody.setFillStyle(WEAPONS[next].color,.92);
    resetFiring(this.firing,this.weapon);
+   this.stopFlame();
    void this.playerVisual.setVariant(next);
   };
   const pointer=ptr=>{
@@ -134,7 +140,7 @@ export class CatacombsScene extends Phaser.Scene{
    this.finaleText?.setPosition(this.scale.width/2,this.scale.height/2);
    this.syncControls();
   };
-  const reset=()=>{retroAudio.stopStream();this.resetMovement();resetFiring(this.firing,this.weapon);};
+  const reset=()=>{this.resetMovement();this.stopFlame();resetFiring(this.firing,this.weapon);};
   const sync=()=>this.syncControls();
   this.scale.on(Phaser.Scale.Events.RESIZE,resize);
   this.events.on(Phaser.Scenes.Events.PAUSE,reset);
@@ -152,6 +158,7 @@ export class CatacombsScene extends Phaser.Scene{
    this.playerVisual.destroy();this.hpFace.destroy();
    for(const renderer of Object.values(this.enemyRenderers))renderer.shutdown();
    this.clearShots();this.clearSummons();destroyBursts(this.deathBursts);
+   this.stopFlame(true);this.flameStream.destroy();
   });
   this.fullscreenButton=document.getElementById('fullscreen-button');
   this.fullscreenPreviousHidden=this.fullscreenButton?.hidden??false;
@@ -231,7 +238,7 @@ export class CatacombsScene extends Phaser.Scene{
  }
  showDialogue(id){
   if(this.disposed||this.dialogueState.id||!beginDialogue(this.dialogueState,id))return false;
-  this.resetMovement();this.dialoguePanel.show(this.dialogueState);return true;
+  this.resetMovement();this.stopFlame();this.dialoguePanel.show(this.dialogueState);return true;
  }
  onDialogueAdvance(state){
   // Only the first panel may trigger transformation. Keep the panel's
@@ -248,7 +255,7 @@ export class CatacombsScene extends Phaser.Scene{
  startTransformation(){
   if(this.phase!=='opening'||this.transformationStarted||this.dialogueState.id!=='act5-betrayal'||this.dialogueState.index!==1)return false;
   this.transformationStarted=true;
-  this.phase='transform';this.resetMovement();this.syncControls();
+  this.phase='transform';this.resetMovement();this.stopFlame();this.syncControls();
   this.transitionVeil.setFillStyle(0x0d0815,.55).setAlpha(.55);
   this.selectMarianAppearance(false);
   let pulses=0;
@@ -332,7 +339,7 @@ export class CatacombsScene extends Phaser.Scene{
   if(!debug&&!this.boss.defeated)return false;
   this.finalized=true;this.boss.hp=0;this.boss.phase='defeated';this.boss.defeated=true;
   if(debug)this.boss.defeatEvents=1;
-  this.clearShots();this.clearSummons();this.resetMovement();
+  this.clearShots();this.clearSummons();this.resetMovement();this.stopFlame(true);
   this.phase='boss-death';this.objective.setText('RUDOLF POKONANY');
   this.cameras.main.stopFollow();this.cameras.main.centerOn(CATACOMBS.width/2,350);
   this.bossHp.clear();this.bossActor.setAlpha(1);
@@ -382,7 +389,7 @@ export class CatacombsScene extends Phaser.Scene{
  }
  showFairyEnding(){
   if(this.phase!=='fairy'||this.completed)return false;
-  this.phase='magic';this.resetMovement();this.syncControls();
+  this.phase='magic';this.resetMovement();this.stopFlame(true);this.syncControls();
   // Approved MYK moment: short Phaser-only sparkle, then an opaque fade.
   const x=this.fairyActor?.x??CATACOMBS.fairyStart.x;
   const y=this.fairyActor?.y??CATACOMBS.fairyStart.y;
@@ -404,7 +411,7 @@ export class CatacombsScene extends Phaser.Scene{
  }
  completeEnding(){
   if(this.phase!=='magic'||this.completed)return false;
-  this.completed=true;this.phase='ending';this.resetMovement();
+  this.completed=true;this.phase='ending';this.resetMovement();this.stopFlame(true);
   const result=completeCampaignAct(this.run,'act5',{
    hp:this.run.hp,maxHp:this.run.maxHp,
    unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,
@@ -435,7 +442,7 @@ export class CatacombsScene extends Phaser.Scene{
  }
  openMenu(){
   if(!this.controlsAllowed()||this.scene.isActive('Menu'))return false;
-  this.resetMovement();this.scene.pause();
+  this.resetMovement();this.stopFlame();this.scene.pause();
   this.scene.launch('Menu');this.scene.bringToTop('Menu');return true;
  }
  hurtPlayer(now){
@@ -445,7 +452,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
   this.playerVisual.hit(this.bossActor);
   if(this.run.hp<=0){
-   this.defeated=true;this.phase='defeat';this.clearShots();this.clearSummons();
+   this.defeated=true;this.phase='defeat';this.clearShots();this.clearSummons();this.stopFlame(true);
    this.openMenuAfterDefeat();
   }
   return true;
@@ -460,36 +467,53 @@ export class CatacombsScene extends Phaser.Scene{
    .setDepth(18);
   array.push({x,y,vx,vy,sprite,owner,life:owner==='marian'?2400:1250});
  }
- firePlayer(){
-  const d=this.lastShotAim;
-  const aim=Math.hypot(d.x,d.y)>.1?d:{
-   x:this.keys.D.isDown||this.keys.RIGHT.isDown?1:this.keys.A.isDown||this.keys.LEFT.isDown?-1:0,
-   y:this.keys.S.isDown||this.keys.DOWN.isDown?1:this.keys.W.isDown||this.keys.UP.isDown?-1:0
-  };
-  const len=Math.hypot(aim.x,aim.y);
-  const vector=len>.1?normalizeInput(aim.x,aim.y):{x:0,y:0};
-  const held=this.aimJoystick.held||len>.1;
+ stopFlame(cleanup=false){
+  retroAudio.stopStream();
+  this.fire.stop();this.flameStream.clear();
+  if(!this.aimJoystick?.held)this.fire.step(false,0);
+  if(cleanup){
+   for(const particle of this.fire.particles)particle.object?.destroy();
+   this.fire.particles.length=0;this.fire.emissionAt=null;
+  }
+ }
+ firePlayer(delta){
+  const aim=resolveAim(this.aimJoystick.direction.x,this.aimJoystick.direction.y);
+  const held=Boolean(this.aimJoystick.held&&(aim.x||aim.y));
+  const now=this.time.now;
   if(this.weapon==='flamethrower'){
-   retroAudio.stream('flamethrower',held);if(!held)return;const target=this.bossActor,torso=rudolfFlameTarget(target);
-   const visible=!segmentObstacleHit(this.player,torso,CATACOMBS_OBSTACLES,0);
-   if(visible&&inFlameCone(this.player,vector,torso,145,.45,RUDOLF_DAMAGE_BOX.halfWidth)
-      &&this.time.now-(this.shotCooldowns.get(target)??-Infinity)>250){
-    this.shotCooldowns.set(target,this.time.now);this.damageBoss(1);
+   const active=this.fire.step(held,delta);
+   retroAudio.stream('flamethrower',active);
+   this.flameStream.clear();
+   if(active){
+    const origin=muzzlePoint(this.player.x,this.player.y,aim);
+    const tune=COMBAT_TUNING.flamethrower;
+    drawContinuousStream(this.flameStream,origin,aim,now,'flamethrower',this.flameBlocked);
+    emitContinuousParticle(this,this.fire,origin,aim,now,'flamethrower',this.flameBlocked);
+    if(!this.boss.defeated&&rudolfFlameVisible(origin,aim,this.bossActor,CATACOMBS_OBSTACLES,tune)&&
+       cooldownReady(this.fire.cooldowns,this.bossActor,now,tune.damageInterval)){
+     this.damageBoss(tune.damage);
+    }
+    for(const enemy of [...this.summons]){
+     if(enemy.dead||!inFlameCone(origin,aim,enemy,tune.range,tune.halfAngle,enemy.radius)||
+       this.flameBlocked(origin,enemy)||!cooldownReady(this.fire.cooldowns,enemy,now,tune.damageInterval))continue;
+     this.damageEnemy(enemy,tune.damage);
+    }
    }
-   for(const e of this.summons)if(!e.dead&&!segmentObstacleHit(this.player,e,CATACOMBS_OBSTACLES,0)&&
-    inFlameCone(this.player,vector,e,145,.45,e.radius)&&
-    this.time.now-(this.shotCooldowns.get(e)??-Infinity)>250){
-    this.shotCooldowns.set(e,this.time.now);this.damageEnemy(e,1);
-   }
+   updateContinuousParticles(this.fire,delta,this.flameBlocked);
    return;
   }
-  retroAudio.stopStream();for(let n=firingStep(this.firing,this.weapon,held,this.time.now);n>0;n--){retroAudio.shot(this.weapon);
+  retroAudio.stopStream();this.flameStream.clear();
+  // Keep a locked flame trigger locked until the physical right stick is released.
+  if(!this.aimJoystick.held)this.fire.step(false,delta);
+  updateContinuousParticles(this.fire,delta,this.flameBlocked);
+  for(let n=firingStep(this.firing,this.weapon,held,now);n>0;n--){
+   retroAudio.shot(this.weapon);
    this.spawnShot(this.shots,this.player.x,this.player.y,
-    Math.atan2(vector.y,vector.x),COMBAT_TUNING[this.weapon]?.speed??550,'player');
+    Math.atan2(aim.y,aim.x),COMBAT_TUNING[this.weapon]?.speed??550,'player');
    this.playerVisual.recoil();
   }
  }
- updateProjectiles(array,delta){
+  updateProjectiles(array,delta){
   const dt=Math.min(50,delta)/1000;
   for(let i=array.length-1;i>=0;i--){
    const p=array[i],next={x:p.x+p.vx*dt,y:p.y+p.vy*dt};
@@ -516,7 +540,10 @@ export class CatacombsScene extends Phaser.Scene{
   if(this.disposed||!this.entryGateReady)return;
   updateBursts(this.deathBursts,delta);
   this.syncControls();
-  if(!this.canPlay()){resetFiring(this.firing,this.weapon);return;}
+  if(!this.canPlay()){resetFiring(this.firing,this.weapon);
+   this.flameStream.clear();retroAudio.stopStream();
+   if(!this.aimJoystick.held)this.fire.step(false,0);
+   updateContinuousParticles(this.fire,Math.min(50,delta),this.flameBlocked);return;}
   delta=Math.min(50,Math.max(0,delta));
   this.combatMs+=delta;
   const k=this.keys;
@@ -532,7 +559,7 @@ export class CatacombsScene extends Phaser.Scene{
   else this.lastShotAim={x:0,y:0};
   this.playerVisual.update(this.facing,Math.hypot(input.x,input.y)>.05,delta);
   this.hpFace.update(delta);
-  this.firePlayer();
+  this.firePlayer(delta);
   if(this.boss.phase==='gun'){
    const from=this.bossActor;
    const dir=normalizeInput(this.player.x-from.x,this.player.y-from.y);

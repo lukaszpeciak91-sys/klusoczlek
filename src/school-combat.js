@@ -139,6 +139,8 @@ export function createSchoolCombat(scene,Phaser){
  function stopFire(){retroAudio.stopStream();
   resetFiring(firing);
   fire.stop();
+  // A real pointer release (including joystick reset on pause) rearms pressure.
+  if(!scene.aimJoystick?.held)fire.step(false,0);
   stream.clear();
  }
  function clearCombat(){
@@ -363,9 +365,10 @@ export function createSchoolCombat(scene,Phaser){
   if(count&&weapon==='rifle')weaponCooldownUntil.set(weapon,now+
    (firing.burstShots===0?COMBAT_TUNING.rifle.burstPause:COMBAT_TUNING.rifle.shotInterval));
   for(let i=0;i<count;i++)spawnShot(aim,weapon,now);
+  // Always process a genuine release, including a depleted/locked trigger.
   const flame=weapon==='flamethrower'&&fire.step(firingHeld,delta);
   retroAudio.stream('flamethrower',flame);if(flame)applyFlame(aim,now);else{
-   if(weapon!=='flamethrower')fire.step(false,delta);
+   if(weapon!=='flamethrower'&&!held)fire.step(false,delta);
    stream.clear();
   }
   updateContinuousParticles(fire,Math.min(50,delta),obstacleBlocked);
