@@ -3,6 +3,7 @@ import {FIRST_ACT_ID,getAct,sceneForAct} from './campaign.js';
 import {currentCampaignRun} from './campaign-run.js';
 import {writeCampaignCheckpoint} from './campaign-save.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
+import {ACT_TITLE_MIN_MS,prepareActAssets} from './act-asset-preparation.js';
 
 // Short opaque intertitle; the playable Arena is not constructed until completion.
 export class ActTitleScene extends Phaser.Scene {
@@ -17,6 +18,9 @@ export class ActTitleScene extends Phaser.Scene {
       writeCampaignCheckpoint(currentCampaignRun(this.game),this.actId);
     }
     this.cameras.main.setBackgroundColor('#000000');
+    this.assetGate={ready:false,minimumElapsed:false,failed:[],starting:false};
+    this.assetAbort=new AbortController();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.assetAbort.abort());
     const w=this.scale.width,h=this.scale.height;
     const background=this.add.rectangle(w/2,h/2,w,h,0x000000).setOrigin(.5);
     const number=this.add.text(w/2,h*.41,act.label,{
@@ -26,22 +30,54 @@ export class ActTitleScene extends Phaser.Scene {
       fontFamily:'monospace',fontSize:'25px',fontStyle:'bold',color:'#d4aa5a',align:'center',
       wordWrap:{width:Math.max(120,w-32),useAdvancedWrap:true}
     }).setOrigin(.5).setAlpha(0);
+    const status=this.add.text(w/2,h*.80,'PRZYGOTOWYWANIE AKTU…',{
+      fontFamily:'monospace',fontSize:'13px',color:'#baa783',align:'center'
+    }).setOrigin(.5);
+    const retry=this.add.text(w/2,h*.88,'PONÓW',{
+      fontFamily:'monospace',fontSize:'18px',color:'#f4d184',backgroundColor:'#29221b',
+      padding:{x:18,y:9}
+    }).setOrigin(.5).setVisible(false).setInteractive({useHandCursor:true});
     const resize=()=>{
       const width=this.scale.width,height=this.scale.height;
       background.setPosition(width/2,height/2).setSize(width,height);
       number.setPosition(width/2,height*.41).setFontSize(Math.max(22,Math.min(42,height*.105)));
       name.setPosition(width/2,height*.59).setFontSize(Math.max(15,Math.min(29,height*.075)));
       name.setWordWrapWidth(Math.max(120,width-32));
+      status.setPosition(width/2,height*.80);
+      retry.setPosition(width/2,height*.88);
     };
     resize();
     this.scale.on(Phaser.Scale.Events.RESIZE,resize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.scale.off(Phaser.Scale.Events.RESIZE,resize));
     this.tweens.add({targets:number,alpha:1,duration:380,ease:'Linear'});
     this.time.delayedCall(260,()=>this.tweens.add({targets:name,alpha:1,duration:440,ease:'Linear'}));
-    this.time.delayedCall(1600,()=>this.tweens.add({
-      targets:[number,name],alpha:0,duration:220,ease:'Linear',
-      onComplete:()=>{if(this.sys.isActive()&&sceneForAct(this.actId))this.scene.start(this.nextScene,{handoff:this.handoff,debugCheckpoint:this.debugCheckpoint});}
-    }));
+    const gate=this.assetGate;
+    const finish=()=>{
+      if(!this.sys.isActive()||this.assetAbort.signal.aborted||gate.starting||
+         !gate.minimumElapsed||!gate.ready)return;
+      gate.starting=true;status.setVisible(false);retry.setVisible(false);
+      this.tweens.add({targets:[number,name],alpha:0,duration:220,ease:'Linear',
+        onComplete:()=>{if(this.sys.isActive()&&sceneForAct(this.actId))
+          this.scene.start(this.nextScene,{handoff:this.handoff,debugCheckpoint:this.debugCheckpoint});}
+      });
+    };
+    const prepare=()=>{
+      if(!this.sys.isActive()||this.assetAbort.signal.aborted)return;
+      retry.setVisible(false);status.setText('PRZYGOTOWYWANIE AKTU…');
+      void prepareActAssets(this.game,this.actId,{signal:this.assetAbort.signal}).then(result=>{
+        if(!this.sys.isActive()||this.assetAbort.signal.aborted)return;
+        gate.failed=result.failed;gate.ready=result.ready;
+        if(!result.ready){
+          status.setText('NIE UDAŁO SIĘ WCZYTAĆ TERENU.');retry.setVisible(true);
+        }else{status.setText(result.failed.length?'WŁĄCZONO BEZPIECZNE ZAMIENNIKI':'GOTOWE');finish();}
+      }).catch(()=>{
+        if(!this.sys.isActive()||this.assetAbort.signal.aborted)return;
+        status.setText('BŁĄD ŁADOWANIA — SPRÓBUJ PONOWNIE');retry.setVisible(true);
+      });
+    };
+    retry.on('pointerdown',prepare);
+    this.time.delayedCall(ACT_TITLE_MIN_MS,()=>{gate.minimumElapsed=true;finish();});
+    prepare();
     enforceOrientationOnSceneStart(this);
   }
 }
