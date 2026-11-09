@@ -4,6 +4,7 @@ import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLa
 import {createHorizontalParallaxLayer} from './airship-parallax.js';
 import {PADDLEWHEEL_MOUNT,paddlewheelDisplaySize,advancePaddlewheelAngle} from './airship-paddlewheel.js';
 import {currentCampaignRun,prepareActStart,updateRunEquipment,completeCampaignAct,nextActHandoff} from './campaign-run.js';
+import {recordActCompletion} from './act-unlocks.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl} from './character-visual.js';
 import {createJoystick} from './joystick.js';
@@ -617,6 +618,7 @@ export class AirshipScene extends Phaser.Scene {
       unlockedWeapons:this.unlockedWeapons,selectedWeapon:this.weapon,
       kills:result.kills,activeCombatMs:result.activeCombatMs
     }))return false;
+    recordActCompletion(run,'act2');
     const handoff=nextActHandoff(run,registered);
     if(!handoff||handoff.actId!=='act3'){
       console.error('[Airship] Act III handoff unavailable after Act II completion');
