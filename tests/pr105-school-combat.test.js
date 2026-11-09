@@ -154,7 +154,7 @@ test('R12-R13 fixed wave4 handoff clears living enemies once and cannot award B�
  assert.ok(scene.includes('IDŹ DO SZKOŁY'));
  assert.equal(combat.includes('awardRunArtifact('),false);
  assert.equal(combat.includes("this.scene.start('Cave'"),false);
- assert.equal(scene.includes("scene.start('ActTitle'"),false);
+ assert.ok(scene.includes("this.scene.start('ActTitle',{actId:'act5',handoff})"));
 });
 test('R14-R15 Act IV fixtures preserve predecessor artifacts and scene resources tear down once',()=>{
  for(const id of ['act4-opening','act4-school','act4-combat','act4-wave4']){
