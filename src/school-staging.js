@@ -3,10 +3,11 @@
 import {SCHOOL_PLACES,schoolWalkable} from './school-contract.js';
 import {ENCOUNTER} from './bobrozombi.js';
 import {ENEMY_TYPES} from './enemy-types.js';
+import {BLAZEJ_START} from './school-finale.js';
 import {healOneHp,canCollectBogdanHeart} from './volcano-heart.js';
 
 export const MACIEK_SEBA_RADIUS=150;
-export const PITCH_ENCOUNTER_RADIUS=245;
+export const PITCH_ENCOUNTER_RADIUS=130;
 export const SCHOOL_WAVE2_END_MS=75000; // 35 s + 40 s
 export const SCHOOL_HEART_HEAL=2; // Approved Act III pre-boss heart recovery.
 export const SCHOOL_HEART_POINTS=Object.freeze({
@@ -38,8 +39,8 @@ export function schoolDirectorSpawnSites(spawnIndex){
 }
 export const maciekSebaNearby=player=>player&&
  Math.hypot(player.x-SCHOOL_PLACES.maciek.x,player.y-SCHOOL_PLACES.maciek.y)<=MACIEK_SEBA_RADIUS;
-export const pitchNearby=player=>player&&
- Math.hypot(player.x-SCHOOL_PLACES.pitchApproach.x,player.y-SCHOOL_PLACES.pitchApproach.y)<=PITCH_ENCOUNTER_RADIUS;
+export const pitchNearby=(player,boss=BLAZEJ_START)=>!!player&&!!boss&&
+ Math.hypot(player.x-boss.x,player.y-boss.y)<=PITCH_ENCOUNTER_RADIUS;
 export function schoolEntouragePoint(point,player,occupied=[]){
  const r=ENEMY_TYPES[point.type]?.radius;
  return Number.isFinite(r)&&schoolWalkable(point,r+4)&&
