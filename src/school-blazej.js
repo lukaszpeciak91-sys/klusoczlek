@@ -14,6 +14,7 @@ import {createIgnitionState,igniteEnemy,advanceIgnition,isBurning,clearIgnition}
 import {createBurningFx} from './enemy-fire-vfx.js';
 import {BLAZEJ_START,BLAZEJ_RADIUS,blazejJumpLanding} from './school-finale.js';
 import {BLAZEJ_JUMP_DURATION_MS,blazejJumpFrame} from './school-blazej-jump.js';
+import {schoolWalkable} from './school-contract.js';
 
 export const BLAZEJ_HP=48;
 export const BLAZEJ_SPEED=ENEMY_TYPES.zubrokryptyda.speed*1.3;
@@ -21,8 +22,8 @@ export const BLAZEJ_ATTACK=Object.freeze({...MARCIN,hp:BLAZEJ_HP,cooldown:4500,l
 export const BLAZEJ_SHOCKWAVE_RADIUS=95;
 export const BLAZEJ_MAX_PROJECTILES=MARCIN.maxProjectiles;
 
-function schoolJumpSafe(start,end,safe,obstacles){
- return !!safe&&Math.hypot(safe.x-end.x,safe.y-end.y)<1&&
+function schoolJumpSafe(start,end,obstacles){
+ return schoolWalkable(end,BLAZEJ_RADIUS)&&
   !firstFootprintHit(start,end,obstacles,BLAZEJ_RADIUS);
 }
 
@@ -134,8 +135,7 @@ export function createSchoolBlazej(scene,Phaser){
    }else{
     const start={x:actor.x,y:actor.y};
     const candidate=landing??start;
-    const safe=blazejJumpLanding(start,candidate,scene.obstacles);
-    const target=schoolJumpSafe(start,candidate,safe,scene.obstacles)?candidate:start;
+    const target=schoolJumpSafe(start,candidate,scene.obstacles)?candidate:start;
     jump={start,target,elapsed:0};
    }
    landing=null;
