@@ -217,23 +217,10 @@ export class SchoolScene extends Phaser.Scene {
     enforceOrientationOnSceneStart(this);
   }
   createMaciekSebaActors(){
-    // Static, noncombat actors using the *existing* approved enemy renderers.
-    // They never enter combat.enemies, director counts, or the contact pipeline.
-    if(this.maciekSebaActors)return;
-    this.maciekSebaActors=[
-      {type:'bobrozombi',...SCHOOL_PLACES.maciek},
-      {type:'bocianolak',...SCHOOL_PLACES.seba},
-    ].map((point,index)=>{
-      const renderer=this.combat.renderers[point.type];
-      const actor={...point,hp:1,dead:false,facing:'s',seed:200+index,
-        sprite:renderer.create(point.x,point.y)};
-      renderer.update(actor,this.player,0,0);
-      return actor;
-    });
+    return this.combat.stageOptionalActors();
   }
   clearMaciekSebaActors(){
-    for(const actor of this.maciekSebaActors??[])if(actor.sprite?.active)actor.sprite.destroy();
-    this.maciekSebaActors=null;
+    // The combat adapter owns all optional NPC sprite lifecycles.
   }
   spawnSchoolHeart(id){
     const state=this.hearts[id];
@@ -299,13 +286,13 @@ export class SchoolScene extends Phaser.Scene {
     if(id==='act4-captain-opening'){
       this.startCaptainDeparture();
     }else if(id==='act4-maciek-seba'){
+      this.combat.activateOptionalActors();
       this.storyBusy=false;this.syncControls();
     }else if(id==='act4-blazej-observer'){
       this.storyBusy=false;
       this.beginSchoolDialogue('act4-blazej-confrontation');
     }else if(id==='act4-blazej-confrontation'){
       this.storyBusy=false;
-      this.clearMaciekSebaActors();
       this.combat.start(); // The first ordinary wave begins only after DALEJ.
       this.combat.suspend();this.syncControls();
     }else if(id==='act4-blazej-final'){
@@ -631,12 +618,17 @@ export class SchoolScene extends Phaser.Scene {
       return;
     }
     const now=performance.now();
+    // This side encounter remains available independently of the four waves.
+    if(!this.maciekSeen&&['INTRO','COMBAT','CLEANUP'].includes(this.schoolPhase)&&
+       this.combat.optionalActors.length&&maciekSebaNearby(this.player)){
+      this.maciekSeen=this.beginSchoolDialogue('act4-maciek-seba');
+      if(this.maciekSeen){this.hpFace.update(delta);return;}
+    }
     if(this.schoolPhase==='INTRO'&&!this.pitchStarted){
-      if(!this.maciekSeen&&maciekSebaNearby(this.player)){
-        this.maciekSeen=this.beginSchoolDialogue('act4-maciek-seba');
-      }else if(pitchNearby(this.player)){
+      if(pitchNearby(this.player))
         this.pitchStarted=this.beginSchoolDialogue('act4-blazej-observer');
-      }
+      if(this.combat.optionalHostile)
+        this.combat.update(delta,now,aim,this.aimJoystick.held);
       this.hpFace.update(delta);
       return;
     }
