@@ -25,7 +25,7 @@ const portraits={
  act2:['act2-opening','act2-finale'],
  act3:['act3-opening','act3-lawostworki','act3-apartment-argument','act3-bogdan-confrontation','act3-swinia-wrozka','act3-bogdan-final','act3-eruption-warning','act3-captain-extraction'],
  act4:['act4-captain-opening','act4-maciek-seba','act4-blazej-observer','act4-blazej-confrontation','act4-blazej-final','act4-chapel-ending'],
- act5:['act5-betrayal','act5-fairy','act5-home']
+ act5:['act5-betrayal','act5-fairy']
 };
 export function actPortraitKeys(actId){
  return [...new Set((portraits[actId]??[]).flatMap(id=>(DIALOGUES[id]??[]).map(line=>line[0])))].filter(key=>key!=='chapel');
