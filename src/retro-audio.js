@@ -40,7 +40,7 @@ export class RetroAudio {
   save(){
     try{globalThis.localStorage?.setItem(KEY,JSON.stringify(this.settings));}catch{}
   }
-  volume(kind,value){if(kind!=='music'&&kind!=='sfx')return;this.settings[kind]=clamp(value);this.save();this.syncMusic();}
+  volume(kind,value){if(kind!=='music'&&kind!=='sfx')return;this.settings[kind]=clamp(value);this.save();this.syncMusic();if(kind==='sfx'&&this.streamVoice)this.streamVoice.gain.gain.value=.095*this.settings.sfx;}
   mute(value=!this.settings.muted){this.settings.muted=Boolean(value);this.save();this.syncMusic();if(value)this.stopStream();}
   syncMusic(){if(this.music)this.music.volume=this.settings.muted?0:this.settings.music;}
   enter(scene){
@@ -122,7 +122,7 @@ export class RetroAudio {
       source.buffer=this.noiseBuffer();source.loop=true;filter.type=weapon==='flamethrower'?'lowpass':'bandpass';
       filter.frequency.value=weapon==='flamethrower'?690:420;filter.Q.value=.7;
       gain.gain.value=.095*this.settings.sfx;source.connect(filter);filter.connect(gain);gain.connect(this.master);
-      source.start();this.streamVoice={source,gain,filter,weapon};
+      source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};source.start();this.streamVoice={source,gain,filter,weapon};
     }catch{}
   }
   hurt(){if(this.limited('hurt',95))this.tone(320,95,.18,'sawtooth',.33);}
