@@ -85,6 +85,7 @@ try{
  // Fast direct Act V opening visual QA; does not replay Acts I–IV.
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act5-opening');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:'act5-opening'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Catacombs');return window.__game?.scene.isActive('Catacombs')&&s?.entryGateReady&&s.dialogueState.id==='act5-betrayal'})()",'direct approved Act V visual QA ready',18000);
+ await sleep(440); // Wait for 300ms SceneReveal black shield fade before rendered pixel sampling.
  // Real Chromium pixel/texture audit at the Act V stage, not a file-path-only test.
  const art5=await evaluate(`(()=>{
   const g=window.__game,s=g.scene.getScene('Catacombs');
