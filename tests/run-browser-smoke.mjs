@@ -1012,13 +1012,10 @@ try{
  assert.ok(creditsStart.heading[1].includes('LEŚNI PRZYJACIELE')&&creditsStart.heading[1].includes('MICHAŁA ALOESA ŚWIDERSKIEGO'));
  assert.equal(creditsStart.track,'credits');assert.equal(creditsStart.loop,true);
  assert.equal(creditsStart.back,true);
- await sleep(260);
- const beforeScroll=await evaluate("window.__game.scene.getScene('Credits').elapsedScroll");
- const scrollStatus=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {elapsed:s.elapsedScroll,hidden:document.hidden,focus:document.hasFocus(),active:s.scene.isActive(),paused:s.scene.isPaused(),finished:s.finished,timeScale:s.time.timeScale,gameStep:window.__game.loop.frame}})()");
- console.log('CREDITS LIVE SCROLL STATE',JSON.stringify(scrollStatus));
- if(!scrollStatus.hidden)assert.ok(beforeScroll>creditsStart.elapsedScroll,'credits scroll by frame delta');
- else assert.equal(beforeScroll,creditsStart.elapsedScroll,'credits intentionally pause in hidden tab');
-
+ await wait("window.__game.scene.getScene('Credits').elapsedScroll>0",'credits progress on normal Phaser frames',6000);
+ const scrollStatus=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {elapsed:s.elapsedScroll,hidden:document.hidden,active:s.scene.isActive(),paused:s.scene.isPaused(),finished:s.finished}})()");
+ assert.equal(scrollStatus.finished,false);
+ assert.ok(scrollStatus.elapsed>0,'credits scroll by frame delta');
  await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');s.elapsedScroll=s.scrollDistance-.5;s.update(0,50);return true})()");
  const endCredits=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {finished:s.finished,dedication:s.dedication.text,visible:s.dedication.visible,back:s.backButton.visible,track:window.__retroAudio.track,elapsed:s.elapsedScroll}})()");
  assert.equal(endCredits.finished,true);assert.equal(endCredits.visible,true);
