@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {CATACOMBS,CATACOMBS_OBSTACLES,CATACOMBS_SUMMON_SITES,
- catacombsWalkable,catacombsStep,catacombsResolve,MARIAN_FINAL_ASSETS} from '../src/catacombs-contract.js';
+ catacombsWalkable,catacombsStep,catacombsResolve,MARIAN_FINAL_ASSETS,CATACOMBS_ART,catacombsArtPlacement} from '../src/catacombs-contract.js';
 import {createFinalBossState,FINAL_BOSS,finalBossVulnerable,finalBossDamage,
  finalBossStart,finalBossBeginSummon,finalBossAddSummon,finalBossClearSummon,
  finalBossStep} from '../src/marian-final-boss.js';
@@ -12,7 +12,8 @@ import {prepareActStart,completeCampaignAct,nextActHandoff} from '../src/campaig
 import {availableWeapons} from '../src/weapon-progression.js';
 import {getAct,nextAvailableAct} from '../src/campaign.js';
 import {serializeCampaignCheckpoint,readCampaignCheckpoint,clearCampaignCheckpoint,CAMPAIGN_SAVE_KEY} from '../src/campaign-save.js';
-import {actRequiredAssets,actPortraitKeys,scenePortraitKeys} from '../src/act-asset-preparation.js';
+import {actRequiredAssets,actPortraitKeys,scenePortraitKeys,validProductionAsset} from '../src/act-asset-preparation.js';
+import {segmentObstacleHit} from '../src/obstacles.js';
 const src=path=>readFileSync(new URL(path,import.meta.url),'utf8');
 
 test('final chapter is registered, reached through original ActTitle flow and terminal',()=>{
@@ -197,12 +198,14 @@ test('full HP after Act IV, Act V save entry, finale completion and menu reset',
  assert.ok(scene.includes("this.scene.start('Menu')"));
  assert.ok(scene.includes('if(!this.run.isDebugRun)clearCampaignCheckpoint()'));
 });
-test('Act V required loading stays scoped; no new PNGs needed for fallback catacombs',()=>{
+test('Act V uses five approved production PNGs and scoped ActTitle preparation',()=>{
  const manifest=actRequiredAssets('act5'),files=manifest.map(x=>x.path);
  assert.ok(files.includes('npcs/captain.png'));
  assert.ok(files.includes('npcs/swinia-wrozka.png'));
  assert.ok(files.includes('enemies/marian-transformed.png'));
- assert.ok(!manifest.find(x=>x.path==='enemies/marian-transformed.png').required);
+ assert.ok(manifest.find(x=>x.path==='enemies/marian-transformed.png').required);
+ for(const path of Object.values(CATACOMBS_ART).filter(v=>v?.path).map(v=>v.path))assert.ok(manifest.find(v=>v.path===path&&v.required),path);
+ assert.ok(manifest.find(v=>v.key==='dialogue-marian-transformed'&&v.required));
  assert.ok(!files.some(p=>p.includes('act4-aloes-bicycle.png')));
  assert.ok(actPortraitKeys('act5').includes('swinia-wrozka'));
  assert.deepEqual(scenePortraitKeys('Catacombs'),actPortraitKeys('act5'));
@@ -216,4 +219,60 @@ test('Act V combat UI and pause guard reuses existing HUD, controls and reveal g
  assert.ok(s.includes('this.scene.pause()'));
  assert.ok(s.includes('this.phase===\'boss\''));
  assert.ok(s.includes('if(this.disposed||!this.entryGateReady)return'));
+});
+
+test('approved catacombs PNG signatures, native dimensions and alpha types match manifests',()=>{
+ const manifest=actRequiredAssets('act5');
+ const paths=[CATACOMBS_ART.background,CATACOMBS_ART.altar,CATACOMBS_ART.column,
+  MARIAN_FINAL_ASSETS.transformed,MARIAN_FINAL_ASSETS.portrait];
+ for(const def of paths){
+  const bytes=readFileSync(new URL('../public/assets/'+def.path,import.meta.url));
+  assert.ok(validProductionAsset(bytes,def),def.path+' malformed or wrong frame contract');
+  const width=bytes.readUInt32BE(16),height=bytes.readUInt32BE(20);
+  assert.equal(width,def.width,def.path);assert.equal(height,def.height,def.path);
+  assert.equal(bytes[24],8);assert.equal(bytes[25],6,'approved artwork requires RGBA');
+  assert.ok(manifest.some(v=>v.path===def.path&&v.key===def.key&&v.required),def.path+' missing from required ActTitle gate');
+ }
+ assert.equal(CATACOMBS.width/CATACOMBS_ART.background.width,
+  CATACOMBS.height/CATACOMBS_ART.background.height);
+ assert.equal(MARIAN_FINAL_ASSETS.transformed.width/MARIAN_FINAL_ASSETS.transformed.frameWidth,8);
+ assert.equal(MARIAN_FINAL_ASSETS.transformed.height/MARIAN_FINAL_ASSETS.transformed.frameHeight,1);
+});
+test('all four columns use a single texture, geometry and graphics share coordinates',()=>{
+ assert.equal(CATACOMBS_ART.column.width,96);assert.equal(CATACOMBS_ART.column.height,221);
+ assert.equal(CATACOMBS_ART.altar.width,266);assert.equal(CATACOMBS_ART.altar.height,176);
+ const placements=CATACOMBS_OBSTACLES.map(o=>({id:o.id,...catacombsArtPlacement(o)}));
+ assert.equal(placements.length,5);
+ assert.equal(placements.filter(o=>o.key==='act5-column').length,4);
+ assert.equal(placements.filter(o=>o.key==='act5-altar').length,1);
+ for(let i=0;i<placements.length;i++){
+  const p=placements[i],o=CATACOMBS_OBSTACLES[i];
+  assert.equal(p.x,o.x);assert.equal(p.y,o.y+o.footprint.height/2);
+  assert.equal(p.width,(o.id==='altar'?266:96)*960/1800);
+  assert.ok(catacombsWalkable(CATACOMBS.playerStart));
+ }
+ const s=src('../src/catacombs-scene.js');
+ assert.ok(s.includes('catacombsArtPlacement(obstacle)'));
+ assert.ok(s.includes('this.catacombsBackground=this.add.image(0,0,background.key)'));
+ assert.ok(s.includes('this.catacombsObstacleArt.push(art)'));
+ assert.ok(!s.includes('for(let y=40;y<600;y+=54)'),'no provisional checkerboard in production');
+});
+
+test('catacombs player and boss swept movement, gunshots and summons share the same solid art footprints',()=>{
+ const column=segmentObstacleHit({x:90,y:210},{x:305,y:210},CATACOMBS_OBSTACLES,3);
+ assert.equal(column?.id,'pillar-left-upper');
+ const altar=segmentObstacleHit({x:480,y:480},{x:480,y:160},CATACOMBS_OBSTACLES,3);
+ assert.equal(altar?.id,'altar');
+ assert.equal(segmentObstacleHit({x:340,y:215},{x:620,y:215},CATACOMBS_OBSTACLES,3),null,
+  'clear corridor between the columns must remain fireable');
+ for(const o of CATACOMBS_OBSTACLES){
+  assert.equal(catacombsWalkable({x:o.x,y:o.y},CATACOMBS.bossRadius),false,o.id+' stops boss');
+  const p=catacombsResolve({x:o.x-140,y:o.y},{x:o.x+140,y:o.y},CATACOMBS.enemyRadius);
+  assert.ok(catacombsWalkable(p,CATACOMBS.enemyRadius),o.id+' summoned enemy remains outside obstacle');
+ }
+ assert.ok(catacombsWalkable(CATACOMBS.marianStart,CATACOMBS.bossRadius));
+ assert.ok(catacombsWalkable(CATACOMBS.fairyStart,CATACOMBS.enemyRadius));
+ assert.ok(catacombsWalkable(CATACOMBS.playerStart));
+ for(const site of CATACOMBS_SUMMON_SITES)
+  assert.ok(catacombsWalkable(site,CATACOMBS.enemyRadius),site.type+' spawn remains safe');
 });
