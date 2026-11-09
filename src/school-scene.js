@@ -625,7 +625,7 @@ export class SchoolScene extends Phaser.Scene {
       if(this.maciekSeen){this.hpFace.update(delta);return;}
     }
     if(this.schoolPhase==='INTRO'&&!this.pitchStarted){
-      if(pitchNearby(this.player))
+      if(pitchNearby(this.player,this.blazej.actor))
         this.pitchStarted=this.beginSchoolDialogue('act4-blazej-observer');
       if(this.combat.optionalHostile)
         this.combat.update(delta,now,aim,this.aimJoystick.held);
