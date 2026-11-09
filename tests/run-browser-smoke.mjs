@@ -849,6 +849,15 @@ try{
  await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian evolution blinks',3000);
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='boss'&&s.boss.phase==='gun'&&s.canPlay()})()",'boss after evolution',5500);
  await wait("window.__game.scene.getScene('Catacombs').bossShots.length>0",'rotating gun emits real shots',6500);
+ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y,clock:s.combatMs}})()");
+ await touch(pause5.x,pause5.y);
+ await wait("window.__game.scene.isPaused('Catacombs')&&window.__game.scene.isActive('Menu')",'Marian boss MENU pause',3000);
+ const paused5=await evaluate("window.__game.scene.getScene('Catacombs').combatMs");
+ await sleep(300);
+ assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').combatMs"),paused5,'boss timers freeze in MENU');
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('Catacombs')",'Marian boss WZNÓW',3000);
+
  const shield=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hit:s.damageBoss(18),phase:s.boss.phase,n:s.boss.summons.length,hp:s.boss.hp,second:s.damageBoss(10)}})()");
  assert.deepEqual(shield,{hit:true,phase:'summon',n:3,hp:44,second:false},'horn summons 3 while Marian invulnerable');
  const cleared=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');for(const e of [...s.summons])s.damageEnemy(e,e.hp);return {phase:s.boss.phase,n:s.summons.length}})()");
@@ -863,6 +872,16 @@ try{
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='ending'&&s.completed&&s.run.completedActs.has('act5')})()",'KONIEC and campaign completion',3000);
  await wait("window.__game.scene.isActive('Menu')",'Act V ending returns to Menu',4500);
  console.log('PASS Act V real Chromium Android landscape: Act IV chapel handoff, 5 HP, betrayal, Marian blinking evolution, rotating gun, horn immunity, fairy and KONIEC');
+ // Remaining final-chapter DEBUG entries must start at their actual stages.
+ for(const [id,phase] of [['act5-boss','boss'],['act5-ending','fairy']]){
+  await cdp('Page.reload',{ignoreCache:true});
+  await wait("window.__game?.scene.isActive('Menu')",'menu before '+id);
+  await evaluate(`(()=>{const g=window.__game,f=window.__createDebugFixture(${JSON.stringify(id)});f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:${JSON.stringify(id)}});return true})()`);
+  await wait(`(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.phase===${JSON.stringify(phase)}})()`,'Act V DEBUG '+id,12000);
+  const v=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hp:s.run.hp,artifacts:s.run.artifacts.size,completed:s.run.completedActs.size,water:s.weapon==='water-flamethrower'}})()");
+  assert.deepEqual(v,{hp:5,artifacts:3,completed:4,water:false});
+ }
+ console.log('PASS Act V Chromium DEBUG: opening, Marian boss and ending checkpoints with complete prior artifacts and full HP');
  assert.deepEqual(exceptions,[],'uncaught Chromium exceptions');
  console.log('PASS FAST real Chromium: menu, DEBUG Act II/IV, handoffs, school placeholders, Act IV pause/resume and water filtering');
  console.log('FAST runtime ms',Date.now()-started);
