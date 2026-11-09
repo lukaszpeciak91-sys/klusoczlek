@@ -26,6 +26,7 @@ export class CatacombsScene extends Phaser.Scene{
  constructor(){super('Catacombs');}
  init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
  create(){retroAudio.enter('Catacombs');
+    this.events.on(Phaser.Scenes.Events.RESUME,()=>retroAudio.enter('Catacombs'));
   this.disposed=false;this.entryGateReady=false;this.phase='opening';
   this.defeated=false;this.completed=false;this.finalized=false;
   this.summons=[];this.shots=[];this.bossShots=[];this.shotCooldowns=new Map();
