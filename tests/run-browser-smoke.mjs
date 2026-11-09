@@ -340,7 +340,19 @@ try{
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1215,785);s.player.body.reset(1215,785);return true})()");
  await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'bypassed optional Maciek/Seba; boss proximity continues');
  assert.equal(await evaluate("window.__game.scene.getScene('School').maciekSeen"),false,'Maciek bypass is truly optional');
- for(let i=0;i<6;i++)await dialogueNext();
+ for(let i=0;i<6;i++){
+  const expected=i===0?{id:'act4-blazej-observer',index:1}:
+   i===1?{id:'act4-blazej-confrontation',index:0}:
+   i<5?{id:'act4-blazej-confrontation',index:i-1}:{id:null,index:0};
+  let advanced=false;
+  for(let attempt=0;attempt<3&&!advanced;attempt++){
+   await dialogueNext();
+   await sleep(110);
+   const state=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
+   advanced=state.id===expected.id&&state.index===expected.index;
+   if(!advanced&&attempt===2)assert.deepEqual(state,expected,'six mandatory panels cannot be skipped or repeated');
+  }
+ }
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.started&&s.schoolPhase==='COMBAT'})()",'bypassing optional encounter still starts four waves');
  console.log('PASS Act IV Chromium: Maciek/Seba bypass leaves pitch encounter and ordinary combat reachable');
  await cdp('Page.reload',{ignoreCache:true});
