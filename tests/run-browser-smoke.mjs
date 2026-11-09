@@ -1014,7 +1014,7 @@ try{
  assert.equal(creditsStart.back,true);
  await sleep(260);
  const beforeScroll=await evaluate("window.__game.scene.getScene('Credits').elapsedScroll");
- const scrollStatus=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {elapsed:s.elapsedScroll,initial:${creditsStart.elapsedScroll},hidden:document.hidden,focus:document.hasFocus(),active:s.scene.isActive(),paused:s.scene.isPaused(),finished:s.finished,timeScale:s.time.timeScale,gameStep:window.__game.loop.frame}})()");
+ const scrollStatus=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {elapsed:s.elapsedScroll,hidden:document.hidden,focus:document.hasFocus(),active:s.scene.isActive(),paused:s.scene.isPaused(),finished:s.finished,timeScale:s.time.timeScale,gameStep:window.__game.loop.frame}})()");
  console.log('CREDITS LIVE SCROLL STATE',JSON.stringify(scrollStatus));
  if(!scrollStatus.hidden)assert.ok(beforeScroll>creditsStart.elapsedScroll,'credits scroll by frame delta');
  else assert.equal(beforeScroll,creditsStart.elapsedScroll,'credits intentionally pause in hidden tab');
