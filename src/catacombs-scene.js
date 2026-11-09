@@ -253,7 +253,7 @@ export class CatacombsScene extends Phaser.Scene{
  }
  summonWave(){
   if(!finalBossBeginSummon(this.boss))return false;
-  this.clearShots();this.bossActor.setTint(0xb4a9f3);
+  this.clearShots();this.bossArt.setTint(0xb4a9f3);
   const sites=CATACOMBS_SUMMON_SITES.slice(0,FINAL_BOSS.maxSummons);
   for(const [i,site] of sites.entries()){
    if(!catacombsWalkable(site,CATACOMBS.enemyRadius))continue;
@@ -279,8 +279,8 @@ export class CatacombsScene extends Phaser.Scene{
  damageBoss(amount){
   const hit=finalBossDamage(this.boss,amount,this.time.now);
   if(!hit)return false;
-  this.bossActor.setTint(0xff6f79);
-  this.time.delayedCall(110,()=>{if(!this.disposed&&this.boss.phase!=='summon')this.bossActor.clearTint();});
+  this.bossArt.setTint(0xff6f79);
+  this.time.delayedCall(110,()=>{if(!this.disposed&&this.boss.phase!=='summon')this.bossArt.clearTint();});
   if(this.boss.defeated)this.defeatBoss();
   else this.summonWave();
   return true;
@@ -292,7 +292,7 @@ export class CatacombsScene extends Phaser.Scene{
   enemy.dead=true;enemy.sprite.destroy();this.killCount++;
   finalBossClearSummon(this.boss,enemy.id);
   this.summons=this.summons.filter(e=>!e.dead);
-  if(this.boss.phase==='gun'){this.bossActor.clearTint();this.objective.setText('POKONAJ KŁUSOCZŁEKA!');}
+  if(this.boss.phase==='gun'){this.bossArt.clearTint();this.objective.setText('POKONAJ KŁUSOCZŁEKA!');}
   return true;
  }
  defeatBoss(debug=false){
@@ -478,7 +478,7 @@ export class CatacombsScene extends Phaser.Scene{
    if(d<FINAL_BOSS.contactRadius+PLAYER_RADIUS)this.hurtPlayer(this.time.now);
   }
   const tick=finalBossStep(this.boss,delta);
-  if(tick.summonTimeout){this.clearSummons();this.bossActor.clearTint();this.objective.setText('POKONAJ KŁUSOCZŁEKA!');}
+  if(tick.summonTimeout){this.clearSummons();this.bossArt.clearTint();this.objective.setText('POKONAJ KŁUSOCZŁEKA!');}
   for(const offset of tick.shots){
    const a=Math.atan2(this.player.y-this.bossActor.y,this.player.x-this.bossActor.x)+offset;
    this.spawnShot(this.bossShots,this.bossActor.x,this.bossActor.y-24,a,FINAL_BOSS.projectileSpeed,'marian');
