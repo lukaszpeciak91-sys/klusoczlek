@@ -18,6 +18,7 @@ import {createAct1Panels} from './act1-epilogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
 import {FIRST_ACT_ID,CAMPAIGN_ACTS,completionDestination} from './campaign.js';
 import {readCampaignCheckpoint,writeCampaignCheckpoint} from './campaign-save.js';
+import {recordActCompletion} from './act-unlocks.js';
 import {beginCampaignRun,currentCampaignRun,updateRunHealth,updateRunEquipment,awardRunArtifact,completeCampaignAct,nextActHandoff,MARCIN_MOHAWK_ID} from './campaign-run.js';
 import {introductionVisible,introductionSpawnPoint,eligibleIntroductionEnemy} from './intro-visibility.js';
 import { createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRenderer } from './enemy-visual.js';
@@ -645,11 +646,12 @@ export class ArenaScene extends Phaser.Scene {
     this.act1Panels=createAct1Panels(this,Phaser,()=>this.beginAct1Fade(),()=>{
       if(this.act1Epilogue!=='results')return;
       this.act1Epilogue='complete';this.cameras.main.resetFX();
-      completeCampaignAct(this.campaignRun,FIRST_ACT_ID,{
+      const actOneCompleted=completeCampaignAct(this.campaignRun,FIRST_ACT_ID,{
         hp:this.playerHp,maxHp:ENCOUNTER.playerMaxHp,
         unlockedWeapons:this.unlockedWeapons,selectedWeapon:this.weapon,
         kills:this.kills,activeCombatMs:this.elapsedGameplayMs,
       });
+      if(actOneCompleted)recordActCompletion(this.campaignRun,FIRST_ACT_ID);
       const next=nextActHandoff(this.campaignRun,new Set(Object.keys(this.scene.manager.keys)));
       if(next){
         updateRunHealth(this.campaignRun,this.campaignRun.maxHp);
