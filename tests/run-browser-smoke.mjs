@@ -45,6 +45,9 @@ try{
  const menu=await geometry();assert.ok(menu.buttons.some(b=>b.text==='NOWA GRA')&&menu.buttons.some(b=>b.text==='DEBUG'),'menu buttons');
  await tapMenu('NOWA GRA');
  await wait("window.__game.scene.isActive('ActTitle')",'NOWA GRA -> Act I title',3000);
+ await sleep(160);
+ const earlyPaths=await evaluate("performance.getEntriesByType('resource').map(r=>r.name).filter(p=>/act2-|act3-|act4-|schoolyard|blazej\\.png|bogdan\\.png/.test(p))");
+ assert.deepEqual(earlyPaths,[],'cold Act I must not request later-act image resources');
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'saved menu reload');
  assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'),'WZNÓW available with saved campaign');
@@ -70,8 +73,30 @@ try{
   await sleep(80);point=await locate();
  }
  assert.ok(point,'DEBUG checkpoint scroll did not reveal '+target.id);
+ // Simulate a real slow required Act II PNG via CDP interception. No new
+ // server, no waiting through gameplay waves, no fixture-only mock loading.
+ let heldSky=null,skyRequests=0;
+ const skyPaused=event=>{
+  const message=JSON.parse(event.data);
+  if(message.method==='Fetch.requestPaused'&&message.params.request.url.includes('act2-sky.png')){
+   heldSky=message.params.requestId;skyRequests++;
+  }
+ };
+ socket.addEventListener('message',skyPaused);
+ await cdp('Fetch.enable',{patterns:[{urlPattern:'*act2-sky.png',requestStage:'Request'}]});
  await touch(point.x,point.y);
- await wait("window.__game.scene.isActive('Airship')",'DEBUG Act II results checkpoint');
+ await wait("window.__game.scene.isActive('ActTitle')",'Act II title before PNG readiness',4000);
+ for(let attempt=0;attempt<80&&!heldSky;attempt++)await sleep(50);
+ assert.ok(heldSky,'cold Act II title fetches approved sky PNG once');
+ await sleep(2150);
+ const slowTitle=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return {visible:g.scene.isActive('ActTitle'),airship:g.scene.isActive('Airship'),act:t.actId,ready:t.assetGate.ready,minimum:t.assetGate.minimumElapsed}})()");
+ assert.deepEqual(slowTitle,{visible:true,airship:false,act:'act2',ready:false,minimum:true},
+   'title remains onscreen past minimum while required sky download is pending');
+ await cdp('Fetch.continueRequest',{requestId:heldSky});
+ await cdp('Fetch.disable');socket.removeEventListener('message',skyPaused);
+ await wait("window.__game.scene.isActive('Airship')",'DEBUG Act II results checkpoint',12000);
+ assert.equal(skyRequests,1,'Act II approved sky fetched exactly once under slow network');
+ console.log('PASS ActTitle Chromium slow PNG gate: 1900ms minimum, Act II held until decoded sky, one sky request');
  await wait("window.__game.scene.getScene('Airship').dialogueState?.id==='act2-finale'",'Act II finale',12000);
  for(let k=0;k<12;k++){
   const state=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),r=window.__game.canvas.getBoundingClientRect();return {id:a.dialogueState?.id,final:a.finalResultsPending,active:a.dialoguePanel?.active,x:r.x+a.dialoguePanel.button.x,y:r.y+a.dialoguePanel.button.y}})()");
