@@ -5,9 +5,9 @@ import {resolveObstaclePosition} from './obstacles.js';
 // Deliberately self-contained geometry: artwork will not own collision.
 export const CATACOMBS=Object.freeze({
  width:960,height:640,
- playerStart:Object.freeze({x:480,y:530}),
- marianStart:Object.freeze({x:480,y:158}),
- fairyStart:Object.freeze({x:480,y:160}),
+ playerStart:Object.freeze({x:480,y:500}),
+ marianStart:Object.freeze({x:480,y:210}),
+ fairyStart:Object.freeze({x:480,y:210}),
  wall:38, bossRadius:25,enemyRadius:17
 });
 const obstacle=(id,x,y,width,height)=>Object.freeze({
