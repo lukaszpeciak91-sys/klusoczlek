@@ -44,6 +44,7 @@ export function createSchoolBlazej(scene,Phaser){
  let landing=null,shockwaveMs=0,impactPoint=null,jump=null,landings=0;
  function clearAttacks(){
   projectiles.length=0;graphics.clear();jumpShadow.clear();jump=null;landing=null;shockwaveMs=0;impactPoint=null;
+  actor.sprite?.getData('zubrokryptyda-art')?.clearTint();
  }
  function activate(){
   if(active||defeated||disposed||scene.schoolPhase!=='BLAZEJ_BOSS')return false;
@@ -106,7 +107,7 @@ export function createSchoolBlazej(scene,Phaser){
   const previous=attack.phase,fire=bossAttackStep(attack,actor.hp,dt,BLAZEJ_ATTACK);
   if(previous!=='warning'&&attack.phase==='warning'){
    kind=(volleyCount+jumpCount)%2===0?'radial':'jump';
-   landing=kind==='jump'?blazejJumpLanding(actor,scene.player,scene.obstacles):null;
+   landing=null; // Capture Aloes at commitment, not at the beginning of the 900ms warning.
   }
   if(attack.phase==='chase'){
    const from={x:actor.x,y:actor.y};
@@ -120,13 +121,13 @@ export function createSchoolBlazej(scene,Phaser){
    if(Math.hypot(actor.x-scene.player.x,actor.y-scene.player.y)<=BLAZEJ_RADIUS+PLAYER_RADIUS)
     hurtPlayer(now);
   }else renderer.update(actor,scene.player,0,seconds);
-  if(attack.phase==='warning'){
-   // Marcin's existing 900 ms warning window is authoritative.
-   const target=kind==='jump'?(landing||actor):actor;
-   graphics.lineStyle(4,0xffd06a,.9).strokeCircle(target.x,target.y,
-    kind==='jump'?BLAZEJ_SHOCKWAVE_RADIUS:65);
-   graphics.lineStyle(2,0xff6c39,.65).strokeCircle(actor.x,actor.y,BLAZEJ_RADIUS+8);
-  }
+  // No Phaser pre-attack circles. Flash the approved world sprite only
+  // during the original 900ms radial warning; keep jump telegraph clean.
+  const bossArt=actor.sprite.getData('zubrokryptyda-art');
+  if(bossArt?.active&&attack.phase==='warning'&&kind==='radial')
+   bossArt.setTint(Math.floor(attack.elapsed/100)%2===0?0xffe1a3:0xffffff);
+  else if(bossArt?.active&&attack.phase!=='warning'&&now>=actor.hitUntil)
+   bossArt.clearTint();
   if(fire){
    if(kind==='radial'){
     const shots=radialVolley(actor);
@@ -134,11 +135,12 @@ export function createSchoolBlazej(scene,Phaser){
     volleyCount++;
    }else{
     const start={x:actor.x,y:actor.y};
-    const candidate=landing??start;
+    const capturedPlayer={x:scene.player.x,y:scene.player.y};
+    const candidate=blazejJumpLanding(start,capturedPlayer,scene.obstacles)??start;
     const target=schoolJumpSafe(start,candidate,scene.obstacles)?candidate:start;
-    jump={start,target,elapsed:0};
+    landing={...target};jump={start,target,elapsed:0};
    }
-   landing=null;
+   if(kind==='radial')landing=null;
   }
   if(jump){
    jump.elapsed=Math.min(BLAZEJ_JUMP_DURATION_MS,jump.elapsed+dt);
@@ -151,7 +153,7 @@ export function createSchoolBlazej(scene,Phaser){
     2*BLAZEJ_RADIUS*frame.shadowScale,16*frame.shadowScale);
    if(frame.complete){
     actor.sprite.setPosition(actor.x,actor.y);
-    jump=null;impactPoint={x:actor.x,y:actor.y};shockwaveMs=210;
+    jump=null;landing=null;impactPoint={x:actor.x,y:actor.y};shockwaveMs=210;
     jumpCount++;landings++;
     // One event only, at landing; the ring never inflicts repeated damage.
     if(Math.hypot(scene.player.x-actor.x,scene.player.y-actor.y)<=

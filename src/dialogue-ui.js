@@ -76,6 +76,10 @@ export function createDialoguePanel(scene,Phaser,onFinish,onAdvance=null){
      if(!scene.textures.exists(texture))scene.textures.addImage(texture,image);
      const sprite=scene.add.image(0,0,texture).setOrigin(0).setVisible(false);
      shell.addAt(sprite,2);images.set(key,sprite);loaded.add(key);
+     // A dialogue can open before this asynchronous portrait finishes.
+     // Refresh only the current panel; never restart/advance its state.
+     if(active&&scene.dialogueState?.id&&currentDialogue(scene.dialogueState)?.[0]===key)
+      render(scene.dialogueState);
     }finally{URL.revokeObjectURL(blob);}
    }catch{ /* Per-character square fallback keeps dialogue playable. */ }
   }));

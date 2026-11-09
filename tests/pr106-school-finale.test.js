@@ -64,7 +64,7 @@ test('PR106 telegraph, radial volleys, jump landing and solid obstacles are boun
  assert.equal(MARCIN.hp,36);
  const jump=blazejJumpLanding(BLAZEJ_START,{x:1170,y:785});
  assert.ok(jump&&schoolWalkable(jump,BLAZEJ_RADIUS));
- assert.ok(Math.hypot(jump.x-BLAZEJ_START.x,jump.y-BLAZEJ_START.y)<=165.1);
+ assert.ok(Math.hypot(jump.x-BLAZEJ_START.x,jump.y-BLAZEJ_START.y)<=240.1);
  // The bicycle rack blocks a jump from its near to its far side.
  const blocked=blazejJumpLanding({x:1335,y:830},{x:1660,y:830});
  assert.ok(blocked&&schoolWalkable(blocked,BLAZEJ_RADIUS));

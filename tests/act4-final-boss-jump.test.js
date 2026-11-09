@@ -5,7 +5,7 @@ import {BLAZEJ_HP,BLAZEJ_ATTACK,BLAZEJ_SPEED} from '../src/school-blazej.js';
 import {BLAZEJ_JUMP_DURATION_MS,BLAZEJ_JUMP_LIFT_PX,blazejJumpFrame} from '../src/school-blazej-jump.js';
 import {MARCIN} from '../src/marcin.js';
 import {ENEMY_TYPES} from '../src/enemy-types.js';
-import {BLAZEJ_START,BLAZEJ_RADIUS,blazejJumpLanding} from '../src/school-finale.js';
+import {BLAZEJ_START,BLAZEJ_RADIUS,BLAZEJ_JUMP_MAX_TRAVEL,blazejJumpLanding} from '../src/school-finale.js';
 import {SCHOOL_OBSTACLES,schoolWalkable} from '../src/school-contract.js';
 import {firstFootprintHit} from '../src/obstacle-geometry.js';
 const source=p=>readFileSync(new URL(p,import.meta.url),'utf8');
@@ -50,6 +50,6 @@ test('jump landing and full swept segment never cross school/rack solids',()=>{
   const dest=blazejJumpLanding(start,player);
   assert.ok(dest&&schoolWalkable(dest,BLAZEJ_RADIUS));
   assert.equal(firstFootprintHit(start,dest,SCHOOL_OBSTACLES,BLAZEJ_RADIUS),null);
-  assert.ok(Math.hypot(dest.x-start.x,dest.y-start.y)<=165.01);
+  assert.ok(Math.hypot(dest.x-start.x,dest.y-start.y)<=BLAZEJ_JUMP_MAX_TRAVEL+.01);
  }
 });
