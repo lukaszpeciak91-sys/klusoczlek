@@ -39,14 +39,14 @@ test('stream stop is idempotent and does not allocate',()=>{
 });
 
 test('Gridfall calibrated gains have single SFX master attenuation',()=>{
- assert.equal(effectiveMusicGain(.20),.14);
- assert.equal(sfxBusGain(.40),.54);
+ assert.ok(Math.abs(effectiveMusicGain(.20)-.14)<1e-10);
+ assert.ok(Math.abs(sfxBusGain(.40)-.54)<1e-10);
  assert.equal(SFX_MASTER,.28);
  assert.ok(Math.abs(sfxBusGain(.40)*SFX_MASTER-.1512)<1e-10);
  assert.equal(effectiveMusicGain(0),0);
  assert.equal(sfxBusGain(0),0);
  assert.equal(sfxBusGain(1),1);
- assert.equal(effectiveMusicGain(1),.70);
+ assert.ok(Math.abs(effectiveMusicGain(1)-.70)<1e-10);
 });
 test('legacy saved values survive migration with mute and one-percent steps',()=>{
  const saved={music:.45,sfx:.65,muted:true};
