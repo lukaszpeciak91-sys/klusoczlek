@@ -13,6 +13,7 @@ import {createContinuousWeaponState,drawContinuousStream,emitContinuousParticle,
 import {muzzlePoint,resolveAim} from './shooting.js';
 import {currentCampaignRun,prepareActStart,completeCampaignAct,updateRunHealth} from './campaign-run.js';
 import {clearCampaignCheckpoint} from './campaign-save.js';
+import {recordActCompletion} from './act-unlocks.js';
 import {availableWeapons,selectUnlockedWeapon,cycleUnlockedWeapon,WEAPONS} from './weapon-progression.js';
 import {COMBAT_TUNING,createFiringState,firingStep,resetFiring,inFlameCone,cooldownReady} from './weapon-combat.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
@@ -420,6 +421,7 @@ export class CatacombsScene extends Phaser.Scene{
    kills:this.killCount,activeCombatMs:this.combatMs
   });
   if(!result&&!this.run.completedActs.has('act5'))return false;
+  if(result)recordActCompletion(this.run,'act5');
   if(!this.run.isDebugRun)clearCampaignCheckpoint();
   this.dialoguePanel.hide();
   // The camera is already black after MYK. Credits owns the final
