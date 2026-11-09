@@ -17,7 +17,6 @@ export const DIALOGUES=Object.freeze({
   ['bobrozombi','BOBROZOMBI','Ty to jednak Błażej jesteś gość']
  ],
  'act4-blazej-confrontation':[
-  ['blazej','BŁAŻEJ','Kazał pan, musiał sam!'],
   ['blazej','BŁAŻEJ','Nie wiem kim jesteś ale mam ochotę Cię rozgnieść'],
   ['aloes','ALOES','Potrzebuję na chwilę Twojego roweru, dasz się karnąć?'],
   ['blazej','BŁAŻEJ','Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać'],
