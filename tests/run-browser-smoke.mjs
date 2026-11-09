@@ -39,13 +39,56 @@ try{
  const evaluate=async expression=>{const r=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result?.value;};
  const wait=async(expression,label,timeout=12000)=>{const end=Date.now()+timeout;while(Date.now()<end){try{if(await evaluate(expression))return;}catch(error){if(!/Inspected target navigated|Execution context was destroyed|Cannot find context/.test(String(error)))throw error;}await sleep(80);}let detail='';try{detail=JSON.stringify(await evaluate("(()=>{const g=window.__game;return {active:g?.scene?.getScenes(true)?.map(s=>s.scene.key),title:(()=>{const t=g?.scene?.getScene('ActTitle');return t?.assetGate?{act:t.actId,next:t.nextScene,...t.assetGate,progress:t.assetProgress,attempts:t.preparationAttempts,error:t.lastPreparationError,retry:t.children.list.some(x=>x.text==='PONÓW'&&x.visible)}:null})(),school:(()=>{const s=g?.scene?.getScene('School');return s?{phase:s.schoolPhase,intro:s.introActive,dialogue:s.dialogueState,storyBusy:s.storyBusy,started:s.combat?.started,pitch:s.pitchStarted,entryGateReady:s.entryGateReady,allowed:s.controlsAllowed(),focus:document.hasFocus(),hidden:document.hidden,landscape:innerWidth>=innerHeight,shield:s.entryGate?.visible,menuButton:{visible:s.menuButton?.visible,x:s.menuButton?.x,y:s.menuButton?.y}}:null})(),catacombs:(()=>{const s=g?.scene?.getScene('Catacombs');return s?{phase:s.phase,dialogue:s.dialogueState,ready:s.entryGateReady,boss:s.boss?.phase,hp:s.run?.hp}:null})(),airship:g?.scene?.getScene('Airship')?.openingPhase}})()"));}catch{}throw Error('Timeout '+label+' '+detail);};
  const touch=async(x,y)=>{await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
- const geometry=()=>evaluate("(()=>{const g=window.__game,m=g.scene.getScene('Menu'),r=g.canvas.getBoundingClientRect();return {rect:{x:r.x,y:r.y},active:g.scene.isActive('Menu'),debug:m.debugOpen,buttons:m.children.list.filter(o=>o.type==='Text'&&o.visible&&['NOWA GRA','DEBUG','WZNÓW','WRÓĆ'].includes(o.text)).map(o=>({text:o.text,x:o.x,y:o.y}))}})()");
+ const geometry=()=>evaluate("(()=>{const g=window.__game,m=g.scene.getScene('Menu'),r=g.canvas.getBoundingClientRect();return {rect:{x:r.x,y:r.y},active:g.scene.isActive('Menu'),debug:m.debugOpen,buttons:m.children.list.filter(o=>o.type==='Text'&&o.visible&&['NOWA GRA','DEBUG','WZNÓW','WRÓĆ','OPCJE'].includes(o.text)).map(o=>({text:o.text,x:o.x,y:o.y}))}})()");
  const tapMenu=async label=>{const g=await geometry();const b=g.buttons.find(b=>b.text===label);assert.ok(b,'Missing '+label+' '+JSON.stringify(g));await touch(g.rect.x+b.x,g.rect.y+b.y);};
  await wait("window.__game?.scene.isActive('Menu')",'menu boot');
  const menu=await geometry();assert.ok(menu.buttons.some(b=>b.text==='NOWA GRA')&&menu.buttons.some(b=>b.text==='DEBUG'),'menu buttons');
+ // Chromium touches actual Phaser controls, not storage-only assertions.
+ const audioState=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return {open:m.optionsOpen,debug:m.debugOpen,save:JSON.parse(localStorage.getItem('klusoczlek-audio-v1')||'{}'),labels:m.children.list.filter(x=>x.type==='Text'&&x.visible).map(x=>x.text)}})()");
+ const audioRect=await evaluate("(()=>{const g=window.__game,r=g.canvas.getBoundingClientRect();return {x:r.x,y:r.y,w:g.scale.width,h:g.scale.height}})()");
+ const slide=async(kind,value)=>{
+  const p={x0:audioRect.x+audioRect.w*.375,x1:audioRect.x+audioRect.w*.765,y:audioRect.y+audioRect.h*(kind==='music'?.55:.705)};
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x0,y:p.y,id:7}]});
+  for(let i=1;i<=6;i++)await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:p.x0+(p.x1-p.x0)*value*i/6,y:p.y,id:7}]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ };
+ assert.ok((await geometry()).buttons.some(b=>b.text==='OPCJE'),'Options in main menu');
+ await tapMenu('OPCJE');
+ const panel=await audioState();
+ assert.equal(panel.open,true);assert.equal(panel.debug,false);
+ assert.ok(['DŹWIĘK','MUZYKA','EFEKTY SFX','WYCISZ','WRÓĆ'].every(s=>panel.labels.includes(s)),JSON.stringify(panel));
+ assert.ok(!panel.labels.includes('NOWA GRA')&&!panel.labels.includes('DEBUG'),'no click-through');
+ await slide('music',.32);await slide('sfx',.73);
+ const dragged=await audioState();
+ assert.ok(Math.abs(dragged.save.music-.32)<=.01,'music dragged '+JSON.stringify(dragged));
+ assert.ok(Math.abs(dragged.save.sfx-.73)<=.01,'SFX dragged '+JSON.stringify(dragged));
+ assert.ok(dragged.labels.includes(Math.round(dragged.save.music*100)+'%'));
+ assert.ok(dragged.labels.includes(Math.round(dragged.save.sfx*100)+'%'));
+ const touchLabel=async labelName=>{
+  const point=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect(),t=m.children.list.find(x=>x.type==='Text'&&x.visible&&x.text==="+JSON.stringify(labelName)+");return t?{x:r.x+t.x,y:r.y+t.y}:null})()");
+  assert.ok(point,'missing option control '+labelName);await touch(point.x,point.y);
+ };
+ await touchLabel('WYCISZ');
+ const muted=await audioState();
+ assert.equal(muted.save.muted,true);assert.equal(muted.save.music,dragged.save.music);assert.equal(muted.save.sfx,dragged.save.sfx);
+ await touchLabel('WŁĄCZ');
+ assert.deepEqual((await audioState()).save,{music:dragged.save.music,sfx:dragged.save.sfx,muted:false});
+ await touchLabel('WRÓĆ');
+ assert.equal((await audioState()).open,false);
+ await cdp('Page.reload',{ignoreCache:true});
+ // CDP Page.reload returns before the new document is installed. Avoid
+ // reading the previously active game just before its context is destroyed.
+ await sleep(250);
+ await wait("window.__game?.scene.isActive('Menu')",'audio settings saved');
+ assert.deepEqual((await audioState()).save,{music:dragged.save.music,sfx:dragged.save.sfx,muted:false});
+ console.log('PASS Chromium real Options sliders, touch drag, mute, back and reload');
  await tapMenu('NOWA GRA');
  await wait("window.__game.scene.isActive('ActTitle')",'NOWA GRA -> Act I title',3000);
- await sleep(160);
+ await sleep(340);
+ const titleAudio=await evaluate("(()=>{const a=window.__retroAudio;return {gate:a.titleSilence,track:a.track,playing:!!a.music&&!a.music.paused,level:a.music?.volume??0}})()");
+ assert.equal(titleAudio.gate,true,'Act I entry keeps title gate closed');
+ assert.equal(titleAudio.playing,false,'Act I title has no playing music after 250ms fade');
+ assert.equal(titleAudio.level,0,'Act I title music fully silent');
  const earlyPaths=await evaluate("performance.getEntriesByType('resource').map(r=>r.name).filter(p=>p.includes('/assets/')&&/act2-|act3-|act4-|schoolyard|blazej\\.png|bogdan\\.png/.test(p))");
  assert.deepEqual(earlyPaths,[],'cold Act I must not request later-act image resources');
  await cdp('Page.reload',{ignoreCache:true});
@@ -92,10 +135,18 @@ try{
  const slowTitle=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return {visible:g.scene.isActive('ActTitle'),airship:g.scene.isActive('Airship'),act:t.actId,ready:t.assetGate.ready,minimum:t.assetGate.minimumElapsed}})()");
  assert.deepEqual(slowTitle,{visible:true,airship:false,act:'act2',ready:false,minimum:true},
    'title remains onscreen past minimum while required sky download is pending');
+ const loadingAudio=await evaluate("(()=>{const a=window.__retroAudio;return {gate:a.titleSilence,playing:!!a.music&&!a.music.paused,volume:a.music?.volume??0}})()");
+ assert.deepEqual(loadingAudio,{gate:true,playing:false,volume:0},
+   'DEBUG Act II title stays fully silent through extended asset loading');
  await cdp('Fetch.continueRequest',{requestId:heldSky});
  await cdp('Fetch.disable');socket.removeEventListener('message',skyPaused);
  await wait("window.__game.scene.isActive('Airship')",'DEBUG Act II results checkpoint',12000);
  assert.equal(skyRequests,1,'Act II approved sky fetched exactly once under slow network');
+ await sleep(470);
+ const airshipAudio=await evaluate("(()=>{const a=window.__retroAudio;return {gate:a.titleSilence,track:a.track,volume:a.music?.volume??0}})()");
+ assert.equal(airshipAudio.gate,false,'gameplay releases ActTitle silence');
+ assert.equal(airshipAudio.track,'act2','correct track on entering gameplay');
+ assert.ok(Math.abs(airshipAudio.volume-dragged.save.music*.70)<.01,'400ms fade reaches stored target');
  console.log('PASS ActTitle Chromium slow PNG gate: 1900ms minimum, Act II held until decoded sky, one sky request');
  await wait("window.__game.scene.getScene('Airship').dialogueState?.id==='act2-finale'",'Act II finale',12000);
  for(let k=0;k<12;k++){

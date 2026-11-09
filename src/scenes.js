@@ -4,6 +4,7 @@ import {createIntroEvidence,rememberOrdinaryDeath,introductionEvidence,claimIntr
 import {createDirector,directorPopulation,directorOpportunity,nextDirectorType,recordDirectorSpawn} from './encounter-director.js';
 import {createAmbientBarks} from './ambient-bark-view.js';
 import Phaser from 'phaser';
+import {retroAudio} from './retro-audio.js';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
 import { createPlayer } from './player.js';
 import { createPlayerVisual } from './character-visual.js';
@@ -82,12 +83,13 @@ export class MenuScene extends Phaser.Scene {
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
     const sessionKey=['Catacombs','School','Volcano','Airship','Arena'].find(key=>this.scene.isPaused(key))??'Arena';
     const hasSession = this.scene.isPaused(sessionKey);
+    if(hasSession)retroAudio.pauseForMenu();else retroAudio.enter('Menu');
     const savedCheckpoint=readCampaignCheckpoint();
     const terminal = hasSession && ((sessionKey==='Arena' && this.scene.get('Arena').episode?.ended) || (sessionKey==='Volcano' && this.scene.get('Volcano').defeated) || (sessionKey==='School' && this.scene.get('School').defeated) || (sessionKey==='Catacombs' && this.scene.get('Catacombs').defeated));
     const defeated = terminal && (sessionKey==='Volcano'||sessionKey==='School'||sessionKey==='Catacombs'||(sessionKey==='Arena'&&this.scene.get('Arena').episode.state==='defeat'));
     const victorious=terminal&&!defeated;
     const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
-    const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
+    const allowed = () => !this.navigating && !this.optionsOpen && !document.hidden && window.innerWidth >= window.innerHeight;
     const newGame = button(this, initial.centerX, 0, initial.startWidth, 44, 'NOWA GRA', () => {
       if (!allowed()) return;
       this.navigating = true;
@@ -127,6 +129,7 @@ export class MenuScene extends Phaser.Scene {
       this.scene.start('ActTitle',{actId:handoff?.actId??FIRST_ACT_ID,handoff});
     }) : null;
     this.debugOpen=false;
+    this.optionsOpen=false;
     let debugScroll=0,debugMaxScroll=0,debugViewportTop=0,debugViewportBottom=0;
     let debugGesture=null,debugOpeningPointer=null;
     const choices=DEBUG_CHECKPOINTS.map(checkpoint=>({
@@ -153,23 +156,93 @@ export class MenuScene extends Phaser.Scene {
       if(!allowed())return;
       this.debugOpen=false;debugGesture=null;debugOpeningPointer=null;resize();
     });
+    // In-menu audio settings: Phaser hit zones and pointer gestures, no new scene.
+    const optionsButton=button(this,0,0,180,42,'OPCJE',pointer=>{
+      if(!allowed()||this.debugOpen)return;
+      this.optionsOpen=true;
+      optionsOpeningPointer=pointer.id;
+      resize();
+    });
+    const optionsTitle=label(this,0,0,'OPCJE',28).setColor(COLORS.accent);
+    const audioHeading=label(this,0,0,'DŹWIĘK',19);
+    const muteControl=button(this,0,0,170,42,'WYCISZ',()=>{
+      if(!this.optionsOpen||!document.hasFocus())return;
+      retroAudio.mute();resize();
+    });
+    const optionsBack=button(this,0,0,155,38,'WRÓĆ',()=>{
+      if(!this.optionsOpen)return;
+      this.optionsOpen=false;sliderGesture=null;optionsOpeningPointer=null;resize();
+    });
+    const optionSliders=['music','sfx'].map(kind=>{
+      const caption=label(this,0,0,kind==='music'?'MUZYKA':'EFEKTY SFX',17);
+      const percentage=label(this,0,0,'0%',17);
+      const rail=this.add.rectangle(0,0,180,9,0x39465b).setStrokeStyle(2,COLORS.border);
+      const fill=this.add.rectangle(0,0,0,7,COLORS.accent).setOrigin(0,.5);
+      const thumb=this.add.circle(0,0,12,COLORS.accent).setStrokeStyle(2,COLORS.border);
+      const hit=this.add.rectangle(0,0,180,42,0x000000,0).setInteractive();
+      return {kind,caption,percentage,rail,fill,thumb,hit,x0:0,x1:0,y:0};
+    });
+    let sliderGesture=null,optionsOpeningPointer=null;
+    const optionsPointerDown=pointer=>{
+      if(!this.optionsOpen||optionsOpeningPointer!==null||sliderGesture)return;
+      const item=optionSliders.find(s=>s.hit.visible&&
+        Math.abs(pointer.x-s.hit.x)<=s.hit.width/2&&Math.abs(pointer.y-s.y)<=s.hit.height/2);
+      if(!item)return;
+      sliderGesture={id:pointer.id,item};
+      const value=Math.round(Math.max(0,Math.min(1,(pointer.x-item.x0)/(item.x1-item.x0)))*100)/100;
+      retroAudio.volume(item.kind,value);
+      resize();
+    };
+    const optionsPointerMove=pointer=>{
+      if(!this.optionsOpen||!sliderGesture||pointer.id!==sliderGesture.id)return;
+      const item=sliderGesture.item;
+      const value=Math.round(Math.max(0,Math.min(1,(pointer.x-item.x0)/(item.x1-item.x0)))*100)/100;
+      if(value!==retroAudio.settings[item.kind]){retroAudio.volume(item.kind,value);resize();}
+    };
+    const optionsPointerUp=pointer=>{
+      if(pointer.id===optionsOpeningPointer){optionsOpeningPointer=null;return;}
+      if(sliderGesture?.id===pointer.id)sliderGesture=null;
+    };
     const resize = () => {
       const layout = menuLayout(this.scale.width, this.scale.height);
       const w=this.scale.width,h=this.scale.height;
       title.setPosition(layout.centerX,this.debugOpen?h*.105:layout.titleY)
-        .setFontSize(this.debugOpen?Math.max(18,Math.min(31,h*.09)):layout.titleSize);
-      subtitle.setVisible(!this.debugOpen);
+        .setFontSize(this.debugOpen?Math.max(18,Math.min(31,h*.09)):layout.titleSize)
+        .setVisible(!this.optionsOpen);
+      subtitle.setVisible(!this.debugOpen&&!this.optionsOpen);
       subtitle.setPosition(layout.centerX,layout.subtitleY).setFontSize(layout.subtitleSize);
-      const count=resume?3:2;
-      const gap=Math.min(55,Math.max(39,h*.165));
-      const base=resume?h*.57:h*.66;
-      const menuHeight=Math.min(55,Math.max(34,h*.125));
-      for(const [index,control] of [newGame,debug,resume].filter(Boolean).entries()){
+      const showMain=!this.debugOpen&&!this.optionsOpen;
+      const controls=[newGame,resume,debug,optionsButton].filter(Boolean);
+      const gap=Math.min(54,Math.max(38,h*.12));
+      const base=h*(resume?.49:.53);
+      const menuHeight=Math.min(47,Math.max(32,h*.095));
+      controls.forEach((control,index)=>{
         const y=base+index*gap;
-        control.background.setPosition(layout.centerX,y).setSize(layout.startWidth,menuHeight).setVisible(!this.debugOpen);
-        control.caption.setPosition(layout.centerX,y).setFontSize(Math.max(14,Math.min(24,h*.058))).setVisible(!this.debugOpen);
-        control.background.input.enabled=!this.debugOpen;
-      }
+        control.background.setPosition(layout.centerX,y).setSize(layout.startWidth,menuHeight).setVisible(showMain);
+        control.caption.setPosition(layout.centerX,y).setFontSize(Math.max(13,Math.min(22,h*.055))).setVisible(showMain);
+        control.background.input.enabled=showMain;
+      });
+      optionsTitle.setPosition(w/2,h*.13).setFontSize(Math.max(20,Math.min(32,h*.085))).setVisible(this.optionsOpen);
+      audioHeading.setPosition(w/2,h*.265).setFontSize(Math.max(15,Math.min(21,h*.055))).setVisible(this.optionsOpen);
+      muteControl.background.setPosition(w/2,h*.385).setSize(Math.min(210,w*.42),Math.min(43,h*.105)).setVisible(this.optionsOpen);
+      muteControl.caption.setText(retroAudio.settings.muted?'WŁĄCZ':'WYCISZ')
+        .setPosition(w/2,h*.385).setFontSize(Math.max(14,Math.min(20,h*.055))).setVisible(this.optionsOpen);
+      muteControl.background.input.enabled=this.optionsOpen;
+      optionSliders.forEach((s,i)=>{
+        const y=h*(i===0?.55:.705),x0=w*.375,x1=w*.765;
+        s.x0=x0;s.x1=x1;s.y=y;
+        const active=this.optionsOpen,value=retroAudio.settings[s.kind];
+        s.caption.setPosition(w*.205,y).setFontSize(Math.max(11,Math.min(18,h*.048))).setVisible(active);
+        s.percentage.setText(Math.round(value*100)+'%').setPosition(w*.855,y).setFontSize(Math.max(13,Math.min(19,h*.051))).setVisible(active);
+        s.rail.setPosition((x0+x1)/2,y).setSize(x1-x0,9).setVisible(active);
+        s.fill.setPosition(x0,y).setSize((x1-x0)*value,7).setVisible(active);
+        s.thumb.setPosition(x0+(x1-x0)*value,y).setRadius(Math.min(14,Math.max(10,h*.035))).setVisible(active);
+        s.hit.setPosition((x0+x1)/2,y).setSize(x1-x0+30,Math.max(44,h*.115)).setVisible(active);
+        s.hit.input.enabled=active;
+      });
+      optionsBack.background.setPosition(w/2,h*.88).setSize(Math.min(190,w*.43),Math.min(42,h*.11)).setVisible(this.optionsOpen);
+      optionsBack.caption.setPosition(w/2,h*.88).setFontSize(Math.max(15,Math.min(20,h*.055))).setVisible(this.optionsOpen);
+      optionsBack.background.input.enabled=this.optionsOpen;
       const margin=Math.max(18,Math.min(42,w*.045));
       const buttonWidth=Math.min(650,w-2*margin);
       const rowGap=Math.max(48,Math.min(60,h*.155));
@@ -193,7 +266,7 @@ export class MenuScene extends Phaser.Scene {
       back.caption.setPosition(w/2,h*.91).setFontSize(Math.max(13,Math.min(18,h*.052))).setVisible(this.debugOpen);
       back.background.input.enabled=this.debugOpen;
     };
-    const inDebugList=pointer=>this.debugOpen&&pointer.y>=debugViewportTop&&pointer.y<=debugViewportBottom;
+    const inDebugList=pointer=>this.debugOpen&&!this.optionsOpen&&pointer.y>=debugViewportTop&&pointer.y<=debugViewportBottom;
     const choiceAt=pointer=>choices.find(({control})=>control.background.visible&&
       Math.abs(pointer.x-control.background.x)<=control.background.width/2&&
       Math.abs(pointer.y-control.background.y)<=control.background.height/2);
@@ -225,6 +298,11 @@ export class MenuScene extends Phaser.Scene {
       debugScroll=Math.max(0,Math.min(debugMaxScroll,debugScroll+dy));
       resize();
     };
+    this.input.on('pointerdown',optionsPointerDown);
+    this.input.on('pointermove',optionsPointerMove);
+    this.input.on('pointerup',optionsPointerUp);
+    this.input.on('pointerupoutside',optionsPointerUp);
+    this.input.on('pointercancel',optionsPointerUp);
     this.input.on('pointerdown',pointerDown);
     this.input.on('pointermove',pointerMove);
     this.input.on('pointerup',pointerUp);
@@ -235,6 +313,9 @@ export class MenuScene extends Phaser.Scene {
     this.scale.on(Phaser.Scale.Events.RESIZE, resize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, resize);
+      this.input.off('pointerdown',optionsPointerDown);this.input.off('pointermove',optionsPointerMove);
+      this.input.off('pointerup',optionsPointerUp);this.input.off('pointerupoutside',optionsPointerUp);
+      this.input.off('pointercancel',optionsPointerUp);
       this.input.off('pointerdown',pointerDown);this.input.off('pointermove',pointerMove);
       this.input.off('pointerup',pointerUp);this.input.off('pointerupoutside',pointerCancel);
       this.input.off('gameout',pointerCancel);
@@ -260,6 +341,8 @@ export class ArenaScene extends Phaser.Scene {
   constructor() { super('Arena'); }
 
   create(data={}) {
+    retroAudio.enter('Arena');
+    this.events.on(Phaser.Scenes.Events.RESUME,()=>retroAudio.enter('Arena'));
     this.debugCheckpoint=data.debugCheckpoint??null;
     this.entryGateReady=false;
     document.getElementById('fullscreen-button').hidden = true;
@@ -679,6 +762,7 @@ export class ArenaScene extends Phaser.Scene {
     this.playerHp=Math.max(0,Math.min(ENCOUNTER.playerMaxHp,Math.floor(next)));
     updateRunHealth(this.campaignRun,this.playerHp,ENCOUNTER.playerMaxHp);
     if(this.playerHp!==before)this.hpFace.setHp(this.playerHp);
+    if(this.playerHp<before){retroAudio.hurt();if(this.playerHp===0)retroAudio.death();}
     if(this.playerHp<before)this.playerVisual?.hit(this.lastDamageSource||{x:this.player.x,y:this.player.y-1});
     this.hpText.setText('HP '+this.playerHp+'/'+ENCOUNTER.playerMaxHp);
     if(this.playerHp===0&&!this.episode.ended&&!this.finalResolution)this.endEpisode('defeat');
@@ -1016,6 +1100,7 @@ export class ArenaScene extends Phaser.Scene {
     g.fillStyle(this.flamePressure.value<20?0x9b3932:0xee903a,1).fillRect(x,y,w*this.flamePressure.value/100,h);
   }
   stopWeaponFire(){
+    retroAudio.stopStream();
     resetFiring(this.firingState,this.weapon);
     this.lastShotAt=null;
     this.flameEmissionAt=null;
@@ -1027,6 +1112,7 @@ export class ArenaScene extends Phaser.Scene {
     const bullet=this.add.circle(origin.x,origin.y,tune.radius,tune.color).setDepth(8);
     this.projectiles.push({object:bullet,vx:aim.x*tune.speed,vy:aim.y*tune.speed,radius:tune.radius,damage:tune.damage});
     this.lastShotAt=now;
+    retroAudio.shot(weapon);
     if(weapon==='rifle')this.playerVisual.recoil();
   }
 
@@ -1158,6 +1244,7 @@ export class ArenaScene extends Phaser.Scene {
     this.deathBursts.push(createPixelBurst(this,enemy.type,enemy.x,enemy.y,enemy.seed));
     enemy.burningFx?.destroy();enemy.burningFx=null;
     clearIgnition(enemy.ignition);
+    retroAudio.enemyDeath();
     this.flameCooldowns.delete(enemy);
     enemy.sprite.destroy();
     if(enemy.type==='marcin'){this.kills++;this.refreshWeaponHud();this.beginMarcinVictory();return true;}
@@ -1351,6 +1438,7 @@ export class ArenaScene extends Phaser.Scene {
       (this.firingState.burstShots===0?COMBAT_TUNING.rifle.burstPause:COMBAT_TUNING.rifle.shotInterval));
     for(let i=0;i<count;i++)this.spawnShot(aiming,this.weapon,now);
     const flameActive=this.weapon==='flamethrower'&&stepPressure(this.flamePressure,aimingHeld,this.game.loop.delta);
+    retroAudio.stream('flamethrower',flameActive);
     if(flameActive)this.applyFlame(aiming,now);
     else this.flameStream.clear();
     this.renderPressureBar();

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {retroAudio} from './retro-audio.js';
 import {createArenaGround} from './arena-ground.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl,validPngHeader} from './character-visual.js';
@@ -34,6 +35,8 @@ export class SchoolScene extends Phaser.Scene {
   constructor(){super('School');}
   init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
   create(){
+    retroAudio.enter('School');
+    this.events.on(Phaser.Scenes.Events.RESUME,()=>retroAudio.enter('School'));
     this.run=currentCampaignRun(this.game);
     const registered=new Set(Object.keys(this.scene.manager.keys));
     if(this.run.actId!=='act4'&&!prepareActStart(this.run,this.handoff,registered)){
