@@ -16,7 +16,7 @@ import {createDialoguePanel} from './dialogue-ui.js';
 import {beginSceneReveal} from './scene-reveal-gate.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {CATACOMBS,CATACOMBS_OBSTACLES,CATACOMBS_SUMMON_SITES,
- catacombsWalkable,catacombsStep,catacombsResolve,MARIAN_FINAL_ASSETS} from './catacombs-contract.js';
+ catacombsWalkable,catacombsStep,catacombsResolve,MARIAN_FINAL_ASSETS,CATACOMBS_ART,catacombsArtPlacement} from './catacombs-contract.js';
 import {createFinalBossState,FINAL_BOSS,finalBossStart,finalBossStep,finalBossDamage,
  finalBossBeginSummon,finalBossAddSummon,finalBossClearSummon} from './marian-final-boss.js';
 import {segmentObstacleHit} from './obstacles.js';
@@ -172,36 +172,47 @@ export class CatacombsScene extends Phaser.Scene{
   enforceOrientationOnSceneStart(this);
  }
  drawCatacombs(){
-  const g=this.add.graphics().setDepth(-10);
-  g.fillStyle(0x14131a).fillRect(0,0,CATACOMBS.width,CATACOMBS.height);
-  g.fillStyle(0x39343b).fillRect(38,38,CATACOMBS.width-76,CATACOMBS.height-76);
-  for(let y=40;y<600;y+=54){
-   for(let x=40;x<925;x+=96){
-    g.fillStyle((x+y)%3?0x484048:0x403942,.62)
-     .fillRect(x+(Math.floor(y/54)%2)*23,y,93,51);
-   }
+  // Production art is prepared by ActTitle; never draw the procedural overlay
+  // on top of a valid production background or obstacle image.
+  const background=CATACOMBS_ART.background;
+  this.catacombsBackground=null;
+  this.catacombsObstacleArt=[];
+  if(this.textures.exists(background.key)){
+   this.catacombsBackground=this.add.image(0,0,background.key)
+    .setOrigin(0,0).setDisplaySize(CATACOMBS.width,CATACOMBS.height).setDepth(-20);
+   this.catacombsBackground.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }else{
+   // Emergency fallback for direct scene entry without approved assets.
+   // A normal ActTitle transition does not reveal until its PNGs validate.
+   const g=this.add.graphics().setDepth(-20);
+   g.fillStyle(0x14131a).fillRect(0,0,CATACOMBS.width,CATACOMBS.height);
+   g.fillStyle(0x39343b).fillRect(CATACOMBS.wall,CATACOMBS.wall,
+    CATACOMBS.width-2*CATACOMBS.wall,CATACOMBS.height-2*CATACOMBS.wall);
+   g.lineStyle(8,0x776c70).strokeRect(CATACOMBS.wall,CATACOMBS.wall,
+    CATACOMBS.width-2*CATACOMBS.wall,CATACOMBS.height-2*CATACOMBS.wall);
   }
-  g.lineStyle(5,0x1b1821);
-  for(let x=40;x<925;x+=96)g.lineBetween(x,39,x,600);
-  for(let y=39;y<602;y+=54)g.lineBetween(39,y,922,y);
-  g.fillStyle(0x201b25).fillRect(0,0,960,38).fillRect(0,602,960,38)
-   .fillRect(0,0,38,640).fillRect(922,0,38,640);
-  g.lineStyle(9,0x776c70).strokeRect(34,34,892,572);
-  for(const o of CATACOMBS_OBSTACLES){
-   const w=o.footprint.width,h=o.footprint.height;
-   const altar=o.id==='altar';
-   g.fillStyle(0x18171a,.6).fillRoundedRect(o.x-w/2+8,o.y-h/2+9,w,h,9);
-   g.fillStyle(altar?0x847578:0x696570).fillRoundedRect(o.x-w/2,o.y-h/2,w,h,altar?5:9);
-   g.lineStyle(4,0xc0afa8,.85).strokeRoundedRect(o.x-w/2,o.y-h/2,w,h,altar?5:9);
-   if(altar){
-    g.fillStyle(0x4b3541).fillRect(o.x-35,o.y-24,70,40);
-    g.fillStyle(0xd6b879).fillCircle(o.x,o.y-2,9);
+  for(const obstacle of CATACOMBS_OBSTACLES){
+   const placement=catacombsArtPlacement(obstacle);
+   if(this.textures.exists(placement.key)){
+    const art=this.add.image(placement.x,placement.y,placement.key)
+     .setOrigin(placement.originX,placement.originY)
+     .setDisplaySize(placement.width,placement.height)
+     .setDepth(obstacle.id==='altar'?12:16);
+    art.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    art.setData('catacombsObstacleId',obstacle.id);
+    this.catacombsObstacleArt.push(art);
    }else{
-    g.fillStyle(0x38343c).fillRect(o.x-13,o.y-13,26,26);
+    // Isolated fallback; do not duplicate other validated obstacle textures.
+    const {width,height}=obstacle.footprint;
+    const g=this.add.graphics().setDepth(12);
+    g.fillStyle(0x393039).fillRoundedRect(obstacle.x-width/2,
+     obstacle.y-height/2,width,height,6);
+    g.lineStyle(2,0xc0afa8).strokeRoundedRect(obstacle.x-width/2,
+     obstacle.y-height/2,width,height,6);
+    g.setData('catacombsObstacleId',obstacle.id);
+    this.catacombsObstacleArt.push(g);
    }
   }
-  this.add.text(480,71,'KATAKUMBY KAPLICY',{fontFamily:'monospace',fontSize:'19px',
-   color:'#bfae9a'}).setOrigin(.5).setDepth(-2);
  }
  selectMarianAppearance(transformed){
   const key=transformed?MARIAN_FINAL_ASSETS.transformed.key:MARIAN_FINAL_ASSETS.normal.key;
