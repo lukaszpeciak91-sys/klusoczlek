@@ -1,6 +1,7 @@
 import {createCampaignRun,MARCIN_MOHAWK_ID,WATER_FLAMETHROWER_ID,nextActHandoff} from './campaign-run.js';
 import {HORN_ID} from './volcano-finale.js';
 import {ENCOUNTER} from './bobrozombi.js';
+import {BLAZEJ_BICYCLE_ID} from './school-finale.js';
 
 // Temporary development destinations. Never expose unimplemented boss checkpoints.
 export const DEBUG_CHECKPOINTS=Object.freeze([
@@ -25,6 +26,9 @@ export const DEBUG_CHECKPOINTS=Object.freeze([
   Object.freeze({id:'act4-blazej',actId:'act4',scene:'School',label:'AKT IV — BŁAŻEJ ROZMOWA'}),
   Object.freeze({id:'act4-boss',actId:'act4',scene:'School',label:'AKT IV — BŁAŻEJ BOSS'}),
   Object.freeze({id:'act4-finale',actId:'act4',scene:'School',label:'AKT IV — ROWER / FINAŁ'}),
+  Object.freeze({id:'act5-opening',actId:'act5',scene:'Catacombs',label:'AKT V — POCZĄTEK'}),
+  Object.freeze({id:'act5-boss',actId:'act5',scene:'Catacombs',label:'AKT V — MARIAN BOSS'}),
+  Object.freeze({id:'act5-ending',actId:'act5',scene:'Catacombs',label:'AKT V — ZAKOŃCZENIE'}),
 ]);
 export const DEBUG_IDS=new Set(DEBUG_CHECKPOINTS.map(item=>item.id));
 
@@ -48,13 +52,13 @@ export function createDebugFixture(id){
   run.selectedWeapon='rifle';
   run.stats.byAct.act1={kills:42,activeCombatMs:240000};
   run.stats.kills=42;run.stats.activeCombatMs=240000;
-  if(checkpoint.actId==='act3'||checkpoint.actId==='act4'){
+  if(['act3','act4','act5'].includes(checkpoint.actId)){
     run.completedActs.add('act2');
     run.stats.byAct.act2={kills:0,activeCombatMs:180000};
     run.stats.activeCombatMs+=180000;
     run.actId='act2';
   }
-  if(checkpoint.actId==='act4'){
+  if(['act4','act5'].includes(checkpoint.actId)){
     run.completedActs.add('act3');
     run.artifacts.add(HORN_ID);
     run.unlockedWeapons.add(WATER_FLAMETHROWER_ID); // Historical, not selectable in Act IV.
@@ -62,6 +66,14 @@ export function createDebugFixture(id){
     run.stats.activeCombatMs+=180000;
     run.actId='act3';
   }
-  const handoff=nextActHandoff(run,new Set(['Arena','Airship','Volcano','School']));
+  if(checkpoint.actId==='act5'){
+    run.completedActs.add('act4');
+    run.artifacts.add(BLAZEJ_BICYCLE_ID);
+    run.stats.byAct.act4={kills:0,activeCombatMs:170000};
+    run.stats.activeCombatMs+=170000;
+    run.actId='act4';
+    run.hp=run.maxHp;
+  }
+  const handoff=nextActHandoff(run,new Set(['Arena','Airship','Volcano','School','Catacombs']));
   return handoff?{checkpoint,run,handoff}:null;
 }
