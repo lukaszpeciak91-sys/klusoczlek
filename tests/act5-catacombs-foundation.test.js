@@ -59,6 +59,10 @@ test('catacombs walls, altar and four columns are solid while player, boss and s
 });
 test('Marian transformed PNG and portrait are clean optional configuration hooks',()=>{
  assert.equal(MARIAN_FINAL_ASSETS.transformed.key,'act5-marian-transformed');
+ assert.equal(MARIAN_FINAL_ASSETS.transformed.width,2048);
+ assert.equal(MARIAN_FINAL_ASSETS.transformed.height,256);
+ assert.equal(MARIAN_FINAL_ASSETS.transformed.frameWidth,256);
+ assert.equal(MARIAN_FINAL_ASSETS.transformed.frameHeight,256);
  assert.equal(MARIAN_FINAL_ASSETS.portrait.key,'dialogue-marian-transformed');
  assert.equal(MARIAN_FINAL_ASSETS.normal.key,'npc-captain');
  const scene=src('../src/catacombs-scene.js');
