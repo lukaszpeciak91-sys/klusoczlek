@@ -11,8 +11,8 @@ export const SCHOOL_PLACES=Object.freeze({
   chapel:Object.freeze({x:330,y:840,width:300,height:250,label:'KAPLICA'}),
   chapelDoor:Object.freeze({x:360,y:978}),
   playerStart:Object.freeze({x:525,y:1030}),
-  school:Object.freeze({x:1420,y:415,width:590,height:360,label:'SZKOŁA ZAWODOWA'}),
-  schoolEntrance:Object.freeze({x:1400,y:630}),
+  school:Object.freeze({x:1480,y:300,width:430,height:300,label:'SZKOŁA ZAWODOWA'}),
+  schoolEntrance:Object.freeze({x:1480,y:410}),
   pitch:Object.freeze({x:790,y:930,width:560,height:345,label:'BOISKO'}),
   bicycleRack:Object.freeze({x:1510,y:805,width:220,height:52,label:'ROWERY'}),
   debugSchool:Object.freeze({x:900,y:600}),
@@ -23,10 +23,10 @@ export const SCHOOL_PLACES=Object.freeze({
 // Approved RGBA8 production art has transparent padding. These deliberately
 // follow the lower *visible* body/contact band, not the source PNG canvas.
 // Native art and world placement remain independent of these solid footprints:
-// school 610x450 (alpha x56..564 / y80..379), chapel 235x235
+// school 610x450 (alpha x56..564 / y80..379) rendered 520x384 at (1480,420), chapel 235x235
 // (alpha x74..160 / y47..182), rack 330x255 (alpha x33..300 / y44..214).
 export const SCHOOL_VISIBLE_FOOTPRINTS=Object.freeze({
-  school:Object.freeze({x:1420,y:450,width:500,height:160}),
+  school:Object.freeze({x:1480,y:317,width:430,height:86}),
   chapel:Object.freeze({x:330,y:880,width:96,height:94}),
   bicycleRack:Object.freeze({x:1510,y:802,width:220,height:52}),
 });

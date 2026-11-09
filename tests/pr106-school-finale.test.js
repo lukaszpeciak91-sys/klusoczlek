@@ -60,7 +60,8 @@ test('PR106 telegraph, radial volleys, jump landing and solid obstacles are boun
  assert.equal(radialVolley(BLAZEJ_START).length,8);
  assert.equal(BLAZEJ_MAX_PROJECTILES,MARCIN.maxProjectiles);
  assert.equal(BLAZEJ_SHOCKWAVE_RADIUS,95);
- assert.equal(BLAZEJ_HP,MARCIN.hp);
+ assert.equal(BLAZEJ_HP,48);
+ assert.equal(MARCIN.hp,36);
  const jump=blazejJumpLanding(BLAZEJ_START,{x:1170,y:785});
  assert.ok(jump&&schoolWalkable(jump,BLAZEJ_RADIUS));
  assert.ok(Math.hypot(jump.x-BLAZEJ_START.x,jump.y-BLAZEJ_START.y)<=165.1);
@@ -68,7 +69,7 @@ test('PR106 telegraph, radial volleys, jump landing and solid obstacles are boun
  const blocked=blazejJumpLanding({x:1335,y:830},{x:1660,y:830});
  assert.ok(blocked&&schoolWalkable(blocked,BLAZEJ_RADIUS));
  assert.ok(blocked.x<1400,'cannot jump across solid bicycle rack');
- const school=blazejJumpLanding({x:980,y:450},{x:1500,y:450});
+ const school=blazejJumpLanding({x:980,y:317},{x:1500,y:317});
  assert.ok(school&&schoolWalkable(school,BLAZEJ_RADIUS));
  assert.ok(school.x<=SCHOOL_OBSTACLES.find(o=>o.id==='school').footprint.x-SCHOOL_OBSTACLES.find(o=>o.id==='school').footprint.width/2-BLAZEJ_RADIUS+1,'cannot cross the approved lower school foundation');
  const shot={x:1335,y:830,vx:180,vy:0,age:0},player={x:1700,y:830};

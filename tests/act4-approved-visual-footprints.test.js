@@ -57,11 +57,12 @@ test('Act IV background is exact native 1800x1200 and separate assets retain nat
  assert.deepEqual([head.width,head.height,head.depth],[1800,1200,8]);
  assert.equal(validSchoolyardBackground(bg),true);
  for(const [id,w,h,x,bottom,dw=w,dh=h] of [
-  ['school',610,450,1420,595],['chapel',235,235,330,965],
+  ['school',610,450,1480,420,520,384],['chapel',235,235,330,965],
   ['bicycleRack',330,255,1510,857,287,222]]){
   const def=SCHOOL_ART[id],header=pngHeader(asset(def.path));
   assert.deepEqual([header.width,header.height,header.color],[w,h,6]);
   assert.deepEqual([def.width,def.height,def.x,def.bottomY],[dw,dh,x,bottom]);
+  assert.deepEqual([def.sourceWidth??def.width,def.sourceHeight??def.height],[w,h]);
  }
  const source=readFileSync(new URL('../src/schoolyard-art.js',import.meta.url),'utf8');
  assert.ok(source.includes('.setDisplaySize(def.width,def.height).setDepth(12)'));
@@ -121,13 +122,13 @@ test('existing swept motion, projectiles, spawn checks and boss jump respect the
   p=schoolStep(p,{x:0,y:-1},50);
   assert.ok(schoolWalkable(p),'Aloes penetrated lower chapel foundation');
  }
- const shot=segmentObstacleHit({x:800,y:450},{x:1750,y:450},SCHOOL_OBSTACLES,4);
+ const shot=segmentObstacleHit({x:800,y:317},{x:1750,y:317},SCHOOL_OBSTACLES,4);
  assert.equal(shot?.id,'school');
  const rack=segmentObstacleHit({x:1350,y:800},{x:1700,y:800},SCHOOL_OBSTACLES,4);
  assert.equal(rack?.id,'bicycleRack');
- let enemy={type:'bobrozombi',x:940,y:450,hp:3,seed:2};
+ let enemy={type:'bobrozombi',x:940,y:317,hp:3,seed:2};
  for(let i=0;i<60;i++){
-  const goal={x:1640,y:450},desired={x:enemy.x+10,y:enemy.y};
+  const goal={x:1640,y:317},desired={x:enemy.x+10,y:enemy.y};
   const next=steerObstacleStep(enemy,desired,goal,ENEMY_TYPES.bobrozombi.radius,SCHOOL_OBSTACLES);
   enemy.x=next.x;enemy.y=next.y;
   assert.ok(schoolWalkable(enemy,ENEMY_TYPES.bobrozombi.radius),'enemy entered building');
