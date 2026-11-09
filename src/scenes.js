@@ -142,8 +142,9 @@ export class MenuScene extends Phaser.Scene {
         if(hasSession)this.scene.stop(sessionKey);
         fixture.run.isDebugRun=true;
         this.game.registry.set('campaign-run',fixture.run);
-        if(checkpoint.id==='act3-opening'||checkpoint.id==='act4-opening')this.scene.start('ActTitle',{actId:checkpoint.actId,handoff:fixture.handoff,debugCheckpoint:checkpoint.id});
-        else this.scene.start(checkpoint.scene,{debugCheckpoint:checkpoint.id,handoff:fixture.handoff});
+        // DEBUG, like normal play, passes through the same current-act asset
+        // preparation gate. Never build a cold scene underneath the menu.
+        this.scene.start('ActTitle',{actId:checkpoint.actId,handoff:fixture.handoff,debugCheckpoint:checkpoint.id});
       });
       this.cameras.main.fadeOut(240,0,0,0);
     };
