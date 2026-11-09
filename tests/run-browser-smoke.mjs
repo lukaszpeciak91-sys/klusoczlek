@@ -81,7 +81,11 @@ try{
  console.log('PASS Chromium real Options sliders, touch drag, mute, back and reload');
  await tapMenu('NOWA GRA');
  await wait("window.__game.scene.isActive('ActTitle')",'NOWA GRA -> Act I title',3000);
- await sleep(160);
+ await sleep(340);
+ const titleAudio=await evaluate("(async()=>{const a=(await import('/src/retro-audio.js')).retroAudio;return {gate:a.titleSilence,track:a.track,playing:!!a.music&&!a.music.paused,level:a.music?.volume??0}})()");
+ assert.equal(titleAudio.gate,true,'Act I entry keeps title gate closed');
+ assert.equal(titleAudio.playing,false,'Act I title has no playing music after 250ms fade');
+ assert.equal(titleAudio.level,0,'Act I title music fully silent');
  const earlyPaths=await evaluate("performance.getEntriesByType('resource').map(r=>r.name).filter(p=>p.includes('/assets/')&&/act2-|act3-|act4-|schoolyard|blazej\\.png|bogdan\\.png/.test(p))");
  assert.deepEqual(earlyPaths,[],'cold Act I must not request later-act image resources');
  await cdp('Page.reload',{ignoreCache:true});
@@ -128,10 +132,18 @@ try{
  const slowTitle=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return {visible:g.scene.isActive('ActTitle'),airship:g.scene.isActive('Airship'),act:t.actId,ready:t.assetGate.ready,minimum:t.assetGate.minimumElapsed}})()");
  assert.deepEqual(slowTitle,{visible:true,airship:false,act:'act2',ready:false,minimum:true},
    'title remains onscreen past minimum while required sky download is pending');
+ const loadingAudio=await evaluate("(async()=>{const a=(await import('/src/retro-audio.js')).retroAudio;return {gate:a.titleSilence,playing:!!a.music&&!a.music.paused,volume:a.music?.volume??0}})()");
+ assert.deepEqual(loadingAudio,{gate:true,playing:false,volume:0},
+   'DEBUG Act II title stays fully silent through extended asset loading');
  await cdp('Fetch.continueRequest',{requestId:heldSky});
  await cdp('Fetch.disable');socket.removeEventListener('message',skyPaused);
  await wait("window.__game.scene.isActive('Airship')",'DEBUG Act II results checkpoint',12000);
  assert.equal(skyRequests,1,'Act II approved sky fetched exactly once under slow network');
+ await sleep(470);
+ const airshipAudio=await evaluate("(async()=>{const a=(await import('/src/retro-audio.js')).retroAudio;return {gate:a.titleSilence,track:a.track,volume:a.music?.volume??0}})()");
+ assert.equal(airshipAudio.gate,false,'gameplay releases ActTitle silence');
+ assert.equal(airshipAudio.track,'act2','correct track on entering gameplay');
+ assert.ok(Math.abs(airshipAudio.volume-dragged.save.music*.70)<.01,'400ms fade reaches stored target');
  console.log('PASS ActTitle Chromium slow PNG gate: 1900ms minimum, Act II held until decoded sky, one sky request');
  await wait("window.__game.scene.getScene('Airship').dialogueState?.id==='act2-finale'",'Act II finale',12000);
  for(let k=0;k<12;k++){
