@@ -66,12 +66,12 @@ test('Marian transformed PNG and portrait are clean optional configuration hooks
  assert.ok(scene.includes('this.bossArt.setTexture(effective'));
  assert.ok(scene.includes('this.bossFallback.setVisible(true)'));
 });
-test('opening betrayal, fairy and home dialogues are centralized, short and sequential',()=>{
- const lengths={ 'act5-betrayal':8,'act5-fairy':4,'act5-home':2 };
+test('approved 17-panel Rudolf reveal and 3-panel fairy ending are exact and sequential',()=>{
+ const lengths={'act5-betrayal':17,'act5-fairy':3};
  for(const [id,count] of Object.entries(lengths)){
   const lines=DIALOGUES[id];
   assert.equal(lines.length,count);
-  assert.ok(lines.every(x=>x.length===3&&x[2].length<155));
+  assert.ok(lines.every(line=>line.length===3&&line[2].length<155));
   const state=createDialogueState();
   assert.equal(beginDialogue(state,id),true);
   for(let i=0;i<count;i++){
@@ -79,11 +79,29 @@ test('opening betrayal, fairy and home dialogues are centralized, short and sequ
    assert.equal(advanceDialogue(state),i===count-1?id:'next');
   }
  }
- assert.ok(DIALOGUES['act5-betrayal'].some(x=>x[2].includes('Kłusoczłek')));
- assert.ok(DIALOGUES['act5-betrayal'].some(x=>x[2].includes('rower')));
- assert.ok(DIALOGUES['act5-home'].some(x=>x[2].includes('róg')));
+ assert.equal(DIALOGUES['act5-betrayal'][0][1],'KAPITAN MARIAN');
+ assert.equal(DIALOGUES['act5-betrayal'][1][2],'Kapitan Marian?!');
+ assert.equal(DIALOGUES['act5-betrayal'][2][0],'marian-transformed');
+ assert.equal(DIALOGUES['act5-betrayal'][2][1],'RUDOLF KŁUSOCZŁEK');
+ assert.ok(DIALOGUES['act5-betrayal'].slice(2).filter(x=>x[1]==='RUDOLF KŁUSOCZŁEK').every(x=>x[0]==='marian-transformed'));
+ assert.equal(DIALOGUES['act5-betrayal'][16][2],'Po moim trupie!');
+ assert.equal(DIALOGUES['act5-fairy'][2][2],'No to trzeba było tak od razu. MYK!');
+ assert.equal(DIALOGUES['act5-home'],undefined,'obsolete home scene removed');
 });
-test('boss starts only after transformation and projectiles run with bounded finite attack state',()=>{
+test('one-shot dialogue gate starts transformation after first completed panel, not after monologue',()=>{
+ const s=src('../src/catacombs-scene.js'),ui=src('../src/dialogue-ui.js');
+ assert.ok(s.includes('state.index!==1')&&s.includes("state.id!=='act5-betrayal'"));
+ assert.ok(s.includes('this.transformationStarted=true'));
+ assert.ok(s.includes('this.dialoguePanel.suspend()'));
+ assert.ok(s.includes('this.transformationCompleted=true'));
+ assert.ok(s.includes('this.dialoguePanel.resume()'));
+ assert.ok(s.includes("id==='act5-betrayal'&&this.transformationCompleted)this.startBoss()"));
+ assert.ok(ui.includes('suspend(){active=false;shell.setVisible(false)'));
+ assert.ok(ui.includes('resume(){if(disposed||!scene.dialogueState?.id)return false'));
+ assert.ok(!s.includes('showHomeEnding()'));
+ assert.ok(!s.includes("this.showDialogue('act5-home')"));
+});
+test('boss starts after final dialogue and projectiles run with bounded finite attack state',()=>{
  const b=createFinalBossState();
  assert.equal(b.phase,'staging');
  assert.equal(finalBossDamage(b,1),false);
