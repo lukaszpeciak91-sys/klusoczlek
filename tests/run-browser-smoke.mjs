@@ -380,7 +380,7 @@ try{
  assert.ok(following.visible&&Math.abs(following.dx)>7,'bubble follows moving enemy '+JSON.stringify(following));
  // Long smoke runs must not let incidental enemy contact terminate the
  // paused-scene regression before the resume assertions are exercised.
- await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.hp=s.run.maxHp;s.hpFace.setHp(s.run.hp);s.player.setPosition(550,450);s.player.body.reset(550,450);return true})()");
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.hp=999;s.hpFace.setHp(s.run.maxHp);s.player.setPosition(550,450);s.player.body.reset(550,450);return true})()");
  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
  await touch(p.x,p.y);
  await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'School bark MENU pause');
