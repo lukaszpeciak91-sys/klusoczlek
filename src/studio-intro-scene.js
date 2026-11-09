@@ -5,6 +5,9 @@ export class StudioIntroScene extends Phaser.Scene {
  constructor(){super('StudioIntro');}
  create(){
   this.finished=false;
+  // Phaser scene clocks may pause during Android orientation/focus changes.
+  // Keep an independent, one-shot wall-clock fallback for Menu navigation.
+  const introStartedAt=Date.now();
   this.cameras.main.setBackgroundColor('#000000');
   const w=this.scale.width,h=this.scale.height;
   const studio=this.add.text(w/2,h*.43,'NEPAHU STUDIOS',{
@@ -23,17 +26,32 @@ export class StudioIntroScene extends Phaser.Scene {
   };
   resize();
   this.scale.on(Phaser.Scale.Events.RESIZE,resize);
-  this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
-   this.scale.off(Phaser.Scale.Events.RESIZE,resize);
-   this.input.off('pointerdown',skip);
-   this.input.keyboard?.off('keydown',skip);
-  });
   const finish=()=>{
    if(this.finished)return;
    this.finished=true;
    this.scene.start('Menu');
   };
   const skip=()=>finish();
+  // This watchdog runs even when Phaser's tween/time manager is paused.
+  // Do not navigate behind the portrait overlay or in a hidden tab; retry
+  // immediately on orientation/visibility restoration instead.
+  const readyToShowMenu=()=>!document.hidden&&window.innerWidth>=window.innerHeight;
+  const rescue=()=>{
+   if(!this.finished&&Date.now()-introStartedAt>=3300&&readyToShowMenu())finish();
+  };
+  const watchdog=window.setTimeout(rescue,3500);
+  window.addEventListener('resize',rescue);
+  window.addEventListener('orientationchange',rescue);
+  document.addEventListener('visibilitychange',rescue);
+  this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
+   window.clearTimeout(watchdog);
+   window.removeEventListener('resize',rescue);
+   window.removeEventListener('orientationchange',rescue);
+   document.removeEventListener('visibilitychange',rescue);
+   this.scale.off(Phaser.Scale.Events.RESIZE,resize);
+   this.input.off('pointerdown',skip);
+   this.input.keyboard?.off('keydown',skip);
+  });
   this.input.on('pointerdown',skip);
   this.input.keyboard?.on('keydown',skip);
   this.tweens.add({targets:studio,alpha:1,scale:1,duration:660,ease:'Sine.Out'});
