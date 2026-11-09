@@ -170,7 +170,7 @@ export function createVolcanoCombat(scene){
   if(weapon==='water-flamethrower')igniteEnemy(enemy.ignition,enemy.type,now);
   enemy.hp=applyEnemyHit(enemy.hp,damage);
   if(enemy.hp<=0){
-   enemy.dead=true;enemy.bark.destroy();
+   enemy.dead=true;retroAudio.enemyDeath();enemy.bark.destroy();
    if(enemy.zoneId)progression.defeated(enemy.zoneId);
    enemy.sprite.setTint(0x26272b);
    deathBursts.push(createPixelBurst(scene,enemy.type==='lawostworek-2'?'lawostworek-2':'lawostworek-1',enemy.x,enemy.y,enemy.index+137,{extinguish:true}));
@@ -180,7 +180,7 @@ export function createVolcanoCombat(scene){
    scene.time.delayedCall(145,()=>{if(enemy.sprite.active&&!enemy.dead)enemy.sprite.clearTint();});
   }
  }
- function stopFire(){waterState.stop();fireState.stop();resetFiring(firing);stream.clear();for(const state of [waterState,fireState]){for(const p of state.particles)p.object.destroy();state.particles.length=0;state.emissionAt=null;}for(const shot of shots)shot.sprite.destroy();shots.length=0;}
+ function stopFire(){retroAudio.stopStream();waterState.stop();fireState.stop();resetFiring(firing);stream.clear();for(const state of [waterState,fireState]){for(const p of state.particles)p.object.destroy();state.particles.length=0;state.emissionAt=null;}for(const shot of shots)shot.sprite.destroy();shots.length=0;}
  function start(){if(active)return;active=true;activateZone('entrance');}
  function update(dt,now,aim,held,weapon){
   if(!active||scene.defeated||scene.run.hp<=0||scene.dialogueState.id){stopFire();return;}
@@ -195,7 +195,7 @@ export function createVolcanoCombat(scene){
   const openingSafe=lawosContactProtected(now,scene.openingSafeUntil??0);
   const water=weapon==='water-flamethrower',fire=weapon==='flamethrower';
   const flowing=water&&waterState.step(held,dt);
-  const flaming=fire&&fireState.step(held,dt);
+  const flaming=fire&&fireState.step(held,dt);retroAudio.stream(weapon,(flowing||flaming)&&Math.hypot(aim.x,aim.y)>.5);
   if(!water)waterState.step(false,dt);
   if(!fire)fireState.step(false,dt);
   stream.clear();
@@ -214,8 +214,7 @@ export function createVolcanoCombat(scene){
   updateContinuousParticles(waterState,dt);
   updateContinuousParticles(fireState,dt);
   const count=firingStep(firing,weapon,held&&Math.hypot(aim.x,aim.y)>.5,now);
-  if(count){
-   const tune=COMBAT_TUNING[weapon],origin=muzzlePoint(scene.player.x,scene.player.y,aim);
+  if(count){retroAudio.shot(weapon);const tune=COMBAT_TUNING[weapon],origin=muzzlePoint(scene.player.x,scene.player.y,aim);
    const sprite=scene.add.circle(origin.x,origin.y,tune.radius,tune.color).setDepth(14);
    shots.push({sprite,x:origin.x,y:origin.y,vx:aim.x*tune.speed,vy:aim.y*tune.speed,weapon,age:0});
    if(weapon==='rifle')scene.playerVisual.recoil();
@@ -246,7 +245,7 @@ export function createVolcanoCombat(scene){
    if(!openingSafe&&Math.hypot(p.x-scene.player.x,p.y-scene.player.y)<enemy.radius+18&&now-enemy.contactAt>1100){
     enemy.contactAt=now;
     const contact=applyPlayerContact({hp:scene.run.hp,invulnerableUntil:scene.playerInvulnerableUntil??0},now);
-    scene.run.hp=contact.hp;scene.playerInvulnerableUntil=contact.invulnerableUntil;
+    if(contact.hp<scene.run.hp){retroAudio.hurt();if(contact.hp===0)retroAudio.death();}scene.run.hp=contact.hp;scene.playerInvulnerableUntil=contact.invulnerableUntil;
     if(scene.run.hp<=0){if(scene.finale?.state==='ESCAPE_ACTIVE')scene.escapeFailed();else scene.lockDeath();break;}
    }
   }
