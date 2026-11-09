@@ -896,9 +896,29 @@ try{
   }
   throw Error('Act V DALEJ did not advance '+JSON.stringify(initial));
  };
- for(let i=0;i<8;i++)await next5();
- await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian evolution blinks',3000);
- await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='boss'&&s.boss.phase==='gun'&&s.canPlay()})()",'boss after evolution',5500);
+ const act5Opening=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,world:s.bossArt.texture.key,portrait:s.dialoguePanel.shell.list.filter(x=>x.type==='Image'&&x.visible).map(x=>x.texture.key),boss:s.boss.phase}})()");
+ assert.equal(act5Opening.index,0);
+ assert.equal(act5Opening.world,'npc-captain','normal Marian sheet before first panel');
+ assert.ok(act5Opening.portrait.includes('dialogue-captain'),'normal Marian dialogue portrait');
+ assert.equal(act5Opening.boss,'staging');
+ await next5();
+ await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian transforms immediately after panel 1',3000);
+ const transform5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,visible:s.dialoguePanel.button.visible,controls:s.joystick.enabled,boss:s.boss.phase,started:s.transformationStarted,completed:s.transformationCompleted}})()");
+ assert.equal(transform5.index,1);assert.equal(transform5.visible,false);
+ assert.equal(transform5.controls,false);assert.equal(transform5.boss,'staging');
+ assert.equal(transform5.started,true);assert.equal(transform5.completed,false);
+ await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='opening'&&s.transformationCompleted&&s.dialoguePanel.button.visible&&s.dialogueState.index===1})()",'transformed Marian resumes with Aloes panel 2',5500);
+ const revealed5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {world:s.bossArt.texture.key,portraitLoaded:s.textures.exists('dialogue-marian-transformed'),boss:s.boss.phase,combat:s.canPlay()}})()");
+ assert.equal(revealed5.world,'act5-marian-transformed');
+ assert.equal(revealed5.portraitLoaded,true);
+ assert.equal(revealed5.boss,'staging');assert.equal(revealed5.combat,false);
+ for(let i=1;i<17;i++){
+  const at=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,speaker:s.dialoguePanel.shell.list.filter(o=>o.type==='Text'&&o.visible).map(o=>o.text)}})()");
+  assert.equal(at.index,i,'act5 betrayal panel '+(i+1));
+  if(i===2)assert.ok(at.speaker.includes('RUDOLF KŁUSOCZŁEK'));
+  await next5();
+ }
+ await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='boss'&&s.boss.phase==='gun'&&s.canPlay()})()",'boss after all 17 dialogue panels',4500);
  await wait("window.__game.scene.getScene('Catacombs').bossShots.length>0",'rotating gun emits real shots',6500);
  const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y,clock:s.combatMs}})()");
  await touch(pause5.x,pause5.y);
@@ -917,9 +937,9 @@ try{
  await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.damageBoss(s.boss.hp);return true})()");
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.boss.defeated&&s.fairyActor?.active})()",'Marian defeated once, fairy arrives',4000);
  await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-fairy'",'fairy dialogue',3500);
- for(let i=0;i<4;i++)await next5();
- await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-home'",'home return dialogue',4500);
- for(let i=0;i<2;i++)await next5();
+ for(let i=0;i<3;i++)await next5();
+ await wait("window.__game.scene.getScene('Catacombs').phase==='magic'",'fairy MYK magic particles',3000);
+ assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').dialogueState.id"),null,'no home dialogue');
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='ending'&&s.completed&&s.run.completedActs.has('act5')})()",'KONIEC and campaign completion',3000);
  await wait("window.__game.scene.isActive('Menu')",'Act V ending returns to Menu',4500);
  console.log('PASS Act V real Chromium Android landscape: Act IV chapel handoff, 5 HP, betrayal, Marian blinking evolution, rotating gun, horn immunity, fairy and KONIEC');
