@@ -33,6 +33,7 @@ export class VolcanoScene extends Phaser.Scene {
   init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
   create(){
     retroAudio.enter('Volcano');
+    this.events.on(Phaser.Scenes.Events.RESUME,()=>retroAudio.enter('Volcano'));
     this.run=currentCampaignRun(this.game);
     if(this.run.actId!=='act3'&&!prepareActStart(this.run,this.handoff,new Set(Object.keys(this.scene.manager.keys)))){
       this.scene.start('Menu');return;
