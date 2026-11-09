@@ -251,7 +251,7 @@ try{
  assert.deepEqual(optionalBefore,{intro:false,started:false,maciek:false,pitch:false,actors:2},'both NPCs staged, optional encounter not automatic');
  const approachMaciek=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(695,620);s.player.body.reset(695,620);return true})()");
  await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-maciek-seba'",'optional dialogue on actual approach',4000);
- await wait("(()=>{const s=window.__game.scene.getScene('School');return ['bobrozombi','bocianolak','zubrokryptyda'].every(k=>s.dialoguePanel.loaded.has(k))})()",'original three character portraits load',10000);
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return ['bobrozombi','bocianolak','blazej'].every(k=>s.dialoguePanel.loaded.has(k))})()",'only Act IV dialogue portraits load (no unused Żubrokryptyda portrait)',10000);
  const first=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {captain:s.captainArrival.actor?.active??false,active:s.combat.started,phase:s.schoolPhase,boss:s.blazej.active}})()");
  assert.deepEqual(first,{captain:false,active:false,phase:'INTRO',boss:false});
  const maciek=[
