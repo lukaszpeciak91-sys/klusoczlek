@@ -555,14 +555,14 @@ try{
  assert.equal(await evaluate("window.__game.scene.getScene('School').blazej.projectiles.length"),0);
  await tapMenu('WZNÓW');
  await wait("window.__game.scene.isActive('School')",'boss WZNÓW');
- const helperQA=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej;const before=s.combat.enemies.filter(e=>e.bossHelper).length;
+ const helperQA=await evaluate(`(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej;const before=s.combat.enemies.filter(e=>e.bossHelper).length;
    b.damage(Math.max(1,b.actor.hp-30),s.player,s.time.now);
    const first=s.combat.enemies.filter(e=>e.bossHelper);
    b.damage(Math.max(1,b.actor.hp-14),s.player,s.time.now);
    const second=s.combat.enemies.filter(e=>e.bossHelper);
    return {before,first:first.length,second:second.length,unique:new Set(second.map(e=>e.sprite)).size,
     active:second.filter(e=>e.hp>0&&e.sprite?.active).length,
-    grounded:second.every(e=>s.combat.renderers[e.type].damagePoseOf(e))};})()");
+    grounded:second.every(e=>s.combat.renderers[e.type].damagePoseOf(e))};})()`);
  assert.ok(helperQA.before===0&&helperQA.first===2&&helperQA.second===4&&
    helperQA.unique===4&&helperQA.active===4&&helperQA.grounded,
    '65%/30% HP reinforcements use four real safe actors '+JSON.stringify(helperQA));
