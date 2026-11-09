@@ -817,6 +817,44 @@ try{
  await volcanoDialogueNext('act3-eruption-warning');
  await wait("window.__game.scene.getScene('Volcano').finale.state==='ESCAPE_ACTIVE'",'existing eruption escape begins',4000);
  console.log('PASS approved Act III horn Chromium: real boss defeat, 2 finale panels, decoded 192x192 PNG, responsive artifact 2/3, DALEJ and eruption escape');
+ // Act V fast end-to-end using the real approved chapel completion and
+ // DEBUG fixture; no four-wave combat replay or new browser test runner.
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'Act V fresh menu');
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act4-finale');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('School',{handoff:f.handoff,debugCheckpoint:'act4-finale'});return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.entryGateReady&&!!s.combat})()",'School final chapel debug',15000);
+ const act5Handoff=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.artifacts.add('blazej-bicycle');s.run.hp=3;s.schoolPhase='CHAPEL_RETURN';return s.completeActFour()})()");
+ assert.equal(act5Handoff,true,'real School.completeActFour handoff');
+ await wait("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return g.scene.isActive('ActTitle')&&t.actId==='act5'&&t.nextScene==='Catacombs'})()",'Act IV -> V via title',5000);
+ assert.equal(await evaluate("window.__game.registry.get('campaign-run').hp"),5,'Act V restores full HP');
+ await wait("(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.dialogueState.id==='act5-betrayal'})()",'Act V scene opening dialogue',16000);
+ const opening5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hp:s.run.hp,weapon:s.weapon,phase:s.phase,controls:s.joystick.enabled,artifacts:s.run.artifacts.size}})()");
+ assert.equal(opening5.hp,5);assert.equal(opening5.artifacts,3);
+ assert.equal(opening5.phase,'opening');assert.equal(opening5.controls,false);
+ assert.notEqual(opening5.weapon,'water-flamethrower');
+ const next5=async()=>{
+  await sleep(235);
+  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.dialoguePanel.button.x,y:r.y+s.dialoguePanel.button.y,visible:s.dialoguePanel.button.visible}})()");
+  assert.ok(p.visible,'Act V DALEJ');await touch(p.x,p.y);
+ };
+ for(let i=0;i<8;i++)await next5();
+ await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian evolution blinks',3000);
+ await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='boss'&&s.boss.phase==='gun'&&s.canPlay()})()",'boss after evolution',5500);
+ await wait("window.__game.scene.getScene('Catacombs').bossShots.length>0",'rotating gun emits real shots',6500);
+ const shield=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hit:s.damageBoss(18),phase:s.boss.phase,n:s.boss.summons.length,hp:s.boss.hp,second:s.damageBoss(10)}})()");
+ assert.deepEqual(shield,{hit:true,phase:'summon',n:3,hp:44,second:false},'horn summons 3 while Marian invulnerable');
+ const cleared=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');for(const e of [...s.summons])s.damageEnemy(e,e.hp);return {phase:s.boss.phase,n:s.summons.length}})()");
+ assert.deepEqual(cleared,{phase:'gun',n:0},'defeating all summoned enemies restores vulnerability');
+ await sleep(240);
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.damageBoss(s.boss.hp);return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.boss.defeated&&s.fairyActor?.active})()",'Marian defeated once, fairy arrives',4000);
+ await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-fairy'",'fairy dialogue',3500);
+ for(let i=0;i<4;i++)await next5();
+ await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-home'",'home return dialogue',4500);
+ for(let i=0;i<2;i++)await next5();
+ await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='ending'&&s.completed&&s.run.completedActs.has('act5')})()",'KONIEC and campaign completion',3000);
+ await wait("window.__game.scene.isActive('Menu')",'Act V ending returns to Menu',4500);
+ console.log('PASS Act V real Chromium Android landscape: Act IV chapel handoff, 5 HP, betrayal, Marian blinking evolution, rotating gun, horn immunity, fairy and KONIEC');
  assert.deepEqual(exceptions,[],'uncaught Chromium exceptions');
  console.log('PASS FAST real Chromium: menu, DEBUG Act II/IV, handoffs, school placeholders, Act IV pause/resume and water filtering');
  console.log('FAST runtime ms',Date.now()-started);
