@@ -42,7 +42,10 @@ export function createSchoolBicycleCinematic(scene,Phaser){
   let disposed=false,ready=false,started=false,playing=false,cycles=0,completed=false;
   let backdrop=null,sprite=null;
   const controller=new AbortController();
-  const loading=(async()=>{
+  let loading=null;
+  function prepare(){
+   if(loading)return loading;
+   loading=(async()=>{
     try{
       if(!scene.textures.exists(c.textureKey)){
         const response=await fetch(assetUrl(import.meta.env.BASE_URL,c.path),
@@ -76,7 +79,9 @@ export function createSchoolBicycleCinematic(scene,Phaser){
         console.info('[School] Bicycle cinematic unavailable, using fade-only fallback:',error.message);
       return false;
     }
-  })();
+   })();
+   return loading;
+  }
 
   function resize(){
     if(!backdrop||!sprite)return;
@@ -124,7 +129,7 @@ export function createSchoolBicycleCinematic(scene,Phaser){
     if(disposed)return;
     disposed=true;controller.abort();hide();
   }
-  return {loading,show,play,resize,hide,destroy,
+  return {get loading(){return prepare();},show,play,resize,hide,destroy,
     get ready(){return ready;},get started(){return started;},
     get playing(){return playing;},get cycles(){return cycles;},
     get completed(){return completed;},get sprite(){return sprite;},

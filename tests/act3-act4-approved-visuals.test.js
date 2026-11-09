@@ -113,7 +113,10 @@ test('Błażej dialogue has his approved portrait; ordinary enemy portrait and a
  const sharedPortrait=asset('dialogue/dialogue-zubrokryptyda.png');
  assert.equal(validDialoguePng(sharedPortrait),true,'untouched ordinary portrait may be RGB or RGBA');
  const ui=source('../src/dialogue-ui.js');
- assert.ok(ui.includes("'zubrokryptyda','blazej'"));
+ assert.ok(ui.includes('scenePortraitKeys(scene.scene.key)'));
+ assert.ok(DIALOGUES['act4-blazej-observer'].some(([who])=>who==='blazej'));
+ assert.ok(DIALOGUES['act4-blazej-confrontation'].some(([who])=>who==='blazej'));
+ assert.ok(DIALOGUES['act4-blazej-final'].some(([who])=>who==='blazej'));
  assert.ok(ui.includes("'dialogue/dialogue-'")||ui.includes("'dialogue/dialogue-'+key+'.png'"));
  for(const id of ['act4-blazej-observer','act4-blazej-confrontation','act4-blazej-final']){
   for(const [portraitKey,speaker,line] of DIALOGUES[id]){

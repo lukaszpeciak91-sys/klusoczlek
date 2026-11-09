@@ -26,12 +26,14 @@ import {formatGameplayClock,advanceGameplayClock} from './gameplay-clock.js';
 import {updateBursts} from './pixel-death-vfx.js';
 import {act2HealthPoint,shouldSpawnAct2Health,collectAct2Health} from './act2-health-pickup.js';
 import {createHealthToken} from './health-token.js';
+import {beginSceneReveal} from './scene-reveal-gate.js';
 
 const DECK_TEXTURE='airship-deck-approved';
 export class AirshipScene extends Phaser.Scene {
   constructor(){super('Airship');}
   init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
   create(){
+    this.entryGateReady=false;
     this.campaignRun=currentCampaignRun(this.game);
     const registered=new Set(Object.keys(this.scene.manager.keys));
     if(!prepareActStart(this.campaignRun,this.handoff,registered)){
@@ -41,7 +43,7 @@ export class AirshipScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#6b9db7');
     this.cameras.main.setBounds(0,0,AIRSHIP_WORLD.width,AIRSHIP_WORLD.height);
     this.physics.world.setBounds(0,0,AIRSHIP_WORLD.width,AIRSHIP_WORLD.height);
-    this.layers=[];
+    this.layers=[];this.artLoads=[];
     this.optionalArtStatus={};
     this.artAbort=new AbortController();
     this.artAlive=true;
@@ -65,7 +67,7 @@ export class AirshipScene extends Phaser.Scene {
       }
       const layer=createHorizontalParallaxLayer(this,def,key);
       this.layers.push(layer);
-      void this.loadOptional(def.path,'airship-approved-'+def.id,layer);
+      this.artLoads.push(this.loadOptional(def.path,'airship-approved-'+def.id,layer));
     }
     const geometry=this.add.graphics().setDepth(0);
     geometry.fillStyle(0x141e25,0.46).fillEllipse(480,289,855,410);
@@ -82,15 +84,15 @@ export class AirshipScene extends Phaser.Scene {
     this.rails.lineStyle(6,0x2b2423,1).strokePoints(DECK_POLYGON,true);
     this.rails.lineStyle(3,0xe4c183,1).strokePoints(DECK_POLYGON,true);
     // The fallback rail object must exist before a cached texture can hide it.
-    void this.loadOptional('arenas/airship-deck.png',DECK_TEXTURE,this.deckArt,'deck');
+    this.artLoads.push(this.loadOptional('arenas/airship-deck.png',DECK_TEXTURE,this.deckArt,'deck'));
     // Tall building and wheel are art sprites; the roof is not a collision box.
     this.wheelhouse=this.add.image(480,220,'airship-fallback-sky')
       .setOrigin(.5,1).setDepth(9).setVisible(false);
-    void this.loadOptional('obstacles/airship-wheelhouse.png','airship-wheelhouse-approved',this.wheelhouse,'wheelhouse');
+    this.artLoads.push(this.loadOptional('obstacles/airship-wheelhouse.png','airship-wheelhouse-approved',this.wheelhouse,'wheelhouse'));
     // Approved symmetric wheel: one Image rotating about its hub.
     this.paddlewheel=this.add.image(PADDLEWHEEL_MOUNT.x,PADDLEWHEEL_MOUNT.y,'airship-fallback-sky')
       .setOrigin(.5,.5).setDepth(PADDLEWHEEL_MOUNT.depth).setVisible(false);
-    void this.loadOptional('obstacles/airship-paddlewheel.png','airship-paddlewheel-approved',this.paddlewheel,'paddlewheel');
+    this.artLoads.push(this.loadOptional('obstacles/airship-paddlewheel.png','airship-paddlewheel-approved',this.paddlewheel,'paddlewheel'));
     this.player=createPlayer(this,AIRSHIP_ALOES_START.x,AIRSHIP_ALOES_START.y);
     this.player.body.setVelocity(0,0);
     // Keep UI/joystick pixels at 1:1; follow in world space instead of zooming the HUD.
@@ -117,7 +119,7 @@ export class AirshipScene extends Phaser.Scene {
     this.mouseHeld=false;
     this.mouseAim={x:0,y:0};
     const onWeaponKey=event=>{
-      if(event.repeat||this.openingPhase!=='active')return;
+      if(!this.entryGateReady||event.repeat||this.openingPhase!=='active')return;
       if(event.code==='KeyQ')this.cycleWeapon();
       else {
         const weapon=({Digit1:'blunderbuss',Digit2:'rifle',Digit3:'flamethrower'})[event.code];
@@ -308,7 +310,10 @@ export class AirshipScene extends Phaser.Scene {
     this.onFocus();
     this.setOpeningHud(false);
     if(this.debugCheckpoint)this.applyDebugCheckpoint(this.debugCheckpoint);
-    this.cameras.main.fadeIn(240,0,0,0);
+    this.entryGate=beginSceneReveal(this,()=>Promise.allSettled([
+      ...this.artLoads,this.playerVisual.loading,this.dialoguePanel.loading,
+      ...Object.values(this.gliderDelivery.renderers).map(renderer=>renderer.loading)
+    ]),{onReady:()=>{this.cameras.main.fadeIn(240,0,0,0);this.onFocus();}});
     enforceOrientationOnSceneStart(this);
   }
   async loadOptional(path,key,target,kind=null){
@@ -347,7 +352,7 @@ export class AirshipScene extends Phaser.Scene {
     this.switchLabel?.setText(def?.label??'BEZ BRONI');
   }
   canFire(){
-    return this.openingPhase==='active'&&!this.focusSuspended&&!document.hidden&&
+    return this.entryGateReady&&this.openingPhase==='active'&&!this.focusSuspended&&!document.hidden&&
       document.hasFocus()&&!this.scene.isPaused()&&!this.scene.isActive('Menu')&&
       window.innerWidth>=window.innerHeight;
   }
@@ -618,6 +623,7 @@ export class AirshipScene extends Phaser.Scene {
     return true;
   }
   update(time,delta){
+    if(!this.entryGateReady)return;
     const allowed=!this.focusSuspended&&!document.hidden&&document.hasFocus()&&window.innerWidth>=window.innerHeight&&!this.scene.isPaused();
     if(!allowed){
       advanceGameplayClock(this.defense.clock,0,false);

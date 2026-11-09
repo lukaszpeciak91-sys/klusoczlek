@@ -23,6 +23,7 @@ import {createHealthToken} from './health-token.js';
 import {createObstacleVisual} from './obstacle-renderer.js';
 import {createSchoolyardArt} from './schoolyard-art.js';
 import {createSchoolBicycleCinematic} from './school-bicycle-cinematic.js';
+import {beginSceneReveal} from './scene-reveal-gate.js';
 import {MACIEK_SEBA_RADIUS,PITCH_ENCOUNTER_RADIUS,SCHOOL_WAVE2_END_MS,
   SCHOOL_HEART_POINTS,maciekSebaNearby,pitchNearby,canSpawnSchoolHeart,
   collectSchoolHeart} from './school-staging.js';
@@ -39,7 +40,7 @@ export class SchoolScene extends Phaser.Scene {
       console.error('[School] Invalid Act IV campaign handoff');
       this.scene.start('Menu');return;
     }
-    this.disposed=false;
+    this.disposed=false;this.entryGateReady=false;
     this.obstacles=SCHOOL_OBSTACLES;
     this.introActive=!['act4-school','act4-combat','act4-wave4','act4-blazej','act4-boss','act4-finale'].includes(this.debugCheckpoint);
     this.schoolPhase='INTRO';this.defeated=false;this.defeatVisualAt=null;
@@ -205,15 +206,17 @@ export class SchoolScene extends Phaser.Scene {
             this.debugCheckpoint==='act4-finale')this.blazej.damage(this.blazej.actor.hp,this.player,this.time.now);
       }
     }
-    this.cameras.main.fadeIn(360,0,0,0);
-    if(this.introActive){
-      void this.captainArrival.loading.then(()=>{
-        if(this.disposed)return;
-        if(!this.captainArrival.start()){
-          this.introActive=false;this.syncControls();
-        }
-      });
-    }
+    this.entryGate=beginSceneReveal(this,()=>Promise.allSettled([
+      this.schoolArt.loading,this.playerVisual.loading,this.captainArrival.loading,
+      this.dialoguePanel.loading,this.blazej.renderer.loading,
+      ...Object.values(this.combat.renderers).map(renderer=>renderer.loading)
+    ]),{onReady:()=>{
+      this.cameras.main.fadeIn(360,0,0,0);
+      if(this.introActive&&!this.captainArrival.start()){
+        this.introActive=false;this.syncControls();
+      }
+      this.syncControls();
+    }});
     enforceOrientationOnSceneStart(this);
   }
   createMaciekSebaActors(){
@@ -544,7 +547,7 @@ export class SchoolScene extends Phaser.Scene {
     }
   }
   controlsAllowed(){
-    return !this.disposed&&!document.hidden&&document.hasFocus()&&
+    return !this.disposed&&this.entryGateReady!==false&&!document.hidden&&document.hasFocus()&&
       window.innerWidth>=window.innerHeight&&!this.scene.isPaused();
   }
   syncControls(){
@@ -582,7 +585,7 @@ export class SchoolScene extends Phaser.Scene {
     this.scene.bringToTop('Menu');
   }
   update(_time,delta){
-    if(this.disposed)return;
+    if(this.disposed||!this.entryGateReady)return;
     this.ambientBarks?.guard();
     this.blazej?.updateVfx(delta);
     this.captainArrival.update(delta);

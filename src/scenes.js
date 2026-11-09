@@ -12,6 +12,7 @@ import {recordAttack,recordHit} from './combat-feedback.js';
 import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
 import {createDialogueState,beginDialogue,queueBocianolakHitDialogue,BOCIANOLAK_HIT_DIALOGUE} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
+import {beginSceneReveal} from './scene-reveal-gate.js';
 import {createAct1Panels} from './act1-epilogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
 import {FIRST_ACT_ID,CAMPAIGN_ACTS,completionDestination} from './campaign.js';
@@ -142,8 +143,9 @@ export class MenuScene extends Phaser.Scene {
         if(hasSession)this.scene.stop(sessionKey);
         fixture.run.isDebugRun=true;
         this.game.registry.set('campaign-run',fixture.run);
-        if(checkpoint.id==='act3-opening'||checkpoint.id==='act4-opening')this.scene.start('ActTitle',{actId:checkpoint.actId,handoff:fixture.handoff,debugCheckpoint:checkpoint.id});
-        else this.scene.start(checkpoint.scene,{debugCheckpoint:checkpoint.id,handoff:fixture.handoff});
+        // DEBUG, like normal play, passes through the same current-act asset
+        // preparation gate. Never build a cold scene underneath the menu.
+        this.scene.start('ActTitle',{actId:checkpoint.actId,handoff:fixture.handoff,debugCheckpoint:checkpoint.id});
       });
       this.cameras.main.fadeOut(240,0,0,0);
     };
@@ -259,6 +261,7 @@ export class ArenaScene extends Phaser.Scene {
 
   create(data={}) {
     this.debugCheckpoint=data.debugCheckpoint??null;
+    this.entryGateReady=false;
     document.getElementById('fullscreen-button').hidden = true;
     this.cameras.main.setBackgroundColor(COLORS.background);
     this.physics.world.setBounds(0, 0, ARENA.width, ARENA.height);
@@ -545,13 +548,18 @@ export class ArenaScene extends Phaser.Scene {
     this.cameras.main.fadeOut(1,0,0,0);
     this.time.paused=true;
     this.physics.world.pause();
-    this.dialoguePanel.loading.finally(()=>{
+    this.entryGate=beginSceneReveal(this,()=>Promise.allSettled([
+      this.dialoguePanel.loading,this.playerVisual.loading,this.captainArrival.loading,
+      this.enemyRenderers.bobrozombi.loading,
+      this.enemyRenderers.bocianolak.loading,
+      this.enemyRenderers.zubrokryptyda.loading
+    ]),{onReady:()=>{
       if(!this.sys.isActive())return;
+      if(this.debugCheckpoint)this.applyDebugCheckpoint(this.debugCheckpoint);
       this.dialogueLoading=false;
       this.cameras.main.fadeIn(280,0,0,0);
-      if(this.debugCheckpoint)this.applyDebugCheckpoint(this.debugCheckpoint);
-      else this.tryStartDialogue();
-    });
+      if(!this.debugCheckpoint)this.tryStartDialogue();
+    }});
     enforceOrientationOnSceneStart(this);
     this.onResize();
   }
@@ -1278,7 +1286,7 @@ export class ArenaScene extends Phaser.Scene {
       }
       return;
     }
-    if (this.episode.ended || this.dialogueLoading || this.dialogueState?.id || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
+    if (this.episode.ended || !this.entryGateReady || this.dialogueLoading || this.dialogueState?.id || this.scene.isPaused('Arena') || this.physics.world.isPaused || document.hidden || window.innerHeight > window.innerWidth) {
       this.player.body.setVelocity(0, 0);
       cancelPressureTrigger(this.flamePressure);
       advanceGameplayClock(this.gameplayClock,0,false);

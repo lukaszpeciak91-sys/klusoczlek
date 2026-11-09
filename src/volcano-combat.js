@@ -77,7 +77,16 @@ export function createVolcanoCombat(scene){
   g.fillStyle(0xfff1a0).fillCircle(def.frame/2,def.frame*.42,def.radius*.7);
   g.generateTexture(key,def.frame,def.frame);g.destroy();
   sprites[type]=key;
-  // Missing assets never block the encounter. A valid sheet replaces the fallback.
+  // ActTitle has already validated these exact production textures on a
+  // normal entry. Reuse them before staging any Lawostworek to avoid flashes.
+  if(scene.textures.exists(type)){
+   sprites[type]=type;
+   const img=scene.textures.get(type).getSourceImage();
+   visualSizes[type]=Math.min(def.frame*1.7,Math.max(def.frame*.65,
+    (type==='lawostworek-1'?70:81)*def.frame/visibleHeight(img,def.frame)));
+   continue;
+  }
+  // Missing art still uses the existing safe procedural fallback.
   void (async()=>{
    try{
     const response=await fetch(import.meta.env.BASE_URL+'assets/enemies/'+type+'.png');

@@ -6,7 +6,7 @@ export function validDialoguePng(bytes){
  return value(16)===192&&value(20)===192&&bytes[24]===8&&(bytes[25]===2||bytes[25]===6);
 }
 import {currentDialogue,advanceDialogue} from './dialogue-data.js';
-const PORTRAITS=['aloes','bobrozombi','bocianolak','zubrokryptyda','blazej','marcin','captain','lawostworek-1','lawostworek-2','swinia-wrozka','marlena','bogdan'];
+import {scenePortraitKeys} from './act-asset-preparation.js';
 export function dialoguePortraitSize(width,height){
  const compact=width<400;
  return Math.round(Math.min(compact?64:108,Math.max(43,height*(compact?.23:.32))));
@@ -21,7 +21,7 @@ export function createDialoguePanel(scene,Phaser,onFinish,onAdvance=null){
  const button=scene.add.rectangle(0,0,85,32,0x4e4030).setStrokeStyle(1,0xdac184).setScrollFactor(0).setDepth(112).setInteractive({useHandCursor:true}).setVisible(false);
  const caption=scene.add.text(0,0,'DALEJ',{fontFamily:'monospace',fontSize:'15px',color:'#fff4db'}).setOrigin(0.5).setScrollFactor(0).setDepth(113).setVisible(false);
  shell.add([bg,portraitBox,initial,speaker,text]);
- const images=new Map();
+ const images=new Map(),loaded=new Set(),pending=new Map();
  let disposed=false,active=false,blockedUntil=0;
  const layout=()=>{
   const w=scene.scale.width,h=scene.scale.height;
@@ -57,35 +57,45 @@ export function createDialoguePanel(scene,Phaser,onFinish,onAdvance=null){
   layout();
   for(const [key,image] of images)image.setVisible(key===line[0]);
   initial.setVisible(!images.has(line[0]));
+  // Portraits from later dialogue paths are lazy and always scoped to the
+  // actual active speaker. Completion only re-renders this panel.
+  if(!images.has(line[0])&&!pending.has(line[0])&&line[0]!=='chapel')void ensurePortrait(line[0]);
  };
- const loaded=new Set();
- async function load(){
-  await Promise.all(PORTRAITS.map(async key=>{
+ async function ensurePortrait(key){
+  if(disposed||images.has(key))return true;
+  if(pending.has(key))return pending.get(key);
+  const work=(async()=>{
    try{
-    const response=await fetch(assetUrl(import.meta.env.BASE_URL,'dialogue/dialogue-'+key+'.png'),{cache:'no-cache'});
-    if(!response.ok)throw Error('missing');
-    const bytes=new Uint8Array(await response.arrayBuffer());
-    if(!validDialoguePng(bytes))throw Error('invalid portrait');
-    const blob=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
-    try{
-     const image=new Image();
-     await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=blob;});
-     if(image.naturalWidth!==192||image.naturalHeight!==192)throw Error('invalid portrait geometry');
-     if(disposed)return;
-     const texture='dialogue-'+key;
-     if(!scene.textures.exists(texture))scene.textures.addImage(texture,image);
-     const sprite=scene.add.image(0,0,texture).setOrigin(0).setVisible(false);
-     shell.addAt(sprite,2);images.set(key,sprite);loaded.add(key);
-     // A dialogue can open before this asynchronous portrait finishes.
-     // Refresh only the current panel; never restart/advance its state.
-     if(active&&scene.dialogueState?.id&&currentDialogue(scene.dialogueState)?.[0]===key)
-      render(scene.dialogueState);
-    }finally{URL.revokeObjectURL(blob);}
-   }catch{ /* Per-character square fallback keeps dialogue playable. */ }
-  }));
-  if(!disposed)layout();
+    const texture='dialogue-'+key;
+    if(!scene.textures.exists(texture)){
+     const response=await fetch(assetUrl(import.meta.env.BASE_URL,'dialogue/dialogue-'+key+'.png'));
+     if(!response.ok)throw Error('missing');
+     const bytes=new Uint8Array(await response.arrayBuffer());
+     if(!validDialoguePng(bytes))throw Error('invalid portrait');
+     const blob=URL.createObjectURL(new Blob([bytes],{type:'image/png'}));
+     try{
+      const image=new Image();
+      await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=reject;image.src=blob;});
+      if(image.naturalWidth!==192||image.naturalHeight!==192)throw Error('invalid portrait geometry');
+      if(disposed)return false;
+      if(!scene.textures.exists(texture))scene.textures.addImage(texture,image);
+     }finally{URL.revokeObjectURL(blob);}
+    }
+    if(disposed)return false;
+    const sprite=scene.add.image(0,0,texture).setOrigin(0).setVisible(false);
+    shell.addAt(sprite,2);images.set(key,sprite);loaded.add(key);
+    // A dialogue can open before this asynchronous portrait finishes.
+    // Refresh only the current panel; never restart/advance its state.
+    if(active&&scene.dialogueState?.id&&currentDialogue(scene.dialogueState)?.[0]===key)
+     render(scene.dialogueState);
+    return true;
+   }catch{return false; /* Square fallback remains playable. */ }
+  })();
+  pending.set(key,work);
+  try{return await work;}finally{pending.delete(key);}
  }
- const loading=load();
+ const loading=Promise.allSettled(scenePortraitKeys(scene.scene.key).map(ensurePortrait));
+
  button.on('pointerdown',()=>{
   if(!active||disposed||scene.game.loop.time<blockedUntil||document.hidden||window.innerHeight>window.innerWidth)return;
   blockedUntil=scene.game.loop.time+180;
@@ -96,7 +106,7 @@ export function createDialoguePanel(scene,Phaser,onFinish,onAdvance=null){
  const resize=()=>{if(!disposed)layout();};
  scene.scale.on(Phaser.Scale.Events.RESIZE,resize);
  scene.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
-  disposed=true;scene.scale.off(Phaser.Scale.Events.RESIZE,resize);shell.destroy();button.destroy();caption.destroy();images.clear();
+  disposed=true;scene.scale.off(Phaser.Scale.Events.RESIZE,resize);shell.destroy();button.destroy();caption.destroy();images.clear();pending.clear();
  });
  layout();
  return {loading,loaded,get active(){return active;},show(state){active=true;blockedUntil=scene.game.loop.time+180;render(state);layout();shell.setVisible(true);button.setVisible(true);caption.setVisible(true);},

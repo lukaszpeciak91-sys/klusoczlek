@@ -37,7 +37,7 @@ try{
  await cdp('Runtime.enable');
  await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:3});
  const evaluate=async expression=>{const r=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result?.value;};
- const wait=async(expression,label,timeout=12000)=>{const end=Date.now()+timeout;while(Date.now()<end){try{if(await evaluate(expression))return;}catch(error){if(!/Inspected target navigated|Execution context was destroyed|Cannot find context/.test(String(error)))throw error;}await sleep(80);}throw Error('Timeout '+label);};
+ const wait=async(expression,label,timeout=12000)=>{const end=Date.now()+timeout;while(Date.now()<end){try{if(await evaluate(expression))return;}catch(error){if(!/Inspected target navigated|Execution context was destroyed|Cannot find context/.test(String(error)))throw error;}await sleep(80);}let detail='';try{detail=JSON.stringify(await evaluate("(()=>{const g=window.__game;return {active:g?.scene?.getScenes(true)?.map(s=>s.scene.key),title:(()=>{const t=g?.scene?.getScene('ActTitle');return t?.assetGate?{act:t.actId,next:t.nextScene,...t.assetGate,progress:t.assetProgress,attempts:t.preparationAttempts,error:t.lastPreparationError,retry:t.children.list.some(x=>x.text==='PONÓW'&&x.visible)}:null})(),school:(()=>{const s=g?.scene?.getScene('School');return s?{phase:s.schoolPhase,intro:s.introActive,dialogue:s.dialogueState,storyBusy:s.storyBusy,started:s.combat?.started,pitch:s.pitchStarted,entryGateReady:s.entryGateReady,allowed:s.controlsAllowed(),focus:document.hasFocus(),hidden:document.hidden,landscape:innerWidth>=innerHeight,shield:s.entryGate?.visible,menuButton:{visible:s.menuButton?.visible,x:s.menuButton?.x,y:s.menuButton?.y}}:null})(),airship:g?.scene?.getScene('Airship')?.openingPhase}})()"));}catch{}throw Error('Timeout '+label+' '+detail);};
  const touch=async(x,y)=>{await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
  const geometry=()=>evaluate("(()=>{const g=window.__game,m=g.scene.getScene('Menu'),r=g.canvas.getBoundingClientRect();return {rect:{x:r.x,y:r.y},active:g.scene.isActive('Menu'),debug:m.debugOpen,buttons:m.children.list.filter(o=>o.type==='Text'&&o.visible&&['NOWA GRA','DEBUG','WZNÓW','WRÓĆ'].includes(o.text)).map(o=>({text:o.text,x:o.x,y:o.y}))}})()");
  const tapMenu=async label=>{const g=await geometry();const b=g.buttons.find(b=>b.text===label);assert.ok(b,'Missing '+label+' '+JSON.stringify(g));await touch(g.rect.x+b.x,g.rect.y+b.y);};
@@ -45,6 +45,9 @@ try{
  const menu=await geometry();assert.ok(menu.buttons.some(b=>b.text==='NOWA GRA')&&menu.buttons.some(b=>b.text==='DEBUG'),'menu buttons');
  await tapMenu('NOWA GRA');
  await wait("window.__game.scene.isActive('ActTitle')",'NOWA GRA -> Act I title',3000);
+ await sleep(160);
+ const earlyPaths=await evaluate("performance.getEntriesByType('resource').map(r=>r.name).filter(p=>p.includes('/assets/')&&/act2-|act3-|act4-|schoolyard|blazej\\.png|bogdan\\.png/.test(p))");
+ assert.deepEqual(earlyPaths,[],'cold Act I must not request later-act image resources');
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'saved menu reload');
  assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'),'WZNÓW available with saved campaign');
@@ -70,8 +73,30 @@ try{
   await sleep(80);point=await locate();
  }
  assert.ok(point,'DEBUG checkpoint scroll did not reveal '+target.id);
+ // Simulate a real slow required Act II PNG via CDP interception. No new
+ // server, no waiting through gameplay waves, no fixture-only mock loading.
+ let heldSky=null,skyRequests=0;
+ const skyPaused=event=>{
+  const message=JSON.parse(event.data);
+  if(message.method==='Fetch.requestPaused'&&message.params.request.url.includes('act2-sky.png')){
+   heldSky=message.params.requestId;skyRequests++;
+  }
+ };
+ socket.addEventListener('message',skyPaused);
+ await cdp('Fetch.enable',{patterns:[{urlPattern:'*act2-sky.png',requestStage:'Request'}]});
  await touch(point.x,point.y);
- await wait("window.__game.scene.isActive('Airship')",'DEBUG Act II results checkpoint');
+ await wait("window.__game.scene.isActive('ActTitle')",'Act II title before PNG readiness',4000);
+ for(let attempt=0;attempt<80&&!heldSky;attempt++)await sleep(50);
+ assert.ok(heldSky,'cold Act II title fetches approved sky PNG once');
+ await sleep(2150);
+ const slowTitle=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return {visible:g.scene.isActive('ActTitle'),airship:g.scene.isActive('Airship'),act:t.actId,ready:t.assetGate.ready,minimum:t.assetGate.minimumElapsed}})()");
+ assert.deepEqual(slowTitle,{visible:true,airship:false,act:'act2',ready:false,minimum:true},
+   'title remains onscreen past minimum while required sky download is pending');
+ await cdp('Fetch.continueRequest',{requestId:heldSky});
+ await cdp('Fetch.disable');socket.removeEventListener('message',skyPaused);
+ await wait("window.__game.scene.isActive('Airship')",'DEBUG Act II results checkpoint',12000);
+ assert.equal(skyRequests,1,'Act II approved sky fetched exactly once under slow network');
+ console.log('PASS ActTitle Chromium slow PNG gate: 1900ms minimum, Act II held until decoded sky, one sky request');
  await wait("window.__game.scene.getScene('Airship').dialogueState?.id==='act2-finale'",'Act II finale',12000);
  for(let k=0;k<12;k++){
   const state=await evaluate("(()=>{const a=window.__game.scene.getScene('Airship'),r=window.__game.canvas.getBoundingClientRect();return {id:a.dialogueState?.id,final:a.finalResultsPending,active:a.dialoguePanel?.active,x:r.x+a.dialoguePanel.button.x,y:r.y+a.dialoguePanel.button.y}})()");
@@ -210,7 +235,7 @@ try{
   assert.equal(p.enabled,false,'movement disabled while dialogue visible');
   assert.equal(p.bubble,false,'speech bubbles suppressed during dialogue');
   if(id.startsWith('act4-blazej-')){
-   await wait("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.loaded.has('blazej')&&d.loaded.has('zubrokryptyda')})()",'both approved boss and ordinary portraits loaded',3500);
+   await wait("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.loaded.has('blazej')&&d.loaded.has('bobrozombi')})()",'current-act boss and observer portraits loaded',3500);
    const portrait=await evaluate("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.shell.list.filter(o=>o.type==='Image'&&o.visible).map(o=>o.texture.key)})()");
    const blazej=id==='act4-blazej-final'||id==='act4-blazej-observer'&&index===0||
      id==='act4-blazej-confrontation'&&index!==1;
@@ -251,7 +276,7 @@ try{
  assert.deepEqual(optionalBefore,{intro:false,started:false,maciek:false,pitch:false,actors:2},'both NPCs staged, optional encounter not automatic');
  const approachMaciek=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(695,620);s.player.body.reset(695,620);return true})()");
  await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-maciek-seba'",'optional dialogue on actual approach',4000);
- await wait("(()=>{const s=window.__game.scene.getScene('School');return ['bobrozombi','bocianolak','zubrokryptyda'].every(k=>s.dialoguePanel.loaded.has(k))})()",'original three character portraits load',10000);
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return ['bobrozombi','bocianolak','blazej'].every(k=>s.dialoguePanel.loaded.has(k))})()",'only Act IV dialogue portraits load (no unused Żubrokryptyda portrait)',10000);
  const first=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {captain:s.captainArrival.actor?.active??false,active:s.combat.started,phase:s.schoolPhase,boss:s.blazej.active}})()");
  assert.deepEqual(first,{captain:false,active:false,phase:'INTRO',boss:false});
  const maciek=[
@@ -340,7 +365,19 @@ try{
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1215,785);s.player.body.reset(1215,785);return true})()");
  await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'bypassed optional Maciek/Seba; boss proximity continues');
  assert.equal(await evaluate("window.__game.scene.getScene('School').maciekSeen"),false,'Maciek bypass is truly optional');
- for(let i=0;i<6;i++)await dialogueNext();
+ for(let i=0;i<6;i++){
+  const expected=i===0?{id:'act4-blazej-observer',index:1}:
+   i===1?{id:'act4-blazej-confrontation',index:0}:
+   i<5?{id:'act4-blazej-confrontation',index:i-1}:{id:null,index:0};
+  let advanced=false;
+  for(let attempt=0;attempt<3&&!advanced;attempt++){
+   await dialogueNext();
+   await sleep(110);
+   const state=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
+   advanced=state.id===expected.id&&state.index===expected.index;
+   if(!advanced&&attempt===2)assert.deepEqual(state,expected,'six mandatory panels cannot be skipped or repeated');
+  }
+ }
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.started&&s.schoolPhase==='COMBAT'})()",'bypassing optional encounter still starts four waves');
  console.log('PASS Act IV Chromium: Maciek/Seba bypass leaves pitch encounter and ordinary combat reachable');
  await cdp('Page.reload',{ignoreCache:true});
@@ -366,8 +403,14 @@ try{
  assert.ok(hit.hit>0&&hit.visible&&hit.hp<60,'real damage bark under original probability '+JSON.stringify(hit));
  const following=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks,p=b.pool.find(p=>p.root.visible&&p.event?.kind==='damage'),e=p.event.speaker,oldX=p.bounds.x;e.x+=18;s.combat.renderers[e.type].update(e,s.player,18,.03);b.tick(s.combat.elapsedMs);const next=b.pool.find(p=>p.root.visible&&p.event?.speaker===e);return {visible:!!next,dx:(next?.bounds.x??oldX)-oldX}})()");
  assert.ok(following.visible&&Math.abs(following.dx)>7,'bubble follows moving enemy '+JSON.stringify(following));
+ // Long smoke runs must not let incidental enemy contact terminate the
+ // paused-scene regression before the resume assertions are exercised.
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.hp=999;s.hpFace.setHp(s.run.maxHp);s.player.setPosition(550,450);s.player.body.reset(550,450);return true})()");
  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
- await touch(p.x,p.y);
+ for(let attempt=0;attempt<3;attempt++){
+  await touch(p.x,p.y);await sleep(180);
+  if(await evaluate("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')"))break;
+ }
  await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'School bark MENU pause');
  assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('School').ambientBarks;return [b.state.active.length,b.pool.filter(p=>p.root.visible).length]})()"),[0,0],'barks hidden on MENU');
  await tapMenu('WZNÓW');
@@ -397,7 +440,10 @@ try{
  const hiddenGuest=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks,actor=s.blazej.actor;actor.sprite.setVisible(false);b.tick(s.combat.elapsedMs);const hidden=b.pool.every(p=>!p.root.visible||p.event?.speaker!==actor);actor.sprite.setVisible(true);return hidden})()");
  assert.equal(hiddenGuest,true,'invisible Błażej cannot retain speech bubble');
  const barkPause=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
- await touch(barkPause.x,barkPause.y);
+ for(let attempt=0;attempt<3;attempt++){
+  await touch(barkPause.x,barkPause.y);await sleep(180);
+  if(await evaluate("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')"))break;
+ }
  await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'observer bark MENU pause');
  assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('School').ambientBarks;return [b.state.active.length,b.pool.filter(p=>p.root.visible).length]})()"),[0,0],'guest bubbles gone on MENU');
  await tapMenu('WZNÓW');
@@ -490,30 +536,14 @@ try{
  // PR106: stage only through existing DEBUG conventions; never replay 170s.
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'menu before PR106 boss QA');
- // Hold the actual approved portrait request so the final DEBUG panel opens
- // with its fallback, then release it without advancing/restarting the dialog.
- let pausedBlazejPortrait=null;
- const onPortraitPaused=event=>{
-  const message=JSON.parse(event.data);
-  if(message.method==='Fetch.requestPaused'&&message.params.request.url.includes('dialogue-blazej.png'))
-   pausedBlazejPortrait=message.params.requestId;
- };
- socket.addEventListener('message',onPortraitPaused);
- await cdp('Fetch.enable',{patterns:[{urlPattern:'*dialogue-blazej.png',requestStage:'Request'}]});
+ // ActTitle prepares Błażej's approved portrait before gameplay is visible.
+ // The late-arrival fallback/refresh is covered independently by focused tests.
  await bootSchool('act4-blazej');
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_PENDING'&&s.dialogueState?.id==='act4-blazej-final'})()",'single post-wave Błażej panel',4500);
- await wait("!window.__game.scene.getScene('School').dialoguePanel.loaded.has('blazej')",'late Błażej portrait still pending');
- assert.ok(pausedBlazejPortrait,'real Błażej PNG request held before final panel');
- const initialPortrait=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),d=s.dialoguePanel;return {id:s.dialogueState.id,index:s.dialogueState.index,text:d.text.text,images:d.shell.list.filter(o=>o.type==='Image'&&o.visible).map(o=>o.texture.key)}})()");
- assert.deepEqual(initialPortrait,{id:'act4-blazej-final',index:0,text:'Ech, kazał pan, musiał sam!',images:[]},
-  'late portrait leaves fallback and dialogue index unchanged');
- await cdp('Fetch.continueRequest',{requestId:pausedBlazejPortrait});
- await cdp('Fetch.disable');
- socket.removeEventListener('message',onPortraitPaused);
- await wait("(()=>{const s=window.__game.scene.getScene('School'),d=s.dialoguePanel;return d.loaded.has('blazej')&&d.shell.list.some(o=>o.type==='Image'&&o.visible&&o.texture.key==='dialogue-blazej')})()",'late approved portrait appears without dialogue restart',6000);
+ await wait("(()=>{const s=window.__game.scene.getScene('School'),d=s.dialoguePanel;return d.loaded.has('blazej')&&d.shell.list.some(o=>o.type==='Image'&&o.visible&&o.texture.key==='dialogue-blazej')})()",'predecoded Błażej portrait remains visible in final DEBUG panel',6000);
  const afterPortrait=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,index:s.dialogueState.index,text:s.dialoguePanel.text.text}})()");
- assert.deepEqual(afterPortrait,{id:initialPortrait.id,index:initialPortrait.index,text:initialPortrait.text},
-  'async portrait image refresh preserves active dialogue panel');
+ assert.deepEqual(afterPortrait,{id:'act4-blazej-final',index:0,text:'Ech, kazał pan, musiał sam!'},
+  'cached portrait does not reset or advance dialogue');
  const passiveBoss=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {phase:s.schoolPhase,visible:s.blazej.actor.sprite.visible,active:s.blazej.active,target:s.blazej.target,hp:s.blazej.actor.hp,ordinary:s.combat.enemies.length,started:s.combat.started,artifacts:[...s.run.artifacts],dialogue:s.dialogueState.id,pausedBarks:s.ambientBarks.state.active.length}})()");
  assert.equal(passiveBoss.phase,'BLAZEJ_PENDING');
  assert.equal(passiveBoss.visible,true);
@@ -640,7 +670,9 @@ try{
  assert.ok(bicycleReward.approvedImage===null||bicycleReward.approvedImage==='artifact-blazej-bicycle','only validated original bike PNG or honest text fallback');
  const bikeAssetStatus=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),t=s.textures;return {movieReady:s.bicycleCinematic.ready,movieStarted:s.bicycleCinematic.started,movieTexture:t.exists('act4-aloes-bicycle-cinematic'),movieFrames:t.exists('act4-aloes-bicycle-cinematic')?t.get('act4-aloes-bicycle-cinematic').frameTotal:null,artifact:s.bicycleTexture,artifactTexture:t.exists('artifact-blazej-bicycle'),phase:s.schoolPhase}})()");
  console.log('ACT IV BICYCLE ASSET STATUS',JSON.stringify(bikeAssetStatus));
- await wait("(()=>{const s=window.__game.scene.getScene('School');return s.bicycleCinematic.ready&&s.bicycleTexture==='artifact-blazej-bicycle'})()",'both actual approved bicycle images decoded in browser',4500);
+ assert.ok(!bikeAssetStatus.movieTexture&&!bikeAssetStatus.movieReady&&!bikeAssetStatus.movieStarted,
+   'large 3072x1296 bicycle film stays lazy until reward DALEJ');
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.bicycleTexture==='artifact-blazej-bicycle'})()",'approved bicycle artifact decoded, film intentionally deferred',4500);
  const rewardPoint=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.rewardButton.x,y:r.y+s.rewardButton.y}})()");
  await sleep(250);await touch(rewardPoint.x,rewardPoint.y);
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BICYCLE_RIDE'&&s.bicycleRideStarted&&s.storyBusy&&!s.rewardRoot.visible})()",'reward DALEJ opens one cinematic transition',2000);

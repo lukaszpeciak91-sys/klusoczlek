@@ -15,7 +15,9 @@ test('five distinct Act III debug checkpoints and valid campaign fixtures',()=>{
 });
 test('Act III debug state is initialized after terrain and boss asset readiness',()=>{
  const s=read('../src/volcano-scene.js');
- assert.ok(s.includes('void this.initializeDebugCheckpoint(ready)'));
+ assert.ok(s.includes('return this.initializeDebugCheckpoint(ready)'));
+ assert.ok(s.includes('this.debugPreparation=this.boss.prepare().then(async ready=>'));
+ assert.ok(s.includes('critical:()=>!!this.walkability&&this.terrainImage.visible'));
  assert.ok(s.includes('nearestVolcanoSpawn(this.walkability,target.x,target.y,PLAYER_RADIUS'));
  assert.ok(s.includes('this.run.hp=this.run.maxHp'));
  assert.ok(s.includes('this.boss.debugBeginBoss()'));

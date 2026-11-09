@@ -78,7 +78,7 @@ export function createPlayerVisual(scene,player,indicator,Phaser){
   applied=key===LEGACY_PLAYER.key?'legacy':id;
  }
  // Start with the unarmed appearance; legacy artwork remains the fallback.
- void select(DEFAULT_PLAYER_VARIANT);
+ let appearanceLoading=select(DEFAULT_PLAYER_VARIANT);
  function update(facing,moving,deltaMs){
   lastFacing=facing;
   if(!sprite||!sprite.active)return;
@@ -95,5 +95,7 @@ export function createPlayerVisual(scene,player,indicator,Phaser){
   if(shadow?.active){const at=shadowPosition(player);shadow.setPosition(at.x,at.y);}
  }
  function destroy(){alive=false;requestId++;if(sprite){sprite.destroy();sprite=null;}if(shadow){shadow.destroy();shadow=null;}player.setVisible(true);indicator.setVisible(true);}
- return {update,destroy,hit(source){return recordHit(feedback,scene.time.now,source,player);},recoil(){recoilRemaining=105;},setVariant:select,get requestedVariant(){return requested;},get appliedVariant(){return applied;},get sprite(){return sprite;},get shadow(){return shadow;},get loaded(){return Boolean(sprite?.active);}};
+ return {update,destroy,hit(source){return recordHit(feedback,scene.time.now,source,player);},recoil(){recoilRemaining=105;},
+  setVariant(id){appearanceLoading=select(id);return appearanceLoading;},
+  get loading(){return appearanceLoading;},get requestedVariant(){return requested;},get appliedVariant(){return applied;},get sprite(){return sprite;},get shadow(){return shadow;},get loaded(){return Boolean(sprite?.active);}};
 }
