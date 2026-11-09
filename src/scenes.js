@@ -35,7 +35,7 @@ import {COMBAT_TUNING,createFiringState,resetFiring,firingStep,flameTargetVisibl
 import {createPressure,stepPressure,cancelPressureTrigger} from './flame-pressure.js';
 import {createGameplayClock,advanceGameplayClock,formatGameplayClock} from './gameplay-clock.js';
 import { ENCOUNTER, applyEnemyHit, applyPlayerContact } from './bobrozombi.js';
-import {DEBUG_CHECKPOINTS,createDebugFixture} from './debug-checkpoints.js';
+import {readActUnlocks,actIsUnlocked,createActReplay} from './act-unlocks.js';
 import { menuLayout, arenaHudLayout } from './ui-layout.js';
 import { enforceOrientationOnSceneStart } from './viewport.js';
 import {OBSTACLE_RULES,resolveObstaclePosition,steerObstacleStep,segmentObstacleHit,damageObstacle,inExplosion} from './obstacles.js';
@@ -112,9 +112,9 @@ export class MenuScene extends Phaser.Scene {
       writeCampaignCheckpoint(run,FIRST_ACT_ID);
       this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
     });
-    const debug = button(this, initial.centerX, 0, initial.startWidth, 44, 'DEBUG', pointer => {
-      if(!allowed()||this.debugOpen)return;
-      debugOpeningPointer=pointer.id;debugScroll=0;this.debugOpen=true;debugGesture=null;resize();
+    const acts = button(this, initial.centerX, 0, initial.startWidth, 44, 'AKTY', pointer => {
+      if(!allowed()||this.actsOpen)return;
+      actsOpeningPointer=pointer.id;actsScroll=0;this.actsOpen=true;actsGesture=null;resize();
     });
     const resume = ((hasSession&&!terminal)||savedCheckpoint) ? button(this, initial.centerX, 0, initial.startWidth, 44, 'WZNÓW', () => {
       if (!allowed()) return;
@@ -142,37 +142,36 @@ export class MenuScene extends Phaser.Scene {
       this.game.registry.set('campaign-run',run);
       this.scene.start('ActTitle',{actId:handoff?.actId??FIRST_ACT_ID,handoff});
     }) : null;
-    this.debugOpen=false;
+    this.actsOpen=false;
     this.optionsOpen=false;
-    let debugScroll=0,debugMaxScroll=0,debugViewportTop=0,debugViewportBottom=0;
-    let debugGesture=null,debugOpeningPointer=null;
-    const choices=DEBUG_CHECKPOINTS.map(checkpoint=>({
-      checkpoint,
-      control:button(this,initial.centerX,0,160,34,checkpoint.label,()=>{})
-    }));
-    const activateCheckpoint=checkpoint=>{
-      if(!allowed()||!this.debugOpen)return;
-      const fixture=createDebugFixture(checkpoint.id);
-      if(!fixture)return;
+    const unlockedAtOpen=readActUnlocks().highest;
+    let actsScroll=0,actsMaxScroll=0,actsViewportTop=0,actsViewportBottom=0;
+    let actsGesture=null,actsOpeningPointer=null;
+    const choices=CAMPAIGN_ACTS.map(act=>{
+      const unlocked=act.number<=unlockedAtOpen;
+      const text=act.label+' — '+act.title+'  •  '+(unlocked?'ODBLOKOWANY':'ZABLOKOWANY');
+      return {act,unlocked,control:button(this,initial.centerX,0,160,34,text,()=>{})};
+    });
+    const activateAct=act=>{
+      if(!allowed()||!this.actsOpen||!actIsUnlocked(act.id))return;
+      const replay=createActReplay(act.id);
+      if(!replay)return;
       this.navigating=true;
       this.cameras.main.once('camerafadeoutcomplete',()=>{
         if(!this.sys.isActive())return;
         if(hasSession)this.scene.stop(sessionKey);
-        fixture.run.isDebugRun=true;
-        this.game.registry.set('campaign-run',fixture.run);
-        // DEBUG, like normal play, passes through the same current-act asset
-        // preparation gate. Never build a cold scene underneath the menu.
-        this.scene.start('ActTitle',{actId:checkpoint.actId,handoff:fixture.handoff,debugCheckpoint:checkpoint.id});
+        this.game.registry.set('campaign-run',replay.run);
+        this.scene.start('ActTitle',{actId:act.id,handoff:replay.handoff});
       });
       this.cameras.main.fadeOut(240,0,0,0);
     };
     const back=button(this,initial.centerX,0,150,35,'WRÓĆ',()=>{
       if(!allowed())return;
-      this.debugOpen=false;debugGesture=null;debugOpeningPointer=null;resize();
+      this.actsOpen=false;actsGesture=null;actsOpeningPointer=null;resize();
     });
     // In-menu audio settings: Phaser hit zones and pointer gestures, no new scene.
     const optionsButton=button(this,0,0,180,42,'OPCJE',pointer=>{
-      if(!allowed()||this.debugOpen)return;
+      if(!allowed()||this.actsOpen)return;
       this.optionsOpen=true;
       optionsOpeningPointer=pointer.id;
       resize();
@@ -220,13 +219,13 @@ export class MenuScene extends Phaser.Scene {
     const resize = () => {
       const layout = menuLayout(this.scale.width, this.scale.height);
       const w=this.scale.width,h=this.scale.height;
-      title.setPosition(layout.centerX,this.debugOpen?h*.105:layout.titleY)
-        .setFontSize(this.debugOpen?Math.max(18,Math.min(31,h*.09)):layout.titleSize)
+      title.setPosition(layout.centerX,this.actsOpen?h*.105:layout.titleY)
+        .setFontSize(this.actsOpen?Math.max(18,Math.min(31,h*.09)):layout.titleSize)
         .setVisible(!this.optionsOpen);
-      subtitle.setVisible(!this.debugOpen&&!this.optionsOpen);
+      subtitle.setVisible(!this.actsOpen&&!this.optionsOpen);
       subtitle.setPosition(layout.centerX,layout.subtitleY).setFontSize(layout.subtitleSize);
-      const showMain=!this.debugOpen&&!this.optionsOpen;
-      const controls=[newGame,resume,debug,optionsButton].filter(Boolean);
+      const showMain=!this.actsOpen&&!this.optionsOpen;
+      const controls=[newGame,resume,acts,optionsButton].filter(Boolean);
       selection.setVisible(showMain);
       selectedMenuIndex=Math.min(selectedMenuIndex,controls.length-1);
       trim.clear();
@@ -283,55 +282,56 @@ export class MenuScene extends Phaser.Scene {
       const buttonWidth=Math.min(650,w-2*margin);
       const rowGap=Math.max(48,Math.min(60,h*.155));
       const itemHeight=rowGap-7;
-      debugViewportTop=Math.max(h*.19,title.y+title.height/2+14);
-      debugViewportBottom=h*.91-Math.min(37,h*.10)/2-14;
-      const viewportHeight=Math.max(0,debugViewportBottom-debugViewportTop);
+      actsViewportTop=Math.max(h*.19,title.y+title.height/2+14);
+      actsViewportBottom=h*.91-Math.min(37,h*.10)/2-14;
+      const viewportHeight=Math.max(0,actsViewportBottom-actsViewportTop);
       const contentHeight=choices.length*rowGap-(rowGap-itemHeight);
-      debugMaxScroll=Math.max(0,contentHeight-viewportHeight);
-      debugScroll=Math.max(0,Math.min(debugMaxScroll,debugScroll));
-      choices.forEach(({control},i)=>{
-        const x=w/2,y=debugViewportTop+itemHeight/2+i*rowGap-debugScroll;
-        const visible=this.debugOpen&&y-itemHeight/2>=debugViewportTop-0.5&&y+itemHeight/2<=debugViewportBottom+0.5;
-        control.background.setPosition(x,y).setSize(buttonWidth,itemHeight).setVisible(visible);
-        control.caption.setPosition(x,y).setFontSize(Math.max(11,Math.min(18,buttonWidth/(Math.max(20,control.caption.text.length)*.65),h*.047))).setVisible(visible);
+      actsMaxScroll=Math.max(0,contentHeight-viewportHeight);
+      actsScroll=Math.max(0,Math.min(actsMaxScroll,actsScroll));
+      choices.forEach(({control,unlocked},i)=>{
+        const x=w/2,y=actsViewportTop+itemHeight/2+i*rowGap-actsScroll;
+        const visible=this.actsOpen&&y-itemHeight/2>=actsViewportTop-0.5&&y+itemHeight/2<=actsViewportBottom+0.5;
+        control.background.setPosition(x,y).setSize(buttonWidth,itemHeight).setVisible(visible)
+          .setFillStyle(unlocked?COLORS.panel:0x24242a);
+        control.caption.setColor(unlocked?COLORS.white:'#777780').setPosition(x,y).setFontSize(Math.max(11,Math.min(18,buttonWidth/(Math.max(20,control.caption.text.length)*.65),h*.047))).setVisible(visible);
         // Selection is handled by a complete pointer gesture, never Phaser's
         // pointerup event on a button that may have appeared under the finger.
         control.background.disableInteractive();
       });
-      back.background.setPosition(w/2,h*.91).setSize(Math.min(170,w*.35),Math.min(37,h*.10)).setVisible(this.debugOpen);
-      back.caption.setPosition(w/2,h*.91).setFontSize(Math.max(13,Math.min(18,h*.052))).setVisible(this.debugOpen);
-      back.background.input.enabled=this.debugOpen;
+      back.background.setPosition(w/2,h*.91).setSize(Math.min(170,w*.35),Math.min(37,h*.10)).setVisible(this.actsOpen);
+      back.caption.setPosition(w/2,h*.91).setFontSize(Math.max(13,Math.min(18,h*.052))).setVisible(this.actsOpen);
+      back.background.input.enabled=this.actsOpen;
     };
-    const inDebugList=pointer=>this.debugOpen&&!this.optionsOpen&&pointer.y>=debugViewportTop&&pointer.y<=debugViewportBottom;
+    const inDebugList=pointer=>this.actsOpen&&!this.optionsOpen&&pointer.y>=actsViewportTop&&pointer.y<=actsViewportBottom;
     const choiceAt=pointer=>choices.find(({control})=>control.background.visible&&
       Math.abs(pointer.x-control.background.x)<=control.background.width/2&&
       Math.abs(pointer.y-control.background.y)<=control.background.height/2);
     const pointerDown=pointer=>{
-      if(debugOpeningPointer!==null||!inDebugList(pointer)||debugGesture)return;
-      debugGesture={id:pointer.id,startY:pointer.y,startX:pointer.x,scroll:debugScroll,moved:false,
+      if(actsOpeningPointer!==null||!inDebugList(pointer)||actsGesture)return;
+      actsGesture={id:pointer.id,startY:pointer.y,startX:pointer.x,scroll:actsScroll,moved:false,
         choice:choiceAt(pointer)};
     };
     const pointerMove=pointer=>{
-      if(!debugGesture||pointer.id!==debugGesture.id)return;
-      const g=debugGesture;
+      if(!actsGesture||pointer.id!==actsGesture.id)return;
+      const g=actsGesture;
       if(Math.hypot(pointer.x-g.startX,pointer.y-g.startY)>9)g.moved=true;
       if(!g.moved)return;
-      debugScroll=Math.max(0,Math.min(debugMaxScroll,g.scroll-(pointer.y-g.startY)));
+      actsScroll=Math.max(0,Math.min(actsMaxScroll,g.scroll-(pointer.y-g.startY)));
       resize();
     };
     const pointerUp=pointer=>{
-      if(pointer.id===debugOpeningPointer){debugOpeningPointer=null;debugGesture=null;return;}
-      const g=debugGesture;
+      if(pointer.id===actsOpeningPointer){actsOpeningPointer=null;actsGesture=null;return;}
+      const g=actsGesture;
       if(!g||pointer.id!==g.id)return;
-      debugGesture=null;
+      actsGesture=null;
       if(g.moved||!inDebugList(pointer)||!g.choice||choiceAt(pointer)!==g.choice)return;
-      activateCheckpoint(g.choice.checkpoint);
+      activateAct(g.choice.act);
     };
-    const pointerCancel=()=>{debugGesture=null;debugOpeningPointer=null;};
+    const pointerCancel=()=>{actsGesture=null;actsOpeningPointer=null;};
     const wheel=(pointer,_objects,_dx,dy)=>{
       if(!inDebugList(pointer))return;
-      debugGesture=null;
-      debugScroll=Math.max(0,Math.min(debugMaxScroll,debugScroll+dy));
+      actsGesture=null;
+      actsScroll=Math.max(0,Math.min(actsMaxScroll,actsScroll+dy));
       resize();
     };
     this.input.on('pointerdown',optionsPointerDown);
