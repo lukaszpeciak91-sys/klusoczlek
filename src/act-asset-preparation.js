@@ -38,7 +38,7 @@ const enemy=def=>asAsset(def);
 const player=variant=>asAsset(variant??players[0]);
 const captain=()=>asAsset({...CAPTAIN_SHEET,key:'npc-captain'},false);
 const atlas=()=>asAsset(FOREST_ATLAS,false);
-const shared=()=>[player(players[0]),hp()];
+const shared=()=>[...players.map(player),hp()];
 const actorSheet=(path,key,width,height,frameWidth,frameHeight,required=false)=>
  asAsset({path,key,width,height,frameWidth,frameHeight},required);
 
@@ -76,7 +76,7 @@ export function actRequiredAssets(actId){
 const sessions=new WeakMap();
 function session(game){
  let current=sessions.get(game);
- if(!current){current={inFlight:new Map(),masks:new Map(),failures:new Map()};sessions.set(game,current);}
+ if(!current){current={inFlight:new Map(),pathInFlight:new Map(),masks:new Map(),failures:new Map()};sessions.set(game,current);}
  return current;
 }
 export function preparedVolcanoMask(game){return session(game).masks.get('act3')??null;}
@@ -106,42 +106,53 @@ function decodeImage(bytes,signal){
   img.src=objectUrl;
  });
 }
-export async function prepareActAsset(game,def,{signal}={}){
- const state=session(game),texture=game.textures;
- if(texture.exists(def.key)&&(!def.collision||state.masks.has('act3')))return {key:def.key,cached:true};
- if(state.inFlight.has(def.key))return state.inFlight.get(def.key);
+async function fetchDecodedPath(state,path,signal){
+ if(state.pathInFlight.has(path))return state.pathInFlight.get(path);
  const work=(async()=>{
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),REQUIRED_ASSET_TIMEOUT_MS);
   const stop=()=>controller.abort();
   signal?.addEventListener('abort',stop,{once:true});
   try{
-   const response=await fetch(assetUrl(import.meta.env.BASE_URL,def.path),{signal:controller.signal});
+   if(signal?.aborted)throw Error('asset preparation aborted');
+   const response=await fetch(assetUrl(import.meta.env.BASE_URL,path),{signal:controller.signal});
    if(!response.ok)throw Error('asset HTTP '+response.status);
    const bytes=new Uint8Array(await response.arrayBuffer());
-   if(!validProductionAsset(bytes,def))throw Error('invalid approved PNG '+def.path);
    const img=await decodeImage(bytes,controller.signal);
    if(controller.signal.aborted)throw Error('asset preparation aborted');
-   if(def.width&&img.naturalWidth!==def.width||def.height&&img.naturalHeight!==def.height)
-    throw Error('decoded PNG dimensions mismatch');
-   if(def.collision){
-    const canvas=document.createElement('canvas');
-    canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
-    const ctx=canvas.getContext('2d',{willReadFrequently:true});
-    if(!ctx)throw Error('required collision canvas unavailable');
-    ctx.drawImage(img,0,0);
-    const mask=createVolcanoWalkability(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);
-    const spawn=nearestVolcanoSpawn(mask,VOLCANO_START.x,VOLCANO_START.y,PLAYER_RADIUS);
-    if(!spawn)throw Error('no safe initial volcano spawn');
-    state.masks.set('act3',{mask,spawn});
-   }
-   if(!texture.exists(def.key)){
-    if(def.frameWidth)texture.addSpriteSheet(def.key,img,{frameWidth:def.frameWidth,frameHeight:def.frameHeight});
-    else texture.addImage(def.key,img);
-   }
-   texture.get(def.key).setFilter(1);
-   return {key:def.key,cached:false};
+   return {bytes,img};
   }finally{clearTimeout(timeout);signal?.removeEventListener('abort',stop);}
+ })();
+ state.pathInFlight.set(path,work);
+ try{return await work;}finally{state.pathInFlight.delete(path);}
+}
+export async function prepareActAsset(game,def,{signal}={}){
+ const state=session(game),texture=game.textures;
+ if(texture.exists(def.key)&&(!def.collision||state.masks.has('act3')))return {key:def.key,cached:true};
+ if(state.inFlight.has(def.key))return state.inFlight.get(def.key);
+ const work=(async()=>{
+  const {bytes,img}=await fetchDecodedPath(state,def.path,signal);
+  if(signal?.aborted)throw Error('asset preparation aborted');
+  if(!validProductionAsset(bytes,def))throw Error('invalid approved PNG '+def.path);
+  if(def.width&&img.naturalWidth!==def.width||def.height&&img.naturalHeight!==def.height)
+   throw Error('decoded PNG dimensions mismatch');
+  if(def.collision){
+   const canvas=document.createElement('canvas');
+   canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+   const ctx=canvas.getContext('2d',{willReadFrequently:true});
+   if(!ctx)throw Error('required collision canvas unavailable');
+   ctx.drawImage(img,0,0);
+   const mask=createVolcanoWalkability(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);
+   const spawn=nearestVolcanoSpawn(mask,VOLCANO_START.x,VOLCANO_START.y,PLAYER_RADIUS);
+   if(!spawn)throw Error('no safe initial volcano spawn');
+   state.masks.set('act3',{mask,spawn});
+  }
+  if(!texture.exists(def.key)){
+   if(def.frameWidth)texture.addSpriteSheet(def.key,img,{frameWidth:def.frameWidth,frameHeight:def.frameHeight});
+   else texture.addImage(def.key,img);
+  }
+  texture.get(def.key).setFilter(1);
+  return {key:def.key,cached:false};
  })();
  state.inFlight.set(def.key,work);
  try{return await work;}finally{state.inFlight.delete(def.key);}
