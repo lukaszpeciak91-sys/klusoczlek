@@ -1,3 +1,4 @@
+import {retroAudio} from './retro-audio.js';
 // Act IV adapter around the approved Act I encounter, movement, rendering and
 // weapon contracts. No new enemy rules, damage tuning or combat director.
 import {WAVES,WAVE_TIMING} from './episode.js';
