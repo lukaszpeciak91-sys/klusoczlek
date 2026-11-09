@@ -35,6 +35,7 @@ export class AirshipScene extends Phaser.Scene {
   init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
   create(){
     retroAudio.enter('Airship');
+    this.events.on(Phaser.Scenes.Events.RESUME,()=>retroAudio.enter('Airship'));
     this.entryGateReady=false;
     this.campaignRun=currentCampaignRun(this.game);
     const registered=new Set(Object.keys(this.scene.manager.keys));
