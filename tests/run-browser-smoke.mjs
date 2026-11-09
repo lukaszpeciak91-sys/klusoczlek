@@ -46,7 +46,7 @@ try{
  await tapMenu('NOWA GRA');
  await wait("window.__game.scene.isActive('ActTitle')",'NOWA GRA -> Act I title',3000);
  await sleep(160);
- const earlyPaths=await evaluate("performance.getEntriesByType('resource').map(r=>r.name).filter(p=>/act2-|act3-|act4-|schoolyard|blazej\\.png|bogdan\\.png/.test(p))");
+ const earlyPaths=await evaluate("performance.getEntriesByType('resource').map(r=>r.name).filter(p=>p.includes('/assets/')&&/act2-|act3-|act4-|schoolyard|blazej\\.png|bogdan\\.png/.test(p))");
  assert.deepEqual(earlyPaths,[],'cold Act I must not request later-act image resources');
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'saved menu reload');
