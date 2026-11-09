@@ -309,6 +309,11 @@ try{
    await touch(next.x,next.y);
   }
   await wait("(()=>{const s=window.__game.scene.getScene('School');return s.captainDeparting&&s.introActive&&!s.dialogueState.id})()",'Marian departs only after sixth DALEJ',2500);
+  const marianStart=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),a=s.captainArrival.actor;return {x:a.x,y:a.y,alpha:a.alpha,walk:s.captainWalkDistance}})()");
+  await sleep(160);
+  const marianStep=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),a=s.captainArrival.actor;return {x:a.x,y:a.y,alpha:a.alpha,walk:s.captainWalkDistance}})()");
+  assert.ok(marianStep.alpha===1&&marianStep.walk>marianStart.walk&&Math.hypot(marianStep.x-marianStart.x,marianStep.y-marianStart.y)>1,
+   'Captain walks while fully opaque with actual world displacement');
   await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.introActive&&!s.captainArrival.actor?.active&&s.joystick.enabled&&s.aimJoystick.enabled})()",'one Captain chapel departure and restored movement',3800);
   const after=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.run.hp,weapon:s.run.selectedWeapon,artifacts:[...s.run.artifacts].sort(),completed:[...s.run.completedActs].sort(),start:s.combat.started,dialogue:s.dialogueState.id,departing:s.captainDeparting}})()");
   assert.deepEqual([after.hp,after.weapon,after.artifacts,after.completed],
@@ -374,7 +379,7 @@ try{
  const schoolArtPlacement=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.schoolArt.images.map(i=>({key:i.texture.key,x:i.x,y:i.y,w:i.displayWidth,h:i.displayHeight,depth:i.depth})).sort((a,b)=>a.key.localeCompare(b.key))})()");
  assert.deepEqual(schoolArtPlacement,[
   {key:'schoolyard-approved-bg',x:0,y:0,w:1800,h:1200,depth:-18},
-  {key:'schoolyard-approved-chapel',x:330,y:965,w:235,h:235,depth:12},
+  {key:'schoolyard-approved-chapel',x:330,y:965,w:317.25,h:317.25,depth:12},
   {key:'schoolyard-approved-rack',x:1510,y:857,w:287,h:222,depth:12},
   {key:'schoolyard-approved-school',x:1480,y:420,w:520,h:384,depth:12}
  ].sort((a,b)=>a.key.localeCompare(b.key)),'four approved art layers retain native PNG textures, scaled rack and clear pitch');
