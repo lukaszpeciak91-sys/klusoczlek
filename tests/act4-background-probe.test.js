@@ -46,7 +46,7 @@ function cropPreview(bg){
  const header=Buffer.alloc(13);header.writeUInt32BE(w,0);header.writeUInt32BE(h,4);header[8]=8;header[9]=6;
  const png=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),pngChunk('IHDR',header),pngChunk('IDAT',deflateSync(raw)),pngChunk('IEND',Buffer.alloc(0))]);
  const b64=png.toString('base64');console.log('BGPNG_START '+b64.length);
- for(let i=0;i<b64.length;i+=3000)console.log('BGPNG_PART '+b64.slice(i,i+3000));
+ for(let i=0;i<b64.length;i+=1500)console.log('BGPNG_PART '+b64.slice(i,i+1500));
  console.log('BGPNG_END');
 }
 
