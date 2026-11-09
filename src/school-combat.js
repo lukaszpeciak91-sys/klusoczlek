@@ -342,7 +342,8 @@ export function createSchoolCombat(scene,Phaser){
  }
  function update(delta,now=performance.now(),aimInput={x:0,y:0},held=false){
   if((!started&&!optionalHostile)||defeated||scene.introActive||scene.disposed)return;
-  const elapsed=advanceGameplayClock(clock,now,true);
+  // Optional Maciek/Seba combat must not bill time to the four ordinary waves.
+  const elapsed=advanceGameplayClock(clock,now,started);
   wave=schoolWaveIndex(elapsed);
   if(phase==='COMBAT'&&elapsed>=SCHOOL_COMBAT_MS)transition('CLEANUP');
   if(phase==='COMBAT'){
