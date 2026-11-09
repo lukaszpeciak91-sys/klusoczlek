@@ -1,5 +1,6 @@
 import {createBarkState,makeMonsterBark,showMonsterBark,syncMonsterBark,WATER_BARKS,clearBark} from './monster-bark.js';
 import {createPixelBurst} from './pixel-death-vfx.js';
+import {retroAudio} from './retro-audio.js';
 import {bogdanCombatHit,bogdanConeTarget} from './volcano-bogdan.js';
 import {applyEnemyHit,applyPlayerContact} from './bobrozombi.js';
 import {inFlameCone,cooldownReady,COMBAT_TUNING,createFiringState,firingStep,resetFiring} from './weapon-combat.js';
