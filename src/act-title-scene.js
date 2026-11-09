@@ -18,7 +18,7 @@ export class ActTitleScene extends Phaser.Scene {
     if(!act||!this.nextScene){this.scene.start('Menu');return;}
     // Commit the next ACT ENTRY before its title animation. Save must remain
     // independent of scene timing and never include debug fixture progress.
-    if(!currentCampaignRun(this.game).isDebugRun&&this.handoff&&this.handoff.actId===this.actId){
+    if(!currentCampaignRun(this.game).isDebugRun&&!currentCampaignRun(this.game).isReplayRun&&this.handoff&&this.handoff.actId===this.actId){
       writeCampaignCheckpoint(currentCampaignRun(this.game),this.actId);
     }
     this.cameras.main.setBackgroundColor('#000000');
