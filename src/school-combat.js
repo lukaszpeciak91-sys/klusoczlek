@@ -410,5 +410,5 @@ export function createSchoolCombat(scene,Phaser){
   get optionalHostile(){return optionalHostile;},get enemies(){return enemies;},
   get started(){return started;},get state(){return phase;},get wave(){return wave;},
   get elapsedMs(){return clock.elapsedMs;},get kills(){return kills;},get phaseChanges(){return phaseChanges;},get totalSpawned(){return totalSpawned;},
-  get pressure(){return fire.pressure;},get projectiles(){return projectiles;}};
+  get pressure(){return fire.pressure;},get stream(){return stream;},get projectiles(){return projectiles;}};
 }
