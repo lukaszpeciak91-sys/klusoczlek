@@ -131,13 +131,13 @@ test('PR106 artifact awarded once and Act IV completion preserves weapons, HP, a
  assert.equal(run.stats.activeCombatMs,ms+173500);
  assert.ok(run.unlockedWeapons.has('water-flamethrower'));
  assert.equal(run.selectedWeapon,'rifle');
- assert.equal(getAct('act5').scene,null);
+ assert.equal(getAct('act5').scene,'Catacombs');
  const school=source('../src/school-scene.js');
  assert.ok(school.includes("completeCampaignAct(this.run,'act4'"));
  assert.ok(school.includes("awardRunArtifact(this.run,BLAZEJ_BICYCLE_ID)"));
  assert.ok(school.includes("this.scene.start('Menu')"));
  assert.equal(school.includes("scene.start('Cave'"),false);
- assert.equal(school.includes("scene.start('ActTitle',{actId:'act5'"),false);
+ assert.ok(school.includes("scene.start('ActTitle',{actId:'act5',handoff})"));
 });
 test('PR106 optional bicycle asset is honestly absent; no fake bike and DEBUG never persists save',()=>{
  assert.equal(existsSync(new URL('../public/assets/artifacts/artifact-blazej-bicycle.png',import.meta.url)),false);
