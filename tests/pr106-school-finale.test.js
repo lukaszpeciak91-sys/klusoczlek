@@ -95,11 +95,12 @@ test('PR106 only approved dialogue lines and Act I portrait presentation; no sto
  const observer=DIALOGUES['act4-blazej-observer'].map(line=>line[2]);
  assert.deepEqual(observer,['...i ja wtedy normalnie od razu','Ty to jednak Błażej jesteś gość']);
  const confrontation=DIALOGUES['act4-blazej-confrontation'].map(line=>line[2]);
- for(const text of ['Kazał pan, musiał sam!','Nie wiem kim jesteś ale mam ochotę Cię rozgnieść',
+ for(const text of ['Nie wiem kim jesteś ale mam ochotę Cię rozgnieść',
   'Potrzebuję na chwilę Twojego roweru, dasz się karnąć?',
   'Nie, bo ja się boję, że mi stracisz.\nPoza tym uczciwie ukradłem\ni nie mam zamiaru oddawać'])
   assert.ok(confrontation.includes(text),text);
- assert.equal(confrontation.length,5);
+ assert.equal(confrontation.length,4);
+ assert.equal(confrontation.includes('Kazał pan, musiał sam!'),false);
  assert.deepEqual(DIALOGUES['act4-blazej-final'],[['blazej','BŁAŻEJ','Ech, kazał pan, musiał sam!']]);
  assert.equal(confrontation.some(text=>text.includes('na pierwszą komunię')),false);
  const ending=DIALOGUES['act4-chapel-ending'];
