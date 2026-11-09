@@ -38,6 +38,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.disposed=false;this.entryGateReady=false;
     this.openingComplete=false;
     this.walkability=null;this.debugPreparation=Promise.resolve();
+    this.debugReady=!this.debugCheckpoint||this.debugCheckpoint==='act3-opening';
     this.combatPending=false;
     this.lawosStarted=false;
     this.lawosTravel=0;
@@ -242,7 +243,8 @@ export class VolcanoScene extends Phaser.Scene {
       this.playerVisual.loading,this.dialoguePanel.loading,this.captainArrival.loading
     ]).then(()=>this.debugPreparation);
     this.entryGate=beginSceneReveal(this,production,{
-      critical:()=>!!this.walkability&&this.terrainImage.visible&&this.playerVisual.loaded,
+      critical:()=>!!this.walkability&&this.terrainImage.visible&&this.debugReady&&
+        (this.playerVisual.loaded||this.player?.active),
       onRetry:async()=>{
         const result=await prepareActAssets(this.game,'act3');
         if(!result.ready)throw Error('terrain mask unavailable');
@@ -394,7 +396,7 @@ export class VolcanoScene extends Phaser.Scene {
       }
     }
     if(id!=='act3-apartment')this.cameras.main.startFollow(this.player,true,.12,.12);
-    this.syncControls();return true;
+    this.debugReady=true;this.syncControls();return true;
   }
   startLawosDebugDialogue(){
     if(beginDialogue(this.dialogueState,'act3-lawostworki')){
