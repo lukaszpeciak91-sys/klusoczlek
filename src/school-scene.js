@@ -512,7 +512,7 @@ export class SchoolScene extends Phaser.Scene {
     const colors={chapel:0x86725d,school:0x706a5f,bicycleRack:0x837c56};
     for(const obstacle of this.obstacles){
       const p=SCHOOL_PLACES[obstacle.id];
-      if(!p)continue;
+      if(!p||obstacle.id==='school')continue; // baked into approved terrain
       const rect=this.add.rectangle(p.x,p.y,p.width,p.height,colors[obstacle.id])
         .setStrokeStyle(5,0x272923).setDepth(-9);
       const title=this.add.text(p.x,p.y,p.label,{fontFamily:'monospace',fontSize:'28px',
