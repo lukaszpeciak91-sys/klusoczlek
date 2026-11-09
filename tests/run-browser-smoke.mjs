@@ -1116,6 +1116,7 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  // Remaining final-chapter DEBUG entries must start at their actual stages.
  for(const [id,phase] of [['act5-boss','boss'],['act5-ending','fairy']]){
   await cdp('Page.reload',{ignoreCache:true});
+  await sleep(250); // Wait for the new document; the old Menu context can still satisfy the guard.
   await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'menu and fixture before '+id);
   await evaluate(`(()=>{const g=window.__game,f=window.__createDebugFixture(${JSON.stringify(id)});f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:${JSON.stringify(id)}});return true})()`);
   await wait(`(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.phase===${JSON.stringify(phase)}})()`,'Act V DEBUG '+id,12000);
