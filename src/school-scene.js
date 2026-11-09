@@ -520,6 +520,7 @@ export class SchoolScene extends Phaser.Scene {
       activeCombatMs:this.combat.elapsedMs
     });
     if(!committed)return false;
+    recordActCompletion(this.run,'act4');
     this.actCompleted=true;this.storyBusy=true;
     this.combat.advanceFinale('ACT_IV_COMPLETE');
     this.combat.suspend();this.ambientBarks.suspend();this.resetMovement();
