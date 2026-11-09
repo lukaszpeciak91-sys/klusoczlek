@@ -117,23 +117,6 @@ try{
    pixelSamples:points,gate:s.entryGateReady,phase:s.phase};
  })()`);
  console.log('ACT V APPROVED PIXEL / ALPHA AUDIT',JSON.stringify(art5));
- const visualEvidence=await evaluate(`(()=>{
-  const g=window.__game,s=g.scene.getScene('Catacombs');
-  const canvas=document.createElement('canvas');
-  canvas.width=960;canvas.height=640;
-  const c=canvas.getContext('2d');
-  c.imageSmoothingEnabled=false;
-  const bg=s.textures.get('act5-catacombs-background').source[0].image;
-  c.drawImage(bg,0,0,960,640);
-  for(const obstacle of s.catacombsObstacleArt){
-   const img=obstacle.texture.source[0].image;
-   c.drawImage(img,obstacle.x-obstacle.displayWidth/2,obstacle.y-obstacle.displayHeight,obstacle.displayWidth,obstacle.displayHeight);
-  }
-  return {composite:canvas.toDataURL('image/jpeg',.68),viewport:g.canvas.toDataURL('image/jpeg',.65)};
- })()`);
- console.log('ACT5_COMPOSITE_JPEG:'+visualEvidence.composite);
- console.log('ACT5_VIEWPORT_JPEG:'+visualEvidence.viewport);
-
  assert.deepEqual(art5.bg,{key:'act5-catacombs-background',x:0,y:0,w:960,h:640,depth:-20},
   'real approved catacombs texture rendered at logical world dimensions');
  assert.equal(art5.images.length,5,'one altar and four columns, no doubles');
