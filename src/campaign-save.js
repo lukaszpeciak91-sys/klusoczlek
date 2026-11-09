@@ -1,6 +1,7 @@
 import {createCampaignRun,MARCIN_MOHAWK_ID,snapshotCampaignRun,WATER_FLAMETHROWER_ID} from './campaign-run.js';
 import {FIRST_ACT_ID,getAct,sceneForAct} from './campaign.js';
 import {HORN_ID} from './volcano-finale.js';
+import {BLAZEJ_BICYCLE_ID} from './school-finale.js';
 import {ENCOUNTER} from './bobrozombi.js';
 import {WEAPON_ORDER,availableWeapons} from './weapon-progression.js';
 
@@ -9,7 +10,7 @@ import {WEAPON_ORDER,availableWeapons} from './weapon-progression.js';
 // are never fabricated by the loader.
 export const CAMPAIGN_SAVE_KEY='klusoczlek-campaign-v1';
 export const CAMPAIGN_SAVE_VERSION=1;
-const STAGES=Object.freeze(['act1','act2','act3','act4']);
+const STAGES=Object.freeze(['act1','act2','act3','act4','act5']);
 const MAX_SAFE=Number.MAX_SAFE_INTEGER;
 const validInteger=(n,max=MAX_SAFE)=>Number.isSafeInteger(n)&&n>=0&&n<=max;
 const validNumber=n=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
@@ -32,7 +33,8 @@ function parseCheckpoint(raw){
   if(stage===0&&(raw.unlockedWeapons.length!==1||raw.selectedWeapon!==null))return null;
   const requiredCompleted=STAGES.slice(0,stage);
   if(completed.size!==requiredCompleted.length||requiredCompleted.some(id=>!completed.has(id)))return null;
-  const requiredArtifacts=stage>=3?[MARCIN_MOHAWK_ID,HORN_ID]:stage>=1?[MARCIN_MOHAWK_ID]:[];
+  const requiredArtifacts=stage>=4?[MARCIN_MOHAWK_ID,HORN_ID,BLAZEJ_BICYCLE_ID]:
+    stage>=3?[MARCIN_MOHAWK_ID,HORN_ID]:stage>=1?[MARCIN_MOHAWK_ID]:[];
   if(artifacts.size!==requiredArtifacts.length||requiredArtifacts.some(id=>!artifacts.has(id)))return null;
   const s=raw.stats;
   if(!s||typeof s!=='object'||Array.isArray(s)||!validInteger(s.kills)||!validNumber(s.activeCombatMs)||
@@ -78,4 +80,13 @@ export function writeCampaignCheckpoint(run,actId=run?.actId,storage){
     store.setItem(CAMPAIGN_SAVE_KEY,payload);
     return true;
   }catch{return false;}
+}
+
+// Final completion clears only the existing act-entry checkpoint. Never write a
+// fictional sixth act or restart completed gameplay.
+export function clearCampaignCheckpoint(storage){
+ try{const store=storage===undefined?globalThis.localStorage:storage;
+  if(!store||typeof store.removeItem!=='function')return false;
+  store.removeItem(CAMPAIGN_SAVE_KEY);return true;
+ }catch{return false;}
 }
