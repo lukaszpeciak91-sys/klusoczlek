@@ -105,9 +105,20 @@ try{
  await tapMenu('AKTY');
  assert.equal((await geometry()).acts,true,'AKTY opens');
  await sleep(300);
- const locked=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect();const t=m.children.list.find(x=>x.type==='Text'&&x.visible&&x.text.includes('AKT V')&&x.text.includes('ZABLOKOWANY'));return t?{x:r.x+t.x,y:r.y+t.y}:null})()");
+ const locateLocked=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect();const t=m.children.list.find(x=>x.type==='Text'&&x.visible&&x.text.includes('AKT V')&&x.text.includes('ZABLOKOWANY'));return t?{x:r.x+t.x,y:r.y+t.y}:null})()");
  assert.ok((await evaluate("window.__game.scene.getScene('Menu').children.list.filter(x=>x.type==='Text'&&x.text.includes('ZABLOKOWANY')).length"))>=4);
- if(locked){await touch(locked.x,locked.y);assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true);}
+ let locked=await locateLocked();
+ for(let attempt=0;attempt<12&&!locked;attempt++){
+  const r=await evaluate("(()=>{const r=window.__game.canvas.getBoundingClientRect();return {x:r.x+r.width/2,top:r.y+r.height*.29,bottom:r.y+r.height*.72}})()");
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:r.x,y:r.bottom,id:3}]});
+  for(let i=1;i<=5;i++)await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:r.x,y:r.bottom+(r.top-r.bottom)*i/5,id:3}]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await sleep(70);locked=await locateLocked();
+ }
+ assert.ok(locked,'locked Act V entry reachable by landscape scrolling');
+ await touch(locked.x,locked.y);
+ assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'locked Act V cannot launch');
+ assert.equal((await geometry()).acts,true,'locked touch cannot close AKTY');
  await tapMenu('WRÓĆ');
  assert.equal((await geometry()).acts,false,'WRÓĆ closes AKTY');
  console.log('PASS real Chromium AKTY: fresh lock, no DEBUG public button, no opening click-through, WRÓĆ');
