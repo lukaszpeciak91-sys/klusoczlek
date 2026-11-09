@@ -262,8 +262,12 @@ try{
  for(let i=0;i<maciek.length;i++)await verifyPanel('act4-maciek-seba',i,maciek[i]);
  const optionalDone=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,started:s.combat.started,seen:s.maciekSeen}})()");
  assert.deepEqual(optionalDone,{id:null,started:false,seen:true},'Maciek/Seba once and no automatic combat');
- await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1065,870);s.player.body.reset(1065,870);return true})()");
- await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'pitch observer exchange after optional encounter',4000);
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1135,785);s.player.body.reset(1135,785);return true})()");
+ await sleep(220);
+ assert.equal(await evaluate("window.__game.scene.getScene('School').dialogueState.id"),null,
+  'Błażej observer must not trigger at 200px from actual boss');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1215,785);s.player.body.reset(1215,785);return true})()");
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'Błażej observer inside 130px',4000);
  const staged=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),actors=s.combat.stagedEntourage;window.__schoolStagedEntourage=[...actors];return {types:actors.map(a=>a.type).sort(),alive:actors.filter(a=>a.hp>0&&a.sprite?.active&&a.sprite.visible).length,ordinary:s.combat.enemies.length,spawned:s.combat.totalSpawned,started:s.combat.started,clock:s.combat.elapsedMs,shots:s.combat.projectiles.length,hp:s.run.hp}})()");
  assert.deepEqual(staged.types,['bobrozombi','bocianolak','zubrokryptyda']);
  assert.equal(staged.alive,3,'three approved enemy sprites visually surround passive Błażej before conversation');
@@ -333,8 +337,8 @@ try{
  await wait("window.__game?.scene.isActive('Menu')",'menu before optional bypass');
  await bootSchool('act4-school');
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s?.combat&&!s.introActive&&!s.combat.started&&!s.dialogueState?.id})()",'free School DEBUG staging before pitch');
- await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1065,870);s.player.body.reset(1065,870);return true})()");
- await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'bypassed optional Maciek/Seba; pitch continues');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1215,785);s.player.body.reset(1215,785);return true})()");
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'bypassed optional Maciek/Seba; boss proximity continues');
  assert.equal(await evaluate("window.__game.scene.getScene('School').maciekSeen"),false,'Maciek bypass is truly optional');
  for(let i=0;i<6;i++)await dialogueNext();
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.combat.started&&s.schoolPhase==='COMBAT'})()",'bypassing optional encounter still starts four waves');
@@ -496,6 +500,7 @@ try{
  assert.equal(passiveBoss.ordinary,0);
  assert.equal(passiveBoss.artifacts.length,2);
  assert.equal(passiveBoss.pausedBarks,0);
+ await wait("(()=>{const s=window.__game.scene.getScene('School'),d=s.dialoguePanel;return d.loaded.has('blazej')&&d.shell.list.some(o=>o.type==='Image'&&o.visible&&o.texture.key==='dialogue-blazej')})()",'approved final Błażej portrait in DEBUG pre-boss dialogue',7000);
  // Shared DALEJ helper above verifies one-panel touch advancement.
  const postWave=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,index:s.dialogueState.index,text:s.dialoguePanel.text.text,boss:s.blazej.active,bullets:s.blazej.projectiles.length}})()");
  assert.deepEqual(postWave,{id:'act4-blazej-final',index:0,text:'Ech, kazał pan, musiał sam!',boss:false,bullets:0},'no premature boss before one DALEJ');
@@ -535,10 +540,14 @@ try{
  assert.ok(volley.projectiles>0&&volley.projectiles<=24);
  await evaluate("(()=>{const a=window.__game.scene.getScene('School').blazej.attack;a.phase='chase';a.elapsed=5999;return true})()");
  await wait("(()=>{const b=window.__game.scene.getScene('School').blazej;return b.attack.phase==='warning'&&b.kind==='jump'})()",'jump telegraph before landing');
- const jumpLanding=await evaluate("(()=>{const b=window.__game.scene.getScene('School').blazej;return {x:b.warningTarget?.x,y:b.warningTarget?.y}})()");
- assert.ok(Number.isFinite(jumpLanding.x)&&Number.isFinite(jumpLanding.y));
+ const preLeap=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej;return {x:b.actor.x,y:b.actor.y,playerX:s.player.x,playerY:s.player.y,target:b.warningTarget}})()");
+ assert.equal(preLeap.target,null,'landing is acquired at commitment, not locked during warning');
  await evaluate("(()=>{const a=window.__game.scene.getScene('School').blazej.attack;a.elapsed=899;return true})()");
  await wait("(()=>{const b=window.__game.scene.getScene('School').blazej;return b.jumping&&b.jumpElapsed>60})()",'Błażej visibly airborne after jump warning',1500);
+ const jumpLanding=await evaluate("(()=>{const b=window.__game.scene.getScene('School').blazej;return {x:b.warningTarget?.x,y:b.warningTarget?.y}})()");
+ assert.ok(Number.isFinite(jumpLanding.x)&&Number.isFinite(jumpLanding.y),'selected a collision-safe target on commitment');
+ assert.ok(Math.hypot(jumpLanding.x-preLeap.x,jumpLanding.y-preLeap.y)>25,
+  'Błażej makes real forward movement, not an in-place hop');
  const arc=await evaluate("(()=>{const b=window.__game.scene.getScene('School').blazej;return {lift:b.actor.y-b.actor.sprite.y,elapsed:b.jumpElapsed,groundY:b.actor.y,visualY:b.actor.sprite.y,landings:b.landings}})()");
  assert.ok(arc.lift>10&&arc.lift<=56&&arc.groundY>arc.visualY&&arc.landings===0,
    'visible Błażej arc separates logical ground and raised artwork '+JSON.stringify(arc));
@@ -546,6 +555,9 @@ try{
  const jumped=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej;return {x:b.actor.x,y:b.actor.y,shock:b.jumps,alive:s.run.hp>0,phase:s.schoolPhase}})()");
  assert.ok(jumped.alive&&jumped.phase==='BLAZEJ_BOSS');
  assert.ok(Math.hypot(jumped.x-jumpLanding.x,jumped.y-jumpLanding.y)<1);
+ assert.ok(Math.hypot(jumped.x-preLeap.playerX,jumped.y-preLeap.playerY)<
+   Math.hypot(preLeap.x-preLeap.playerX,preLeap.y-preLeap.playerY),
+   'jump landing is closer to captured Aloes position');
  assert.equal(await evaluate("window.__game.scene.getScene('School').blazej.actor.sprite.getData('zubrokryptyda-art').texture.key"),
   'enemy-blazej-v1','dedicated Błażej sprite remains attached after existing collision-safe jump');
  // Boss MENU/WZNÓW preserves live state without duplicating boss actor.
