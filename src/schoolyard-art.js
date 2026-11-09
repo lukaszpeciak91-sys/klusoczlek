@@ -5,9 +5,9 @@ import {SCHOOL_WORLD} from './school-contract.js';
 
 export const SCHOOL_ART=Object.freeze({
  background:Object.freeze({path:'backgrounds/act4-schoolyard.png',key:'schoolyard-approved-bg'}),
- school:Object.freeze({path:'obstacles/act4-school.png',key:'schoolyard-approved-school',width:610,height:450,x:1360,bottomY:595}),
+ school:Object.freeze({path:'obstacles/act4-school.png',key:'schoolyard-approved-school',width:610,height:450,x:1420,bottomY:595}),
  chapel:Object.freeze({path:'obstacles/act4-chapel.png',key:'schoolyard-approved-chapel',width:235,height:235,x:330,bottomY:965}),
- bicycleRack:Object.freeze({path:'obstacles/act4-bicycle-rack.png',key:'schoolyard-approved-rack',width:330,height:255,x:1510,bottomY:857}),
+ bicycleRack:Object.freeze({path:'obstacles/act4-bicycle-rack.png',key:'schoolyard-approved-rack',width:287,height:222,x:1510,bottomY:857}),
 });
 export function validSchoolyardBackground(bytes){
  if(bytes.length<26||![137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v))return false;
