@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {retroAudio} from './retro-audio.js';
 import {AIRSHIP_WORLD,DECK_POLYGON,AIRSHIP_LAYERS,stepDeckPosition,scrollCloudLayers,clampToDeck,stepAroundWheelhouse,WHEELHOUSE_FOOTPRINT} from './airship-contract.js';
 import {createHorizontalParallaxLayer} from './airship-parallax.js';
 import {PADDLEWHEEL_MOUNT,paddlewheelDisplaySize,advancePaddlewheelAngle} from './airship-paddlewheel.js';
@@ -33,6 +34,7 @@ export class AirshipScene extends Phaser.Scene {
   constructor(){super('Airship');}
   init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
   create(){
+    retroAudio.enter('Airship');
     this.entryGateReady=false;
     this.campaignRun=currentCampaignRun(this.game);
     const registered=new Set(Object.keys(this.scene.manager.keys));
@@ -527,7 +529,9 @@ export class AirshipScene extends Phaser.Scene {
   }
   applyDamage(next,source=null){
     if(this.defense.ended)return;
+    const oldHp=this.playerHp;
     this.playerHp=Math.max(0,Math.min(this.maxHp,Math.floor(next)));
+    if(this.playerHp<oldHp){retroAudio.hurt();if(this.playerHp===0)retroAudio.death();}
     updateRunHealth(this.campaignRun,this.playerHp,this.maxHp);
     this.hpFace.setHp(this.playerHp);
     this.hpText.setText('HP '+this.playerHp+'/'+this.maxHp);
