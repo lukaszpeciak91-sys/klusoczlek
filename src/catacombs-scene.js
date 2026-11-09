@@ -422,7 +422,7 @@ export class CatacombsScene extends Phaser.Scene{
   });
   if(!result&&!this.run.completedActs.has('act5'))return false;
   if(result)recordActCompletion(this.run,'act5');
-  if(!this.run.isDebugRun)clearCampaignCheckpoint();
+  if(!this.run.isDebugRun&&!this.run.isReplayRun)clearCampaignCheckpoint();
   this.dialoguePanel.hide();
   // The camera is already black after MYK. Credits owns the final
   // presentation and its music, avoiding a short KONIEC screen/menu flash.
