@@ -37,17 +37,42 @@ export function blazejConfrontationReady(phase,player,boss=BLAZEJ_START){
  return phase==='BLAZEJ_PENDING'&&!!player&&
   Math.hypot(player.x-boss.x,player.y-boss.y)<=BLAZEJ_CONFRONT_RADIUS;
 }
+export const BLAZEJ_JUMP_MAX_TRAVEL=240;
+// Sample valid landing positions close to the captured player position.
+// Prefer a near miss (~44px) to a guaranteed direct collision with Aloes;
+// the unchanged shockwave can still be dodged during the visible flight.
+// Every segment is swept against the existing School solid footprints.
 export function blazejJumpLanding(origin,player,obstacles=SCHOOL_OBSTACLES){
- if(!origin||!player)return null;
- const dx=player.x-origin.x,dy=player.y-origin.y,d=Math.hypot(dx,dy);
- if(d<1)return {...origin};
- // The short jump stops before Aloes; sweep forbids crossing a solid building,
- // chapel or rack even if the target is on its far side.
- const distance=Math.min(165,Math.max(0,d-72));
- const goal={x:origin.x+dx/d*distance,y:origin.y+dy/d*distance};
- const next=resolveObstaclePosition(origin,goal,BLAZEJ_RADIUS,obstacles);
- if(!schoolWalkable(next,BLAZEJ_RADIUS)||firstFootprintHit(origin,next,obstacles,BLAZEJ_RADIUS))return {...origin};
- return next;
+ if(!origin||!player||![origin.x,origin.y,player.x,player.y].every(Number.isFinite))
+  return null;
+ const dx=origin.x-player.x,dy=origin.y-player.y,d=Math.hypot(dx,dy);
+ const toward=d>0?Math.atan2(dy,dx):0;
+ const candidates=[];
+ for(const radius of [44,32,60,80,100,120,0]){
+  for(let i=0;i<(radius===0?1:16);i++){
+   const angle=toward+(i%2===0?1:-1)*Math.ceil(i/2)*Math.PI/8;
+   const point={x:player.x+radius*Math.cos(angle),y:player.y+radius*Math.sin(angle)};
+   const travel=Math.hypot(point.x-origin.x,point.y-origin.y);
+   if(travel>BLAZEJ_JUMP_MAX_TRAVEL||travel<.001)continue;
+   if(!schoolWalkable(point,BLAZEJ_RADIUS)||
+      firstFootprintHit(origin,point,obstacles,BLAZEJ_RADIUS))continue;
+   candidates.push({point,travel,proximity:Math.hypot(point.x-player.x,point.y-player.y)});
+  }
+ }
+ // If the player is farther away, make the longest possible safe forward leap
+ // instead of bouncing on the spot. Still never cross a solid or map boundary.
+ if(d>BLAZEJ_JUMP_MAX_TRAVEL){
+  for(const distance of [240,220,200,180,160,140,120,100,80,60,40]){
+   const point={x:origin.x+(player.x-origin.x)/d*distance,
+    y:origin.y+(player.y-origin.y)/d*distance};
+   if(schoolWalkable(point,BLAZEJ_RADIUS)&&
+      !firstFootprintHit(origin,point,obstacles,BLAZEJ_RADIUS))
+    candidates.push({point,travel:distance,proximity:Math.hypot(point.x-player.x,point.y-player.y)});
+  }
+ }
+ candidates.sort((a,b)=>a.proximity-b.proximity||
+  Math.abs(a.travel-150)-Math.abs(b.travel-150));
+ return candidates[0]?.point??(schoolWalkable(origin,BLAZEJ_RADIUS)?{x:origin.x,y:origin.y}:null);
 }
 export function chapelReturnValid(){return schoolWalkable(CHAPEL_RETURN)&&
  Math.hypot(CHAPEL_RETURN.x-SCHOOL_PLACES.chapelDoor.x,CHAPEL_RETURN.y-SCHOOL_PLACES.chapelDoor.y)<180;}
