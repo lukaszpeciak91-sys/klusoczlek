@@ -1,4 +1,24 @@
 export const DIALOGUES=Object.freeze({
+ 'act5-betrayal':[
+  ['aloes','ALOES','Marian?! Co pan robi pod kaplicą?'],
+  ['captain','KAPITAN MARIAN','Czekam na moje artefakty, matole!'],
+  ['captain','KAPITAN MARIAN','To ja jestem Kłusoczłek! Od początku tobą kierowałem!'],
+  ['aloes','ALOES','Czyli pan mnie tak po prostu wykorzystał?!'],
+  ['captain','KAPITAN MARIAN','Ty biegałeś po perukę i róg, a ja odzyskiwałem moc.'],
+  ['aloes','ALOES','A rower? Też jest magiczny?'],
+  ['captain','KAPITAN MARIAN','Nie. Po prostu chciałem rower. Nie będę wszędzie łaził pieszo!'],
+  ['aloes','ALOES','To teraz pan dostanie po ryju.']
+ ],
+ 'act5-fairy':[
+  ['swinia-wrozka','ŚWINIA-WRÓŻKA','No. Wreszcie skończyliście te wygłupy.'],
+  ['aloes','ALOES','Może mnie pani odesłać do domu?'],
+  ['swinia-wrozka','ŚWINIA-WRÓŻKA','Mogę. Ale rower zostaje. Opłata manipulacyjna!'],
+  ['aloes','ALOES','A niech to świński piorun trzaśnie!']
+ ],
+ 'act5-home':[
+  ['aloes','ALOES','Uff... własne łóżko. To był tylko dziwny sen?'],
+  ['aloes','ALOES','Zaraz... skąd tu ten róg?']
+ ],
  'act4-captain-opening':[
   ['captain','KAPITAN MARIAN','No i jesteśmy! Szkoła zawodowa!\nTu znajdziesz Błażeja i jego rower!'],
   ['aloes','ALOES','A pan dokąd?'],

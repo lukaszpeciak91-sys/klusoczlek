@@ -14,6 +14,7 @@ import {SCHOOL_ART,validSchoolyardBackground} from './schoolyard-art.js';
 import {HP_FACE_ASSETS} from './hp-face-hud.js';
 import {DIALOGUES} from './dialogue-data.js';
 import {PLAYER_RADIUS} from './movement.js';
+import {MARIAN_FINAL_ASSETS} from './catacombs-contract.js';
 
 export const ACT_TITLE_MIN_MS=1900;
 export const REQUIRED_ASSET_TIMEOUT_MS=10000;
@@ -23,13 +24,14 @@ const portraits={
  act1:['before-wave-1','before-first-bocianolak','before-first-zubrokryptyda','after-final-enemy','act1-captain','before-marcin','after-first-bocianolak-hit'],
  act2:['act2-opening','act2-finale'],
  act3:['act3-opening','act3-lawostworki','act3-apartment-argument','act3-bogdan-confrontation','act3-swinia-wrozka','act3-bogdan-final','act3-eruption-warning','act3-captain-extraction'],
- act4:['act4-captain-opening','act4-maciek-seba','act4-blazej-observer','act4-blazej-confrontation','act4-blazej-final','act4-chapel-ending']
+ act4:['act4-captain-opening','act4-maciek-seba','act4-blazej-observer','act4-blazej-confrontation','act4-blazej-final','act4-chapel-ending'],
+ act5:['act5-betrayal','act5-fairy','act5-home']
 };
 export function actPortraitKeys(actId){
  return [...new Set((portraits[actId]??[]).flatMap(id=>(DIALOGUES[id]??[]).map(line=>line[0])))].filter(key=>key!=='chapel');
 }
 export function scenePortraitKeys(sceneKey){
- return actPortraitKeys(({Arena:'act1',Airship:'act2',Volcano:'act3',School:'act4'})[sceneKey]);
+ return actPortraitKeys(({Arena:'act1',Airship:'act2',Volcano:'act3',School:'act4',Catacombs:'act5'})[sceneKey]);
 }
 const asAsset=(v,required=true)=>({...v,required});
 const portrait=key=>asAsset({path:'dialogue/dialogue-'+key+'.png',key:'dialogue-'+key,width:192,height:192},false);
@@ -70,6 +72,13 @@ export function actRequiredAssets(actId){
       height:id==='background'?1200:(v.sourceHeight??v.height),schoolBackground:id==='background'},true)),
     enemy(BOBROZOMBI_ASSET),enemy(BOCIANOLAK_ASSET),enemy(ZUBROKRYPTYDA_ASSET),
     enemy(BLAZEJ_ASSET),captain(),atlas(),...first];
+  case 'act5':return [...common,
+    asAsset({...MARIAN_FINAL_ASSETS.normal},false),
+    asAsset({...MARIAN_FINAL_ASSETS.transformed},false),
+    asAsset({...MARIAN_FINAL_ASSETS.portrait},false),
+    enemy(BOBROZOMBI_ASSET),enemy(BOCIANOLAK_ASSET),enemy(ZUBROKRYPTYDA_ASSET),
+    actorSheet('npcs/swinia-wrozka.png','act5-fairy',256,256,256,256,false),
+    ...first];
   default:return [];
  }
 }

@@ -37,7 +37,7 @@ try{
  await cdp('Runtime.enable');
  await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:3});
  const evaluate=async expression=>{const r=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result?.value;};
- const wait=async(expression,label,timeout=12000)=>{const end=Date.now()+timeout;while(Date.now()<end){try{if(await evaluate(expression))return;}catch(error){if(!/Inspected target navigated|Execution context was destroyed|Cannot find context/.test(String(error)))throw error;}await sleep(80);}let detail='';try{detail=JSON.stringify(await evaluate("(()=>{const g=window.__game;return {active:g?.scene?.getScenes(true)?.map(s=>s.scene.key),title:(()=>{const t=g?.scene?.getScene('ActTitle');return t?.assetGate?{act:t.actId,next:t.nextScene,...t.assetGate,progress:t.assetProgress,attempts:t.preparationAttempts,error:t.lastPreparationError,retry:t.children.list.some(x=>x.text==='PONÓW'&&x.visible)}:null})(),school:(()=>{const s=g?.scene?.getScene('School');return s?{phase:s.schoolPhase,intro:s.introActive,dialogue:s.dialogueState,storyBusy:s.storyBusy,started:s.combat?.started,pitch:s.pitchStarted,entryGateReady:s.entryGateReady,allowed:s.controlsAllowed(),focus:document.hasFocus(),hidden:document.hidden,landscape:innerWidth>=innerHeight,shield:s.entryGate?.visible,menuButton:{visible:s.menuButton?.visible,x:s.menuButton?.x,y:s.menuButton?.y}}:null})(),airship:g?.scene?.getScene('Airship')?.openingPhase}})()"));}catch{}throw Error('Timeout '+label+' '+detail);};
+ const wait=async(expression,label,timeout=12000)=>{const end=Date.now()+timeout;while(Date.now()<end){try{if(await evaluate(expression))return;}catch(error){if(!/Inspected target navigated|Execution context was destroyed|Cannot find context/.test(String(error)))throw error;}await sleep(80);}let detail='';try{detail=JSON.stringify(await evaluate("(()=>{const g=window.__game;return {active:g?.scene?.getScenes(true)?.map(s=>s.scene.key),title:(()=>{const t=g?.scene?.getScene('ActTitle');return t?.assetGate?{act:t.actId,next:t.nextScene,...t.assetGate,progress:t.assetProgress,attempts:t.preparationAttempts,error:t.lastPreparationError,retry:t.children.list.some(x=>x.text==='PONÓW'&&x.visible)}:null})(),school:(()=>{const s=g?.scene?.getScene('School');return s?{phase:s.schoolPhase,intro:s.introActive,dialogue:s.dialogueState,storyBusy:s.storyBusy,started:s.combat?.started,pitch:s.pitchStarted,entryGateReady:s.entryGateReady,allowed:s.controlsAllowed(),focus:document.hasFocus(),hidden:document.hidden,landscape:innerWidth>=innerHeight,shield:s.entryGate?.visible,menuButton:{visible:s.menuButton?.visible,x:s.menuButton?.x,y:s.menuButton?.y}}:null})(),catacombs:(()=>{const s=g?.scene?.getScene('Catacombs');return s?{phase:s.phase,dialogue:s.dialogueState,ready:s.entryGateReady,boss:s.boss?.phase,hp:s.run?.hp}:null})(),airship:g?.scene?.getScene('Airship')?.openingPhase}})()"));}catch{}throw Error('Timeout '+label+' '+detail);};
  const touch=async(x,y)=>{await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
  const geometry=()=>evaluate("(()=>{const g=window.__game,m=g.scene.getScene('Menu'),r=g.canvas.getBoundingClientRect();return {rect:{x:r.x,y:r.y},active:g.scene.isActive('Menu'),debug:m.debugOpen,buttons:m.children.list.filter(o=>o.type==='Text'&&o.visible&&['NOWA GRA','DEBUG','WZNÓW','WRÓĆ'].includes(o.text)).map(o=>({text:o.text,x:o.x,y:o.y}))}})()");
  const tapMenu=async label=>{const g=await geometry();const b=g.buttons.find(b=>b.text===label);assert.ok(b,'Missing '+label+' '+JSON.stringify(g));await touch(g.rect.x+b.x,g.rect.y+b.y);};
@@ -709,7 +709,7 @@ try{
  assert.ok(Math.hypot(chapel.x-525,chapel.y-1000)<2&&chapel.captain===false&&chapel.bike);
  console.log('PASS Act IV approved bicycle Chromium: 3072x1296 RGBA decoded, 12 frames at 12fps x3, letterboxing, MENU/WZNÓW freeze, two black fades, static bike and chapel finale');
  for(let i=0;i<4;i++)await dialogueNext();
- await wait("window.__game.scene.isActive('Menu')&&!window.__game.scene.isActive('School')",'Act IV completed and returned to Menu',4500);
+ await wait("window.__game.scene.isActive('Catacombs')&&!window.__game.scene.isActive('School')",'Act IV completed and continued through title to Catacombs',9000);
  const campaign=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run');return {hp:r.hp,completed:[...r.completedActs],artifacts:[...r.artifacts],selected:r.selectedWeapon,water:r.unlockedWeapons.has('water-flamethrower'),stat:r.stats.byAct.act4,title:g.scene.isActive('ActTitle'),cave:g.scene.keys.Cave??null,debug:r.isDebugRun}})()");
  assert.ok(campaign.completed.includes('act4')&&campaign.artifacts.length===3&&campaign.hp>0);
  assert.ok(campaign.stat?.kills>=1&&campaign.stat?.activeCombatMs>=170000);
@@ -718,7 +718,7 @@ try{
  assert.equal(campaign.title,false);
  assert.equal(campaign.cave,null);
  assert.equal(campaign.debug,true);
- console.log('PASS PR106 real Chromium: passive Błażej, authorized confrontation, 900ms warned radial and jump, bounded projectiles, boss MENU/WZNÓW, one death, text-only bicycle reward, chapel/Marian absence, three artifacts, Act IV completion to Menu');
+ console.log('PASS PR106 real Chromium: passive Błażej, authorized confrontation, 900ms warned radial and jump, bounded projectiles, boss MENU/WZNÓW, one death, text-only bicycle reward, chapel/Marian absence, three artifacts, Act IV completion to Catacombs');
  console.log('PASS School real Chromium Android landscape: Captain gating, wave1 enemy spawn, touch rifle, MENU/WZNÓW, wave4 DEBUG, water restriction');
  // Real Act III -> IV handoff QA with deterministic existing Act III escape DEBUG.
  // Its approved extraction dialogue, ActTitle, checkpoint and School scenes run normally.
@@ -817,6 +817,71 @@ try{
  await volcanoDialogueNext('act3-eruption-warning');
  await wait("window.__game.scene.getScene('Volcano').finale.state==='ESCAPE_ACTIVE'",'existing eruption escape begins',4000);
  console.log('PASS approved Act III horn Chromium: real boss defeat, 2 finale panels, decoded 192x192 PNG, responsive artifact 2/3, DALEJ and eruption escape');
+ // Act V fast end-to-end using the real approved chapel completion and
+ // DEBUG fixture; no four-wave combat replay or new browser test runner.
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'Act V fresh menu');
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act4-finale');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('School',{handoff:f.handoff,debugCheckpoint:'act4-finale'});return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.entryGateReady&&!!s.combat})()",'School final chapel debug',15000);
+ const act5Handoff=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.artifacts.add('blazej-bicycle');s.run.hp=3;s.schoolPhase='CHAPEL_RETURN';return s.completeActFour()})()");
+ assert.equal(act5Handoff,true,'real School.completeActFour handoff');
+ await wait("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return g.scene.isActive('ActTitle')&&t.actId==='act5'&&t.nextScene==='Catacombs'})()",'Act IV -> V via title',5000);
+ assert.equal(await evaluate("window.__game.registry.get('campaign-run').hp"),5,'Act V restores full HP');
+ await wait("(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.dialogueState.id==='act5-betrayal'})()",'Act V scene opening dialogue',16000);
+ const opening5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hp:s.run.hp,weapon:s.weapon,phase:s.phase,controls:s.joystick.enabled,artifacts:s.run.artifacts.size}})()");
+ assert.equal(opening5.hp,5);assert.equal(opening5.artifacts,3);
+ assert.equal(opening5.phase,'opening');assert.equal(opening5.controls,false);
+ assert.notEqual(opening5.weapon,'water-flamethrower');
+ const next5=async()=>{
+  const initial=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
+  assert.ok(initial.id,'Act V dialogue is active');
+  for(let attempt=0;attempt<3;attempt++){
+   await sleep(235);
+   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.dialoguePanel.button.x,y:r.y+s.dialoguePanel.button.y,visible:s.dialoguePanel.button.visible}})()");
+   assert.ok(p.visible,'Act V DALEJ');
+   await touch(p.x,p.y);await sleep(90);
+   const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
+   if(actual.id!==initial.id||actual.index!==initial.index)return;
+  }
+  throw Error('Act V DALEJ did not advance '+JSON.stringify(initial));
+ };
+ for(let i=0;i<8;i++)await next5();
+ await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian evolution blinks',3000);
+ await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='boss'&&s.boss.phase==='gun'&&s.canPlay()})()",'boss after evolution',5500);
+ await wait("window.__game.scene.getScene('Catacombs').bossShots.length>0",'rotating gun emits real shots',6500);
+ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y,clock:s.combatMs}})()");
+ await touch(pause5.x,pause5.y);
+ await wait("window.__game.scene.isPaused('Catacombs')&&window.__game.scene.isActive('Menu')",'Marian boss MENU pause',3000);
+ const paused5=await evaluate("window.__game.scene.getScene('Catacombs').combatMs");
+ await sleep(300);
+ assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').combatMs"),paused5,'boss timers freeze in MENU');
+ await tapMenu('WZNÓW');
+ await wait("window.__game.scene.isActive('Catacombs')",'Marian boss WZNÓW',3000);
+
+ const shield=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hit:s.damageBoss(18),phase:s.boss.phase,n:s.boss.summons.length,hp:s.boss.hp,second:s.damageBoss(10)}})()");
+ assert.deepEqual(shield,{hit:true,phase:'summon',n:3,hp:44,second:false},'horn summons 3 while Marian invulnerable');
+ const cleared=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');for(const e of [...s.summons])s.damageEnemy(e,e.hp);return {phase:s.boss.phase,n:s.summons.length}})()");
+ assert.deepEqual(cleared,{phase:'gun',n:0},'defeating all summoned enemies restores vulnerability');
+ await sleep(240);
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.damageBoss(s.boss.hp);return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.boss.defeated&&s.fairyActor?.active})()",'Marian defeated once, fairy arrives',4000);
+ await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-fairy'",'fairy dialogue',3500);
+ for(let i=0;i<4;i++)await next5();
+ await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-home'",'home return dialogue',4500);
+ for(let i=0;i<2;i++)await next5();
+ await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='ending'&&s.completed&&s.run.completedActs.has('act5')})()",'KONIEC and campaign completion',3000);
+ await wait("window.__game.scene.isActive('Menu')",'Act V ending returns to Menu',4500);
+ console.log('PASS Act V real Chromium Android landscape: Act IV chapel handoff, 5 HP, betrayal, Marian blinking evolution, rotating gun, horn immunity, fairy and KONIEC');
+ // Remaining final-chapter DEBUG entries must start at their actual stages.
+ for(const [id,phase] of [['act5-boss','boss'],['act5-ending','fairy']]){
+  await cdp('Page.reload',{ignoreCache:true});
+  await wait("window.__game?.scene.isActive('Menu')",'menu before '+id);
+  await evaluate(`(()=>{const g=window.__game,f=window.__createDebugFixture(${JSON.stringify(id)});f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:${JSON.stringify(id)}});return true})()`);
+  await wait(`(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.phase===${JSON.stringify(phase)}})()`,'Act V DEBUG '+id,12000);
+  const v=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hp:s.run.hp,artifacts:s.run.artifacts.size,completed:s.run.completedActs.size,water:s.weapon==='water-flamethrower'}})()");
+  assert.deepEqual(v,{hp:5,artifacts:3,completed:4,water:false});
+ }
+ console.log('PASS Act V Chromium DEBUG: opening, Marian boss and ending checkpoints with complete prior artifacts and full HP');
  assert.deepEqual(exceptions,[],'uncaught Chromium exceptions');
  console.log('PASS FAST real Chromium: menu, DEBUG Act II/IV, handoffs, school placeholders, Act IV pause/resume and water filtering');
  console.log('FAST runtime ms',Date.now()-started);

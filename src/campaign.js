@@ -4,7 +4,7 @@ export const CAMPAIGN_ACTS=Object.freeze([
   Object.freeze({id:'act2',number:2,label:'AKT II',title:'W PRZESTWORZACH',scene:'Airship',nextActId:'act3'}),
   Object.freeze({id:'act3',number:3,label:'AKT III',title:'PRZYTULNE M4 W CENTRUM WULKANU',scene:'Volcano',nextActId:'act4'}),
   Object.freeze({id:'act4',number:4,label:'AKT IV',title:'ROWER BŁAŻEJA',scene:'School',nextActId:'act5'}),
-  Object.freeze({id:'act5',number:5,label:'AKT V',title:'TOŻSAMOŚĆ MARIANA',scene:null,nextActId:null}),
+  Object.freeze({id:'act5',number:5,label:'AKT V',title:'TOŻSAMOŚĆ MARIANA',scene:'Catacombs',nextActId:null}),
 ]);
 export const FIRST_ACT_ID=CAMPAIGN_ACTS[0].id;
 export const FUTURE_ACT_ASSETS=Object.freeze([
