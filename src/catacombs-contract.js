@@ -43,6 +43,24 @@ export const MARIAN_FINAL_ASSETS=Object.freeze({
  transformed:Object.freeze({path:'enemies/marian-transformed.png',key:'act5-marian-transformed',width:2048,height:256,frameWidth:256,frameHeight:256}),
  portrait:Object.freeze({path:'dialogue/dialogue-marian-transformed.png',key:'dialogue-marian-transformed',width:192,height:192})
 });
+// Artwork pixels map to the existing 960×640 world at an exact 8/15 scale.
+// Obstacle centers and collision footprints below are authoritative for both
+// graphics and physics: artwork draws from these same immutable definitions.
+export const CATACOMBS_ART=Object.freeze({
+ scale:CATACOMBS.width/1800,
+ background:Object.freeze({path:'backgrounds/act5-catacombs.png',key:'act5-catacombs-background',width:1800,height:1200}),
+ altar:Object.freeze({path:'obstacles/act5-altar.png',key:'act5-altar',width:266,height:176}),
+ column:Object.freeze({path:'obstacles/act5-column.png',key:'act5-column',width:96,height:221})
+});
+export const catacombsArtPlacement=o=>{
+ const art=o.id==='altar'?CATACOMBS_ART.altar:CATACOMBS_ART.column;
+ // Tall columns have transparent upper portions and solid bases at their feet.
+ // Bottom aligned to the obstacle footprint; altar uses the same base anchor.
+ const bottom=o.footprint.y+o.footprint.height/2;
+ return {key:art.key,x:o.x,y:bottom,
+  width:art.width*CATACOMBS_ART.scale,height:art.height*CATACOMBS_ART.scale,
+  originX:.5,originY:1};
+};
 export const CATACOMBS_SUMMON_SITES=Object.freeze([
  Object.freeze({x:110,y:170,type:'bobrozombi'}),
  Object.freeze({x:850,y:170,type:'bocianolak'}),
