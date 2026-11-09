@@ -32,4 +32,29 @@ test('diagnostic: actual approved background color map, upper-right region',()=>
  console.log('SCHOOL_BG_MAP: x=900..1800 in 15px cells, y=0..720 in 15px cells; # dark G green B blue R red Y yellow o brown s grey W light');
  for(let y=0;y<720;y+=15){let line='';for(let x=900;x<1800;x+=15)line+=label(bg.pixel(x+7,y+7));console.log('BG '+String(y).padStart(3,'0')+' '+line);}
  const school=decode('obstacles/act4-school.png');console.log('SCHOOL PNG RGBA:',school.w,school.h);
+ // Quantized color palette of each 20px world cell in upper-right background.
+ // Same RGB mapping across rows: each symbol corresponds to fixed 64-unit RGB bin.
+ const entries=new Map();for(let y=50;y<610;y+=20)for(let x=1120;x<1780;x+=20){
+  let [r,g,b]=bg.pixel(x+10,y+10),k=[r>>6,g>>6,b>>6].join('');
+  entries.set(k,(entries.get(k)||0)+1);
+ }
+ const palette=[...entries.entries()].sort((a,b)=>b[1]-a[1]).slice(0,20);
+ console.log('PALETTE TOP:',JSON.stringify(palette));
+ const symbols='0123456789ABCDEFGHIJKLMNOPQRSTUV';
+ for(let y=50;y<610;y+=20){let line='';
+  for(let x=1120;x<1780;x+=20){
+   const [r,g,b]=bg.pixel(x+10,y+10),k=[r>>6,g>>6,b>>6].join('');
+   const n=palette.findIndex(e=>e[0]===k);
+   line+=n<0?'.':symbols[n];
+  }
+  console.log('SCHOOL_COLOR '+String(y).padStart(3,'0')+' '+line);
+ }
+ const rects=[{x0:1100,x1:1760,y0:60,y1:600},{x0:1180,x1:1710,y0:140,y1:430}];
+ for(const rect of rects){const rows=[];for(let y=rect.y0;y<=rect.y1;y+=10){
+  let total=0,count=0;
+  for(let x=rect.x0;x<rect.x1;x+=4){let c=bg.pixel(x,y-3),d=bg.pixel(x,y+3);
+   total+=Math.abs(c[0]-d[0])+Math.abs(c[1]-d[1])+Math.abs(c[2]-d[2]);count++;
+  }rows.push([y,Math.round(total/count)]);
+ }console.log('SCHOOL_HORIZONTAL_EDGES',JSON.stringify(rows.sort((a,b)=>b[1]-a[1]).slice(0,18)));}
+
 });
