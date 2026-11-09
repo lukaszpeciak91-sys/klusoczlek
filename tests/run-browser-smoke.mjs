@@ -76,6 +76,9 @@ try{
  await touchLabel('WRÓĆ');
  assert.equal((await audioState()).open,false);
  await cdp('Page.reload',{ignoreCache:true});
+ // CDP Page.reload returns before the new document is installed. Avoid
+ // reading the previously active game just before its context is destroyed.
+ await sleep(250);
  await wait("window.__game?.scene.isActive('Menu')",'audio settings saved');
  assert.deepEqual((await audioState()).save,{music:dragged.save.music,sfx:dragged.save.sfx,muted:false});
  console.log('PASS Chromium real Options sliders, touch drag, mute, back and reload');
