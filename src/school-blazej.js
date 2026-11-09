@@ -16,7 +16,7 @@ import {BLAZEJ_START,BLAZEJ_RADIUS,blazejJumpLanding} from './school-finale.js';
 import {BLAZEJ_JUMP_DURATION_MS,blazejJumpFrame} from './school-blazej-jump.js';
 import {schoolWalkable} from './school-contract.js';
 
-export const BLAZEJ_HP=48;
+export const BLAZEJ_HP=54;
 export const BLAZEJ_SPEED=ENEMY_TYPES.zubrokryptyda.speed*1.3;
 export const BLAZEJ_ATTACK=Object.freeze({...MARCIN,hp:BLAZEJ_HP,cooldown:4500,lowCooldown:3000});
 export const BLAZEJ_SHOCKWAVE_RADIUS=95;

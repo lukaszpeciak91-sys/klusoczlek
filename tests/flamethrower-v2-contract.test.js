@@ -46,7 +46,7 @@ test('exact expiry hit cannot skip immunity even without update frame',()=>{
 });
 test('six-wave episode contract, continued ordinary spawning, and preserved boss resolution',()=>{
  assert.equal(TOTAL_WAVES,6);assert.equal(WAVE_TIMING[1].startMs,35000);
- assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
+ assert.deepEqual(HEALTH_AFTER_WAVES,[1,2,3,4,5]);
  assert.deepEqual(WAVES.map(w=>[w.target,w.maxAlive]),[[4,6],[5,7],[6,8],[7,9],[7,9],[8,10]]);
  const ep=createEpisode();
  for(let i=0;i<6;i++){

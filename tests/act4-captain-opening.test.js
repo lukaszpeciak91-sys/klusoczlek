@@ -40,7 +40,7 @@ test('Act IV opening dialogue matches all six approved panels, original speakers
  assert.equal(currentDialogue(state),null);
 });
 
-test('Marian waits until arrival and the final DALEJ before exactly one chapel departure tween',()=>{
+test('Marian waits until arrival and the final DALEJ before a single ground-based chapel walk',()=>{
  const scene=source('../src/school-scene.js'),captain=source('../src/captain-arrival.js');
  assert.ok(captain.includes('export const CAPTAIN_ARRIVAL_MS=800;'));
  assert.ok(source('../src/captain-sheet-contract.js').includes("directions:['e','se','s','sw','w','nw','n','ne']"));
@@ -51,12 +51,14 @@ test('Marian waits until arrival and the final DALEJ before exactly one chapel d
  assert.ok(scene.includes('this.captainDeparting=true;this.storyBusy=false;'));
  assert.ok(scene.includes('!this.captainDialogueStarted||this.captainDeparting'));
  assert.ok(scene.includes("if(actor.active)actor.destroy();"));
- assert.ok(scene.includes('this.introActive=false;\n        this.syncControls();'));
+ assert.ok(scene.includes('this.introActive=false; // One-shot departure stays recorded'));
  assert.ok(scene.includes("const door=SCHOOL_PLACES.chapelDoor;"));
- assert.ok(scene.includes("duration:1100"));
+ assert.ok(scene.includes('this.updateCaptainDeparture(delta);'));
+ assert.ok(scene.includes('const step=captainWalkStep(actor,door,delta);'));
+ assert.ok(scene.includes('actor.setPosition(step.x,step.y).setAlpha(1);'));
  assert.ok(scene.includes('this.captainArrival.sprite?.setFrame(playerFrame(facingOf('));
- // Only one departure code path/tween; the update loop merely retries dialogue.
- assert.equal((scene.match(/this\.tweens\.add\(\{targets:actor,x:door\.x,y:door\.y/g)||[]).length,1);
+ // Only one approved departure entrypoint, with no alpha-fading tween.
+ assert.ok(!scene.includes('alpha:0,duration:1100'));
  assert.equal((scene.match(/this\.startCaptainDeparture\(\)/g)||[]).length,1);
  assert.ok(!scene.includes("if(this.introActive&&this.captainArrival.arrived&&!this.captainDeparting){"));
 });
@@ -93,4 +95,21 @@ test('Act IV DEBUG mid-act checkpoints bypass Captain introduction and ordinary 
  assert.ok(scene.includes('this.captainDialogueStarted=false;'));
  assert.ok(scene.includes('this.controlsAllowed()'));
  assert.ok(scene.includes('this.introActive=false;this.syncControls();return true;'),'failsafe when Captain no longer exists');
+});
+
+test('Captain ground walk is collision-safe and reaches enlarged chapel doorway',async()=>{
+ const {SCHOOL_PLACES,schoolWalkable,captainWalkStep,CAPTAIN_WALK_SPEED}=await import('../src/school-contract.js');
+ assert.equal(CAPTAIN_WALK_SPEED,95);
+ assert.ok(schoolWalkable(SCHOOL_PLACES.chapelDoor));
+ for(const origin of [{x:460,y:1056},{x:590,y:1056},{x:460,y:1000}]){
+  let p=origin,last=Infinity,done=false;
+  for(let i=0;i<200;i++){
+   const n=captainWalkStep(p,SCHOOL_PLACES.chapelDoor,50);
+   assert.ok(schoolWalkable(n,17),'captain passed through chapel');
+   const d=Math.hypot(n.x-SCHOOL_PLACES.chapelDoor.x,n.y-SCHOOL_PLACES.chapelDoor.y);
+   assert.ok(d<=last+.01,'walk advances toward door');last=d;p=n;
+   if(n.arrived){done=true;break;}
+  }
+  assert.ok(done,'captain must arrive');
+ }
 });

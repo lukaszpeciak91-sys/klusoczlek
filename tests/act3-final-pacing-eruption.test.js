@@ -168,3 +168,13 @@ test('PR102 entrance coordinates and immediate pursuit are preserved',()=>{
  assert.ok(scene.includes('this.openingSafeUntil=this.time.now+1100'));
  assert.ok(!combat.includes('if(openingSafe){clearBark(enemy.barkState,enemy.bark);continue;}'));
 });
+
+test('release staging: two lower apartment monsters, third nearer Bogdan, actual alpha-safe',()=>{
+ const z=VOLCANO_ZONES.find(v=>v.id==='apartment-approach');
+ assert.equal(z.enemies.length,3);
+ assert.ok(z.spawns[0].y>=850&&z.spawns[1].y>=850);
+ assert.ok(z.spawns[2].y<z.spawns[0].y&&z.spawns[2].y<z.spawns[1].y);
+ const staged=stageAll().filter(v=>v.zoneId===z.id);
+ assert.equal(staged.length,3);
+ for(const e of staged)assert.ok(volcanoFootprintAllowed(mask,e.x,e.y,e.radius));
+});

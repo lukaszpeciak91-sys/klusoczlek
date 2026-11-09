@@ -4,7 +4,7 @@ import {WAVES,TOTAL_WAVES,HEALTH_AFTER_WAVES,createEpisode,nextType,waveCapacity
 test('six timed continuous profiles and no finite spawn exhaustion',()=>{
  assert.equal(TOTAL_WAVES,6);
  assert.deepEqual(WAVES.map(w=>[w.target,w.maxAlive]),[[4,6],[5,7],[6,8],[7,9],[7,9],[8,10]]);
- assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
+ assert.deepEqual(HEALTH_AFTER_WAVES,[1,2,3,4,5]);
  const e=createEpisode(41);
  for(let n=0;n<200;n++){assert.equal(recordSpawn(e,'bobrozombi'),true);recordDeath(e,0,0);}
  assert.equal(e.wave,0);assert.deepEqual(advanceTimedWaves(e,35000),[1]);assert.equal(e.spawned,200);

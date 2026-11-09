@@ -60,7 +60,7 @@ test('PR106 telegraph, radial volleys, jump landing and solid obstacles are boun
  assert.equal(radialVolley(BLAZEJ_START).length,8);
  assert.equal(BLAZEJ_MAX_PROJECTILES,MARCIN.maxProjectiles);
  assert.equal(BLAZEJ_SHOCKWAVE_RADIUS,95);
- assert.equal(BLAZEJ_HP,48);
+ assert.equal(BLAZEJ_HP,54);
  assert.equal(MARCIN.hp,36);
  const jump=blazejJumpLanding(BLAZEJ_START,{x:1170,y:785});
  assert.ok(jump&&schoolWalkable(jump,BLAZEJ_RADIUS));

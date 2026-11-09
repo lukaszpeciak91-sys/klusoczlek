@@ -9,7 +9,7 @@ export const SCHOOL_WORLD=ARENA;
 export const SCHOOL_WAVE_COUNT=4;
 export const SCHOOL_PLACES=Object.freeze({
   chapel:Object.freeze({x:330,y:840,width:300,height:250,label:'KAPLICA'}),
-  chapelDoor:Object.freeze({x:360,y:978}),
+  chapelDoor:Object.freeze({x:360,y:940}),
   playerStart:Object.freeze({x:525,y:1030}),
   school:Object.freeze({x:1480,y:300,width:430,height:300,label:'SZKOŁA ZAWODOWA'}),
   schoolEntrance:Object.freeze({x:1480,y:410}),
@@ -27,7 +27,7 @@ export const SCHOOL_PLACES=Object.freeze({
 // (alpha x74..160 / y47..182), rack 330x255 (alpha x33..300 / y44..214).
 export const SCHOOL_VISIBLE_FOOTPRINTS=Object.freeze({
   school:Object.freeze({x:1480,y:317,width:430,height:86}),
-  chapel:Object.freeze({x:330,y:880,width:96,height:94}),
+  chapel:Object.freeze({x:330,y:845,width:129.6,height:126.9}),
   bicycleRack:Object.freeze({x:1510,y:802,width:220,height:52}),
 });
 export const SCHOOL_OBSTACLES=Object.freeze([
@@ -53,11 +53,26 @@ export function schoolStep(from,input,deltaMs,speed=PLAYER_SPEED){
   const dt=Math.max(0,Math.min(50,Number.isFinite(deltaMs)?deltaMs:0))/1000;
   const d=normalizeInput(Number.isFinite(input?.x)?input.x:0,Number.isFinite(input?.y)?input.y:0);
   const end={x:from.x+d.x*speed*dt,y:from.y+d.y*speed*dt};
-  return resolveObstaclePosition(from,end,PLAYER_RADIUS,SCHOOL_OBSTACLES);
+  const point=resolveObstaclePosition(from,end,PLAYER_RADIUS,SCHOOL_OBSTACLES);
+  // Avoid subpixel precision at the enlarged chapel's solid boundary.
+  return schoolWalkable(point)?point:from;
 }
 export function schoolDebugPoint(id){
   if(id==='act4-school')return SCHOOL_PLACES.debugSchool;
   if(id==='act4-wave4')return {x:900,y:930};
   if(['act4-blazej','act4-boss','act4-finale'].includes(id))return {x:1190,y:740};
   return SCHOOL_PLACES.playerStart;
+}
+
+// Ground-based Captain departure: use the same solid-footprint navigation as Aloes.
+export const CAPTAIN_WALK_SPEED=95;
+export function captainWalkStep(from,door,delta){
+ const dx=door.x-from.x,dy=door.y-from.y,d=Math.hypot(dx,dy);
+ if(d<.6)return {x:door.x,y:door.y,arrived:true,moved:0};
+ const distance=Math.min(d,CAPTAIN_WALK_SPEED*Math.max(0,Math.min(50,delta))/1000);
+ const next=schoolStep(from,{x:dx/d,y:dy/d},delta,CAPTAIN_WALK_SPEED);
+ const x=distance>=d&&schoolWalkable(door)?door.x:next.x;
+ const y=distance>=d&&schoolWalkable(door)?door.y:next.y;
+ const moved=Math.hypot(x-from.x,y-from.y);
+ return {x,y,moved,arrived:Math.hypot(door.x-x,door.y-y)<.6};
 }
