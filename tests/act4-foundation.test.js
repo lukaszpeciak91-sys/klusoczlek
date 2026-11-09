@@ -25,7 +25,8 @@ test('Act I swept obstacle movement never tunnels through chapel or bicycle rack
   assert.equal(schoolWalkable(p),true);
   p={x:SCHOOL_PLACES.bicycleRack.x,y:915};
   for(let i=0;i<35;i++)p=schoolStep(p,{x:0,y:-1},50);
-  assert.ok(p.y>=831+17-.5);
+  const rack=SCHOOL_OBSTACLES.find(o=>o.id==='bicycleRack').footprint;
+  assert.ok(p.y>=rack.y+rack.height/2+17-.5);
   assert.equal(schoolWalkable(p),true);
   let outer={x:1750,y:1150};
   for(let i=0;i<30;i++)outer=schoolStep(outer,{x:1,y:1},50);
