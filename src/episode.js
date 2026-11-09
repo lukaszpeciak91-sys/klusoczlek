@@ -41,7 +41,7 @@ export function recordSpecialSpawn(episode,id){
  if(episode.wave!==TOTAL_WAVES-1||episode.state!=='active'||!FINAL_ENCOUNTER.some(e=>e.id===id)||episode.specialSpawned.has(id))return false;
  episode.specialSpawned.add(id);return true;
 }
-export const HEALTH_AFTER_WAVES=Object.freeze([2,4,5]);
+export const HEALTH_AFTER_WAVES=Object.freeze([1,2,3,4,5]);
 export function createEpisode(seed=0){
  return {seed,wave:0,spawned:0,defeated:0,state:'active',elapsedMs:0,ended:false,bossIntroduced:false,spawnedByWave:Array(TOTAL_WAVES).fill(0),defeatedByWave:Array(TOTAL_WAVES).fill(0),specialSpawned:new Set(),specialDefeated:new Set(),reinforcementSpawned:new Set()};
 }

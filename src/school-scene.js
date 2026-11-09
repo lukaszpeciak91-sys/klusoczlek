@@ -28,7 +28,7 @@ import {beginSceneReveal} from './scene-reveal-gate.js';
 import {MACIEK_SEBA_RADIUS,PITCH_ENCOUNTER_RADIUS,SCHOOL_WAVE2_END_MS,
   SCHOOL_HEART_POINTS,maciekSebaNearby,pitchNearby,canSpawnSchoolHeart,
   collectSchoolHeart} from './school-staging.js';
-import {SCHOOL_WORLD,SCHOOL_PLACES,SCHOOL_OBSTACLES,SCHOOL_WAVE_COUNT,schoolStep,schoolDebugPoint,schoolWalkable} from './school-contract.js';
+import {SCHOOL_WORLD,SCHOOL_PLACES,SCHOOL_OBSTACLES,SCHOOL_WAVE_COUNT,schoolStep,schoolDebugPoint,schoolWalkable,captainWalkStep} from './school-contract.js';
 
 // PR105 attaches approved Act I combat via the small School adapter.
 export class SchoolScene extends Phaser.Scene {
@@ -275,17 +275,33 @@ export class SchoolScene extends Phaser.Scene {
       this.introActive=false;this.syncControls();return true;
     }
     const door=SCHOOL_PLACES.chapelDoor;
+    if(!schoolWalkable(door,17))throw Error('Unsafe chapel doorway for Captain');
+    this.captainWalkDistance=0;
     this.captainArrival.sprite?.setFrame(playerFrame(facingOf(
       door.x-actor.x,door.y-actor.y,'s')));
-    this.tweens.add({targets:actor,x:door.x,y:door.y,alpha:0,duration:1100,
-      ease:'Sine.easeInOut',onComplete:()=>{
-        if(this.disposed)return;
-        if(actor.active)actor.destroy();
-        this.introActive=false;
-        this.syncControls();
-      }});
     this.syncControls();
     return true;
+  }
+  updateCaptainDeparture(delta){
+    if(!this.captainDeparting||!this.introActive||this.disposed)return;
+    const actor=this.captainArrival.actor;
+    if(!actor?.active)return;
+    const door=SCHOOL_PLACES.chapelDoor;
+    const step=captainWalkStep(actor,door,delta);
+    const dx=step.x-actor.x,dy=step.y-actor.y;
+    this.captainWalkDistance+=step.moved;
+    actor.setPosition(step.x,step.y).setAlpha(1);
+    const sprite=this.captainArrival.sprite;
+    if(sprite?.active){
+      if(step.moved>.01)sprite.setFrame(playerFrame(facingOf(dx,dy,'s')));
+      // Distance-based gait on the Captain's approved sheet; shadow stays on the floor.
+      sprite.setY(-48-Math.abs(Math.sin(this.captainWalkDistance/8))*1.7);
+    }
+    if(step.arrived){
+      if(actor.active)actor.destroy();
+      this.introActive=false;this.captainDeparting=false;
+      this.syncControls();
+    }
   }
   onSchoolDialogueEnded(id){
     if(this.disposed||this.defeated)return;
@@ -598,6 +614,7 @@ export class SchoolScene extends Phaser.Scene {
     this.ambientBarks?.guard();
     this.blazej?.updateVfx(delta);
     this.captainArrival.update(delta);
+    this.updateCaptainDeparture(delta);
     // Retry only until dialogue UI/focus is available. The flag is set only
     // after beginSchoolDialogue succeeds, so it can never start twice.
     if(this.introActive&&this.captainArrival.arrived&&!this.captainDialogueStarted&&

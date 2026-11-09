@@ -5,7 +5,7 @@ const clamp=v=>Math.max(0,Math.min(1,Number(v)||0));
 // Gridfall reference: at MUSIC 20% => 0.14 HTMLAudio volume.
 // SFX 40% => 0.54 pre-master bus, then the existing 0.28 Web Audio
 // headroom stage; this is ONE attenuation through master, not a second bus.
-export const MUSIC_DEFAULT=.20,SFX_DEFAULT=.40;
+export const MUSIC_DEFAULT=.15,SFX_DEFAULT=.80;
 export const MUSIC_SCALE=.70,SFX_SCALE=1.35,SFX_MASTER=.28;
 export const effectiveMusicGain=value=>clamp(value)*MUSIC_SCALE;
 export const sfxBusGain=value=>Math.min(1,clamp(value)*SFX_SCALE);

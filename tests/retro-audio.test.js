@@ -7,7 +7,7 @@ test('approved music routing across all five acts',()=>{
 });
 test('default mix, clamp and saved settings',()=>{
  const store={getItem:()=>null};
- assert.deepEqual(loadAudioSettings(store),{music:.20,sfx:.40,muted:false});
+ assert.deepEqual(loadAudioSettings(store),{music:.15,sfx:.80,muted:false});
  const a=new RetroAudio();let saved='';
  globalThis.localStorage={getItem:()=>null,setItem:(_k,value)=>{saved=value;}};
  a.volume('music',2);a.volume('sfx',-.8);a.mute(true);
@@ -16,7 +16,7 @@ test('default mix, clamp and saved settings',()=>{
  delete globalThis.localStorage;
 });
 test('invalid stored settings fail safe',()=>{
- assert.deepEqual(loadAudioSettings({getItem:()=>'{'}),{music:.20,sfx:.40,muted:false});
+ assert.deepEqual(loadAudioSettings({getItem:()=>'{'}),{music:.15,sfx:.80,muted:false});
  assert.deepEqual(loadAudioSettings({getItem:()=>JSON.stringify({music:5,sfx:-3,muted:true})}),{music:1,sfx:0,muted:true});
 });
 test('silent fallback does not crash with no browser audio',()=>{
@@ -134,4 +134,9 @@ test('ActTitle fade respects mute and saved levels without resetting them',async
   assert.ok(Math.abs(a.music.volume-.259)<1e-10);
   a.cancelMusicFade();
  }finally{if(oldAudio===undefined)delete globalThis.Audio;else globalThis.Audio=oldAudio;}
+});
+
+test('birthday release audio defaults do not override saved settings',()=>{
+ assert.deepEqual(loadAudioSettings(null),{music:.15,sfx:.80,muted:false});
+ assert.deepEqual(loadAudioSettings({getItem:()=>JSON.stringify({music:.33,sfx:.51,muted:false})}),{music:.33,sfx:.51,muted:false});
 });

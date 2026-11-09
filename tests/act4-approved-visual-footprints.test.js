@@ -57,7 +57,7 @@ test('Act IV background is exact native 1800x1200 and separate assets retain nat
  assert.deepEqual([head.width,head.height,head.depth],[1800,1200,8]);
  assert.equal(validSchoolyardBackground(bg),true);
  for(const [id,w,h,x,bottom,dw=w,dh=h] of [
-  ['school',610,450,1480,420,520,384],['chapel',235,235,330,965],
+  ['school',610,450,1480,420,520,384],['chapel',235,235,330,965,317.25,317.25],
   ['bicycleRack',330,255,1510,857,287,222]]){
   const def=SCHOOL_ART[id],header=pngHeader(asset(def.path));
   assert.deepEqual([header.width,header.height,header.color],[w,h,6]);
