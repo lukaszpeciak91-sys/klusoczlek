@@ -3,10 +3,10 @@ import {ARENA} from './movement.js';
 import {footprintDistance,segmentFootprintHit,firstFootprintHit} from './obstacle-geometry.js';
 export const MARCIN=Object.freeze({radius:40,hp:36,speed:38,contactDamage:1,cooldown:6000,lowCooldown:4000,warning:900,recovery:450,projectileSpeed:180,projectileRadius:6,projectileLife:9000,maxProjectiles:24});
 export function createBossAttack(){return {phase:'chase',elapsed:0};}
-export function bossAttackStep(state,hp,delta){
+export function bossAttackStep(state,hp,delta,tuning=MARCIN){
  if(hp<=0)return false;
  state.elapsed+=Math.max(0,Math.min(delta,50));
- const duration=state.phase==='warning'?MARCIN.warning:state.phase==='recovery'?MARCIN.recovery:hp<=MARCIN.hp/3?MARCIN.lowCooldown:MARCIN.cooldown;
+ const duration=state.phase==='warning'?tuning.warning:state.phase==='recovery'?tuning.recovery:hp<=tuning.hp/3?tuning.lowCooldown:tuning.cooldown;
  if(state.elapsed<duration)return false;
  state.elapsed=0;
  if(state.phase==='chase'){state.phase='warning';return false;}
