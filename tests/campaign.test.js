@@ -14,7 +14,7 @@ test('five stable acts with exact approved Polish title cards',()=>{
   assert.equal(FIRST_ACT_ID,'act1');
   assert.deepEqual(CAMPAIGN_ACTS.map(act=>act.nextActId),['act2','act3','act4','act5',null]);
 });
-test('Acts I–IV route through registered scenes while unbuilt Act V stays gated',()=>{
+test('Acts I–V route through registered scenes with terminal Act V',()=>{
   assert.equal(sceneForAct('act1'),'Arena');
   assert.equal(getAct('act2').scene,'Airship');
   assert.equal(nextAct('act1')?.id,'act2');
@@ -28,8 +28,9 @@ test('Acts I–IV route through registered scenes while unbuilt Act V stays gate
   assert.equal(nextAvailableAct('act3')?.id,'act4');
   assert.equal(completionDestination('act3'),'School');
   assert.equal(sceneForAct('act4'),'School');
-  assert.equal(nextAvailableAct('act4'),null);
-  assert.equal(sceneForAct('act5'),null);
+  assert.equal(nextAvailableAct('act4')?.id,'act5');
+  assert.equal(sceneForAct('act5'),'Catacombs');
+  assert.equal(nextAvailableAct('act5'),null);
   assert.equal(sceneForAct('unknown'),null);
 });
 test('future asset contracts describe paths but require no PNG binaries',()=>{
