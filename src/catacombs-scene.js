@@ -370,6 +370,8 @@ export class CatacombsScene extends Phaser.Scene{
   this.dialoguePanel.hide();
   this.transitionVeil.setFillStyle(0x080609,1).setAlpha(1).setDepth(180);
   this.finaleText?.destroy();
+  // Camera is fully black after MYK fadeOut; reveal KONIEC over the opaque veil.
+  this.cameras.main.fadeIn(320,0,0,0);
   this.finaleText=this.add.text(this.scale.width/2,this.scale.height/2,'KONIEC',{
    fontFamily:'monospace',fontSize:'46px',color:'#f3d69d'
   }).setOrigin(.5).setScrollFactor(0).setDepth(181);
