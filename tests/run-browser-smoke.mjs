@@ -50,7 +50,7 @@ try{
   // The Phaser scene timer must not be the only route to Menu.
   // Simulate an interrupted/paused intro; the independent watchdog
   // must recover without requiring the player to tap again.
-  await evaluate("window.__game.scene.getScene('StudioIntro').scene.pause()");
+  await evaluate("(()=>{window.__game.scene.getScene('StudioIntro').scene.pause();return true})()");
   await wait("window.__game.scene.isActive('Menu')",'paused StudioIntro watchdog routes to Menu',5500);
   assert.equal(await evaluate("window.__game.scene.isActive('StudioIntro')"),false,'watchdog stops intro');
   await cdp('Page.reload',{ignoreCache:true});
