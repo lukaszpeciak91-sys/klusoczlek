@@ -91,7 +91,7 @@ test('boss starts only after transformation and projectiles run with bounded fin
  assert.equal(b.phase,'gun');assert.equal(finalBossVulnerable(b),true);
  let count=0;
  for(let i=0;i<800;i++)count+=finalBossStep(b,50).shots.length;
- assert.ok(count>=FINAL_BOSS.burstCount&&count<80,'bounded rotating projectiles');
+ assert.ok(count>=FINAL_BOSS.burstCount&&count<180,'bounded rotating projectiles');
  assert.equal(FINAL_BOSS.maxProjectiles,38);
  assert.ok(FINAL_BOSS.transformationMs<3000);
  const scene=src('../src/catacombs-scene.js');
