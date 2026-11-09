@@ -709,7 +709,7 @@ try{
  assert.ok(Math.hypot(chapel.x-525,chapel.y-1000)<2&&chapel.captain===false&&chapel.bike);
  console.log('PASS Act IV approved bicycle Chromium: 3072x1296 RGBA decoded, 12 frames at 12fps x3, letterboxing, MENU/WZNÓW freeze, two black fades, static bike and chapel finale');
  for(let i=0;i<4;i++)await dialogueNext();
- await wait("window.__game.scene.isActive('Menu')&&!window.__game.scene.isActive('School')",'Act IV completed and returned to Menu',4500);
+ await wait("window.__game.scene.isActive('Catacombs')&&!window.__game.scene.isActive('School')",'Act IV completed and continued through title to Catacombs',9000);
  const campaign=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run');return {hp:r.hp,completed:[...r.completedActs],artifacts:[...r.artifacts],selected:r.selectedWeapon,water:r.unlockedWeapons.has('water-flamethrower'),stat:r.stats.byAct.act4,title:g.scene.isActive('ActTitle'),cave:g.scene.keys.Cave??null,debug:r.isDebugRun}})()");
  assert.ok(campaign.completed.includes('act4')&&campaign.artifacts.length===3&&campaign.hp>0);
  assert.ok(campaign.stat?.kills>=1&&campaign.stat?.activeCombatMs>=170000);
@@ -718,7 +718,7 @@ try{
  assert.equal(campaign.title,false);
  assert.equal(campaign.cave,null);
  assert.equal(campaign.debug,true);
- console.log('PASS PR106 real Chromium: passive Błażej, authorized confrontation, 900ms warned radial and jump, bounded projectiles, boss MENU/WZNÓW, one death, text-only bicycle reward, chapel/Marian absence, three artifacts, Act IV completion to Menu');
+ console.log('PASS PR106 real Chromium: passive Błażej, authorized confrontation, 900ms warned radial and jump, bounded projectiles, boss MENU/WZNÓW, one death, text-only bicycle reward, chapel/Marian absence, three artifacts, Act IV completion to Catacombs');
  console.log('PASS School real Chromium Android landscape: Captain gating, wave1 enemy spawn, touch rifle, MENU/WZNÓW, wave4 DEBUG, water restriction');
  // Real Act III -> IV handoff QA with deterministic existing Act III escape DEBUG.
  // Its approved extraction dialogue, ActTitle, checkpoint and School scenes run normally.
