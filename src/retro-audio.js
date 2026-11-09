@@ -2,9 +2,17 @@
 export const TRACKS=Object.freeze({Menu:'menu',Arena:'act1',Airship:'act2',Volcano:'act3',School:'act4',Catacombs:'act5',Credits:'credits'});
 const KEY='klusoczlek-audio-v1';
 const clamp=v=>Math.max(0,Math.min(1,Number(v)||0));
+// Gridfall reference: at MUSIC 20% => 0.14 HTMLAudio volume.
+// SFX 40% => 0.54 pre-master bus, then the existing 0.28 Web Audio
+// headroom stage; this is ONE attenuation through master, not a second bus.
+export const MUSIC_DEFAULT=.20,SFX_DEFAULT=.40;
+export const MUSIC_SCALE=.70,SFX_SCALE=1.35,SFX_MASTER=.28;
+export const effectiveMusicGain=value=>clamp(value)*MUSIC_SCALE;
+export const sfxBusGain=value=>Math.min(1,clamp(value)*SFX_SCALE);
+
 export function loadAudioSettings(storage=globalThis.localStorage){
-  try{const value=JSON.parse(storage?.getItem(KEY)||'{}');return {music:clamp(value.music??.45),sfx:clamp(value.sfx??.65),muted:value.muted===true};}
-  catch{return {music:.45,sfx:.65,muted:false};}
+  try{const value=JSON.parse(storage?.getItem(KEY)||'{}');return {music:clamp(value.music??MUSIC_DEFAULT),sfx:clamp(value.sfx??SFX_DEFAULT),muted:value.muted===true};}
+  catch{return {music:MUSIC_DEFAULT,sfx:SFX_DEFAULT,muted:false};}
 }
 export class RetroAudio {
   constructor(){
@@ -31,7 +39,7 @@ export class RetroAudio {
       if(!this.context){
         const C=window.AudioContext||window.webkitAudioContext;
         this.context=this.game?.sound?.context|| (C?new C():null);
-        if(this.context){this.master=this.context.createGain();this.master.gain.value=.28;this.master.connect(this.context.destination);}
+        if(this.context){this.master=this.context.createGain();this.master.gain.value=SFX_MASTER;this.master.connect(this.context.destination);}
       }
       if(this.context?.state==='suspended')await this.context.resume();
       this.unlocked=true;this.playCurrent();return true;
@@ -40,9 +48,9 @@ export class RetroAudio {
   save(){
     try{globalThis.localStorage?.setItem(KEY,JSON.stringify(this.settings));}catch{}
   }
-  volume(kind,value){if(kind!=='music'&&kind!=='sfx')return;this.settings[kind]=clamp(value);this.save();this.syncMusic();if(kind==='sfx'&&this.streamVoice)this.streamVoice.gain.gain.value=.095*this.settings.sfx;}
+  volume(kind,value){if(kind!=='music'&&kind!=='sfx')return;this.settings[kind]=clamp(value);this.save();this.syncMusic();if(kind==='sfx'&&this.streamVoice)this.streamVoice.gain.gain.value=.095*(this.settings.muted?0:sfxBusGain(this.settings.sfx));}
   mute(value=!this.settings.muted){this.settings.muted=Boolean(value);this.save();this.syncMusic();if(value)this.stopStream();}
-  syncMusic(){if(this.music)this.music.volume=this.settings.muted?0:this.settings.music;}
+  syncMusic(){if(this.music)this.music.volume=this.settings.muted?0:effectiveMusicGain(this.settings.music);}
   enter(scene){
     const id=TRACKS[scene];if(!id||id===this.track)return;
     this.track=id;this.stopStream();this.changeTrack(id);
@@ -57,7 +65,7 @@ export class RetroAudio {
     if(old){old.pause();old.currentTime=0;}
     try{
       const audio=new Audio(import.meta.env?.BASE_URL?import.meta.env.BASE_URL+'assets/music/'+id+'.ogg':'/assets/music/'+id+'.ogg');
-      audio.loop=id!=='credits';audio.preload='auto';audio.volume=this.settings.muted?0:this.settings.music;
+      audio.loop=id!=='credits';audio.preload='auto';audio.volume=this.settings.muted?0:effectiveMusicGain(this.settings.music);
       audio.addEventListener('error',()=>{ /* sound is optional */ });
       this.music=audio;this.playCurrent();
     }catch{this.music=null;}
@@ -85,7 +93,7 @@ export class RetroAudio {
       const c=this.context,at=c.currentTime,o=c.createOscillator(),g=c.createGain();
       this.voices++;o.type=type;o.frequency.setValueAtTime(freq,at);
       o.frequency.exponentialRampToValueAtTime(Math.max(25,end),at+duration);
-      g.gain.setValueAtTime(.0001,at);g.gain.exponentialRampToValueAtTime(Math.max(.001,level*this.settings.sfx),at+.007);
+      g.gain.setValueAtTime(.0001,at);g.gain.exponentialRampToValueAtTime(Math.max(.001,level*sfxBusGain(this.settings.sfx)),at+.007);
       g.gain.exponentialRampToValueAtTime(.0001,at+duration);
       o.connect(g);g.connect(this.master);o.onended=()=>{this.voices=Math.max(0,this.voices-1);o.disconnect();g.disconnect();};
       o.start(at);o.stop(at+duration+.01);
@@ -96,7 +104,7 @@ export class RetroAudio {
     try{
       const c=this.context,at=c.currentTime,source=c.createBufferSource(),filter=c.createBiquadFilter(),gain=c.createGain();
       this.voices++;source.buffer=this.noiseBuffer();source.loop=true;filter.type='lowpass';filter.frequency.value=frequency;
-      gain.gain.setValueAtTime(Math.max(.001,level*this.settings.sfx),at);
+      gain.gain.setValueAtTime(Math.max(.001,level*sfxBusGain(this.settings.sfx)),at);
       gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
       source.connect(filter);filter.connect(gain);gain.connect(this.master);
       source.onended=()=>{this.voices=Math.max(0,this.voices-1);source.disconnect();filter.disconnect();gain.disconnect();};
@@ -117,7 +125,7 @@ export class RetroAudio {
       const c=this.context,source=c.createBufferSource(),filter=c.createBiquadFilter(),gain=c.createGain();
       source.buffer=this.noiseBuffer();source.loop=true;filter.type=weapon==='flamethrower'?'lowpass':'bandpass';
       filter.frequency.value=weapon==='flamethrower'?690:420;filter.Q.value=.7;
-      gain.gain.value=.095*this.settings.sfx;source.connect(filter);filter.connect(gain);gain.connect(this.master);
+      gain.gain.value=.095*sfxBusGain(this.settings.sfx);source.connect(filter);filter.connect(gain);gain.connect(this.master);
       source.onended=()=>{source.disconnect();filter.disconnect();gain.disconnect();};source.start();this.streamVoice={source,gain,filter,weapon};
     }catch{}
   }
