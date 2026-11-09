@@ -196,7 +196,7 @@ test('full HP after Act IV, Act V save entry, finale completion and menu reset',
  assert.ok(clearCampaignCheckpoint(storage));assert.equal(readCampaignCheckpoint(storage),null);
  const scene=src('../src/catacombs-scene.js');
  assert.ok(scene.includes("this.scene.start('Credits')"));
- assert.ok(scene.includes('if(!this.run.isDebugRun)clearCampaignCheckpoint()'));
+ assert.ok(scene.includes('if(!this.run.isDebugRun&&!this.run.isReplayRun)clearCampaignCheckpoint()'));
 });
 test('Act V uses five approved production PNGs and scoped ActTitle preparation',()=>{
  const manifest=actRequiredAssets('act5'),files=manifest.map(x=>x.path);
@@ -280,7 +280,7 @@ test('catacombs player and boss swept movement, gunshots and summons share the s
 
 test('Act V final visual regression contracts preserve combat, fairy and credits',async()=>{
  const {RUDOLF_DAMAGE_BOX,segmentRudolfHit,rudolfFlameTarget,FAIRY_ARRIVAL}=await import('../src/act5-final-visuals.js');
- assert.deepEqual(CATACOMBS.playerStart,{x:480,y:420});
+ assert.deepEqual(CATACOMBS.playerStart,{x:480,y:375});
  assert.ok(catacombsWalkable(CATACOMBS.playerStart));
  assert.ok(catacombsWalkable(CATACOMBS.fairyStart,CATACOMBS.enemyRadius));
  assert.ok(Math.hypot(CATACOMBS.fairyStart.x-CATACOMBS.marianStart.x,
