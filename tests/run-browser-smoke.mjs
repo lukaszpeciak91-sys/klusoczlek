@@ -125,9 +125,9 @@ try{
  // Deterministically complete Act I through the real campaign completion
  // contract (not a DEBUG checkpoint), then exercise the public replay touch.
  const unlockCompleted=await evaluate(`(async()=>{
-  const {createCampaignRun,completeCampaignAct,MARCIN_MOHAWK_ID}=await import('/src/campaign-run.js');
-  const {writeCampaignCheckpoint}=await import('/src/campaign-save.js');
-  const {recordActCompletion}=await import('/src/act-unlocks.js');
+  const {createCampaignRun,completeCampaignAct,MARCIN_MOHAWK_ID}=await import('/klusoczlek/src/campaign-run.js');
+  const {writeCampaignCheckpoint}=await import('/klusoczlek/src/campaign-save.js');
+  const {recordActCompletion}=await import('/klusoczlek/src/act-unlocks.js');
   const saved=createCampaignRun();
   if(!writeCampaignCheckpoint(saved,'act1'))return false;
   const run=createCampaignRun();run.artifacts.add(MARCIN_MOHAWK_ID);
