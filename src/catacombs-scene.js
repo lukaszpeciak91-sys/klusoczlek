@@ -6,7 +6,9 @@ import {createJoystick} from './joystick.js';
 import {createHpFaceHud} from './hp-face-hud.js';
 import {arenaHudLayout} from './ui-layout.js';
 import {normalizeInput,PLAYER_RADIUS} from './movement.js';
-import {playerFrame,facingOf} from './combat-contract.js';
+import {playerFrame,facingOf,resolvePose} from './combat-contract.js';
+import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
+import {segmentRudolfHit,rudolfFlameTarget,FAIRY_ARRIVAL,RUDOLF_DAMAGE_BOX} from './act5-final-visuals.js';
 import {currentCampaignRun,prepareActStart,completeCampaignAct,updateRunHealth} from './campaign-run.js';
 import {clearCampaignCheckpoint} from './campaign-save.js';
 import {availableWeapons,selectUnlockedWeapon,cycleUnlockedWeapon,WEAPONS} from './weapon-progression.js';
@@ -31,7 +33,8 @@ export class CatacombsScene extends Phaser.Scene{
   this.defeated=false;this.completed=false;this.finalized=false;
   this.transformationStarted=false;this.transformationCompleted=false;
   this.summons=[];this.shots=[];this.bossShots=[];this.shotCooldowns=new Map();
-  this.killCount=0;this.combatMs=0;this.facing='n';this.hitUntil=0;
+  this.killCount=0;this.combatMs=0;this.facing='n';this.bossFacing='s';this.hitUntil=0;
+  this.deathBursts=[];this.bossDeathClock=0;this.lastShotAim={x:0,y:-1};
   this.boss=createFinalBossState();
   this.run=currentCampaignRun(this.game);
   const registered=new Set(Object.keys(this.scene.manager.keys));
@@ -148,7 +151,7 @@ export class CatacombsScene extends Phaser.Scene{
    this.input.off('pointerdown',pointer);this.input.keyboard.off('keydown',keyboard);
    this.playerVisual.destroy();this.hpFace.destroy();
    for(const renderer of Object.values(this.enemyRenderers))renderer.shutdown();
-   this.clearShots();this.clearSummons();
+   this.clearShots();this.clearSummons();destroyBursts(this.deathBursts);
   });
   this.fullscreenButton=document.getElementById('fullscreen-button');
   this.fullscreenPreviousHidden=this.fullscreenButton?.hidden??false;
@@ -219,7 +222,7 @@ export class CatacombsScene extends Phaser.Scene{
   const effective=this.textures.exists(key)?key:this.textures.exists(MARIAN_FINAL_ASSETS.normal.key)?
    MARIAN_FINAL_ASSETS.normal.key:null;
   if(effective){
-   this.bossArt.setTexture(effective,playerFrame('s')).setScale(effective===MARIAN_FINAL_ASSETS.transformed.key?.62:.72).setVisible(true);
+   this.bossArt.setTexture(effective,playerFrame(this.bossFacing)).setScale(effective===MARIAN_FINAL_ASSETS.transformed.key?.62:.72).setVisible(true);
    this.bossFallback.setVisible(false);this.bossFallbackHat.setVisible(false);
   }else{
    this.bossArt.setVisible(false);this.bossFallback.setVisible(true);this.bossFallbackHat.setVisible(true);
@@ -316,7 +319,9 @@ export class CatacombsScene extends Phaser.Scene{
   if(!enemy||enemy.dead)return false;
   enemy.hp=Math.max(0,enemy.hp-amount);
   if(enemy.hp>0){enemy.sprite.setAlpha(.6);return true;}
-  enemy.dead=true;retroAudio.enemyDeath();enemy.sprite.destroy();this.killCount++;
+  enemy.dead=true;retroAudio.enemyDeath();
+  this.deathBursts.push(createPixelBurst(this,enemy.type,enemy.x,enemy.y,enemy.seed));
+  enemy.sprite.destroy();this.killCount++;
   finalBossClearSummon(this.boss,enemy.id);
   this.summons=this.summons.filter(e=>!e.dead);
   if(this.boss.phase==='gun'){this.bossArt.clearTint();this.objective.setText('POKONAJ KŁUSOCZŁEKA!');}
@@ -328,22 +333,51 @@ export class CatacombsScene extends Phaser.Scene{
   this.finalized=true;this.boss.hp=0;this.boss.phase='defeated';this.boss.defeated=true;
   if(debug)this.boss.defeatEvents=1;
   this.clearShots();this.clearSummons();this.resetMovement();
-  this.phase='fairy';this.objective.setText('ŚWINIA-WRÓŻKA');
+  this.phase='boss-death';this.objective.setText('RUDOLF POKONANY');
   this.cameras.main.stopFollow();this.cameras.main.centerOn(CATACOMBS.width/2,350);
-  this.bossActor.setVisible(false);this.bossHp.clear();
+  this.bossHp.clear();this.bossActor.setAlpha(1);
+  retroAudio.death();
+  const x=this.bossActor.x,y=this.bossActor.y;
+  for(const [i,offset] of [[0,0,-30],[1,-38,-78],[2,35,-108],[3,-18,-148],[4,20,-55]]){
+   this.time.delayedCall(i*110,()=>{
+    if(this.disposed||this.phase!=='boss-death')return;
+    this.deathBursts.push(createPixelBurst(this,'marcin',x+offset,y+(-30-i*17),i*37));
+   });
+  }
+  this.tweens.add({targets:this.bossActor,alpha:0,duration:FAIRY_ARRIVAL.bossExplosionMs,
+   onComplete:()=>{
+    if(this.disposed||this.phase!=='boss-death')return;
+    this.bossActor.setVisible(false);
+    this.time.delayedCall(FAIRY_ARRIVAL.pauseMs,()=>this.materializeFairy());
+   }});
+  this.syncControls();return true;
+ }
+ materializeFairy(){
+  if(this.disposed||this.phase!=='boss-death'||this.fairyActor)return false;
+  const point=CATACOMBS.fairyStart;
+  if(!catacombsWalkable(point,CATACOMBS.enemyRadius)||
+   Math.hypot(point.x-this.bossActor.x,point.y-this.bossActor.y)<110)
+   throw Error('Unsafe or overlapping fairy arrival');
   const key='act5-fairy';
   if(this.textures.exists(key)){
-   this.fairyActor=this.add.image(CATACOMBS.fairyStart.x,CATACOMBS.fairyStart.y,key)
-    .setDisplaySize(78,78).setDepth(13);
+   this.fairyActor=this.add.image(point.x,point.y,key).setDisplaySize(78,78).setDepth(13);
   }else{
-   this.fairyActor=this.add.container(CATACOMBS.fairyStart.x,CATACOMBS.fairyStart.y).setDepth(13);
+   this.fairyActor=this.add.container(point.x,point.y).setDepth(13);
    this.fairyActor.add(this.add.ellipse(0,0,76,64,0xd8a8ac).setStrokeStyle(3,0x59373c));
    this.fairyActor.add(this.add.circle(-14,-7,5,0x202024));
    this.fairyActor.add(this.add.circle(14,-7,5,0x202024));
   }
-  this.time.delayedCall(debug?120:600,()=>{
-   if(!this.disposed&&this.phase==='fairy')this.showDialogue('act5-fairy');
-  });
+  this.phase='fairy';this.objective.setText('ŚWINIA-WRÓŻKA');
+  this.fairyActor.setAlpha(0).setScale(.85);
+  for(let i=0;i<10;i++){
+   const a=i*Math.PI/5,spark=this.add.circle(point.x,point.y,2+(i%3),0xdcc5ff,.9).setDepth(100);
+   this.tweens.add({targets:spark,x:point.x+Math.cos(a)*50,y:point.y-25+Math.sin(a)*52,
+    alpha:0,duration:FAIRY_ARRIVAL.fadeMs,onComplete:()=>spark.destroy()});
+  }
+  this.tweens.add({targets:this.fairyActor,alpha:1,scale:1,duration:FAIRY_ARRIVAL.fadeMs,
+   ease:'Sine.Out',onComplete:()=>{
+    if(!this.disposed&&this.phase==='fairy')this.showDialogue('act5-fairy');
+   }});
   return true;
  }
  showFairyEnding(){
@@ -427,7 +461,7 @@ export class CatacombsScene extends Phaser.Scene{
   array.push({x,y,vx,vy,sprite,owner,life:owner==='marian'?2400:1250});
  }
  firePlayer(){
-  const d=normalizeInput(this.aimJoystick.direction.x,this.aimJoystick.direction.y);
+  const d=this.lastShotAim;
   const aim=Math.hypot(d.x,d.y)>.1?d:{
    x:this.keys.D.isDown||this.keys.RIGHT.isDown?1:this.keys.A.isDown||this.keys.LEFT.isDown?-1:0,
    y:this.keys.S.isDown||this.keys.DOWN.isDown?1:this.keys.W.isDown||this.keys.UP.isDown?-1:0
@@ -436,9 +470,9 @@ export class CatacombsScene extends Phaser.Scene{
   const vector=len>.1?normalizeInput(aim.x,aim.y):{x:0,y:0};
   const held=this.aimJoystick.held||len>.1;
   if(this.weapon==='flamethrower'){
-   retroAudio.stream('flamethrower',held);if(!held)return;const target=this.bossActor;
-   const visible=!segmentObstacleHit(this.player,target,CATACOMBS_OBSTACLES,0);
-   if(visible&&inFlameCone(this.player,vector,target,145,.45,FINAL_BOSS.contactRadius)
+   retroAudio.stream('flamethrower',held);if(!held)return;const target=this.bossActor,torso=rudolfFlameTarget(target);
+   const visible=!segmentObstacleHit(this.player,torso,CATACOMBS_OBSTACLES,0);
+   if(visible&&inFlameCone(this.player,vector,torso,145,.45,RUDOLF_DAMAGE_BOX.halfWidth)
       &&this.time.now-(this.shotCooldowns.get(target)??-Infinity)>250){
     this.shotCooldowns.set(target,this.time.now);this.damageBoss(1);
    }
@@ -467,7 +501,7 @@ export class CatacombsScene extends Phaser.Scene{
      this.hurtPlayer(this.time.now);remove=true;
     }
    }else if(!remove){
-    if(!this.boss.defeated&&Math.hypot(next.x-this.bossActor.x,next.y-this.bossActor.y)<FINAL_BOSS.contactRadius){
+    if(!this.boss.defeated&&segmentRudolfHit(p,next,this.bossActor,3)){
      this.damageBoss(1);remove=true;
     }else for(const e of [...this.summons])if(!e.dead&&
      Math.hypot(next.x-e.x,next.y-e.y)<e.radius+3){
@@ -480,6 +514,7 @@ export class CatacombsScene extends Phaser.Scene{
  }
  update(_time,delta){
   if(this.disposed||!this.entryGateReady)return;
+  updateBursts(this.deathBursts,delta);
   this.syncControls();
   if(!this.canPlay()){resetFiring(this.firing,this.weapon);return;}
   delta=Math.min(50,Math.max(0,delta));
@@ -490,7 +525,11 @@ export class CatacombsScene extends Phaser.Scene{
    this.joystick.direction.y+Number(k.S.isDown||k.DOWN.isDown)-Number(k.W.isDown||k.UP.isDown));
   const moved=catacombsStep(this.player,input,delta);
   this.player.setPosition(moved.x,moved.y);this.player.body.reset(moved.x,moved.y);
-  if(Math.hypot(input.x,input.y)>.05)this.facing=facingOf(input.x,input.y,this.facing);
+  const pose=resolvePose({movement:input,aim:this.aimJoystick.direction,
+   aimActive:this.aimJoystick.held,lastFacing:this.facing});
+  this.facing=pose.facing;
+  if(pose.shooting)this.lastShotAim=pose.aim;
+  else this.lastShotAim={x:0,y:0};
   this.playerVisual.update(this.facing,Math.hypot(input.x,input.y)>.05,delta);
   this.hpFace.update(delta);
   this.firePlayer();
@@ -502,6 +541,8 @@ export class CatacombsScene extends Phaser.Scene{
     const target=catacombsResolve(from,{x:from.x+dir.x*FINAL_BOSS.speed*delta/1000,
      y:from.y+dir.y*FINAL_BOSS.speed*delta/1000},FINAL_BOSS.contactRadius);
     from.setPosition(target.x,target.y);
+    this.bossFacing=facingOf(dir.x,dir.y,this.bossFacing);
+    this.bossArt.setFrame(playerFrame(this.bossFacing));
    }
    if(d<FINAL_BOSS.contactRadius+PLAYER_RADIUS)this.hurtPlayer(this.time.now);
   }
@@ -509,6 +550,8 @@ export class CatacombsScene extends Phaser.Scene{
   if(tick.summonTimeout){this.clearSummons();this.bossArt.clearTint();this.objective.setText('POKONAJ KŁUSOCZŁEKA!');}
   for(const offset of tick.shots){
    const a=Math.atan2(this.player.y-this.bossActor.y,this.player.x-this.bossActor.x)+offset;
+   this.bossFacing=facingOf(Math.cos(a),Math.sin(a),this.bossFacing);
+   this.bossArt.setFrame(playerFrame(this.bossFacing));
    this.spawnShot(this.bossShots,this.bossActor.x,this.bossActor.y-24,a,FINAL_BOSS.projectileSpeed,'marian');
   }
   if(this.boss.phase==='gun'&&this.boss.telegraph>0)

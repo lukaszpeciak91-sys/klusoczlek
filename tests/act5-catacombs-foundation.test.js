@@ -276,3 +276,26 @@ test('catacombs player and boss swept movement, gunshots and summons share the s
  for(const site of CATACOMBS_SUMMON_SITES)
   assert.ok(catacombsWalkable(site,CATACOMBS.enemyRadius),site.type+' spawn remains safe');
 });
+
+
+test('Act V final visual regression contracts preserve combat, fairy and credits',async()=>{
+ const {RUDOLF_DAMAGE_BOX,segmentRudolfHit,rudolfFlameTarget,FAIRY_ARRIVAL}=await import('../src/act5-final-visuals.js');
+ assert.deepEqual(CATACOMBS.playerStart,{x:480,y:420});
+ assert.ok(catacombsWalkable(CATACOMBS.playerStart));
+ assert.ok(catacombsWalkable(CATACOMBS.fairyStart,CATACOMBS.enemyRadius));
+ assert.ok(Math.hypot(CATACOMBS.fairyStart.x-CATACOMBS.marianStart.x,
+  CATACOMBS.fairyStart.y-CATACOMBS.marianStart.y)>110);
+ assert.ok(RUDOLF_DAMAGE_BOX.halfWidth>=60);
+ assert.ok(segmentRudolfHit({x:480,y:15},{x:480,y:210},CATACOMBS.marianStart,3));
+ assert.ok(!segmentRudolfHit({x:700,y:15},{x:700,y:210},CATACOMBS.marianStart,3));
+ assert.equal(rudolfFlameTarget(CATACOMBS.marianStart).y,137);
+ assert.ok(FAIRY_ARRIVAL.bossExplosionMs>FAIRY_ARRIVAL.fadeMs);
+ const s=src('../src/catacombs-scene.js');
+ assert.ok(s.includes('resolvePose({movement:input'));
+ assert.ok(s.includes('segmentRudolfHit(p,next,this.bossActor,3)'));
+ assert.ok(s.includes('createPixelBurst(this,enemy.type'));
+ assert.ok(s.includes("createPixelBurst(this,'marcin'"));
+ assert.ok(s.includes('this.phase=\'boss-death\''));
+ assert.ok(s.includes('this.time.delayedCall(FAIRY_ARRIVAL.pauseMs,()=>this.materializeFairy())'));
+ assert.ok(s.includes("this.scene.start('Credits')"));
+});
