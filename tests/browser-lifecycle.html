@@ -5,6 +5,7 @@
 import Phaser from 'phaser';
 import {PLAYER_ART_KEY} from '/src/character-visual.js';
 import { MenuScene, ArenaScene } from '/src/scenes.js';
+import {retroAudio} from '/src/retro-audio.js';
 import { ActTitleScene } from '/src/act-title-scene.js';
 import { AirshipScene } from '/src/airship-scene.js';
 import { VolcanoScene } from '/src/volcano-scene.js';
@@ -16,6 +17,7 @@ import {createEpisode,advanceTimedWaves,WAVE_TIMING,recordSpawn} from '/src/epis
 import {createDebugFixture} from '/src/debug-checkpoints.js';
 const game = new Phaser.Game({type:Phaser.CANVAS,parent:'game',width:800,height:360,scale:{mode:Phaser.Scale.RESIZE},physics:{default:'arcade'},input:{activePointers:3},scene:[MenuScene,ActTitleScene,ArenaScene,AirshipScene,VolcanoScene,SchoolScene,CatacombsScene]});
 window.__game=game;
+window.__retroAudio=retroAudio;
 window.__createDebugFixture=createDebugFixture;
 window.__createObstacle=(await import('/src/obstacle-catalog.js')).createObstacle;
 // Fixture-only deterministic clock/state staging; production owns the sole gameplay clock.
