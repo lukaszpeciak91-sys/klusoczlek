@@ -52,7 +52,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.resizeCamera=()=>{
    this.cameras.main.setZoom(1);
    if(this.phase==='opening'||this.phase==='transform'||this.phase==='fairy'||this.phase==='home')
-    this.cameras.main.centerOn(CATACOMBS.width/2,350);
+    this.cameras.main.centerOn(CATACOMBS.width/2,285);
   };
   this.drawCatacombs();
   const start=CATACOMBS.playerStart;
