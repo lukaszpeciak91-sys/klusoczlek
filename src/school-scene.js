@@ -8,7 +8,7 @@ import {createHpFaceHud} from './hp-face-hud.js';
 import {arenaHudLayout} from './ui-layout.js';
 import {normalizeInput} from './movement.js';
 import {facingOf,playerFrame} from './combat-contract.js';
-import {currentCampaignRun,prepareActStart,awardRunArtifact,completeCampaignAct} from './campaign-run.js';
+import {currentCampaignRun,prepareActStart,awardRunArtifact,completeCampaignAct,nextActHandoff,updateRunHealth} from './campaign-run.js';
 import {availableWeapons,cycleUnlockedWeapon,selectUnlockedWeapon,WEAPONS} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {createSchoolCombat} from './school-combat.js';
@@ -503,8 +503,14 @@ export class SchoolScene extends Phaser.Scene {
     this.actCompleted=true;this.storyBusy=true;
     this.combat.advanceFinale('ACT_IV_COMPLETE');
     this.combat.suspend();this.ambientBarks.suspend();this.resetMovement();
+    // Preserve the approved chapel ending, but now hand over the completed
+    // campaign snapshot to the actual final act through the existing title.
+    updateRunHealth(this.run,this.run.maxHp);
+    const handoff=nextActHandoff(this.run,new Set(Object.keys(this.scene.manager.keys)));
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
-      if(!this.disposed)this.scene.start('Menu'); // Act V remains unimplemented.
+      if(this.disposed)return;
+      if(handoff?.actId==='act5')this.scene.start('ActTitle',{actId:'act5',handoff});
+      else this.scene.start('Menu');
     });
     this.cameras.main.fadeOut(520,0,0,0);
     return true;
