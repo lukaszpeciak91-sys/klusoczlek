@@ -9,9 +9,9 @@ import {BLAZEJ_START,BLAZEJ_RADIUS,BLAZEJ_JUMP_MAX_TRAVEL,blazejJumpLanding} fro
 import {SCHOOL_OBSTACLES,schoolWalkable} from '../src/school-contract.js';
 import {firstFootprintHit} from '../src/obstacle-geometry.js';
 const source=p=>readFileSync(new URL(p,import.meta.url),'utf8');
-test('Błażej-only 48 HP retains original Marcin and 65/30 reinforcement thresholds',()=>{
- assert.equal(BLAZEJ_HP,48);assert.equal(MARCIN.hp,36);
- assert.equal(BLAZEJ_ATTACK.hp,48);
+test('Błażej-only 54 HP retains original Marcin and 65/30 reinforcement thresholds',()=>{
+ assert.equal(BLAZEJ_HP,54);assert.equal(MARCIN.hp,36);
+ assert.equal(BLAZEJ_ATTACK.hp,54);
  assert.equal(BLAZEJ_SPEED,ENEMY_TYPES.zubrokryptyda.speed*1.3);
  assert.deepEqual([BLAZEJ_ATTACK.cooldown,BLAZEJ_ATTACK.lowCooldown,BLAZEJ_ATTACK.warning],[4500,3000,900]);
  const combat=source('../src/school-combat.js');
