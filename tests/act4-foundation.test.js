@@ -22,7 +22,8 @@ test('Act IV is an Act I-sized world with safe reachable opening and school chec
 test('Act I swept obstacle movement never tunnels through chapel or bicycle rack',()=>{
   let p={x:SCHOOL_PLACES.chapel.x,y:SCHOOL_PLACES.chapel.y+SCHOOL_PLACES.chapel.height/2+48};
   for(let i=0;i<35;i++)p=schoolStep(p,{x:0,y:-1},50);
-  assert.ok(p.y>=927+17-.5,JSON.stringify(p));
+  const chapel=SCHOOL_OBSTACLES.find(o=>o.id==='chapel').footprint;
+  assert.ok(p.y>=chapel.y+chapel.height/2+17-.5,JSON.stringify(p));
   assert.equal(schoolWalkable(p),true);
   p={x:SCHOOL_PLACES.bicycleRack.x,y:915};
   for(let i=0;i<35;i++)p=schoolStep(p,{x:0,y:-1},50);
