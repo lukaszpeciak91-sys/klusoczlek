@@ -312,7 +312,7 @@ test('Act V continuous flame is gated by real right-stick, pressure and visible 
  assert.equal(rudolfFlameVisible(from,{x:0,y:-1},boss,[],tune),true);
  assert.equal(rudolfFlameVisible(from,{x:0,y:1},boss,[],tune),false);
  assert.equal(rudolfFlameVisible({x:700,y:210},{x:-1,y:0},boss,[],tune),false);
- assert.equal(rudolfFlameVisible(from,{x:0,y:-1},boss,CATACOMBS_OBSTACLES,tune),false);
+ assert.equal(rudolfFlameVisible(from,{x:0,y:-1},boss,[{footprint:{shape:'box',x:480,y:212,width:100,height:12}}],tune),false);
  const scene=src('../src/catacombs-scene.js');
  assert.ok(scene.includes('createContinuousWeaponState()'));
  assert.ok(scene.includes('drawContinuousStream(this.flameStream'));

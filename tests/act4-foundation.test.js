@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {SCHOOL_WORLD,SCHOOL_PLACES,SCHOOL_OBSTACLES,SCHOOL_WAVE_COUNT,schoolWalkable,schoolStep,schoolDebugPoint} from '../src/school-contract.js';
 import {availableWeapons,cycleUnlockedWeapon,selectUnlockedWeapon} from '../src/weapon-progression.js';
 import {createDebugFixture} from '../src/debug-checkpoints.js';
