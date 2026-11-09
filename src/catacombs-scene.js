@@ -29,6 +29,7 @@ export class CatacombsScene extends Phaser.Scene{
     this.events.on(Phaser.Scenes.Events.RESUME,()=>retroAudio.enter('Catacombs'));
   this.disposed=false;this.entryGateReady=false;this.phase='opening';
   this.defeated=false;this.completed=false;this.finalized=false;
+  this.transformationStarted=false;this.transformationCompleted=false;
   this.summons=[];this.shots=[];this.bossShots=[];this.shotCooldowns=new Map();
   this.killCount=0;this.combatMs=0;this.facing='n';this.hitUntil=0;
   this.boss=createFinalBossState();
@@ -79,7 +80,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.objective=this.add.text(0,0,'KATAKUMBY KAPLICY',{
    fontFamily:'monospace',fontSize:'15px',color:'#e8c883'}).setOrigin(.5,0).setScrollFactor(0).setDepth(70);
   this.dialogueState=createDialogueState();
-  this.dialoguePanel=createDialoguePanel(this,Phaser,id=>this.afterDialogue(id));
+  this.dialoguePanel=createDialoguePanel(this,Phaser,id=>this.afterDialogue(id),state=>this.onDialogueAdvance(state));
   this.enemyRenderers={
    bobrozombi:createBobrozombiRenderer(this,Phaser),
    bocianolak:createBocianolakRenderer(this,Phaser),
@@ -218,15 +219,22 @@ export class CatacombsScene extends Phaser.Scene{
   if(this.disposed||this.dialogueState.id||!beginDialogue(this.dialogueState,id))return false;
   this.resetMovement();this.dialoguePanel.show(this.dialogueState);return true;
  }
+ onDialogueAdvance(state){
+  // Only the first panel may trigger transformation. Keep the panel's
+  // index at 1, suspend taps, then resume the next panel after animation.
+  if(state.id!=='act5-betrayal'||state.index!==1||this.transformationStarted)return;
+  this.dialoguePanel.suspend();
+  this.startTransformation();
+ }
  afterDialogue(id){
   if(this.disposed)return;
-  if(id==='act5-betrayal')this.startTransformation();
-  else if(id==='act5-fairy')this.showHomeEnding();
-  else if(id==='act5-home')this.completeEnding();
+  if(id==='act5-betrayal'&&this.transformationCompleted)this.startBoss();
+  else if(id==='act5-fairy')this.showFairyEnding();
  }
  startTransformation(){
-  if(this.phase!=='opening')return false;
-  this.phase='transform';this.resetMovement();
+  if(this.phase!=='opening'||this.transformationStarted||this.dialogueState.id!=='act5-betrayal'||this.dialogueState.index!==1)return false;
+  this.transformationStarted=true;
+  this.phase='transform';this.resetMovement();this.syncControls();
   this.transitionVeil.setFillStyle(0x0d0815,.55).setAlpha(.55);
   this.selectMarianAppearance(false);
   let pulses=0;
@@ -244,7 +252,9 @@ export class CatacombsScene extends Phaser.Scene{
    this.bossActor.setAlpha(1).setScale(1);
    this.bossArt.clearTint();this.transitionVeil.setAlpha(0);
    this.selectMarianAppearance(true);
-   this.startBoss();
+   this.transformationCompleted=true;
+   this.phase='opening';this.syncControls();
+   this.dialoguePanel.resume();
   });
   return true;
  }
@@ -325,24 +335,30 @@ export class CatacombsScene extends Phaser.Scene{
   });
   return true;
  }
- showHomeEnding(){
-  if(this.phase!=='fairy')return false;
-  this.phase='home';this.resetMovement();
-  this.cameras.main.fadeOut(450,0,0,0);
-  this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
-   if(this.disposed)return;
-   this.transitionVeil.setFillStyle(0x100f16,1).setAlpha(1);
-   this.bossActor.setVisible(false);this.fairyActor?.setVisible(false);
-   this.finaleText=this.add.text(this.scale.width/2,this.scale.height/2-65,'W DOMU...',{
-    fontFamily:'monospace',fontSize:'26px',color:'#f5d6a5'
-   }).setOrigin(.5).setScrollFactor(0).setDepth(105);
-   this.cameras.main.fadeIn(350,0,0,0);
-   this.time.delayedCall(450,()=>{if(!this.disposed)this.showDialogue('act5-home');});
+ showFairyEnding(){
+  if(this.phase!=='fairy'||this.completed)return false;
+  this.phase='magic';this.resetMovement();this.syncControls();
+  // Approved MYK moment: short Phaser-only sparkle, then an opaque fade.
+  const x=this.fairyActor?.x??CATACOMBS.fairyStart.x;
+  const y=this.fairyActor?.y??CATACOMBS.fairyStart.y;
+  for(let i=0;i<12;i++){
+   const angle=i*Math.PI/6;
+   const spark=this.add.circle(x,y,3+(i%3),i%2?0xf7e6ac:0xba95ff,.95).setDepth(100);
+   this.tweens.add({targets:spark,x:x+Math.cos(angle)*92,y:y+Math.sin(angle)*79,
+    alpha:0,scale:.3,duration:440,ease:'Sine.Out',onComplete:()=>spark.destroy()});
+  }
+  this.time.delayedCall(440,()=>{
+   if(this.disposed||this.phase!=='magic')return;
+   this.cameras.main.fadeOut(450,0,0,0);
+   this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
+    if(this.disposed||this.phase!=='magic')return;
+    this.completeEnding();
+   });
   });
   return true;
  }
  completeEnding(){
-  if(this.phase!=='home'||this.completed)return false;
+  if(this.phase!=='magic'||this.completed)return false;
   this.completed=true;this.phase='ending';this.resetMovement();retroAudio.credits();
   const result=completeCampaignAct(this.run,'act5',{
    hp:this.run.hp,maxHp:this.run.maxHp,
