@@ -149,7 +149,7 @@ export class MenuScene extends Phaser.Scene {
     let actsGesture=null,actsOpeningPointer=null;
     const choices=CAMPAIGN_ACTS.map(act=>{
       const unlocked=act.number<=unlockedAtOpen;
-      const text=act.label+' — '+act.title+'  •  '+(unlocked?'ODBLOKOWANY':'ZABLOKOWANY');
+      const text=act.label+' — '+(act.id==='act3'?'PRZYTULNE M4\nW CENTRUM WULKANU':act.title)+'\n'+(unlocked?'ODBLOKOWANY':'ZABLOKOWANY');
       return {act,unlocked,control:button(this,initial.centerX,0,160,34,text,()=>{})};
     });
     const activateAct=act=>{
@@ -293,7 +293,10 @@ export class MenuScene extends Phaser.Scene {
         const visible=this.actsOpen&&y-itemHeight/2>=actsViewportTop-0.5&&y+itemHeight/2<=actsViewportBottom+0.5;
         control.background.setPosition(x,y).setSize(buttonWidth,itemHeight).setVisible(visible)
           .setFillStyle(unlocked?COLORS.panel:0x24242a);
-        control.caption.setColor(unlocked?COLORS.white:'#777780').setPosition(x,y).setFontSize(Math.max(11,Math.min(18,buttonWidth/(Math.max(20,control.caption.text.length)*.65),h*.047))).setVisible(visible);
+        const lines=control.caption.text.split('\n');
+        const longest=Math.max(...lines.map(line=>line.length));
+        const font=Math.max(11,Math.min(18,buttonWidth/(Math.max(20,longest)*.65),h*.047,(itemHeight-6)/(lines.length*1.17)));
+        control.caption.setColor(unlocked?COLORS.white:'#777780').setPosition(x,y).setFontSize(font).setVisible(visible);
         // Selection is handled by a complete pointer gesture, never Phaser's
         // pointerup event on a button that may have appeared under the finger.
         control.background.disableInteractive();
