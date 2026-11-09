@@ -80,11 +80,11 @@ export class MenuScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.background);
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
-    const sessionKey=['School','Volcano','Airship','Arena'].find(key=>this.scene.isPaused(key))??'Arena';
+    const sessionKey=['Catacombs','School','Volcano','Airship','Arena'].find(key=>this.scene.isPaused(key))??'Arena';
     const hasSession = this.scene.isPaused(sessionKey);
     const savedCheckpoint=readCampaignCheckpoint();
-    const terminal = hasSession && ((sessionKey==='Arena' && this.scene.get('Arena').episode?.ended) || (sessionKey==='Volcano' && this.scene.get('Volcano').defeated) || (sessionKey==='School' && this.scene.get('School').defeated));
-    const defeated = terminal && (sessionKey==='Volcano'||sessionKey==='School'||(sessionKey==='Arena'&&this.scene.get('Arena').episode.state==='defeat'));
+    const terminal = hasSession && ((sessionKey==='Arena' && this.scene.get('Arena').episode?.ended) || (sessionKey==='Volcano' && this.scene.get('Volcano').defeated) || (sessionKey==='School' && this.scene.get('School').defeated) || (sessionKey==='Catacombs' && this.scene.get('Catacombs').defeated));
+    const defeated = terminal && (sessionKey==='Volcano'||sessionKey==='School'||sessionKey==='Catacombs'||(sessionKey==='Arena'&&this.scene.get('Arena').episode.state==='defeat'));
     const victorious=terminal&&!defeated;
     const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
     const allowed = () => !this.navigating && !document.hidden && window.innerWidth >= window.innerHeight;
