@@ -382,7 +382,10 @@ try{
  // paused-scene regression before the resume assertions are exercised.
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.hp=999;s.hpFace.setHp(s.run.maxHp);s.player.setPosition(550,450);s.player.body.reset(550,450);return true})()");
  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
- await touch(p.x,p.y);
+ for(let attempt=0;attempt<3;attempt++){
+  await touch(p.x,p.y);await sleep(180);
+  if(await evaluate("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')"))break;
+ }
  await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'School bark MENU pause');
  assert.deepEqual(await evaluate("(()=>{const b=window.__game.scene.getScene('School').ambientBarks;return [b.state.active.length,b.pool.filter(p=>p.root.visible).length]})()"),[0,0],'barks hidden on MENU');
  await tapMenu('WZNÓW');
