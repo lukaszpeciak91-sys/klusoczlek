@@ -23,6 +23,8 @@ import {lawosDialogueTrigger,lawosTriggerReached} from './volcano-platforms.js';
 import {createVolcanoNpcs,fairyTrigger,createNpcReadiness,shouldRevealFairy} from './volcano-npcs.js';
 import {createBogdanEncounter,apartmentReached,findMarlenaRoute} from './volcano-bogdan.js';
 import {volcanoFootprintAllowed,volcanoStep,VOLCANO_START,VOLCANO_ASSETS,VOLCANO_DEPTH,advanceVolcanoLava,validVolcanoPng,volcanoControlsAllowed,volcanoFacing,createVolcanoWalkability,nearestVolcanoSpawn} from './volcano-contract.js';
+import {preparedVolcanoMask,prepareActAssets} from './act-asset-preparation.js';
+import {beginSceneReveal} from './scene-reveal-gate.js';
 
 // Scene owns only two persistent world layers. Missing production art is safe.
 export class VolcanoScene extends Phaser.Scene {
@@ -33,9 +35,9 @@ export class VolcanoScene extends Phaser.Scene {
     if(this.run.actId!=='act3'&&!prepareActStart(this.run,this.handoff,new Set(Object.keys(this.scene.manager.keys)))){
       this.scene.start('Menu');return;
     }
-    this.disposed=false;
+    this.disposed=false;this.entryGateReady=false;
     this.openingComplete=false;
-    this.walkability=null;
+    this.walkability=null;this.debugPreparation=Promise.resolve();
     this.combatPending=false;
     this.lawosStarted=false;
     this.lawosTravel=0;
@@ -233,23 +235,47 @@ export class VolcanoScene extends Phaser.Scene {
     resize();
     enforceOrientationOnSceneStart(this);
     this.syncControls();
-    // Reuse the campaign title card before entering this scene. The world fades
-    // in with the Captain and existing dialogue UI; exploration stays locked.
-    this.cameras.main.fadeIn(400,0,0,0);
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_IN_COMPLETE,()=>{
-      if(this.disposed)return;
-      this.captainArrival.start();
-      if(this.debugCheckpoint&&this.debugCheckpoint!=='act3-opening')return;
-      if(beginDialogue(this.dialogueState,'act3-opening')){
-        grantWaterFlamethrower(this.run);
-        this.dialoguePanel.show(this.dialogueState);
+    // Terrain alpha, final spawn and DEBUG reposition are invisible until the
+    // preparation boundary passes. A missing mask keeps the world opaque.
+    const production=()=>Promise.allSettled([
+      this.loadOptionalVolcano('lava'),this.loadOptionalVolcano('terrain'),
+      this.playerVisual.loading,this.dialoguePanel.loading,this.captainArrival.loading
+    ]).then(()=>this.debugPreparation);
+    this.entryGate=beginSceneReveal(this,production,{
+      critical:()=>!!this.walkability&&this.terrainImage.visible&&this.playerVisual.loaded,
+      onRetry:async()=>{
+        const result=await prepareActAssets(this.game,'act3');
+        if(!result.ready)throw Error('terrain mask unavailable');
+        return production();
+      },
+      onReady:()=>{
+        this.player.body.reset(this.player.x,this.player.y);
+        this.cameras.main.centerOn(this.player.x,this.player.y);
+        this.cameras.main.fadeIn(400,0,0,0);
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_IN_COMPLETE,()=>{
+          if(this.disposed)return;
+          this.captainArrival.start();
+          if(this.debugCheckpoint&&this.debugCheckpoint!=='act3-opening')return;
+          if(beginDialogue(this.dialogueState,'act3-opening')){
+            grantWaterFlamethrower(this.run);
+            this.dialoguePanel.show(this.dialogueState);
+          }
+        });
       }
     });
-    void this.loadOptionalVolcano('lava');
-    void this.loadOptionalVolcano('terrain');
   }
   async loadOptionalVolcano(kind){
-    const def=VOLCANO_ASSETS[kind],controller=new AbortController();
+    const def=VOLCANO_ASSETS[kind],key='volcano-production-'+kind;
+    // Title already decoded and registered these textures. Do not fetch again.
+    if(this.textures.exists(key)){
+      if(kind==='lava')this.applyVolcanoLava(key);
+      else {
+        const prepared=preparedVolcanoMask(this.game);
+        if(prepared)this.applyVolcanoTerrain(prepared.mask,key,prepared.spawn);
+      }
+      return;
+    }
+    const controller=new AbortController();
     this.pendingLoads.add(controller);
     let objectUrl=null;
     try{
@@ -267,13 +293,9 @@ export class VolcanoScene extends Phaser.Scene {
       if(image.naturalWidth!==def.width||image.naturalHeight!==def.height)
         throw Error('decoded image size mismatch');
       if(this.disposed||controller.signal.aborted)return;
-      const key='volcano-production-'+kind;
       if(!this.textures.exists(key))this.textures.addImage(key,image);
       if(kind==='lava'){
-        const previous=this.lava.tilePositionY;
-        this.lava.setTexture(key).setSize(ARENA.width,ARENA.height);
-        this.lava.tilePositionY=previous;
-        this.lava.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+        this.applyVolcanoLava(key);
       }else{
         // Decode the exact world-sized RGBA terrain once, before enabling gameplay.
         const canvas=document.createElement('canvas');
@@ -285,24 +307,7 @@ export class VolcanoScene extends Phaser.Scene {
         const mask=createVolcanoWalkability(pixels.data,def.width,def.height);
         const playerStart=nearestVolcanoSpawn(mask,this.player.x,this.player.y,PLAYER_RADIUS);
         if(!playerStart)throw Error('no valid player spawn in terrain mask');
-        this.walkability=mask;
-        this.combat.prepareZones();
-        this.lawosTrigger=lawosDialogueTrigger(this.combat.enemies.filter(e=>e.zoneId==='entrance'&&!e.dead));
-        if(!this.lawosTrigger)console.error('[Volcano] Lawostworki opening staging incomplete');
-        this.player.setPosition(playerStart.x,playerStart.y);
-        this.player.body.reset(playerStart.x,playerStart.y);
-        void this.boss.prepare().then(ready=>{
-          if(this.debugCheckpoint&&this.debugCheckpoint!=='act3-opening'){
-            void this.initializeDebugCheckpoint(ready);
-            return;
-          }
-          if(this.disposed||this.defeated)return;
-          if(!ready)console.warn('[Volcano Boss] apartment encounter unavailable');
-          else if(this.apartmentPending)this.tryApartmentEncounter();
-        });
-        if(this.lawosComplete&&this.combatPending){this.combat.start();this.combatPending=false;}
-        this.terrainImage.setTexture(key).setPosition(0,0).setOrigin(0).setDisplaySize(ARENA.width,ARENA.height).setVisible(true);
-        this.terrain.setVisible(false);
+        this.applyVolcanoTerrain(mask,key,playerStart);
       }
     }catch(error){
       if(!controller.signal.aborted&&!this.disposed)
@@ -311,6 +316,33 @@ export class VolcanoScene extends Phaser.Scene {
       if(objectUrl)URL.revokeObjectURL(objectUrl);
       this.pendingLoads.delete(controller);
     }
+  }
+  applyVolcanoLava(key){
+    const previous=this.lava.tilePositionY;
+    this.lava.setTexture(key).setSize(ARENA.width,ARENA.height);
+    this.lava.tilePositionY=previous;
+    this.lava.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+  applyVolcanoTerrain(mask,key,spawn){
+    if(this.disposed||this.walkability)return;
+    const playerStart=spawn??nearestVolcanoSpawn(mask,this.player.x,this.player.y,PLAYER_RADIUS);
+    if(!playerStart)throw Error('no valid player spawn in terrain mask');
+    this.walkability=mask;
+    this.player.setPosition(playerStart.x,playerStart.y);
+    this.player.body.reset(playerStart.x,playerStart.y);
+    this.combat.prepareZones();
+    this.lawosTrigger=lawosDialogueTrigger(this.combat.enemies.filter(e=>e.zoneId==='entrance'&&!e.dead));
+    if(!this.lawosTrigger)console.error('[Volcano] Lawostworki opening staging incomplete');
+    this.terrainImage.setTexture(key).setPosition(0,0).setOrigin(0).setDisplaySize(ARENA.width,ARENA.height).setVisible(true);
+    this.terrain.setVisible(false);
+    this.debugPreparation=this.boss.prepare().then(async ready=>{
+      if(this.disposed)return false;
+      if(this.debugCheckpoint&&this.debugCheckpoint!=='act3-opening')return this.initializeDebugCheckpoint(ready);
+      if(!ready)console.warn('[Volcano Boss] apartment encounter unavailable');
+      else if(this.apartmentPending)this.tryApartmentEncounter();
+      return ready;
+    });
+    if(this.lawosComplete&&this.combatPending){this.combat.start();this.combatPending=false;}
   }
   async initializeDebugCheckpoint(bossReady){
     if(this.disposed||!this.walkability||!bossReady)return false;
@@ -727,7 +759,7 @@ export class VolcanoScene extends Phaser.Scene {
     g.fillStyle(value<20?0x9b3932:0xee903a).fillRect(x,y,w*value/100,4);
   }
   controlsAllowed(){
-    return volcanoControlsAllowed({
+    return this.entryGateReady!==false&&volcanoControlsAllowed({
       hidden:document.hidden,focused:document.hasFocus(),
       landscape:window.innerWidth>=window.innerHeight,
       paused:this.scene.isPaused()
@@ -772,6 +804,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.scene.bringToTop('Menu');
   }
   update(_time,delta){
+    if(!this.entryGateReady)return;
     this.advanceBogdanExplosion(delta);
     this.ensureApartmentCameraRecovery();
     if(this.finale.state==='ESCAPE_RETRY')return;
