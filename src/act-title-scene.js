@@ -20,6 +20,7 @@ export class ActTitleScene extends Phaser.Scene {
     }
     this.cameras.main.setBackgroundColor('#000000');
     this.assetGate={ready:false,minimumElapsed:false,failed:[],starting:false};
+    this.preparationAttempts=0;this.lastPreparationError=null;
     this.assetAbort=new AbortController();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>this.assetAbort.abort());
     const w=this.scale.width,h=this.scale.height;
@@ -63,7 +64,10 @@ export class ActTitleScene extends Phaser.Scene {
       });
     };
     const prepare=()=>{
-      if(!this.sys.isActive()||this.assetAbort.signal.aborted)return;
+      // create() runs before Phaser marks the scene fully active. Do not
+      // suppress the first preparation call during the create lifecycle.
+      if(this.assetAbort.signal.aborted)return;
+      this.preparationAttempts++;
       retry.setVisible(false);status.setText('PRZYGOTOWYWANIE AKTU…');
       void prepareActAssets(this.game,this.actId,{signal:this.assetAbort.signal}).then(result=>{
         if(!this.sys.isActive()||this.assetAbort.signal.aborted)return;
@@ -71,8 +75,10 @@ export class ActTitleScene extends Phaser.Scene {
         if(!result.ready){
           status.setText('NIE UDAŁO SIĘ WCZYTAĆ TERENU.');retry.setVisible(true);
         }else{status.setText(result.failed.length?'WŁĄCZONO BEZPIECZNE ZAMIENNIKI':'GOTOWE');finish();}
-      }).catch(()=>{
-        if(!this.sys.isActive()||this.assetAbort.signal.aborted)return;
+      }).catch(error=>{
+        if(this.assetAbort.signal.aborted)return;
+        this.lastPreparationError=String(error?.message??error);
+        console.warn('[ActTitle] preparation failed:',error);
         status.setText('BŁĄD ŁADOWANIA — SPRÓBUJ PONOWNIE');retry.setVisible(true);
       });
     };
