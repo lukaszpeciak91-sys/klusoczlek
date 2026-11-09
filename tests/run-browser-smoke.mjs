@@ -63,7 +63,7 @@ try{
  await wait("window.__game?.scene.isActive('Menu')",'menu boot');
  const menu=await geometry();assert.ok(menu.buttons.some(b=>b.text==='NOWA GRA')&&menu.buttons.some(b=>b.text==='AKTY'),'menu buttons');
  // Chromium touches actual Phaser controls, not storage-only assertions.
- const audioState=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return {open:m.optionsOpen,debug:m.debugOpen,save:JSON.parse(localStorage.getItem('klusoczlek-audio-v1')||'{}'),labels:m.children.list.filter(x=>x.type==='Text'&&x.visible).map(x=>x.text)}})()");
+ const audioState=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return {open:m.optionsOpen,acts:m.actsOpen,save:JSON.parse(localStorage.getItem('klusoczlek-audio-v1')||'{}'),labels:m.children.list.filter(x=>x.type==='Text'&&x.visible).map(x=>x.text)}})()");
  const audioRect=await evaluate("(()=>{const g=window.__game,r=g.canvas.getBoundingClientRect();return {x:r.x,y:r.y,w:g.scale.width,h:g.scale.height}})()");
  const slide=async(kind,value)=>{
   const p={x0:audioRect.x+audioRect.w*.375,x1:audioRect.x+audioRect.w*.765,y:audioRect.y+audioRect.h*(kind==='music'?.55:.705)};
