@@ -375,13 +375,15 @@ export class CatacombsScene extends Phaser.Scene{
    this.fairyActor.add(this.add.circle(14,-7,5,0x202024));
   }
   this.phase='fairy';this.objective.setText('ŚWINIA-WRÓŻKA');
-  this.fairyActor.setAlpha(0).setScale(.85);
+  // PNG is 256px natively; container fallback already has a 76px silhouette.
+  const finalScale=this.textures.exists(key)?78/256:1;
+  this.fairyActor.setAlpha(0).setScale(finalScale*.85);
   for(let i=0;i<10;i++){
    const a=i*Math.PI/5,spark=this.add.circle(point.x,point.y,2+(i%3),0xdcc5ff,.9).setDepth(100);
    this.tweens.add({targets:spark,x:point.x+Math.cos(a)*50,y:point.y-25+Math.sin(a)*52,
     alpha:0,duration:FAIRY_ARRIVAL.fadeMs,onComplete:()=>spark.destroy()});
   }
-  this.tweens.add({targets:this.fairyActor,alpha:1,scale:1,duration:FAIRY_ARRIVAL.fadeMs,
+  this.tweens.add({targets:this.fairyActor,alpha:1,scale:finalScale,duration:FAIRY_ARRIVAL.fadeMs,
    ease:'Sine.Out',onComplete:()=>{
     if(!this.disposed&&this.phase==='fairy')this.showDialogue('act5-fairy');
    }});

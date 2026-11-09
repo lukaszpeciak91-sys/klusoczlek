@@ -288,7 +288,7 @@ test('Act V final visual regression contracts preserve combat, fairy and credits
  assert.ok(RUDOLF_DAMAGE_BOX.halfWidth>=60);
  assert.ok(segmentRudolfHit({x:480,y:15},{x:480,y:210},CATACOMBS.marianStart,3));
  assert.ok(!segmentRudolfHit({x:700,y:15},{x:700,y:210},CATACOMBS.marianStart,3));
- assert.equal(rudolfFlameTarget(CATACOMBS.marianStart).y,137);
+ assert.equal(rudolfFlameTarget(CATACOMBS.marianStart).y,CATACOMBS.marianStart.y-73);
  assert.ok(FAIRY_ARRIVAL.bossExplosionMs>FAIRY_ARRIVAL.fadeMs);
  const s=src('../src/catacombs-scene.js');
  assert.ok(s.includes('resolvePose({movement:input'));

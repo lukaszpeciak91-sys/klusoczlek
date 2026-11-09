@@ -6,7 +6,7 @@ import {resolveObstaclePosition} from './obstacles.js';
 export const CATACOMBS=Object.freeze({
  width:960,height:640,
  playerStart:Object.freeze({x:480,y:420}),
- marianStart:Object.freeze({x:480,y:210}),
+ marianStart:Object.freeze({x:480,y:246}),
  fairyStart:Object.freeze({x:650,y:410}),
  wall:38, bossRadius:25,enemyRadius:17
 });
