@@ -40,7 +40,7 @@ export function catacombsStep(from,input,delta,speed=PLAYER_SPEED,radius=PLAYER_
 }
 export const MARIAN_FINAL_ASSETS=Object.freeze({
  normal:Object.freeze({path:'npcs/captain.png',key:'npc-captain',width:1024,height:128,frameWidth:128,frameHeight:128}),
- transformed:Object.freeze({path:'enemies/marian-transformed.png',key:'act5-marian-transformed',width:1024,height:160,frameWidth:128,frameHeight:160}),
+ transformed:Object.freeze({path:'enemies/marian-transformed.png',key:'act5-marian-transformed',width:2048,height:256,frameWidth:256,frameHeight:256}),
  portrait:Object.freeze({path:'dialogue/dialogue-marian-transformed.png',key:'dialogue-marian-transformed',width:192,height:192})
 });
 export const CATACOMBS_SUMMON_SITES=Object.freeze([
