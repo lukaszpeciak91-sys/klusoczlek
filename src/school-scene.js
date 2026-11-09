@@ -10,6 +10,7 @@ import {arenaHudLayout} from './ui-layout.js';
 import {normalizeInput} from './movement.js';
 import {facingOf,playerFrame} from './combat-contract.js';
 import {currentCampaignRun,prepareActStart,awardRunArtifact,completeCampaignAct,nextActHandoff,updateRunHealth} from './campaign-run.js';
+import {recordActCompletion} from './act-unlocks.js';
 import {availableWeapons,cycleUnlockedWeapon,selectUnlockedWeapon,WEAPONS} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {createSchoolCombat} from './school-combat.js';
