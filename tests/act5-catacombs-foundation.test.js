@@ -276,3 +276,50 @@ test('catacombs player and boss swept movement, gunshots and summons share the s
  for(const site of CATACOMBS_SUMMON_SITES)
   assert.ok(catacombsWalkable(site,CATACOMBS.enemyRadius),site.type+' spawn remains safe');
 });
+
+
+test('Act V final visual regression contracts preserve combat, fairy and credits',async()=>{
+ const {RUDOLF_DAMAGE_BOX,segmentRudolfHit,rudolfFlameTarget,FAIRY_ARRIVAL}=await import('../src/act5-final-visuals.js');
+ assert.deepEqual(CATACOMBS.playerStart,{x:480,y:420});
+ assert.ok(catacombsWalkable(CATACOMBS.playerStart));
+ assert.ok(catacombsWalkable(CATACOMBS.fairyStart,CATACOMBS.enemyRadius));
+ assert.ok(Math.hypot(CATACOMBS.fairyStart.x-CATACOMBS.marianStart.x,
+  CATACOMBS.fairyStart.y-CATACOMBS.marianStart.y)>110);
+ assert.ok(RUDOLF_DAMAGE_BOX.halfWidth>=60);
+ assert.ok(segmentRudolfHit({x:480,y:15},{x:480,y:210},CATACOMBS.marianStart,3));
+ assert.ok(!segmentRudolfHit({x:700,y:15},{x:700,y:210},CATACOMBS.marianStart,3));
+ assert.equal(rudolfFlameTarget(CATACOMBS.marianStart).y,137);
+ assert.ok(FAIRY_ARRIVAL.bossExplosionMs>FAIRY_ARRIVAL.fadeMs);
+ const s=src('../src/catacombs-scene.js');
+ assert.ok(s.includes('resolvePose({movement:input'));
+ assert.ok(s.includes('segmentRudolfHit(p,next,this.bossActor,3)'));
+ assert.ok(s.includes('createPixelBurst(this,enemy.type'));
+ assert.ok(s.includes("createPixelBurst(this,'marcin'"));
+ assert.ok(s.includes('this.phase=\'boss-death\''));
+ assert.ok(s.includes('this.time.delayedCall(FAIRY_ARRIVAL.pauseMs,()=>this.materializeFairy())'));
+ assert.ok(s.includes("this.scene.start('Credits')"));
+});
+
+test('Act V continuous flame is gated by real right-stick, pressure and visible Rudolf torso',async()=>{
+ const {rudolfFlameVisible}=await import('../src/act5-final-visuals.js');
+ const {COMBAT_TUNING}=await import('../src/weapon-combat.js');
+ const {createContinuousWeaponState}=await import('../src/continuous-weapon.js');
+ const tune=COMBAT_TUNING.flamethrower,fire=createContinuousWeaponState();
+ assert.ok(fire.step(true,30));fire.stop();assert.equal(fire.step(true,30),false);
+ assert.equal(fire.step(false,30),false);assert.equal(fire.pressure.locked,false);
+ assert.ok(fire.step(true,30));
+ const boss={x:480,y:210},from={x:480,y:225};
+ assert.equal(rudolfFlameVisible(from,{x:0,y:-1},boss,[],tune),true);
+ assert.equal(rudolfFlameVisible(from,{x:0,y:1},boss,[],tune),false);
+ assert.equal(rudolfFlameVisible({x:700,y:210},{x:-1,y:0},boss,[],tune),false);
+ assert.equal(rudolfFlameVisible(from,{x:0,y:-1},boss,[{footprint:{shape:'box',x:480,y:212,width:100,height:12}}],tune),false);
+ const scene=src('../src/catacombs-scene.js');
+ assert.ok(scene.includes('createContinuousWeaponState()'));
+ assert.ok(scene.includes('drawContinuousStream(this.flameStream'));
+ assert.ok(scene.includes('emitContinuousParticle(this,this.fire'));
+ assert.ok(scene.includes('updateContinuousParticles(this.fire'));
+ assert.ok(scene.includes('this.fire.step(held,delta)'));
+ assert.ok(scene.includes('const held=Boolean(this.aimJoystick.held'));
+ assert.ok(scene.includes('this.stopFlame(true)'));
+ assert.ok(scene.includes("this.scene.start('Credits')"));
+});

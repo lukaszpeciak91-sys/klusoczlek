@@ -445,7 +445,26 @@ try{
  await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:stick.x+stick.r*.85,y:stick.y,id:23}]});
  await wait("window.__game.scene.getScene('School').combat.projectiles.length>0",'School real touch firing',3000);
  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
- const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
+  // R2 real right-stick flame audit: graphics, pressure, eight directions and release.
+ for(let j=0;j<3;j++){
+  if(await evaluate("window.__game.scene.getScene('School').weapon==='flamethrower'"))break;
+  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.hudLayout.switchX,y:r.y+s.hudLayout.switchY}})()");
+  await touch(p.x,p.y);await sleep(60);
+ }
+ assert.equal(await evaluate("window.__game.scene.getScene('School').weapon"),'flamethrower');
+ const st4=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.aimJoystick.base.x,y:r.y+s.aimJoystick.base.y,r:s.hudLayout.joystickRadius}})()");
+ await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:st4.x,y:st4.y,id:31}]});
+ for(let d=0;d<8;d++){
+  const angle=d*Math.PI/4;
+  await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:st4.x+Math.cos(angle)*st4.r*.85,y:st4.y+Math.sin(angle)*st4.r*.85,id:31}]});
+  await sleep(85);
+  const q=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return [s.aimJoystick.held,s.combat.pressure.active,s.combat.stream.commandBuffer.length]})()");
+  assert.ok(q[0]&&q[1]&&q[2]>0,'Act IV flame direction '+d+' '+JSON.stringify(q));
+ }
+ await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return !s.combat.pressure.active&&s.combat.stream.commandBuffer.length===0})()",'School flame real release');
+ console.log('PASS Act IV R2 Chromium 8-way flame, pressure, stream release');
+const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
  await touch(pausePoint.x,pausePoint.y);
  await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'School MENU pause');
  const enemiesBeforeResume=await evaluate("window.__game.scene.getScene('School').combat.enemies.length");
@@ -983,7 +1002,29 @@ try{
  }
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='boss'&&s.boss.phase==='gun'&&s.canPlay()})()",'boss after all 17 dialogue panels',4500);
  await wait("window.__game.scene.getScene('Catacombs').bossShots.length>0",'rotating gun emits real shots',6500);
- const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y,clock:s.combatMs}})()");
+  // R2 live Act V flame: controlled unobstructed boss position and real touch.
+ for(let j=0;j<3;j++){
+  if(await evaluate("window.__game.scene.getScene('Catacombs').weapon==='flamethrower'"))break;
+  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.hudLayout.switchX,y:r.y+s.hudLayout.switchY}})()");
+  await touch(p.x,p.y);await sleep(60);
+ }
+ assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').weapon"),'flamethrower');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.hitUntil=Infinity;s.bossActor.setPosition(s.player.x,s.player.y+100);return true})()");
+ const st5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.aimJoystick.base.x,y:r.y+s.aimJoystick.base.y,r:s.hudLayout.joystickRadius,hp:s.boss.hp}})()");
+ await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:st5.x,y:st5.y,id:32}]});
+ await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:st5.x,y:st5.y+st5.r*.85,id:32}]});
+ await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.fire.pressure.value<100&&s.flameStream.commandBuffer.length>0})()",'Act V real flame renderer/pressure');
+ await wait("window.__game.scene.getScene('Catacombs').boss.hp<"+st5.hp,'Act V real Rudolf damage',2200);
+ for(let d=0;d<8;d++){
+  const angle=d*Math.PI/4;
+  await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:st5.x+Math.cos(angle)*st5.r*.85,y:st5.y+Math.sin(angle)*st5.r*.85,id:32}]});
+  await sleep(75);
+  assert.ok(await evaluate("window.__game.scene.getScene('Catacombs').flameStream.commandBuffer.length>0"),'Act V flame direction '+d);
+ }
+ await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await wait("window.__game.scene.getScene('Catacombs').flameStream.commandBuffer.length===0",'Act V real flame release');
+ console.log('PASS Act V R2 Chromium 8-way flame, pressure, boss HP, release');
+const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y,clock:s.combatMs}})()");
  await touch(pause5.x,pause5.y);
  await wait("window.__game.scene.isPaused('Catacombs')&&window.__game.scene.isActive('Menu')",'Marian boss MENU pause',3000);
  const paused5=await evaluate("window.__game.scene.getScene('Catacombs').combatMs");
@@ -992,8 +1033,8 @@ try{
  await tapMenu('WZNÓW');
  await wait("window.__game.scene.isActive('Catacombs')",'Marian boss WZNÓW',3000);
 
- const shield=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hit:s.damageBoss(18),phase:s.boss.phase,n:s.boss.summons.length,hp:s.boss.hp,second:s.damageBoss(10)}})()");
- assert.deepEqual(shield,{hit:true,phase:'summon',n:3,hp:44,second:false},'horn summons 3 while Marian invulnerable');
+ const shield=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),before=s.boss.hp;return {before,hit:s.damageBoss(18),phase:s.boss.phase,n:s.boss.summons.length,hp:s.boss.hp,second:s.damageBoss(10)}})()");
+ assert.deepEqual(shield,{before:shield.before,hit:true,phase:'summon',n:3,hp:shield.before-18,second:false},'horn summons 3 while Marian invulnerable');
  const cleared=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');for(const e of [...s.summons])s.damageEnemy(e,e.hp);return {phase:s.boss.phase,n:s.summons.length}})()");
  assert.deepEqual(cleared,{phase:'gun',n:0},'defeating all summoned enemies restores vulnerability');
  await sleep(240);
@@ -1034,7 +1075,7 @@ try{
  // Remaining final-chapter DEBUG entries must start at their actual stages.
  for(const [id,phase] of [['act5-boss','boss'],['act5-ending','fairy']]){
   await cdp('Page.reload',{ignoreCache:true});
-  await wait("window.__game?.scene.isActive('Menu')",'menu before '+id);
+  await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'menu and fixture before '+id);
   await evaluate(`(()=>{const g=window.__game,f=window.__createDebugFixture(${JSON.stringify(id)});f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:${JSON.stringify(id)}});return true})()`);
   await wait(`(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.phase===${JSON.stringify(phase)}})()`,'Act V DEBUG '+id,12000);
   const v=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hp:s.run.hp,artifacts:s.run.artifacts.size,completed:s.run.completedActs.size,water:s.weapon==='water-flamethrower'}})()");

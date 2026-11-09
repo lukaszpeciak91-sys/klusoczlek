@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {SCHOOL_WORLD,SCHOOL_PLACES,SCHOOL_OBSTACLES,SCHOOL_WAVE_COUNT,schoolWalkable,schoolStep,schoolDebugPoint} from '../src/school-contract.js';
 import {availableWeapons,cycleUnlockedWeapon,selectUnlockedWeapon} from '../src/weapon-progression.js';
 import {createDebugFixture} from '../src/debug-checkpoints.js';
@@ -43,4 +44,23 @@ test('Act IV and V weapon filters preserve water history without selecting it',(
     assert.equal(cycleUnlockedWeapon('water-flamethrower',owned,actId),'blunderbuss');
   }
   assert.equal(owned.has('water-flamethrower'),true,'the historical entitlement is not destroyed');
+});
+
+test('School flamethrower respects pressure lock and authentic trigger release',async()=>{
+ const {createContinuousWeaponState}=await import('../src/continuous-weapon.js');
+ const state=createContinuousWeaponState();
+ assert.ok(state.step(true,50));state.stop();
+ assert.equal(state.step(true,50),false,'holding after interruption stays locked');
+ state.step(false,50);assert.ok(state.step(true,50),'release rearms');
+ let powered=true;
+ for(let i=0;i<65;i++)powered=state.step(true,50);
+ assert.equal(powered,false,'pressure depletes');
+ assert.equal(state.step(true,50),false,'staying held cannot auto-restart');
+ state.step(false,50);
+ for(let i=0;i<12;i++)state.step(false,50);
+ assert.ok(state.step(true,50),'regen and release allow restart');
+ const scene=readFileSync(new URL('../src/school-combat.js',import.meta.url),'utf8');
+ assert.ok(scene.includes('if(!scene.aimJoystick?.held)fire.step(false,0)'));
+ assert.ok(scene.includes("retroAudio.stream('flamethrower',flame)"));
+ assert.ok(scene.includes('enemyFlameVisible(origin,aim,boss'));
 });
