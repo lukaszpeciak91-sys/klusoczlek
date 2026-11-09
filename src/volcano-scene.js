@@ -10,6 +10,7 @@ import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl,validPngHeader} from './character-visual.js';
 import {createJoystick} from './joystick.js';
 import {currentCampaignRun,prepareActStart,grantWaterFlamethrower,awardRunArtifact,completeCampaignAct,updateRunHealth,nextActHandoff} from './campaign-run.js';
+import {recordActCompletion} from './act-unlocks.js';
 import {createDialogueState,beginDialogue} from './dialogue-data.js';
 import {createDialoguePanel} from './dialogue-ui.js';
 import {createCaptainArrival} from './captain-arrival.js';
@@ -730,6 +731,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.resetEruption();
     if(!completeCampaignAct(this.run,'act3',{hp:this.run.hp,maxHp:this.run.maxHp,
       unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,kills:0,activeCombatMs:0}))return;
+    recordActCompletion(this.run,'act3');
     // The act boundary heals Aloes, not the eruption or escape. Match the
     // already full-HP Act IV autosave and direct ActTitle -> School handoff.
     updateRunHealth(this.run,this.run.maxHp);
