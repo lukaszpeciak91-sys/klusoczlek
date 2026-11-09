@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DIALOGUES,createDialogueState,beginDialogue,advanceDialogue,currentDialogue} from '../src/dialogue-data.js';
 import {createDebugFixture} from '../src/debug-checkpoints.js';
+import {actPortraitKeys,scenePortraitKeys} from '../src/act-asset-preparation.js';
 
 const source=path=>readFileSync(new URL(path,import.meta.url),'utf8');
 
@@ -20,8 +21,11 @@ test('Act IV opening dialogue matches all six approved panels, original speakers
  assert.deepEqual(DIALOGUES['act4-captain-opening'].map(x=>x[0]),['captain','aloes','captain','captain','aloes','captain']);
  assert.equal(DIALOGUES['act4-captain-opening'].length,6);
  const ui=source('../src/dialogue-ui.js');
- assert.ok(ui.includes("'aloes','bobrozombi'"));
- assert.ok(ui.includes("'marcin','captain'"));
+ assert.ok(ui.includes('scenePortraitKeys(scene.scene.key)'));
+ assert.ok(actPortraitKeys('act4').includes('captain'));
+ assert.ok(actPortraitKeys('act4').includes('blazej'));
+ assert.ok(!actPortraitKeys('act1').includes('bogdan'));
+ assert.deepEqual(scenePortraitKeys('School'),actPortraitKeys('act4'));
  assert.ok(ui.includes("const line=currentDialogue(state)"));
  assert.ok(ui.includes("if(ended==='next')"));
  const state=createDialogueState();
@@ -39,7 +43,7 @@ test('Act IV opening dialogue matches all six approved panels, original speakers
 test('Marian waits until arrival and the final DALEJ before exactly one chapel departure tween',()=>{
  const scene=source('../src/school-scene.js'),captain=source('../src/captain-arrival.js');
  assert.ok(captain.includes('export const CAPTAIN_ARRIVAL_MS=800;'));
- assert.ok(captain.includes("directions:['e','se','s','sw','w','nw','n','ne']"));
+ assert.ok(source('../src/captain-sheet-contract.js').includes("directions:['e','se','s','sw','w','nw','n','ne']"));
  assert.ok(captain.includes('if(t>=1){arrived=true'));
  assert.ok(scene.includes('this.captainArrival.update(delta);'));
  assert.ok(scene.includes("this.captainDialogueStarted=this.beginSchoolDialogue('act4-captain-opening');"));
@@ -81,7 +85,9 @@ test('Act IV DEBUG mid-act checkpoints bypass Captain introduction and ordinary 
  const scene=source('../src/school-scene.js');
  assert.ok(scene.includes("this.introActive=!['act4-school','act4-combat','act4-wave4','act4-blazej','act4-boss','act4-finale'].includes(this.debugCheckpoint)"));
  assert.ok(scene.includes("if(!this.introActive&&this.debugCheckpoint!=='act4-school')"));
- assert.ok(scene.includes('if(this.introActive){\n      void this.captainArrival.loading.then('));
+ assert.ok(scene.includes('this.entryGate=beginSceneReveal(this'));
+ assert.ok(scene.includes('this.captainArrival.loading'));
+ assert.ok(scene.includes('if(this.introActive&&!this.captainArrival.start())'));
  for(const id of ['act4-opening','act4-school','act4-combat','act4-wave4','act4-blazej','act4-boss','act4-finale'])
   assert.ok(createDebugFixture(id),id);
  assert.ok(scene.includes('this.captainDialogueStarted=false;'));
