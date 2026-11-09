@@ -122,6 +122,40 @@ try{
  await tapMenu('WRÓĆ');
  assert.equal((await geometry()).acts,false,'WRÓĆ closes AKTY');
  console.log('PASS real Chromium AKTY: fresh lock, no DEBUG public button, no opening click-through, WRÓĆ');
+ // Deterministically complete Act I through the real campaign completion
+ // contract (not a DEBUG checkpoint), then exercise the public replay touch.
+ const unlockCompleted=await evaluate(`(async()=>{
+  const {createCampaignRun,completeCampaignAct,MARCIN_MOHAWK_ID}=await import('/src/campaign-run.js');
+  const {writeCampaignCheckpoint}=await import('/src/campaign-save.js');
+  const {recordActCompletion}=await import('/src/act-unlocks.js');
+  const saved=createCampaignRun();
+  if(!writeCampaignCheckpoint(saved,'act1'))return false;
+  const run=createCampaignRun();run.artifacts.add(MARCIN_MOHAWK_ID);
+  run.unlockedWeapons.add('rifle');run.selectedWeapon='rifle';
+  const ok=completeCampaignAct(run,'act1',{hp:run.maxHp,maxHp:run.maxHp,
+   unlockedWeapons:run.unlockedWeapons,selectedWeapon:run.selectedWeapon,
+   kills:1,activeCombatMs:1000});
+  return ok&&recordActCompletion(run,'act1');
+ })()`);
+ assert.equal(unlockCompleted,true,'normal completion unlocks Act II');
+ const savedBeforeReplay=await evaluate("localStorage.getItem('klusoczlek-campaign-v1')");
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'AKTY persisted after reload');
+ await tapMenu('AKTY');
+ const actTwo=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect();const t=m.children.list.find(x=>x.type==='Text'&&x.visible&&x.text.includes('AKT II')&&x.text.includes('ODBLOKOWANY'));return t?{x:r.x+t.x,y:r.y+t.y}:null})()");
+ assert.ok(actTwo,'legitimate completion visibly unlocks Act II');
+ await touch(actTwo.x,actTwo.y);
+ await wait("window.__game.scene.isActive('ActTitle')",'AKTY Act II opens real ActTitle',4500);
+ const replay=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle'),r=g.registry.get('campaign-run');return {act:t.actId,entry:r.actId,replay:r.isReplayRun,hp:r.hp,max:r.maxHp,artifacts:[...r.artifacts],weapon:r.selectedWeapon}})()");
+ assert.equal(replay.act,'act2');assert.equal(replay.entry,'act1');assert.equal(replay.replay,true);
+ assert.equal(replay.hp,replay.max);assert.ok(replay.artifacts.includes('marcin-mohawk'));
+ assert.equal(replay.weapon,'rifle');
+ assert.equal(await evaluate("localStorage.getItem('klusoczlek-campaign-v1')"),savedBeforeReplay,'replay cannot overwrite WZNÓW');
+ await cdp('Page.reload',{ignoreCache:true});
+ await wait("window.__game?.scene.isActive('Menu')",'menu after replay reload');
+ assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'),'replay retains independent WZNÓW');
+ console.log('PASS real Chromium AKTY: normal Act I completion, persistent Act II unlock, touch replay via ActTitle, separate autosave');
+
 
  // Fast direct Act V opening visual QA; does not replay Acts I–IV.
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act5-opening');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:'act5-opening'});return true})()");
