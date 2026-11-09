@@ -13,6 +13,7 @@ import {availableWeapons} from '../src/weapon-progression.js';
 import {getAct,nextAvailableAct} from '../src/campaign.js';
 import {serializeCampaignCheckpoint,readCampaignCheckpoint,clearCampaignCheckpoint,CAMPAIGN_SAVE_KEY} from '../src/campaign-save.js';
 import {actRequiredAssets,actPortraitKeys,scenePortraitKeys,validProductionAsset} from '../src/act-asset-preparation.js';
+import {segmentObstacleHit} from '../src/obstacles.js';
 const src=path=>readFileSync(new URL(path,import.meta.url),'utf8');
 
 test('final chapter is registered, reached through original ActTitle flow and terminal',()=>{
@@ -255,4 +256,23 @@ test('all four columns use a single texture, geometry and graphics share coordin
  assert.ok(s.includes('this.catacombsBackground=this.add.image(0,0,background.key)'));
  assert.ok(s.includes('this.catacombsObstacleArt.push(art)'));
  assert.ok(!s.includes('for(let y=40;y<600;y+=54)'),'no provisional checkerboard in production');
+});
+
+test('catacombs player and boss swept movement, gunshots and summons share the same solid art footprints',()=>{
+ const column=segmentObstacleHit({x:90,y:210},{x:305,y:210},CATACOMBS_OBSTACLES,3);
+ assert.equal(column?.id,'pillar-left-upper');
+ const altar=segmentObstacleHit({x:480,y:480},{x:480,y:160},CATACOMBS_OBSTACLES,3);
+ assert.equal(altar?.id,'altar');
+ assert.equal(segmentObstacleHit({x:340,y:215},{x:620,y:215},CATACOMBS_OBSTACLES,3),null,
+  'clear corridor between the columns must remain fireable');
+ for(const o of CATACOMBS_OBSTACLES){
+  assert.equal(catacombsWalkable({x:o.x,y:o.y},CATACOMBS.bossRadius),false,o.id+' stops boss');
+  const p=catacombsResolve({x:o.x-140,y:o.y},{x:o.x+140,y:o.y},CATACOMBS.enemyRadius);
+  assert.ok(catacombsWalkable(p,CATACOMBS.enemyRadius),o.id+' summoned enemy remains outside obstacle');
+ }
+ assert.ok(catacombsWalkable(CATACOMBS.marianStart,CATACOMBS.bossRadius));
+ assert.ok(catacombsWalkable(CATACOMBS.fairyStart,CATACOMBS.enemyRadius));
+ assert.ok(catacombsWalkable(CATACOMBS.playerStart));
+ for(const site of CATACOMBS_SUMMON_SITES)
+  assert.ok(catacombsWalkable(site,CATACOMBS.enemyRadius),site.type+' spawn remains safe');
 });
