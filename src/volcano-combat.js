@@ -170,7 +170,7 @@ export function createVolcanoCombat(scene){
   if(weapon==='water-flamethrower')igniteEnemy(enemy.ignition,enemy.type,now);
   enemy.hp=applyEnemyHit(enemy.hp,damage);
   if(enemy.hp<=0){
-   enemy.dead=true;retroAudio.enemyDeath();enemy.bark.destroy();
+   enemy.dead=true;enemy.bark.destroy();retroAudio.enemyDeath();
    if(enemy.zoneId)progression.defeated(enemy.zoneId);
    enemy.sprite.setTint(0x26272b);
    deathBursts.push(createPixelBurst(scene,enemy.type==='lawostworek-2'?'lawostworek-2':'lawostworek-1',enemy.x,enemy.y,enemy.index+137,{extinguish:true}));
