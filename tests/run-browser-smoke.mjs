@@ -490,8 +490,30 @@ try{
  // PR106: stage only through existing DEBUG conventions; never replay 170s.
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'menu before PR106 boss QA');
+ // Hold the actual approved portrait request so the final DEBUG panel opens
+ // with its fallback, then release it without advancing/restarting the dialog.
+ let pausedBlazejPortrait=null;
+ const onPortraitPaused=event=>{
+  const message=JSON.parse(event.data);
+  if(message.method==='Fetch.requestPaused'&&message.params.request.url.includes('dialogue-blazej.png'))
+   pausedBlazejPortrait=message.params.requestId;
+ };
+ socket.addEventListener('message',onPortraitPaused);
+ await cdp('Fetch.enable',{patterns:[{urlPattern:'*dialogue-blazej.png',requestStage:'Request'}]});
  await bootSchool('act4-blazej');
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_PENDING'&&s.dialogueState?.id==='act4-blazej-final'})()",'single post-wave Błażej panel',4500);
+ await wait("!window.__game.scene.getScene('School').dialoguePanel.loaded.has('blazej')",'late Błażej portrait still pending');
+ assert.ok(pausedBlazejPortrait,'real Błażej PNG request held before final panel');
+ const initialPortrait=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),d=s.dialoguePanel;return {id:s.dialogueState.id,index:s.dialogueState.index,text:d.text.text,images:d.shell.list.filter(o=>o.type==='Image'&&o.visible).map(o=>o.texture.key)}})()");
+ assert.deepEqual(initialPortrait,{id:'act4-blazej-final',index:0,text:'Ech, kazał pan, musiał sam!',images:[]},
+  'late portrait leaves fallback and dialogue index unchanged');
+ await cdp('Fetch.continueRequest',{requestId:pausedBlazejPortrait});
+ await cdp('Fetch.disable');
+ socket.removeEventListener('message',onPortraitPaused);
+ await wait("(()=>{const s=window.__game.scene.getScene('School'),d=s.dialoguePanel;return d.loaded.has('blazej')&&d.shell.list.some(o=>o.type==='Image'&&o.visible&&o.texture.key==='dialogue-blazej')})()",'late approved portrait appears without dialogue restart',6000);
+ const afterPortrait=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,index:s.dialogueState.index,text:s.dialoguePanel.text.text}})()");
+ assert.deepEqual(afterPortrait,{id:initialPortrait.id,index:initialPortrait.index,text:initialPortrait.text},
+  'async portrait image refresh preserves active dialogue panel');
  const passiveBoss=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {phase:s.schoolPhase,visible:s.blazej.actor.sprite.visible,active:s.blazej.active,target:s.blazej.target,hp:s.blazej.actor.hp,ordinary:s.combat.enemies.length,started:s.combat.started,artifacts:[...s.run.artifacts],dialogue:s.dialogueState.id,pausedBarks:s.ambientBarks.state.active.length}})()");
  assert.equal(passiveBoss.phase,'BLAZEJ_PENDING');
  assert.equal(passiveBoss.visible,true);
@@ -533,6 +555,12 @@ try{
  await wait("window.__game.scene.getScene('School').blazej.attack.phase==='warning'",'radial telegraph before attack');
  assert.equal(await evaluate("window.__game.scene.getScene('School').blazej.kind"),'radial');
  assert.equal(await evaluate("window.__game.scene.getScene('School').blazej.volleys"),0,'no bullet before warning');
+ const warningShapes=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.children.list.filter(o=>o.type==='Graphics'&&o.depth===16).map(o=>o.commandBuffer.length)})()");
+ assert.deepEqual(warningShapes,[0],'no pre-attack Phaser warning circles before radial volley');
+ await evaluate("(()=>{const a=window.__game.scene.getScene('School').blazej.attack;a.elapsed=200;return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School'),a=s.blazej.actor.sprite.getData('zubrokryptyda-art');return a?.tintTopLeft===0xffe1a3})()",'approved Błażej sprite flashes bright before radial fire',650);
+ await evaluate("(()=>{const a=window.__game.scene.getScene('School').blazej.attack;a.elapsed=300;return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School'),a=s.blazej.actor.sprite.getData('zubrokryptyda-art');return a?.tintTopLeft===0xffffff})()",'radial warning tint flashes back to normal',650);
  await evaluate("(()=>{const a=window.__game.scene.getScene('School').blazej.attack;a.elapsed=899;return true})()");
  await wait("window.__game.scene.getScene('School').blazej.volleys>0",'radial volley after warning',1500);
  const volley=await evaluate("(()=>{const b=window.__game.scene.getScene('School').blazej;return {volley:b.volleys,projectiles:b.projectiles.length}})()");
