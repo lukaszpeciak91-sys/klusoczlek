@@ -14,7 +14,7 @@ import {SCHOOL_ART,validSchoolyardBackground} from './schoolyard-art.js';
 import {HP_FACE_ASSETS} from './hp-face-hud.js';
 import {DIALOGUES} from './dialogue-data.js';
 import {PLAYER_RADIUS} from './movement.js';
-import {MARIAN_FINAL_ASSETS} from './catacombs-contract.js';
+import {MARIAN_FINAL_ASSETS,CATACOMBS_ART} from './catacombs-contract.js';
 
 export const ACT_TITLE_MIN_MS=1900;
 export const REQUIRED_ASSET_TIMEOUT_MS=10000;
@@ -73,9 +73,10 @@ export function actRequiredAssets(actId){
     enemy(BOBROZOMBI_ASSET),enemy(BOCIANOLAK_ASSET),enemy(ZUBROKRYPTYDA_ASSET),
     enemy(BLAZEJ_ASSET),captain(),atlas(),...first];
   case 'act5':return [...common,
+    ...[CATACOMBS_ART.background,CATACOMBS_ART.altar,CATACOMBS_ART.column].map(asset=>asAsset({...asset},true)),
     asAsset({...MARIAN_FINAL_ASSETS.normal},false),
-    asAsset({...MARIAN_FINAL_ASSETS.transformed},false),
-    asAsset({...MARIAN_FINAL_ASSETS.portrait},false),
+    asAsset({...MARIAN_FINAL_ASSETS.transformed},true),
+    asAsset({...MARIAN_FINAL_ASSETS.portrait},true),
     enemy(BOBROZOMBI_ASSET),enemy(BOCIANOLAK_ASSET),enemy(ZUBROKRYPTYDA_ASSET),
     actorSheet('npcs/swinia-wrozka.png','act5-fairy',256,256,256,256,false),
     ...first];
@@ -173,6 +174,6 @@ export async function prepareActAssets(game,actId,{signal}={}){
  const failed=entries.filter((def,i)=>settled[i].status==='rejected')
   .map(def=>({path:def.path,key:def.key,collision:!!def.collision,required:def.required}));
  session(game).failures.set(actId,failed);
- return {actId,ready:!isRequiredCollisionFailure(failed),failed,
+ return {actId,ready:actId==='act5'?failed.every(def=>!def.required):!isRequiredCollisionFailure(failed),failed,
    required:entries.filter(x=>x.required).length,loaded:settled.filter(x=>x.status==='fulfilled').length};
 }
