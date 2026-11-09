@@ -33,8 +33,11 @@ const readStored=storage=>{
  }catch{return null;}
 };
 const persist=(record,storage)=>{
- try{safeStore(storage)?.setItem(ACT_UNLOCKS_KEY,JSON.stringify(record));return true;}
- catch{return false;}
+ try{
+  const store=safeStore(storage);
+  if(!store||typeof store.setItem!=='function')return false;
+  store.setItem(ACT_UNLOCKS_KEY,JSON.stringify(record));return true;
+ }catch{return false;}
 };
 // Create an ACT ENTRY only from validated prior completed acts and actual
 // inventory. Never use developer fixtures, invent rewards, or fake completions.
