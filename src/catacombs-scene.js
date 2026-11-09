@@ -25,7 +25,7 @@ import {createBobrozombiRenderer,createBocianolakRenderer,createZubrokryptydaRen
 export class CatacombsScene extends Phaser.Scene{
  constructor(){super('Catacombs');}
  init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
- create(){
+ create(){retroAudio.enter('Catacombs');
   this.disposed=false;this.entryGateReady=false;this.phase='opening';
   this.defeated=false;this.completed=false;this.finalized=false;
   this.summons=[];this.shots=[];this.bossShots=[];this.shotCooldowns=new Map();
@@ -129,7 +129,7 @@ export class CatacombsScene extends Phaser.Scene{
    this.finaleText?.setPosition(this.scale.width/2,this.scale.height/2);
    this.syncControls();
   };
-  const reset=()=>{this.resetMovement();resetFiring(this.firing,this.weapon);};
+  const reset=()=>{retroAudio.stopStream();this.resetMovement();resetFiring(this.firing,this.weapon);};
   const sync=()=>this.syncControls();
   this.scale.on(Phaser.Scale.Events.RESIZE,resize);
   this.events.on(Phaser.Scenes.Events.PAUSE,reset);
@@ -294,7 +294,7 @@ export class CatacombsScene extends Phaser.Scene{
   if(!enemy||enemy.dead)return false;
   enemy.hp=Math.max(0,enemy.hp-amount);
   if(enemy.hp>0){enemy.sprite.setAlpha(.6);return true;}
-  enemy.dead=true;enemy.sprite.destroy();this.killCount++;
+  enemy.dead=true;retroAudio.enemyDeath();enemy.sprite.destroy();this.killCount++;
   finalBossClearSummon(this.boss,enemy.id);
   this.summons=this.summons.filter(e=>!e.dead);
   if(this.boss.phase==='gun'){this.bossArt.clearTint();this.objective.setText('POKONAJ KŁUSOCZŁEKA!');}
@@ -342,7 +342,7 @@ export class CatacombsScene extends Phaser.Scene{
  }
  completeEnding(){
   if(this.phase!=='home'||this.completed)return false;
-  this.completed=true;this.phase='ending';this.resetMovement();
+  this.completed=true;this.phase='ending';this.resetMovement();retroAudio.credits();
   const result=completeCampaignAct(this.run,'act5',{
    hp:this.run.hp,maxHp:this.run.maxHp,
    unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,
@@ -384,7 +384,7 @@ export class CatacombsScene extends Phaser.Scene{
  }
  hurtPlayer(now){
   if(now<this.hitUntil||this.run.hp<=0||!this.canPlay())return false;
-  this.hitUntil=now+1200;this.run.hp=Math.max(0,this.run.hp-1);
+  this.hitUntil=now+1200;this.run.hp=Math.max(0,this.run.hp-1);retroAudio.hurt();if(this.run.hp===0)retroAudio.death();
   this.hpFace.setHp(this.run.hp);
   this.hpText.setText('HP '+this.run.hp+'/'+this.run.maxHp);
   this.playerVisual.hit(this.bossActor);
@@ -414,8 +414,7 @@ export class CatacombsScene extends Phaser.Scene{
   const vector=len>.1?normalizeInput(aim.x,aim.y):{x:0,y:0};
   const held=this.aimJoystick.held||len>.1;
   if(this.weapon==='flamethrower'){
-   if(!held)return;
-   const target=this.bossActor;
+   retroAudio.stream('flamethrower',held);if(!held)return;const target=this.bossActor;
    const visible=!segmentObstacleHit(this.player,target,CATACOMBS_OBSTACLES,0);
    if(visible&&inFlameCone(this.player,vector,target,145,.45,FINAL_BOSS.contactRadius)
       &&this.time.now-(this.shotCooldowns.get(target)??-Infinity)>250){
@@ -428,7 +427,7 @@ export class CatacombsScene extends Phaser.Scene{
    }
    return;
   }
-  for(let n=firingStep(this.firing,this.weapon,held,this.time.now);n>0;n--){
+  retroAudio.stopStream();for(let n=firingStep(this.firing,this.weapon,held,this.time.now);n>0;n--){retroAudio.shot(this.weapon);
    this.spawnShot(this.shots,this.player.x,this.player.y,
     Math.atan2(vector.y,vector.x),COMBAT_TUNING[this.weapon]?.speed??550,'player');
    this.playerVisual.recoil();
