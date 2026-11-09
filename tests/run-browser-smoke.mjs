@@ -883,6 +883,52 @@ try{
  assert.equal(opening5.hp,5);assert.equal(opening5.artifacts,3);
  assert.equal(opening5.phase,'opening');assert.equal(opening5.controls,false);
  assert.notEqual(opening5.weapon,'water-flamethrower');
+ // Real Chromium pixel/texture audit at the Act V stage, not a file-path-only test.
+ const art5=await evaluate(`(()=>{
+  const g=window.__game,s=g.scene.getScene('Catacombs');
+  const bg=s.catacombsBackground,images=s.catacombsObstacleArt;
+  const bounds=(key)=>{
+   const source=s.textures.get(key)?.source?.[0]?.image;
+   if(!source)return null;
+   const c=document.createElement('canvas');c.width=source.width;c.height=source.height;
+   const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(source,0,0);
+   const data=ctx.getImageData(0,0,c.width,c.height).data;
+   let left=c.width,top=c.height,right=-1,bottom=-1,opaque=0;
+   // Alpha > 32 excludes nearly-transparent edge anti-aliasing.
+   for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){
+    if(data[(y*c.width+x)*4+3]<=32)continue;
+    opaque++;left=Math.min(left,x);top=Math.min(top,y);
+    right=Math.max(right,x);bottom=Math.max(bottom,y);
+   }
+   return {width:c.width,height:c.height,left,top,right,bottom,opaque};
+  };
+  const ctx=g.canvas.getContext('2d',{willReadFrequently:true});
+  const points=[[.23,.19],[.4,.19],[.64,.19],[.72,.3],[.45,.32]].map(([x,y])=>{
+   const p=ctx.getImageData(Math.round(g.canvas.width*x),Math.round(g.canvas.height*y),1,1).data;
+   return [...p];
+  });
+  return {bg:bg?{key:bg.texture.key,x:bg.x,y:bg.y,w:bg.displayWidth,h:bg.displayHeight,depth:bg.depth}:null,
+   images:images.map(o=>({key:o.texture?.key,id:o.getData('catacombsObstacleId'),x:o.x,y:o.y,w:o.displayWidth,h:o.displayHeight,depth:o.depth})),
+   column:bounds('act5-column'),altar:bounds('act5-altar'),
+   transformed:bounds('act5-marian-transformed'),portrait:bounds('dialogue-marian-transformed'),
+   pixelSamples:points,gate:s.entryGateReady,phase:s.phase};
+ })()`);
+ console.log('ACT V APPROVED PIXEL / ALPHA AUDIT',JSON.stringify(art5));
+ assert.deepEqual(art5.bg,{key:'act5-catacombs-background',x:0,y:0,w:960,h:640,depth:-20},
+  'real approved catacombs texture rendered at logical world dimensions');
+ assert.equal(art5.images.length,5,'one altar and four columns, no doubles');
+ assert.equal(art5.images.filter(x=>x.key==='act5-column').length,4);
+ assert.equal(art5.images.filter(x=>x.key==='act5-altar').length,1);
+ assert.deepEqual(art5.images.map(x=>x.id).sort(),['altar','pillar-left-lower','pillar-left-upper','pillar-right-lower','pillar-right-upper']);
+ assert.ok(art5.column.opaque>1000&&art5.altar.opaque>1000,'real nonempty RGBA silhouettes decoded');
+ assert.deepEqual([art5.column.width,art5.column.height],[96,221]);
+ assert.deepEqual([art5.altar.width,art5.altar.height],[266,176]);
+ assert.deepEqual([art5.transformed.width,art5.transformed.height],[2048,256]);
+ assert.deepEqual([art5.portrait.width,art5.portrait.height],[192,192]);
+ assert.ok(new Set(art5.pixelSamples.map(x=>x.join(','))).size>1,'actual rendered canvas pixels vary');
+ const colRequests=await evaluate("performance.getEntriesByType('resource').filter(r=>r.name.includes('/obstacles/act5-column.png')).length");
+ assert.equal(colRequests,1,'all four columns share one decoded/fetched texture');
+
  const next5=async()=>{
   const initial=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
   assert.ok(initial.id,'Act V dialogue is active');
