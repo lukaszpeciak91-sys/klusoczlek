@@ -66,7 +66,7 @@ test('entourage uses existing approved sprite identities and one cap-accounted d
   ['chapel','school','bicycleRack','school-tire-pile','school-tire-pile-2','school-toi-toi','school-rock-small','school-rock-medium']);
  for(const entry of SCHOOL_ENTOURAGE){
   assert.ok(schoolWalkable(entry,ENEMY_TYPES[entry.type].radius+4));
-  assert.ok(schoolEntouragePoint(entry,SCHOOL_PLACES.pitchApproach,[]));
+  assert.ok(schoolEntouragePoint(entry,SCHOOL_PLACES.playerStart,[]));
  }
  const occupied=[SCHOOL_ENTOURAGE[0]];
  assert.equal(schoolEntouragePoint(SCHOOL_ENTOURAGE[0],SCHOOL_PLACES.pitchApproach,occupied),false);
