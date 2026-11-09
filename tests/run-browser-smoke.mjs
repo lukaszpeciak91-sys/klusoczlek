@@ -46,6 +46,7 @@ try{
  // Chromium touches actual Phaser controls, not storage-only assertions.
  const audioState=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return {open:m.optionsOpen,debug:m.debugOpen,save:JSON.parse(localStorage.getItem('klusoczlek-audio-v1')||'{}'),labels:m.children.list.filter(x=>x.type==='Text'&&x.visible).map(x=>x.text)}})()");
  const slide=async(kind,value)=>{
+  await wait("window.__game?.scene.isActive('Menu')",'Options slider Menu active');
   const p=await evaluate("(()=>{const g=window.__game,r=g.canvas.getBoundingClientRect();return {x0:r.x+g.scale.width*.375,x1:r.x+g.scale.width*.765,y:r.y+g.scale.height*"+(kind==='music'?".55":".705")+"}})()");
   await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x0,y:p.y,id:7}]});
   for(let i=1;i<=6;i++)await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:p.x0+(p.x1-p.x0)*value*i/6,y:p.y,id:7}]});
