@@ -366,6 +366,9 @@ try{
  assert.ok(hit.hit>0&&hit.visible&&hit.hp<60,'real damage bark under original probability '+JSON.stringify(hit));
  const following=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.ambientBarks,p=b.pool.find(p=>p.root.visible&&p.event?.kind==='damage'),e=p.event.speaker,oldX=p.bounds.x;e.x+=18;s.combat.renderers[e.type].update(e,s.player,18,.03);b.tick(s.combat.elapsedMs);const next=b.pool.find(p=>p.root.visible&&p.event?.speaker===e);return {visible:!!next,dx:(next?.bounds.x??oldX)-oldX}})()");
  assert.ok(following.visible&&Math.abs(following.dx)>7,'bubble follows moving enemy '+JSON.stringify(following));
+ // Long smoke runs must not let incidental enemy contact terminate the
+ // paused-scene regression before the resume assertions are exercised.
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.hp=s.run.maxHp;s.hpFace.setHp(s.run.hp);s.player.setPosition(550,450);s.player.body.reset(550,450);return true})()");
  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.menuButton.x,y:r.y+s.menuButton.y}})()");
  await touch(p.x,p.y);
  await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'School bark MENU pause');
