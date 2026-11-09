@@ -18,7 +18,7 @@ export class RetroAudio {
   constructor(){
     this.settings=loadAudioSettings();this.track=null;this.music=null;this.context=null;this.master=null;
     this.unlocked=false;this.voices=0;this.maxVoices=9;this.last=new Map();this.streamVoice=null;this.noise=null;
-    this.fade=null;this.heldByVisibility=false;this.token=0;
+    this.fade=null;this.fadeLevel=1;this.titleSilence=false;this.heldByVisibility=false;this.token=0;
   }
   init(game){
     this.game=game;
@@ -50,28 +50,73 @@ export class RetroAudio {
   }
   volume(kind,value){if(kind!=='music'&&kind!=='sfx')return;this.settings[kind]=clamp(value);this.save();this.syncMusic();if(kind==='sfx'&&this.streamVoice)this.streamVoice.gain.gain.value=.095*(this.settings.muted?0:sfxBusGain(this.settings.sfx));}
   mute(value=!this.settings.muted){this.settings.muted=Boolean(value);this.save();this.syncMusic();if(value)this.stopStream();}
-  syncMusic(){if(this.music)this.music.volume=this.settings.muted?0:effectiveMusicGain(this.settings.music);}
+  syncMusic(){
+    if(this.music)this.music.volume=this.settings.muted?0:effectiveMusicGain(this.settings.music)*this.fadeLevel;
+  }
+  cancelMusicFade(){
+    if(this.fade!==null){clearInterval(this.fade);this.fade=null;}
+  }
+  fadeMusicTo(level,duration,done=()=>{}){
+    this.cancelMusicFade();
+    const start=this.fadeLevel;
+    if(!this.music||duration<=0){
+      this.fadeLevel=level;this.syncMusic();done();return;
+    }
+    const began=typeof performance!=='undefined'?performance.now():Date.now();
+    this.fade=setInterval(()=>{
+      const now=typeof performance!=='undefined'?performance.now():Date.now();
+      const fraction=Math.min(1,Math.max(0,(now-began)/duration));
+      this.fadeLevel=start+(level-start)*fraction;
+      this.syncMusic();
+      if(fraction>=1){this.cancelMusicFade();done();}
+    },16);
+  }
+  beginActTitle(){
+    // One silence gate for normal entry, DEBUG, autosave and retried asset loads.
+    if(this.titleSilence)return;
+    this.titleSilence=true;
+    this.stopStream();
+    const outgoing=this.music;
+    if(!outgoing){this.track=null;this.fadeLevel=0;return;}
+    this.fadeMusicTo(0,250,()=>{
+      // Never stop a later track if an interrupted title transitions early.
+      if(this.music!==outgoing)return;
+      outgoing.pause();outgoing.currentTime=0;
+      this.music=null;this.track=null;
+    });
+  }
   enter(scene){
-    const id=TRACKS[scene];if(!id||id===this.track)return;
-    this.track=id;this.stopStream();this.changeTrack(id);
+    const id=TRACKS[scene];if(!id)return;
+    // Only entering the actual gameplay scene releases ActTitle silence.
+    const wasTitle=this.titleSilence;
+    if(wasTitle){this.titleSilence=false;this.cancelMusicFade();}
+    if(id===this.track){
+      if(wasTitle)this.fadeMusicTo(1,400);
+      return;
+    }
+    this.track=id;this.stopStream();
+    this.fadeLevel=wasTitle?0:1;
+    this.changeTrack(id);
+    if(wasTitle)this.fadeMusicTo(1,400);
   }
   credits(){this.enter('Credits');}
   changeTrack(id){
     if(typeof Audio==='undefined')return;
     const token=++this.token;
-    if(this.fade){clearInterval(this.fade);this.fade=null;}
+    this.cancelMusicFade();
     // Never mix two music tracks. Immediate stop preserves gesture-based playback.
     const old=this.music;
     if(old){old.pause();old.currentTime=0;}
     try{
       const audio=new Audio(import.meta.env?.BASE_URL?import.meta.env.BASE_URL+'assets/music/'+id+'.ogg':'/assets/music/'+id+'.ogg');
-      audio.loop=id!=='credits';audio.preload='auto';audio.volume=this.settings.muted?0:effectiveMusicGain(this.settings.music);
+      audio.loop=id!=='credits';audio.preload='auto';audio.volume=0;
       audio.addEventListener('error',()=>{ /* sound is optional */ });
-      this.music=audio;this.playCurrent();
+      this.music=audio;this.syncMusic();this.playCurrent();
     }catch{this.music=null;}
   }
   playCurrent(){
     if(!this.unlocked||!this.music||typeof document!=='undefined'&&document.hidden)return;
+    if(this.titleSilence&&(this.fadeLevel<=0||this.music.paused))return;
     this.syncMusic();
     if(this.music.paused)try{this.music.play()?.catch(()=>{});}catch{}
   }
