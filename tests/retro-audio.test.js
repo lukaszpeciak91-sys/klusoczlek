@@ -74,3 +74,64 @@ test('live continuous SFX gain updates without recreation',()=>{
  assert.ok(Math.abs(voice.gain.gain.value-.095*.54)<1e-10);
  a.mute(true);assert.equal(a.streamVoice,null);
 });
+
+test('ActTitle holds silence across long load/retry, then fades into gameplay',async()=>{
+ const oldAudio=globalThis.Audio;
+ const created=[];
+ class FakeMusic {
+  constructor(src){this.src=src;this.volume=0;this.currentTime=0;this.paused=true;this.starts=0;created.push(this);}
+  addEventListener(){}
+  play(){this.starts++;this.paused=false;return Promise.resolve();}
+  pause(){this.paused=true;}
+ }
+ globalThis.Audio=FakeMusic;
+ try{
+  const a=new RetroAudio();a.unlocked=true;
+  a.enter('Menu');
+  assert.equal(created.length,1);
+  assert.ok(Math.abs(a.music.volume-.14)<1e-10);
+  const original=a.music;
+  a.beginActTitle();
+  assert.equal(a.titleSilence,true);
+  // Retry cannot create an OGG player or resume title playback.
+  a.beginActTitle();
+  await new Promise(resolve=>setTimeout(resolve,320));
+  assert.equal(original.paused,true);
+  assert.equal(a.music,null);
+  assert.equal(a.track,null);
+  const count=created.length;
+  a.playCurrent();a.beginActTitle();
+  await new Promise(resolve=>setTimeout(resolve,60));
+  assert.equal(created.length,count);
+  a.enter('Volcano');
+  assert.equal(a.track,'act3');
+  assert.equal(created.length,count+1);
+  assert.equal(a.music.volume,0,'new act starts inaudibly');
+  assert.equal(original.paused,true,'no overlapping OGG');
+  await new Promise(resolve=>setTimeout(resolve,470));
+  assert.ok(Math.abs(a.music.volume-.14)<1e-10,'400ms fade reaches saved target');
+  a.cancelMusicFade();
+ }finally{if(oldAudio===undefined)delete globalThis.Audio;else globalThis.Audio=oldAudio;}
+});
+test('ActTitle fade respects mute and saved levels without resetting them',async()=>{
+ const oldAudio=globalThis.Audio;
+ class FakeMusic {
+  constructor(){this.volume=0;this.currentTime=0;this.paused=true;}
+  addEventListener(){}
+  play(){this.paused=false;return Promise.resolve();}
+  pause(){this.paused=true;}
+ }
+ globalThis.Audio=FakeMusic;
+ try{
+  const a=new RetroAudio();a.unlocked=true;a.settings={music:.37,sfx:.63,muted:true};
+  a.enter('Menu');a.beginActTitle();
+  await new Promise(resolve=>setTimeout(resolve,290));
+  a.enter('Arena');
+  await new Promise(resolve=>setTimeout(resolve,430));
+  assert.equal(a.music.volume,0);
+  assert.deepEqual(a.settings,{music:.37,sfx:.63,muted:true});
+  a.mute(false);
+  assert.ok(Math.abs(a.music.volume-.259)<1e-10);
+  a.cancelMusicFade();
+ }finally{if(oldAudio===undefined)delete globalThis.Audio;else globalThis.Audio=oldAudio;}
+});
