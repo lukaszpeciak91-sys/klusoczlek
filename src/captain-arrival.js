@@ -2,8 +2,9 @@ import Phaser from 'phaser';
 import {assetUrl} from './character-visual.js';
 import {facingOf,playerFrame} from './combat-contract.js';
 import {resolveObstaclePosition} from './obstacles.js';
+import {CAPTAIN_SHEET} from './captain-sheet-contract.js';
+export {CAPTAIN_SHEET};
 
-export const CAPTAIN_SHEET=Object.freeze({path:'npcs/captain.png',width:1024,height:128,frameWidth:128,frameHeight:128,directions:['e','se','s','sw','w','nw','n','ne']});
 export const CAPTAIN_VISUAL_SCALE=0.75;
 export const CAPTAIN_ARRIVAL_MS=800;
 
