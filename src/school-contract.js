@@ -53,7 +53,9 @@ export function schoolStep(from,input,deltaMs,speed=PLAYER_SPEED){
   const dt=Math.max(0,Math.min(50,Number.isFinite(deltaMs)?deltaMs:0))/1000;
   const d=normalizeInput(Number.isFinite(input?.x)?input.x:0,Number.isFinite(input?.y)?input.y:0);
   const end={x:from.x+d.x*speed*dt,y:from.y+d.y*speed*dt};
-  return resolveObstaclePosition(from,end,PLAYER_RADIUS,SCHOOL_OBSTACLES);
+  const point=resolveObstaclePosition(from,end,PLAYER_RADIUS,SCHOOL_OBSTACLES);
+  // Avoid subpixel precision at the enlarged chapel's solid boundary.
+  return schoolWalkable(point)?point:from;
 }
 export function schoolDebugPoint(id){
   if(id==='act4-school')return SCHOOL_PLACES.debugSchool;

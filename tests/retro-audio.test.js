@@ -89,7 +89,7 @@ test('ActTitle holds silence across long load/retry, then fades into gameplay',a
   const a=new RetroAudio();a.unlocked=true;
   a.enter('Menu');
   assert.equal(created.length,1);
-  assert.ok(Math.abs(a.music.volume-.14)<1e-10);
+  assert.ok(Math.abs(a.music.volume-.105)<1e-10);
   const original=a.music;
   a.beginActTitle();
   assert.equal(a.titleSilence,true);
@@ -109,7 +109,7 @@ test('ActTitle holds silence across long load/retry, then fades into gameplay',a
   assert.equal(a.music.volume,0,'new act starts inaudibly');
   assert.equal(original.paused,true,'no overlapping OGG');
   await new Promise(resolve=>setTimeout(resolve,470));
-  assert.ok(Math.abs(a.music.volume-.14)<1e-10,'400ms fade reaches saved target');
+  assert.ok(Math.abs(a.music.volume-.105)<1e-10,'400ms fade reaches saved target');
   a.cancelMusicFade();
  }finally{if(oldAudio===undefined)delete globalThis.Audio;else globalThis.Audio=oldAudio;}
 });

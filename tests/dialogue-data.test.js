@@ -24,7 +24,7 @@ test('restart starts with no active narrative and fixed six-wave contract',()=>{
  assert.deepEqual(createDialogueState(),{id:null,index:0});
  assert.deepEqual(WAVES.map(w=>w.maxAlive),[6,7,8,9,9,10]);
  assert.equal(WAVES.length,6);assert.equal(WAVES.length,6);
- assert.equal(WAVE_TIMING[1].startMs,35000);assert.deepEqual(HEALTH_AFTER_WAVES,[2,4,5]);
+ assert.equal(WAVE_TIMING[1].startMs,35000);assert.deepEqual(HEALTH_AFTER_WAVES,[1,2,3,4,5]);
 });
 
 test('portrait contract allows 192px 8-bit RGB or RGBA but rejects wrong dimensions',()=>{

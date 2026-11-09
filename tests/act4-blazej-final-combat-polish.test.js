@@ -42,7 +42,7 @@ test('blocked jump uses safe nearest alternative or in-place only if necessary',
 });
 test('sprite warning flashes without either preattack circle and resets safely',()=>{
  const boss=source('../src/school-blazej.js');
- assert.equal(BLAZEJ_HP,48);assert.equal(BLAZEJ_ATTACK.warning,900);
+ assert.equal(BLAZEJ_HP,54);assert.equal(BLAZEJ_ATTACK.warning,900);
  assert.ok(boss.includes("bossArt.setTint(Math.floor(attack.elapsed/100)%2===0?0xffe1a3:0xffffff)"));
  assert.ok(boss.includes('bossArt.clearTint()'));
  assert.equal(boss.includes('0xffd06a'),false);
