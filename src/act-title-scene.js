@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {retroAudio} from './retro-audio.js';
 import {FIRST_ACT_ID,getAct,sceneForAct} from './campaign.js';
 import {currentCampaignRun} from './campaign-run.js';
 import {writeCampaignCheckpoint} from './campaign-save.js';
@@ -11,6 +12,8 @@ export class ActTitleScene extends Phaser.Scene {
   init(data={}){this.actId=data.actId??FIRST_ACT_ID;this.nextScene=sceneForAct(this.actId);this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
   get assetProgress(){return actAssetProgress(this.game);}
   create(){
+    // Silence begins before any title frames or asynchronous asset preparation.
+    retroAudio.beginActTitle();
     const act=getAct(this.actId);
     if(!act||!this.nextScene){this.scene.start('Menu');return;}
     // Commit the next ACT ENTRY before its title animation. Save must remain
