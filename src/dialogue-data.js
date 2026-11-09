@@ -1,23 +1,27 @@
 export const DIALOGUES=Object.freeze({
  'act5-betrayal':[
-  ['aloes','ALOES','Marian?! Co pan robi pod kaplicą?'],
-  ['captain','KAPITAN MARIAN','Czekam na moje artefakty, matole!'],
-  ['captain','KAPITAN MARIAN','To ja jestem Kłusoczłek! Od początku tobą kierowałem!'],
-  ['aloes','ALOES','Czyli pan mnie tak po prostu wykorzystał?!'],
-  ['captain','KAPITAN MARIAN','Ty biegałeś po perukę i róg, a ja odzyskiwałem moc.'],
-  ['aloes','ALOES','A rower? Też jest magiczny?'],
-  ['captain','KAPITAN MARIAN','Nie. Po prostu chciałem rower. Nie będę wszędzie łaził pieszo!'],
-  ['aloes','ALOES','To teraz pan dostanie po ryju.']
+  ['captain','KAPITAN MARIAN','Ha, ha, ha! Nareszcie odzyskałem pełnię mocy!'],
+  ['aloes','ALOES','Kapitan Marian?!'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Nie Kapitan Marian, lecz Rudolf Kłusoczłek!'],
+  ['aloes','ALOES','To pan za tym wszystkim stał?! Ale jak to?'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Gdy trafiłem do tego świata, był on pełen rzadkich gatunków, na które mogłem kłusować.'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Do poszukiwań wykorzystywałem posłuszne mi Bobrozombi, Bocianołaki i Żubrokryptydy.'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Wszystko szło jak z płatka! Na ścianach zaczynało brakować miejsca na trofea!'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Brakowało mi tylko jednego... ŁBA ŚWINI-WRÓŻKI!'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Ta bestia okazała się jednak sprytniejsza. Użyła magii, by zwrócić moją własną moc przeciwko mnie!'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Moje stwory miały odtąd tylko jeden cel: ZABIĆ KŁUSOCZŁEKA!'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','A ja, pozbawiony mocy, nie miałem siły, by stawić im czoła. Potrzebowałem kogoś, kim mógłbym się wyręczyć.'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Zanim cię zabiję, wypada mi podziękować. Dzięki tobie odzyskałem moje atrybuty — irokeza i róg!'],
+  ['aloes','ALOES','Jednego nie rozumiem... Po co był rower?'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Ano, zawsze taki chciałem dostać na pierwszą komunię!'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Poza tym musiałem cię czymś zająć, dopóki nie odprawię rytuału.'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','A TERAZ GOTUJ SIĘ NA ŚMIERĆ!'],
+  ['aloes','ALOES','Po moim trupie!']
  ],
  'act5-fairy':[
-  ['swinia-wrozka','ŚWINIA-WRÓŻKA','No. Wreszcie skończyliście te wygłupy.'],
-  ['aloes','ALOES','Może mnie pani odesłać do domu?'],
-  ['swinia-wrozka','ŚWINIA-WRÓŻKA','Mogę. Ale rower zostaje. Opłata manipulacyjna!'],
-  ['aloes','ALOES','A niech to świński piorun trzaśnie!']
- ],
- 'act5-home':[
-  ['aloes','ALOES','Uff... własne łóżko. To był tylko dziwny sen?'],
-  ['aloes','ALOES','Zaraz... skąd tu ten róg?']
+  ['swinia-wrozka','ŚWINIA-WRÓŻKA','A to ci Kłusoczłek! Upolował Kłusoczłeka!'],
+  ['aloes','ALOES','Tak, ale nie wiem, jak wrócić do mojego świata...'],
+  ['swinia-wrozka','ŚWINIA-WRÓŻKA','No to trzeba było tak od razu. MYK!']
  ],
  'act4-captain-opening':[
   ['captain','KAPITAN MARIAN','No i jesteśmy! Szkoła zawodowa!\nTu znajdziesz Błażeja i jego rower!'],
