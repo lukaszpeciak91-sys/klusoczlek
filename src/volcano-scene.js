@@ -4,6 +4,7 @@ import {createPixelBurst} from './pixel-death-vfx.js';
 import {healOneHp,canCollectBogdanHeart} from './volcano-heart.js';
 import {createHealthToken} from './health-token.js';
 import Phaser from 'phaser';
+import {retroAudio} from './retro-audio.js';
 import {ARENA,PLAYER_SPEED,PLAYER_RADIUS,normalizeInput} from './movement.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual,assetUrl,validPngHeader} from './character-visual.js';
@@ -31,6 +32,7 @@ export class VolcanoScene extends Phaser.Scene {
   constructor(){super('Volcano');}
   init(data={}){this.handoff=data.handoff??null;this.debugCheckpoint=data.debugCheckpoint??null;}
   create(){
+    retroAudio.enter('Volcano');
     this.run=currentCampaignRun(this.game);
     if(this.run.actId!=='act3'&&!prepareActStart(this.run,this.handoff,new Set(Object.keys(this.scene.manager.keys)))){
       this.scene.start('Menu');return;
