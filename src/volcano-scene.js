@@ -780,8 +780,7 @@ export class VolcanoScene extends Phaser.Scene {
     this.input.keyboard?.resetKeys();
     this.combat?.stopFire();
   }
-  lockDeath(){
-    if(this.defeated)return;
+  lockDeath(){if(this.defeated)return;retroAudio.death();
     this.defeated=true;
     this.resetMovement();
     this.player.body.setVelocity(0,0);
