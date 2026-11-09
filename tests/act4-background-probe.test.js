@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {inflateSync} from 'node:zlib';
+import {inflateSync,deflateSync} from 'node:zlib';
 function decode(path){
  const b=readFileSync(new URL('../public/assets/'+path,import.meta.url));
  const w=b.readUInt32BE(16),h=b.readUInt32BE(20),channels=b[25]===6?4:3;
@@ -26,9 +26,34 @@ function label([r,g,b]){let max=Math.max(r,g,b),min=Math.min(r,g,b),v=(r+g+b)/3;
  if(r>g&&g>b)return 'o';
  return 'x';
 }
+
+function pngChunk(name,data){
+ const n=Buffer.alloc(4),type=Buffer.from(name),size=Buffer.alloc(4);
+ size.writeUInt32BE(data.length,0);
+ let crc=0xffffffff;
+ for(const c of Buffer.concat([type,data])){
+  crc^=c;for(let i=0;i<8;i++)crc=(crc>>>1)^(crc&1?0xedb88320:0);
+ }
+ n.writeUInt32BE((crc^0xffffffff)>>>0,0);
+ return Buffer.concat([size,type,data,n]);
+}
+function cropPreview(bg){
+ const w=300,h=240,raw=Buffer.alloc(h*(w*4+1));
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+  const p=bg.pixel(900+x*3,y*3),i=y*(w*4+1)+1+x*4;
+  raw[i]=p[0];raw[i+1]=p[1];raw[i+2]=p[2];raw[i+3]=255;
+ }
+ const header=Buffer.alloc(13);header.writeUInt32BE(w,0);header.writeUInt32BE(h,4);header[8]=8;header[9]=6;
+ const png=Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),pngChunk('IHDR',header),pngChunk('IDAT',deflateSync(raw)),pngChunk('IEND',Buffer.alloc(0))]);
+ const b64=png.toString('base64');console.log('BGPNG_START '+b64.length);
+ for(let i=0;i<b64.length;i+=3000)console.log('BGPNG_PART '+b64.slice(i,i+3000));
+ console.log('BGPNG_END');
+}
+
 test('diagnostic: actual approved background color map, upper-right region',()=>{
  const bg=decode('backgrounds/act4-schoolyard.png');
  assert.deepEqual([bg.w,bg.h],[1800,1200]);
+ cropPreview(bg);
  console.log('SCHOOL_BG_MAP: x=900..1800 in 15px cells, y=0..720 in 15px cells; # dark G green B blue R red Y yellow o brown s grey W light');
  for(let y=0;y<720;y+=15){let line='';for(let x=900;x<1800;x+=15)line+=label(bg.pixel(x+7,y+7));console.log('BG '+String(y).padStart(3,'0')+' '+line);}
  const school=decode('obstacles/act4-school.png');console.log('SCHOOL PNG RGBA:',school.w,school.h);
