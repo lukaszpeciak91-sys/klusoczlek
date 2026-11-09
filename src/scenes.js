@@ -263,6 +263,7 @@ export class ArenaScene extends Phaser.Scene {
 
   create(data={}) {
     retroAudio.enter('Arena');
+    this.events.on(Phaser.Scenes.Events.RESUME,()=>retroAudio.enter('Arena'));
     this.debugCheckpoint=data.debugCheckpoint??null;
     this.entryGateReady=false;
     document.getElementById('fullscreen-button').hidden = true;
