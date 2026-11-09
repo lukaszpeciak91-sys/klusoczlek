@@ -52,13 +52,9 @@ export class RetroAudio {
     if(typeof Audio==='undefined')return;
     const token=++this.token;
     if(this.fade){clearInterval(this.fade);this.fade=null;}
+    // Never mix two music tracks. Immediate stop preserves gesture-based playback.
     const old=this.music;
-    if(old){
-      if(!old.paused&&old.volume>0){
-        let ticks=0,start=old.volume;
-        this.fade=setInterval(()=>{if(++ticks>=5||token!==this.token){clearInterval(this.fade);this.fade=null;old.pause();old.currentTime=0;return;}old.volume=start*(1-ticks/5);},60);
-      }else{old.pause();old.currentTime=0;}
-    }
+    if(old){old.pause();old.currentTime=0;}
     try{
       const audio=new Audio(import.meta.env?.BASE_URL?import.meta.env.BASE_URL+'assets/music/'+id+'.ogg':'/assets/music/'+id+'.ogg');
       audio.loop=id!=='credits';audio.preload='auto';audio.volume=this.settings.muted?0:this.settings.music;
