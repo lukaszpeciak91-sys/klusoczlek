@@ -101,7 +101,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.bossFallbackHat=this.add.rectangle(0,-73,65,12,0x46402d);
   this.bossArt=this.add.sprite(0,0,'__DEFAULT').setOrigin(.5,1).setVisible(false);
   this.bossActor.add([this.bossShadow,this.bossFallback,this.bossFallbackHat,this.bossArt]);
-  this.bossHp=this.add.graphics().setDepth(75);
+  this.bossHp=this.add.graphics().setScrollFactor(0).setDepth(75);
   this.bossTintClock=0;
   this.fairyActor=null;
   this.finaleText=null;
@@ -601,11 +601,16 @@ export class CatacombsScene extends Phaser.Scene{
   this.updateProjectiles(this.shots,delta);
   this.updateProjectiles(this.bossShots,delta);
   this.bossHp.clear();
-  if(this.boss.phase!=='defeated'){
-   this.bossHp.fillStyle(0x1b151c,.9).fillRect(300,36,360,15);
+  if(this.boss.phase==='gun'||this.boss.phase==='summon'){
+   // Boss HP is a fixed-screen HUD element, independent of camera following.
+   const width=Math.min(360,Math.max(140,this.scale.width*.42));
+   const x=(this.scale.width-width)/2;
+   const y=Math.max(55,(this.hudLayout?.menuY??35)+(this.hudLayout?.menuHeight??38)/2+8);
+   const hpRatio=Math.max(0,Math.min(1,this.boss.hp/this.boss.maxHp));
+   this.bossHp.fillStyle(0x1b151c,.9).fillRect(x,y,width,15);
    this.bossHp.fillStyle(this.boss.phase==='summon'?0x9278db:0xd86556)
-    .fillRect(304,40,352*this.boss.hp/this.boss.maxHp,7);
-   this.bossHp.lineStyle(2,0xe1c59e).strokeRect(300,36,360,15);
+    .fillRect(x+4,y+4,(width-8)*hpRatio,7);
+   this.bossHp.lineStyle(2,0xe1c59e).strokeRect(x,y,width,15);
   }
  }
 }
