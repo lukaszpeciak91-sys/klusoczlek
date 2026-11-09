@@ -19,7 +19,7 @@ export function createAirshipCombat(scene,delivery){
  const firing=createFiringState(),pressure=createPressure(),weaponCooldownUntil=new Map();
  const stream=scene.add.graphics().setDepth(12);
  let flameEmissionAt=null,stopped=false;
- function stopFire(){
+ function stopFire(){retroAudio.stopStream();
   resetFiring(firing,scene.weapon);
   if(scene.weapon==='flamethrower')cancelPressureTrigger(pressure);
   else {pressure.wasHeld=false;pressure.active=false;pressure.locked=false;}
@@ -34,7 +34,7 @@ export function createAirshipCombat(scene,delivery){
    recordHit(delivery.renderers[enemy.type].feedbackOf(enemy),now,source,enemy);
    enemy.hitUntil=now+140;
   }else{
-   enemy.dead=true;enemy.hp=0;
+   enemy.dead=true;enemy.hp=0;retroAudio.enemyDeath();
    enemy.burningFx?.destroy();enemy.burningFx=null;
    enemy.sprite?.destroy();
    bursts.push(createPixelBurst(scene,enemy.type,enemy.x,enemy.y,enemy.seed));
@@ -74,13 +74,13 @@ export function createAirshipCombat(scene,delivery){
   const cooling=now<(weaponCooldownUntil.get(scene.weapon)??0);
   const count=cooling?0:firingStep(firing,scene.weapon,Boolean(held&&scene.weapon),now);
   if(count&&!cooling&&scene.weapon!=='flamethrower'){
-   spawnShot(aim,scene.weapon,now);
+   spawnShot(aim,scene.weapon,now);retroAudio.shot(scene.weapon);
    const tune=COMBAT_TUNING[scene.weapon];
    weaponCooldownUntil.set(scene.weapon,now+(scene.weapon==='rifle'
      ?firing.burstShots===0?tune.burstPause:tune.shotInterval:tune.interval));
   }
   const activeFlame=scene.weapon==='flamethrower'&&stepPressure(pressure,held,dt);
-  if(activeFlame)flame(aim,now);
+  retroAudio.stream('flamethrower',activeFlame);if(activeFlame)flame(aim,now);
   else stream.clear();
   for(const particle of flameParticles){
    particle.age+=dt;particle.object.x+=particle.vx*seconds;particle.object.y+=particle.vy*seconds;
