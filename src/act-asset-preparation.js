@@ -81,6 +81,7 @@ function session(game){
 }
 export function preparedVolcanoMask(game){return session(game).masks.get('act3')??null;}
 export function actLoadStatus(game,actId){return session(game).failures.get(actId)??null;}
+export function actAssetProgress(game){const s=session(game);return {keys:[...s.inFlight.keys()],paths:[...s.pathInFlight.keys()]};}
 export function isRequiredCollisionFailure(failures){return failures.some(f=>f.collision);}
 export function validProductionAsset(bytes,def){
  if(def.collision)return validVolcanoPng(bytes,VOLCANO_ASSETS.terrain);
