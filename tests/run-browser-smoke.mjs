@@ -210,7 +210,7 @@ try{
   assert.equal(p.enabled,false,'movement disabled while dialogue visible');
   assert.equal(p.bubble,false,'speech bubbles suppressed during dialogue');
   if(id.startsWith('act4-blazej-')){
-   await wait("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.loaded.has('blazej')&&d.loaded.has('zubrokryptyda')})()",'both approved boss and ordinary portraits loaded',3500);
+   await wait("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.loaded.has('blazej')&&d.loaded.has('bobrozombi')})()",'current-act boss and observer portraits loaded',3500);
    const portrait=await evaluate("(()=>{const d=window.__game.scene.getScene('School').dialoguePanel;return d.shell.list.filter(o=>o.type==='Image'&&o.visible).map(o=>o.texture.key)})()");
    const blazej=id==='act4-blazej-final'||id==='act4-blazej-observer'&&index===0||
      id==='act4-blazej-confrontation'&&index!==1;
@@ -490,30 +490,14 @@ try{
  // PR106: stage only through existing DEBUG conventions; never replay 170s.
  await cdp('Page.reload',{ignoreCache:true});
  await wait("window.__game?.scene.isActive('Menu')",'menu before PR106 boss QA');
- // Hold the actual approved portrait request so the final DEBUG panel opens
- // with its fallback, then release it without advancing/restarting the dialog.
- let pausedBlazejPortrait=null;
- const onPortraitPaused=event=>{
-  const message=JSON.parse(event.data);
-  if(message.method==='Fetch.requestPaused'&&message.params.request.url.includes('dialogue-blazej.png'))
-   pausedBlazejPortrait=message.params.requestId;
- };
- socket.addEventListener('message',onPortraitPaused);
- await cdp('Fetch.enable',{patterns:[{urlPattern:'*dialogue-blazej.png',requestStage:'Request'}]});
+ // ActTitle prepares Błażej's approved portrait before gameplay is visible.
+ // The late-arrival fallback/refresh is covered independently by focused tests.
  await bootSchool('act4-blazej');
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.schoolPhase==='BLAZEJ_PENDING'&&s.dialogueState?.id==='act4-blazej-final'})()",'single post-wave Błażej panel',4500);
- await wait("!window.__game.scene.getScene('School').dialoguePanel.loaded.has('blazej')",'late Błażej portrait still pending');
- assert.ok(pausedBlazejPortrait,'real Błażej PNG request held before final panel');
- const initialPortrait=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),d=s.dialoguePanel;return {id:s.dialogueState.id,index:s.dialogueState.index,text:d.text.text,images:d.shell.list.filter(o=>o.type==='Image'&&o.visible).map(o=>o.texture.key)}})()");
- assert.deepEqual(initialPortrait,{id:'act4-blazej-final',index:0,text:'Ech, kazał pan, musiał sam!',images:[]},
-  'late portrait leaves fallback and dialogue index unchanged');
- await cdp('Fetch.continueRequest',{requestId:pausedBlazejPortrait});
- await cdp('Fetch.disable');
- socket.removeEventListener('message',onPortraitPaused);
- await wait("(()=>{const s=window.__game.scene.getScene('School'),d=s.dialoguePanel;return d.loaded.has('blazej')&&d.shell.list.some(o=>o.type==='Image'&&o.visible&&o.texture.key==='dialogue-blazej')})()",'late approved portrait appears without dialogue restart',6000);
+ await wait("(()=>{const s=window.__game.scene.getScene('School'),d=s.dialoguePanel;return d.loaded.has('blazej')&&d.shell.list.some(o=>o.type==='Image'&&o.visible&&o.texture.key==='dialogue-blazej')})()",'predecoded Błażej portrait remains visible in final DEBUG panel',6000);
  const afterPortrait=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,index:s.dialogueState.index,text:s.dialoguePanel.text.text}})()");
- assert.deepEqual(afterPortrait,{id:initialPortrait.id,index:initialPortrait.index,text:initialPortrait.text},
-  'async portrait image refresh preserves active dialogue panel');
+ assert.deepEqual(afterPortrait,{id:'act4-blazej-final',index:0,text:'Ech, kazał pan, musiał sam!'},
+  'cached portrait does not reset or advance dialogue');
  const passiveBoss=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {phase:s.schoolPhase,visible:s.blazej.actor.sprite.visible,active:s.blazej.active,target:s.blazej.target,hp:s.blazej.actor.hp,ordinary:s.combat.enemies.length,started:s.combat.started,artifacts:[...s.run.artifacts],dialogue:s.dialogueState.id,pausedBarks:s.ambientBarks.state.active.length}})()");
  assert.equal(passiveBoss.phase,'BLAZEJ_PENDING');
  assert.equal(passiveBoss.visible,true);
