@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import {retroAudio} from './retro-audio.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual} from './character-visual.js';
 import {createJoystick} from './joystick.js';
