@@ -78,12 +78,12 @@ export class MenuScene extends Phaser.Scene {
 
   create() {
     this.navigating = false;
-    retroAudio.enter('Menu');
     this.cameras.main.setBackgroundColor(COLORS.background);
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
     const sessionKey=['Catacombs','School','Volcano','Airship','Arena'].find(key=>this.scene.isPaused(key))??'Arena';
     const hasSession = this.scene.isPaused(sessionKey);
+    if(hasSession)retroAudio.pauseForMenu();else retroAudio.enter('Menu');
     const savedCheckpoint=readCampaignCheckpoint();
     const terminal = hasSession && ((sessionKey==='Arena' && this.scene.get('Arena').episode?.ended) || (sessionKey==='Volcano' && this.scene.get('Volcano').defeated) || (sessionKey==='School' && this.scene.get('School').defeated) || (sessionKey==='Catacombs' && this.scene.get('Catacombs').defeated));
     const defeated = terminal && (sessionKey==='Volcano'||sessionKey==='School'||sessionKey==='Catacombs'||(sessionKey==='Arena'&&this.scene.get('Arena').episode.state==='defeat'));
