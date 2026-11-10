@@ -53,7 +53,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.resizeCamera=()=>{
    const camera=this.cameras.main;
    camera.setZoom(1).setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
-   if(this.phase==='opening')camera.centerOn(CATACOMBS.width/2,347);
+   if(this.phase==='opening')camera.centerOn(CATACOMBS.width/2,this.transformationCompleted?280:347);
    else if(this.phase==='transform')camera.centerOn(CATACOMBS.marianStart.x,245);
    else if(['boss-death','fairy','magic'].includes(this.phase))
     camera.centerOn(CATACOMBS.width/2,350);
