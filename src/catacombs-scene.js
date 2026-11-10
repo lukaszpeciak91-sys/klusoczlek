@@ -340,7 +340,9 @@ export class CatacombsScene extends Phaser.Scene{
   // Restore player-follow before enabling damage/combat. Phaser's lerp
   // avoids a hard camera snap while the existing local zoom eases to 1.
   this.cameras.main.setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
-  this.cameras.main.startFollow(this.player,true,.12,.12);
+  // Keep Rudolf's full 256px transformed sprite in view at combat entry,
+  // without losing normal smooth follow of Aloes or changing world physics.
+  this.cameras.main.startFollow(this.player,true,.12,.12,0,108);
   this.cameras.main.zoomTo(1,320,'Sine.easeInOut');
   this.transitionVeil.setAlpha(0);
   finalBossStart(this.boss);
