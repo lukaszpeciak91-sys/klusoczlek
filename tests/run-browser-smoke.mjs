@@ -916,6 +916,9 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
   assert.ok(p.visible&&p.hp===2&&p.id==='act3-captain-extraction','Act III dialogue must not heal Aloes');
   await touch(p.x,p.y);
  }
+ await sleep(1300);
+ const volcanoTransitionDiag=await evaluate("(()=>{const g=window.__game,v=g.scene.getScene('Volcano'),t=g.scene.getScene('ActTitle'),r=g.registry.get('campaign-run');return {active:g.scene.getScenes(true).map(x=>x.scene.key),volcano:{status:v.sys.settings.status,disposed:v.disposed,finale:v.finale?.state,fadeRunning:v.cameras.main.fadeEffect?.isRunning},title:{status:t.sys.settings.status,act:t.actId,gate:t.assetGate??null},run:{act:r.actId,completed:[...r.completedActs],hp:r.hp,weapon:r.selectedWeapon,debug:r.isDebugRun},started:window.__act4TitleStarts,save:localStorage.getItem('klusoczlek-campaign-v1')?.slice(0,70)}})()");
+ console.log('ACT III TO IV TRANSITION DIAG',JSON.stringify(volcanoTransitionDiag),'BROWSER EXCEPTIONS',JSON.stringify(exceptions.slice(-3)));
  await wait("(()=>{try{return JSON.parse(localStorage.getItem('klusoczlek-campaign-v1'))?.actId==='act4'}catch{return false}})()",'natural Volcano completed Act IV checkpoint',4500);
  const actualHandoff=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run'),t=g.scene.getScene('ActTitle');return {count:window.__act4TitleStarts,act:t.actId,scene:t.nextScene,hp:t.handoff?.hp,max:t.handoff?.maxHp,selected:t.handoff?.selectedWeapon,horn:t.handoff?.artifacts.has('bogdan-hunting-horn'),completed:[...r.completedActs],runtimeHp:r.hp,menu:g.scene.isActive('Menu')}})()");
  assert.deepEqual([actualHandoff.count,actualHandoff.act,actualHandoff.scene,actualHandoff.hp,actualHandoff.max,actualHandoff.selected,actualHandoff.horn,actualHandoff.runtimeHp,actualHandoff.menu],
