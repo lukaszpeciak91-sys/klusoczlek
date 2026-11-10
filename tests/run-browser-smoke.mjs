@@ -1047,6 +1047,22 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(act5Opening.world,'npc-captain','normal Marian sheet before first panel');
  assert.ok(act5Opening.portrait.includes('dialogue-captain'),'normal Marian dialogue portrait');
  assert.equal(act5Opening.boss,'staging');
+ const introVisible=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,panel=s.dialoguePanel.shell.list[0];return {bottom:p.getBounds().bottom-c.scrollY,dialogueTop:panel.y,bossTop:s.bossActor.y-256*.62*1.23-c.scrollY}})()");
+ assert.ok(introVisible.bottom<introVisible.dialogueTop-2,'Act V Aloes must appear above dialogue '+JSON.stringify(introVisible));
+ assert.ok(introVisible.bossTop>=0,'Act V transformed Marian head must fit portrait landscape');
+ const originalViewport=await evaluate("({width:innerWidth,height:innerHeight})");
+ for(const h of [220,240,320]){
+  await cdp('Emulation.setDeviceMetricsOverride',{width:568,height:h,deviceScaleFactor:1,mobile:false});
+  await evaluate('window.__game.scale.refresh();true');
+  await wait('window.__game.scale.height==='+h,'Act V short landscape '+h,1500);
+  const shortView=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,b=s.dialoguePanel.shell.list[0];return {bossTop:s.bossActor.y-256*.62*1.23-c.scrollY,playerTop:p.getBounds().top-c.scrollY,playerBottom:p.getBounds().bottom-c.scrollY,dialogueTop:b.y}})()");
+  assert.ok(shortView.bossTop>=0&&shortView.playerTop<shortView.dialogueTop,
+   'Act V characters visible despite Android browser bars '+h+' '+JSON.stringify(shortView));
+  if(h>=240)assert.ok(shortView.playerBottom<shortView.dialogueTop,'Aloes clears dialogue '+h);
+ }
+ await cdp('Emulation.setDeviceMetricsOverride',{width:originalViewport.width,height:originalViewport.height,deviceScaleFactor:1,mobile:false});
+ await evaluate('window.__game.scale.refresh();true');
+ await wait('window.__game.scale.height==='+originalViewport.height,'restore Act V landscape',1500);
  await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian transforms immediately after panel 1',3000);
  const transform5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,visible:s.dialoguePanel.button.visible,controls:s.joystick.enabled,boss:s.boss.phase,started:s.transformationStarted,completed:s.transformationCompleted}})()");
@@ -1102,10 +1118,18 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  const cleared=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');for(const e of [...s.summons])s.damageEnemy(e,e.hp);return {phase:s.boss.phase,n:s.summons.length}})()");
  assert.deepEqual(cleared,{phase:'gun',n:0},'defeating all summoned enemies restores vulnerability');
  await sleep(240);
- await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.damageBoss(s.boss.hp);return true})()");
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.damageBoss(s.boss.hp);return true})()");
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.boss.defeated&&s.fairyActor?.active})()",'Marian defeated once, fairy arrives',4000);
  await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-fairy'",'fairy dialogue',3500);
- for(let i=0;i<3;i++)await next5();
+ const fairyView=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),b=s.fairyActor.getBounds(),v=s.fairyVisibleBounds();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom,view:v}})()");
+ assert.ok(fairyView.left>=fairyView.view.left&&fairyView.right<=fairyView.view.right&&
+  fairyView.top>=fairyView.view.top&&fairyView.bottom<=fairyView.view.bottom,
+  'Act V fairy visibly clears camera and dialogue after close-distance boss kill '+JSON.stringify(fairyView));
+ // Simulate a Phaser clock stalled at the final MYK gesture. The
+ // independent browser timer must still complete Credits exactly once.
+ for(let i=0;i<2;i++)await next5();
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.time.delayedCall=()=>null;return true})()");
+ await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='magic'",'fairy MYK magic particles',3000);
  assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').dialogueState.id"),null,'no home dialogue');
  await wait("(()=>{const g=window.__game,c=g.scene.getScene('Catacombs');return g.scene.isActive('Credits')&&c.completed&&c.run.completedActs.has('act5')})()",'Act V MYK completes campaign and enters credits',3000);
@@ -1147,6 +1171,35 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
   assert.deepEqual(v,{hp:5,artifacts:3,completed:4,water:false});
  }
  console.log('PASS Act V Chromium DEBUG: opening, Marian boss and ending checkpoints with complete prior artifacts and full HP');
+ // Cold-cache Act V recovery: fail ONE required production PNG network request
+ // and tap the actual ActTitle PONÓW control before entering Catacombs.
+ await cdp('Page.reload',{ignoreCache:true});
+ await sleep(250);
+ await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'Menu before Act V PNG retry');
+ await cdp('Network.clearBrowserCache');
+ let failedRequired=0;const interceptErrors=[];
+ const interceptRequired=event=>{
+  const m=JSON.parse(event.data);
+  if(m.method!=='Fetch.requestPaused'||!m.params?.request?.url.includes('act5-catacombs.png'))return;
+  const first=failedRequired++===0;
+  void cdp(first?'Fetch.failRequest':'Fetch.continueRequest',
+   first?{requestId:m.params.requestId,errorReason:'Failed'}:{requestId:m.params.requestId})
+   .catch(e=>interceptErrors.push(String(e)));
+ };
+ socket.addEventListener('message',interceptRequired);
+ await cdp('Fetch.enable',{patterns:[{urlPattern:'*act5-catacombs.png',requestStage:'Request'}]});
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act5-opening');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:'act5-opening'});return true})()");
+ await wait("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return g.scene.isActive('ActTitle')&&t.assetGate?.failed.some(x=>x.required)&&t.children.list.some(o=>o.text==='PONÓW'&&o.visible)})()",
+  'Act V failed required PNG exposes PONÓW',16000);
+ assert.ok(failedRequired>=1,'required Act V PNG request must be intercepted');
+ assert.deepEqual(interceptErrors,[],'failed required PNG interception');
+ await cdp('Fetch.disable');
+ socket.removeEventListener('message',interceptRequired);
+ const retryAt=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle'),p=t.children.list.find(o=>o.text==='PONÓW'&&o.visible),r=g.canvas.getBoundingClientRect();return {x:r.x+p.x,y:r.y+p.y}})()");
+ await touch(retryAt.x,retryAt.y);
+ await wait("(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.dialogueState.id==='act5-betrayal'})()",
+  'Act V PONÓW recovers required PNG and enters Catacombs',16000);
+ console.log('PASS Act V cold-cache required PNG failure -> PONÓW -> playable Catacombs');
  assert.deepEqual(exceptions,[],'uncaught Chromium exceptions');
  console.log('PASS FAST real Chromium: menu, DEBUG Act II/IV, handoffs, school placeholders, Act IV pause/resume and water filtering');
  console.log('FAST runtime ms',Date.now()-started);

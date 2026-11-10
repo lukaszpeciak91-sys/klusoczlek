@@ -17,7 +17,8 @@ test('ActTitle is visible at least 1900ms and waits for actual decoded PNG readi
  assert.ok(title.includes('gate.minimumElapsed=true;finish()'));
  assert.ok(title.includes('!gate.minimumElapsed||!gate.ready'));
  assert.ok(title.includes('prepareActAssets(this.game,this.actId'));
- assert.ok(title.includes("status.setText('NIE UDAŁO SIĘ WCZYTAĆ TERENU.')"));
+ assert.ok(title.includes("'NIE UDAŁO SIĘ WCZYTAĆ TERENU.'"));
+ assert.ok(title.includes("'BŁĄD PLIKÓW AKTU V — PONÓW'"));
  assert.equal(title.includes('delayedCall(1600'),false);
 });
 test('Act I startup never includes later acts or cinematic, but has current enemies',()=>{

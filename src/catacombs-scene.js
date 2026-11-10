@@ -22,7 +22,7 @@ import {createDialoguePanel} from './dialogue-ui.js';
 import {beginSceneReveal} from './scene-reveal-gate.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {CATACOMBS,CATACOMBS_OBSTACLES,CATACOMBS_SUMMON_SITES,
- catacombsWalkable,catacombsStep,catacombsResolve,MARIAN_FINAL_ASSETS,CATACOMBS_ART,catacombsArtPlacement} from './catacombs-contract.js';
+ catacombsWalkable,catacombsStep,catacombsResolve,catacombsFairyArrival,MARIAN_FINAL_ASSETS,CATACOMBS_ART,catacombsArtPlacement} from './catacombs-contract.js';
 import {createFinalBossState,FINAL_BOSS,finalBossStart,finalBossStep,finalBossDamage,
  finalBossBeginSummon,finalBossAddSummon,finalBossClearSummon} from './marian-final-boss.js';
 import {segmentObstacleHit} from './obstacles.js';
@@ -37,7 +37,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.defeated=false;this.completed=false;this.finalized=false;
   this.transformationStarted=false;this.transformationCompleted=false;
   this.summons=[];this.shots=[];this.bossShots=[];this.shotCooldowns=new Map();
-  this.killCount=0;this.combatMs=0;this.facing='n';this.bossFacing='s';this.hitUntil=0;
+  this.killCount=0;this.combatMs=0;this.facing='se';this.bossFacing='s';this.hitUntil=0;
   this.deathBursts=[];this.bossDeathClock=0;this.lastShotAim={x:0,y:-1};
   this.boss=createFinalBossState();
   this.run=currentCampaignRun(this.game);
@@ -52,8 +52,10 @@ export class CatacombsScene extends Phaser.Scene{
   // Preserve zoom=1 as in Acts I–IV; crop the compact chamber naturally.
   this.resizeCamera=()=>{
    this.cameras.main.setZoom(1);
-   if(this.phase==='opening'||this.phase==='transform'||this.phase==='fairy'||this.phase==='home')
-    this.cameras.main.centerOn(CATACOMBS.width/2,285);
+   if(this.phase==='opening'||this.phase==='transform')
+    this.cameras.main.centerOn(CATACOMBS.width/2,Math.min(200,this.scale.height/2+40));
+   else if(['boss-death','fairy','magic'].includes(this.phase))
+    this.cameras.main.centerOn(CATACOMBS.width/2,350);
   };
   this.drawCatacombs();
   const start=CATACOMBS.playerStart;
@@ -64,7 +66,9 @@ export class CatacombsScene extends Phaser.Scene{
   this.weapon=selectUnlockedWeapon(this.run.selectedWeapon,this.run.unlockedWeapons,'act5')
    ??(selected.includes('rifle')?'rifle':selected[0]??'blunderbuss');
   this.run.selectedWeapon=this.weapon;
-  void this.playerVisual.setVariant(this.weapon);
+  void this.playerVisual.setVariant(this.weapon).then(()=>{
+   if(!this.disposed)this.playerVisual.update(this.facing,false,0);
+  });
   this.keys=this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT');
   this.joystick=createJoystick(this,'left');
   this.aimJoystick=createJoystick(this,'right');
@@ -108,8 +112,13 @@ export class CatacombsScene extends Phaser.Scene{
     (this.boss.phase==='gun'||this.boss.phase==='summon')
   });
   this.bossHp=this.add.graphics().setScrollFactor(0).setDepth(75);
+  this.bossHpLabel=this.add.text(0,0,'RUDOLF / KŁUSOCZŁEK',{
+   fontFamily:'monospace',fontSize:'11px',color:'#e1c59e',fontStyle:'bold'
+  }).setOrigin(.5,1).setScrollFactor(0).setDepth(75).setVisible(false);
   this.bossTintClock=0;
   this.fairyActor=null;
+  this.fairyQueued=false;this.fairyDialogueQueued=false;this.endingFadeQueued=false;
+  this.finalRecoveryCleanups=new Set();
   this.finaleText=null;
   this.transitionVeil=this.add.rectangle(0,0,this.scale.width,this.scale.height,0x08050d,0)
    .setOrigin(0).setScrollFactor(0).setDepth(96);
@@ -136,6 +145,13 @@ export class CatacombsScene extends Phaser.Scene{
    const l=arenaHudLayout(this.scale.height,this.scale.width);
    this.hudLayout=l;
    this.resizeCamera();
+   if(this.phase==='fairy'&&this.fairyActor?.active){
+    const view=this.fairyVisibleBounds(),actor=this.fairyActor;
+    if(actor.x<view.left+39||actor.x>view.right-39||actor.y<view.top+39||actor.y>view.bottom-39){
+     const point=catacombsFairyArrival(this.bossActor,this.player,CATACOMBS.fairyStart,view);
+     if(point)actor.setPosition(point.x,point.y);
+    }
+   }
    this.joystick.reposition(l.joystickX,l.joystickY,l.joystickRadius);
    this.aimJoystick.reposition(l.aimX,l.aimY,l.joystickRadius);
    this.weaponToken.setPosition(l.switchX,l.switchY).setScale(l.switchSize/42);
@@ -156,7 +172,9 @@ export class CatacombsScene extends Phaser.Scene{
   window.addEventListener('focus',sync);
   document.addEventListener('visibilitychange',sync);
   this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
-   this.disposed=true;this.scale.off(Phaser.Scale.Events.RESIZE,resize);
+   this.disposed=true;
+   for(const cancel of [...this.finalRecoveryCleanups])cancel();
+   this.scale.off(Phaser.Scale.Events.RESIZE,resize);
    this.events.off(Phaser.Scenes.Events.PAUSE,reset);
    this.events.off(Phaser.Scenes.Events.RESUME,sync);
    window.removeEventListener('blur',reset);window.removeEventListener('focus',sync);
@@ -289,6 +307,7 @@ export class CatacombsScene extends Phaser.Scene{
  startBoss(){
   if(this.disposed||this.phase==='boss'||this.boss.defeated)return false;
   this.phase='boss';this.selectMarianAppearance(true);
+  this.bossHpLabel.setVisible(true);
   this.cameras.main.startFollow(this.player,true,.12,.12);
   this.transitionVeil.setAlpha(0);
   finalBossStart(this.boss);
@@ -350,7 +369,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.bossBarks?.suspend();
   this.phase='boss-death';this.objective.setText('RUDOLF POKONANY');
   this.cameras.main.stopFollow();this.cameras.main.centerOn(CATACOMBS.width/2,350);
-  this.bossHp.clear();this.bossActor.setAlpha(1);
+  this.bossHp.clear();this.bossHpLabel.setVisible(false);this.bossActor.setAlpha(1);
   retroAudio.death();
   const x=this.bossActor.x,y=this.bossActor.y;
   for(const [i,offset] of [[0,0,-30],[1,-38,-78],[2,35,-108],[3,-18,-148],[4,20,-55]]){
@@ -359,23 +378,71 @@ export class CatacombsScene extends Phaser.Scene{
     this.deathBursts.push(createPixelBurst(this,'marcin',x+offset,y+(-30-i*17),i*37));
    });
   }
-  this.tweens.add({targets:this.bossActor,alpha:0,duration:FAIRY_ARRIVAL.bossExplosionMs,
-   onComplete:()=>{
-    if(this.disposed||this.phase!=='boss-death')return;
-    this.bossActor.setVisible(false);
-    this.time.delayedCall(FAIRY_ARRIVAL.pauseMs,()=>this.materializeFairy());
-   }});
+  const arrive=()=>{
+   if(this.disposed||this.phase!=='boss-death'||this.fairyQueued)return;
+   this.fairyQueued=true;this.bossActor.setVisible(false);
+   this.time.delayedCall(FAIRY_ARRIVAL.pauseMs,()=>{
+    if(!this.disposed&&this.phase==='boss-death')this.materializeFairy();
+   });
+  };
+  this.tweens.add({targets:this.bossActor,alpha:0,duration:FAIRY_ARRIVAL.bossExplosionMs,onComplete:arrive});
+  // Tween callbacks can be lost on pause/resize; never strand the finale.
+  this.time.delayedCall(FAIRY_ARRIVAL.bossExplosionMs+350,arrive);
+  // Independent of Phaser's scene clock; postpone until gameplay is visible.
+  this.scheduleFinalRecovery(FAIRY_ARRIVAL.bossExplosionMs+FAIRY_ARRIVAL.pauseMs+450,()=>{
+   if(this.phase!=='boss-death')return;
+   this.bossActor.setVisible(false);
+   this.materializeFairy();
+  });
   this.syncControls();return true;
+ }
+ scheduleFinalRecovery(delay,action){
+  let closed=false,elapsed=false,timer=null;
+  const dispose=()=>{
+   if(closed)return;
+   closed=true;
+   if(timer!==null)window.clearTimeout(timer);
+   window.removeEventListener('focus',flush);
+   window.removeEventListener('resize',flush);
+   window.removeEventListener('orientationchange',flush);
+   document.removeEventListener('visibilitychange',flush);
+   this.events.off(Phaser.Scenes.Events.RESUME,flush);
+   this.finalRecoveryCleanups.delete(dispose);
+  };
+  const flush=()=>{
+   if(closed||!elapsed||this.disposed||!this.sys.isActive()||
+    document.hidden||!document.hasFocus()||window.innerHeight>window.innerWidth)return;
+   dispose();action();
+  };
+  window.addEventListener('focus',flush);
+  window.addEventListener('resize',flush);
+  window.addEventListener('orientationchange',flush);
+  document.addEventListener('visibilitychange',flush);
+  this.events.on(Phaser.Scenes.Events.RESUME,flush);
+  timer=window.setTimeout(()=>{elapsed=true;flush();},delay);
+  this.finalRecoveryCleanups.add(dispose);
+  return dispose;
+ }
+ fairyVisibleBounds(){
+  const camera=this.cameras.main,zoom=camera.zoom||1;
+  // Reserve the actual dialogue region, not merely the canvas's bottom edge.
+  const reserved=Math.min(165,Math.max(112,this.scale.height*.42));
+  return {left:camera.scrollX,right:camera.scrollX+this.scale.width/zoom,
+   top:camera.scrollY,bottom:camera.scrollY+(this.scale.height-reserved)/zoom};
  }
  materializeFairy(){
   if(this.disposed||this.phase!=='boss-death'||this.fairyActor)return false;
-  const point=CATACOMBS.fairyStart;
-  if(!catacombsWalkable(point,CATACOMBS.enemyRadius)||
-   Math.hypot(point.x-this.bossActor.x,point.y-this.bossActor.y)<110)
-   throw Error('Unsafe or overlapping fairy arrival');
+  const point=catacombsFairyArrival(this.bossActor,this.player,CATACOMBS.fairyStart,this.fairyVisibleBounds());
+  this.bossActor.setVisible(false);
+  if(!point){
+   // No unhandled error or inert boss-death state even if arena geometry changes.
+   this.phase='fairy';this.objective.setText('ŚWINIA-WRÓŻKA');
+   this.fairyDialogueQueued=true;this.showDialogue('act5-fairy');
+   return true;
+  }
   const key='act5-fairy';
   if(this.textures.exists(key)){
-   this.fairyActor=this.add.image(point.x,point.y,key).setDisplaySize(78,78).setDepth(13);
+   this.fairyActor=this.add.image(point.x,point.y,key).setDepth(13);
   }else{
    this.fairyActor=this.add.container(point.x,point.y).setDepth(13);
    this.fairyActor.add(this.add.ellipse(0,0,76,64,0xd8a8ac).setStrokeStyle(3,0x59373c));
@@ -391,15 +458,27 @@ export class CatacombsScene extends Phaser.Scene{
    this.tweens.add({targets:spark,x:point.x+Math.cos(a)*50,y:point.y-25+Math.sin(a)*52,
     alpha:0,duration:FAIRY_ARRIVAL.fadeMs,onComplete:()=>spark.destroy()});
   }
+  const startFairyDialogue=()=>{
+   if(this.disposed||this.phase!=='fairy'||this.fairyDialogueQueued)return;
+   this.fairyDialogueQueued=true;this.fairyActor?.setAlpha(1).setScale(finalScale);
+   this.showDialogue('act5-fairy');
+  };
   this.tweens.add({targets:this.fairyActor,alpha:1,scale:finalScale,duration:FAIRY_ARRIVAL.fadeMs,
-   ease:'Sine.Out',onComplete:()=>{
-    if(!this.disposed&&this.phase==='fairy')this.showDialogue('act5-fairy');
-   }});
+   ease:'Sine.Out',onComplete:startFairyDialogue});
+  this.time.delayedCall(FAIRY_ARRIVAL.fadeMs+350,startFairyDialogue);
+  this.scheduleFinalRecovery(FAIRY_ARRIVAL.fadeMs+650,startFairyDialogue);
   return true;
  }
  showFairyEnding(){
   if(this.phase!=='fairy'||this.completed)return false;
-  this.phase='magic';this.resetMovement();this.stopFlame(true);this.syncControls();
+  this.phase='magic';this.bossHp.clear();this.bossHpLabel.setVisible(false);
+  this.resetMovement();this.stopFlame(true);this.syncControls();
+  // Even a suspended Phaser tween/clock cannot permanently strand MYK.
+  this.scheduleFinalRecovery(1550,()=>{
+   if(this.phase!=='magic'||this.endingFadeQueued)return;
+   this.endingFadeQueued=true;this.transitionVeil.setFillStyle(0x08050d,1).setAlpha(1);
+   this.completeEnding();
+  });
   // Approved MYK moment: short Phaser-only sparkle, then an opaque fade.
   const x=this.fairyActor?.x??CATACOMBS.fairyStart.x;
   const y=this.fairyActor?.y??CATACOMBS.fairyStart.y;
@@ -411,23 +490,28 @@ export class CatacombsScene extends Phaser.Scene{
   }
   this.time.delayedCall(440,()=>{
    if(this.disposed||this.phase!=='magic')return;
+   const finish=()=>{
+    if(this.disposed||this.phase!=='magic'||this.endingFadeQueued)return;
+    this.endingFadeQueued=true;this.completeEnding();
+   };
+   this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,finish);
    this.cameras.main.fadeOut(450,0,0,0);
-   this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
-    if(this.disposed||this.phase!=='magic')return;
-    this.completeEnding();
-   });
+   this.time.delayedCall(850,finish);
   });
   return true;
  }
  completeEnding(){
   if(this.phase!=='magic'||this.completed)return false;
-  this.completed=true;this.phase='ending';this.resetMovement();this.stopFlame(true);
+  this.phase='ending';this.resetMovement();this.stopFlame(true);
   const result=completeCampaignAct(this.run,'act5',{
    hp:this.run.hp,maxHp:this.run.maxHp,
    unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,
    kills:this.killCount,activeCombatMs:this.combatMs
   });
-  if(!result&&!this.run.completedActs.has('act5'))return false;
+  if(!result&&!this.run.completedActs.has('act5')){
+   this.phase='magic';this.endingFadeQueued=false;return false;
+  }
+  this.completed=true;
   if(result)recordActCompletion(this.run,'act5');
   if(!this.run.isDebugRun&&!this.run.isReplayRun)clearCampaignCheckpoint();
   this.dialoguePanel.hide();
@@ -551,6 +635,7 @@ export class CatacombsScene extends Phaser.Scene{
   if(this.disposed||!this.entryGateReady)return;
   updateBursts(this.deathBursts,delta);
   this.syncControls();
+  if(this.phase!=='boss'){this.bossHp.clear();this.bossHpLabel.setVisible(false);}
   this.bossBarks?.tick(delta);
   if(!this.canPlay()){resetFiring(this.firing,this.weapon);
    this.flameStream.clear();retroAudio.stopStream();
@@ -609,16 +694,17 @@ export class CatacombsScene extends Phaser.Scene{
   this.updateProjectiles(this.shots,delta);
   this.updateProjectiles(this.bossShots,delta);
   this.bossHp.clear();
-  if(this.boss.phase==='gun'||this.boss.phase==='summon'){
-   // Boss HP is a fixed-screen HUD element, independent of camera following.
-   const width=Math.min(360,Math.max(140,this.scale.width*.42));
+  if(this.phase==='boss'&&(this.boss.phase==='gun'||this.boss.phase==='summon')){
+   // Thin screen-space boss meter, clear of the top MENU/HP controls.
+   const width=Math.min(320,Math.max(140,this.scale.width*.40));
    const x=(this.scale.width-width)/2;
-   const y=Math.max(55,(this.hudLayout?.menuY??35)+(this.hudLayout?.menuHeight??38)/2+8);
+   const y=Math.max(54,(this.hudLayout?.menuY??35)+(this.hudLayout?.menuHeight??38)/2+8);
    const hpRatio=Math.max(0,Math.min(1,this.boss.hp/this.boss.maxHp));
-   this.bossHp.fillStyle(0x1b151c,.9).fillRect(x,y,width,15);
+   this.bossHp.fillStyle(0x1b151c,.92).fillRect(x,y,width,10);
    this.bossHp.fillStyle(this.boss.phase==='summon'?0x9278db:0xd86556)
-    .fillRect(x+4,y+4,(width-8)*hpRatio,7);
-   this.bossHp.lineStyle(2,0xe1c59e).strokeRect(x,y,width,15);
-  }
+    .fillRect(x+2,y+2,(width-4)*hpRatio,6);
+   this.bossHp.lineStyle(1,0xe1c59e).strokeRect(x,y,width,10);
+   this.bossHpLabel.setPosition(this.scale.width/2,y-3).setVisible(true);
+  }else this.bossHpLabel.setVisible(false);
  }
 }

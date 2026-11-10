@@ -280,7 +280,7 @@ test('catacombs player and boss swept movement, gunshots and summons share the s
 
 test('Act V final visual regression contracts preserve combat, fairy and credits',async()=>{
  const {RUDOLF_DAMAGE_BOX,segmentRudolfHit,rudolfFlameTarget,FAIRY_ARRIVAL}=await import('../src/act5-final-visuals.js');
- assert.deepEqual(CATACOMBS.playerStart,{x:480,y:375});
+ assert.deepEqual(CATACOMBS.playerStart,{x:300,y:108});
  assert.ok(catacombsWalkable(CATACOMBS.playerStart));
  assert.ok(catacombsWalkable(CATACOMBS.fairyStart,CATACOMBS.enemyRadius));
  assert.ok(Math.hypot(CATACOMBS.fairyStart.x-CATACOMBS.marianStart.x,
@@ -296,7 +296,9 @@ test('Act V final visual regression contracts preserve combat, fairy and credits
  assert.ok(s.includes('createPixelBurst(this,enemy.type'));
  assert.ok(s.includes("createPixelBurst(this,'marcin'"));
  assert.ok(s.includes('this.phase=\'boss-death\''));
- assert.ok(s.includes('this.time.delayedCall(FAIRY_ARRIVAL.pauseMs,()=>this.materializeFairy())'));
+ assert.ok(s.includes('this.time.delayedCall(FAIRY_ARRIVAL.pauseMs,()=>{'));
+ assert.ok(s.includes('catacombsFairyArrival(this.bossActor,this.player,CATACOMBS.fairyStart,this.fairyVisibleBounds())'));
+ assert.ok(s.includes('this.time.delayedCall(850,finish)'));
  assert.ok(s.includes("this.scene.start('Credits')"));
 });
 
