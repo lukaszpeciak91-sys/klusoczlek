@@ -24,18 +24,29 @@ export function createBossBarks(scene,{phrases,speaker,allowed,offsetY=118,other
  }).setOrigin(.5,0);
  root.add([bg,caption]);
  let elapsed=0,showing=0,index=0,disposed=false;
+ const firstDelay=2000,repeatDelay=5500;
  const hide=()=>{root.setVisible(false);showing=0;};
  const canSpeak=()=>!disposed&&scene.sys.isActive()&&!scene.scene.isPaused()&&
   !document.hidden&&document.hasFocus()&&window.innerWidth>=window.innerHeight&&
-  allowed()&&!otherBubbles();
+  allowed();
  const position=()=>{
   const target=speaker(),camera=scene.cameras.main;
   if(!target||!camera||!target.active)return false;
   const world=camera.getWorldPoint(0,0);
   const x=(target.x-world.x)*camera.zoom;
-  const y=(target.y-offsetY-world.y)*camera.zoom;
+  const y=(target.y-world.y)*camera.zoom;
   const w=Math.ceil(caption.width)+20,h=Math.ceil(caption.height)+17;
-  const box=bubblePlacement({x,y},w,h,scene.scale.width,scene.scale.height,scene.hudLayout);
+  if(x<0||x>scene.scale.width||y<0||y>scene.scale.height)return false;
+  // First try above the boss. At the top edge (or on narrow landscape
+  // screens), use a nearby safe position instead of silently losing the bark.
+  const top=(scene.hudLayout?.panelY??0)+(scene.hudLayout?.panelHeight??0)+6;
+  const anchors=[y-offsetY,y-Math.max(32,offsetY*.5),y-12,
+   y+h+22,top+h+7];
+  let box=null;
+  for(const anchorY of anchors){
+   box=bubblePlacement({x,y:anchorY},w,h,scene.scale.width,scene.scale.height,scene.hudLayout);
+   if(box)break;
+  }
   if(!box)return false;
   root.setPosition(box.x,box.y);
   caption.setPosition(w/2,4);
@@ -55,10 +66,12 @@ export function createBossBarks(scene,{phrases,speaker,allowed,offsetY=118,other
    if(showing<=0||!position())hide();
    return;
   }
-  if(elapsed<5200)return;
-  elapsed=0;
+  const due=index===0?firstDelay:repeatDelay;
+  if(elapsed<due||otherBubbles())return;
+  caption.setWordWrapWidth(Math.min(240,Math.max(115,scene.scale.width*.55)));
   caption.setText(phrases[index%phrases.length]);
-  if(!position())return;
+  if(!position()){elapsed=due-350;return;}
+  elapsed=0;
   index++;
   showing=2500;root.setVisible(true);
  };
