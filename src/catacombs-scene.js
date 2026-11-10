@@ -22,7 +22,7 @@ import {createDialoguePanel} from './dialogue-ui.js';
 import {beginSceneReveal} from './scene-reveal-gate.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {CATACOMBS,CATACOMBS_OBSTACLES,CATACOMBS_SUMMON_SITES,
- catacombsWalkable,catacombsStep,catacombsResolve,MARIAN_FINAL_ASSETS,CATACOMBS_ART,catacombsArtPlacement} from './catacombs-contract.js';
+ catacombsWalkable,catacombsStep,catacombsResolve,catacombsFairyArrival,MARIAN_FINAL_ASSETS,CATACOMBS_ART,catacombsArtPlacement} from './catacombs-contract.js';
 import {createFinalBossState,FINAL_BOSS,finalBossStart,finalBossStep,finalBossDamage,
  finalBossBeginSummon,finalBossAddSummon,finalBossClearSummon} from './marian-final-boss.js';
 import {segmentObstacleHit} from './obstacles.js';
@@ -53,7 +53,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.resizeCamera=()=>{
    this.cameras.main.setZoom(1);
    if(this.phase==='opening'||this.phase==='transform'||this.phase==='fairy'||this.phase==='home')
-    this.cameras.main.centerOn(CATACOMBS.width/2,285);
+    this.cameras.main.centerOn(CATACOMBS.width/2,200);
   };
   this.drawCatacombs();
   const start=CATACOMBS.playerStart;
@@ -110,6 +110,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.bossHp=this.add.graphics().setScrollFactor(0).setDepth(75);
   this.bossTintClock=0;
   this.fairyActor=null;
+  this.fairyQueued=false;this.fairyDialogueQueued=false;this.endingFadeQueued=false;
   this.finaleText=null;
   this.transitionVeil=this.add.rectangle(0,0,this.scale.width,this.scale.height,0x08050d,0)
    .setOrigin(0).setScrollFactor(0).setDepth(96);
@@ -359,20 +360,27 @@ export class CatacombsScene extends Phaser.Scene{
     this.deathBursts.push(createPixelBurst(this,'marcin',x+offset,y+(-30-i*17),i*37));
    });
   }
-  this.tweens.add({targets:this.bossActor,alpha:0,duration:FAIRY_ARRIVAL.bossExplosionMs,
-   onComplete:()=>{
-    if(this.disposed||this.phase!=='boss-death')return;
-    this.bossActor.setVisible(false);
-    this.time.delayedCall(FAIRY_ARRIVAL.pauseMs,()=>this.materializeFairy());
-   }});
+  const arrive=()=>{
+   if(this.disposed||this.phase!=='boss-death'||this.fairyQueued)return;
+   this.fairyQueued=true;this.bossActor.setVisible(false);
+   this.time.delayedCall(FAIRY_ARRIVAL.pauseMs,()=>{
+    if(!this.disposed&&this.phase==='boss-death')this.materializeFairy();
+   });
+  };
+  this.tweens.add({targets:this.bossActor,alpha:0,duration:FAIRY_ARRIVAL.bossExplosionMs,onComplete:arrive});
+  // Tween callbacks can be lost on pause/resize; never strand the finale.
+  this.time.delayedCall(FAIRY_ARRIVAL.bossExplosionMs+350,arrive);
   this.syncControls();return true;
  }
  materializeFairy(){
   if(this.disposed||this.phase!=='boss-death'||this.fairyActor)return false;
-  const point=CATACOMBS.fairyStart;
-  if(!catacombsWalkable(point,CATACOMBS.enemyRadius)||
-   Math.hypot(point.x-this.bossActor.x,point.y-this.bossActor.y)<110)
-   throw Error('Unsafe or overlapping fairy arrival');
+  const point=catacombsFairyArrival(this.bossActor,this.player);
+  if(!point){
+   // No unhandled error or inert boss-death state even if arena geometry changes.
+   this.phase='fairy';this.objective.setText('ŚWINIA-WRÓŻKA');
+   this.showDialogue('act5-fairy');
+   return true;
+  }
   const key='act5-fairy';
   if(this.textures.exists(key)){
    this.fairyActor=this.add.image(point.x,point.y,key).setDisplaySize(78,78).setDepth(13);
@@ -391,10 +399,14 @@ export class CatacombsScene extends Phaser.Scene{
    this.tweens.add({targets:spark,x:point.x+Math.cos(a)*50,y:point.y-25+Math.sin(a)*52,
     alpha:0,duration:FAIRY_ARRIVAL.fadeMs,onComplete:()=>spark.destroy()});
   }
+  const startFairyDialogue=()=>{
+   if(this.disposed||this.phase!=='fairy'||this.fairyDialogueQueued)return;
+   this.fairyDialogueQueued=true;this.fairyActor?.setAlpha(1).setScale(finalScale);
+   this.showDialogue('act5-fairy');
+  };
   this.tweens.add({targets:this.fairyActor,alpha:1,scale:finalScale,duration:FAIRY_ARRIVAL.fadeMs,
-   ease:'Sine.Out',onComplete:()=>{
-    if(!this.disposed&&this.phase==='fairy')this.showDialogue('act5-fairy');
-   }});
+   ease:'Sine.Out',onComplete:startFairyDialogue});
+  this.time.delayedCall(FAIRY_ARRIVAL.fadeMs+350,startFairyDialogue);
   return true;
  }
  showFairyEnding(){
@@ -411,23 +423,28 @@ export class CatacombsScene extends Phaser.Scene{
   }
   this.time.delayedCall(440,()=>{
    if(this.disposed||this.phase!=='magic')return;
+   const finish=()=>{
+    if(this.disposed||this.phase!=='magic'||this.endingFadeQueued)return;
+    this.endingFadeQueued=true;this.completeEnding();
+   };
+   this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,finish);
    this.cameras.main.fadeOut(450,0,0,0);
-   this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
-    if(this.disposed||this.phase!=='magic')return;
-    this.completeEnding();
-   });
+   this.time.delayedCall(850,finish);
   });
   return true;
  }
  completeEnding(){
   if(this.phase!=='magic'||this.completed)return false;
-  this.completed=true;this.phase='ending';this.resetMovement();this.stopFlame(true);
+  this.phase='ending';this.resetMovement();this.stopFlame(true);
   const result=completeCampaignAct(this.run,'act5',{
    hp:this.run.hp,maxHp:this.run.maxHp,
    unlockedWeapons:this.run.unlockedWeapons,selectedWeapon:this.weapon,
    kills:this.killCount,activeCombatMs:this.combatMs
   });
-  if(!result&&!this.run.completedActs.has('act5'))return false;
+  if(!result&&!this.run.completedActs.has('act5')){
+   this.phase='magic';this.endingFadeQueued=false;return false;
+  }
+  this.completed=true;
   if(result)recordActCompletion(this.run,'act5');
   if(!this.run.isDebugRun&&!this.run.isReplayRun)clearCampaignCheckpoint();
   this.dialoguePanel.hide();
@@ -609,16 +626,16 @@ export class CatacombsScene extends Phaser.Scene{
   this.updateProjectiles(this.shots,delta);
   this.updateProjectiles(this.bossShots,delta);
   this.bossHp.clear();
-  if(this.boss.phase==='gun'||this.boss.phase==='summon'){
-   // Boss HP is a fixed-screen HUD element, independent of camera following.
-   const width=Math.min(360,Math.max(140,this.scale.width*.42));
+  if(this.phase==='boss'&&(this.boss.phase==='gun'||this.boss.phase==='summon')){
+   // Thin screen-space boss meter, clear of the top MENU/HP controls.
+   const width=Math.min(320,Math.max(140,this.scale.width*.40));
    const x=(this.scale.width-width)/2;
-   const y=Math.max(55,(this.hudLayout?.menuY??35)+(this.hudLayout?.menuHeight??38)/2+8);
+   const y=Math.max(54,(this.hudLayout?.menuY??35)+(this.hudLayout?.menuHeight??38)/2+8);
    const hpRatio=Math.max(0,Math.min(1,this.boss.hp/this.boss.maxHp));
-   this.bossHp.fillStyle(0x1b151c,.9).fillRect(x,y,width,15);
+   this.bossHp.fillStyle(0x1b151c,.92).fillRect(x,y,width,10);
    this.bossHp.fillStyle(this.boss.phase==='summon'?0x9278db:0xd86556)
-    .fillRect(x+4,y+4,(width-8)*hpRatio,7);
-   this.bossHp.lineStyle(2,0xe1c59e).strokeRect(x,y,width,15);
+    .fillRect(x+2,y+2,(width-4)*hpRatio,6);
+   this.bossHp.lineStyle(1,0xe1c59e).strokeRect(x,y,width,10);
   }
  }
 }
