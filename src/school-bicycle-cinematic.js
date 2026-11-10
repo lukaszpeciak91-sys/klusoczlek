@@ -40,7 +40,10 @@ export function fitAct4BicycleFrame(width,height){
 export function createSchoolBicycleCinematic(scene,Phaser){
   const c=ACT4_BICYCLE_CINEMATIC;
   let disposed=false,ready=false,started=false,playing=false,cycles=0,completed=false;
-  let backdrop=null,sprite=null;
+  let backdrop=null,sprite=null,animationWatchdog=null;
+  const eligible=()=>!disposed&&scene.sys.isActive()&&!scene.scene.isPaused()&&
+    !document.hidden&&document.hasFocus()&&window.innerWidth>=window.innerHeight;
+  function stopWatchdog(){clearTimeout(animationWatchdog);animationWatchdog=null;}
   const controller=new AbortController();
   let loading=null;
   function prepare(){
@@ -108,16 +111,31 @@ export function createSchoolBicycleCinematic(scene,Phaser){
         frames:scene.anims.generateFrameNumbers(c.textureKey,{start:0,end:11}),
         frameRate:c.frameRate,repeat:c.repeat});
     cycles=1;playing=true;
-    sprite.on(Phaser.Animations.Events.ANIMATION_REPEAT,()=>{cycles++;});
-    sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE,()=>{
-      if(disposed||completed)return;
-      completed=true;playing=false;
+    let elapsed=0,last=performance.now();
+    const finish=()=>{
+      if(disposed||completed||!sprite?.active)return;
+      if(!eligible()){animationWatchdog=setTimeout(finish,120);return;}
+      completed=true;playing=false;stopWatchdog();
       onComplete?.();
-    });
+    };
+    const watch=()=>{
+      if(disposed||completed)return;
+      const now=performance.now();
+      if(eligible())elapsed+=Math.min(250,now-last);
+      last=now;
+      // Three approved cycles: use the sprite animation's native duration.
+      const minimumMs=(c.frames/c.frameRate)*(c.repeat+1)*1000;
+      if(elapsed>=minimumMs+250){finish();return;}
+      animationWatchdog=setTimeout(watch,100);
+    };
+    sprite.on(Phaser.Animations.Events.ANIMATION_REPEAT,()=>{cycles++;});
+    sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE,finish);
     sprite.play(c.animationKey);
+    animationWatchdog=setTimeout(watch,100);
     return true;
   }
   function hide(){
+    stopWatchdog();
     if(sprite){
       sprite.removeAllListeners(Phaser.Animations.Events.ANIMATION_COMPLETE);
       sprite.removeAllListeners(Phaser.Animations.Events.ANIMATION_REPEAT);
