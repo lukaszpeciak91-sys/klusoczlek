@@ -1009,6 +1009,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  await wait("typeof window.__createDebugFixture==='function'&&window.__game?.scene.isActive('Menu')",'Menu before approved Bogdan horn QA');
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-boss');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-boss'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Volcano');return s?.boss?.active&&s.boss.ready&&!!s.walkability&&s.finale.state==='BOGDAN_ACTIVE'})()",'real Volcano boss DEBUG with approved terrain and active Bogdan',16000);
+ await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !s.cameras.main.fadeEffect?.isRunning})()",'Bogdan HUD clear of camera reveal fade',3000);
  await captureAct5('REF-bogdan-hp-chromium');
  await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !!s.hornRewardImage?.active&&s.hornRewardImage.texture.key==='artifact-bogdan-horn'})()",'approved Bogdan horn PNG loaded and decoded in Volcano',8500);
  const loadedHorn=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),i=s.hornRewardImage,t=s.textures.get('artifact-bogdan-horn');return {texture:i.texture.key,width:t.source[0].width,height:t.source[0].height,index:s.rewardRoot.list.indexOf(i),visible:s.rewardRoot.visible,owner:s.run.artifacts.has('bogdan-hunting-horn')}})()");
@@ -1129,6 +1130,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(transform5.controls,false);assert.equal(transform5.boss,'staging');
  assert.equal(transform5.started,true);assert.equal(transform5.completed,false);
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='opening'&&s.transformationCompleted&&s.dialoguePanel.button.visible&&s.dialogueState.index===1})()",'transformed Marian resumes with Aloes panel 2',5500);
+ await sleep(420);await captureAct5('B2-rudolf-transformed-960x432');
  const revealed5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {world:s.bossArt.texture.key,portraitLoaded:s.textures.exists('dialogue-marian-transformed'),boss:s.boss.phase,combat:s.canPlay()}})()");
  assert.equal(revealed5.world,'act5-marian-transformed');
  assert.equal(revealed5.portraitLoaded,true);
@@ -1205,7 +1207,7 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  await wait("window.__game.scene.getScene('Catacombs').phase==='magic'",'fairy MYK magic particles',3000);
  assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').dialogueState.id"),null,'no home dialogue');
  await wait("(()=>{const g=window.__game,c=g.scene.getScene('Catacombs');return g.scene.isActive('Credits')&&c.completed&&c.run.completedActs.has('act5')})()",'Act V MYK completes campaign and enters credits',3000);
- await captureAct5('G-credits-960x432');
+ await sleep(1600);await captureAct5('G-credits-960x432');
  const creditsStart=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {finished:s.finished,returning:s.returning,lines:s.lines.length,distance:s.scrollDistance,elapsed:s.elapsedScroll,track:window.__retroAudio.track,loop:window.__retroAudio.music?.loop,heading:s.lines.slice(0,2).map(x=>x.text),back:s.backButton.visible}})()");
  assert.equal(creditsStart.finished,false);assert.equal(creditsStart.returning,false);
  assert.equal(creditsStart.lines,64,'32 pairs of credit lines: all 25 originals plus seven additions');
