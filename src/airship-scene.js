@@ -269,6 +269,7 @@ export class AirshipScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
       this.artAlive=false;this.artAbort.abort();
       this.cancelFinalFade?.();
+      clearTimeout(this.airshipDialogueTimer);this.airshipDialogueTimer=null;
       for(const layer of this.layers)layer.destroy();
       this.scale.off(Phaser.Scale.Events.RESIZE,resize);
       this.input.off('pointerdown',touchSwitch);
@@ -576,10 +577,18 @@ export class AirshipScene extends Phaser.Scene {
             if(this.airshipFinalPhase!=='in')return;
             this.airshipFinalPhase='dialogue';
             this.dialoguePanel.loading.finally(()=>{
-              if(!this.sys.isActive()||this.defense.state!=='survived'||
-                 this.airshipFinalPhase!=='dialogue')return;
-              this.airshipFinalPhase='dialogue-shown';
-              if(beginDialogue(this.dialogueState,'act2-finale'))this.dialoguePanel.show(this.dialogueState);
+              const reveal=()=>{
+                if(!this.sys.isActive()||this.defense.state!=='survived'||
+                   this.airshipFinalPhase!=='dialogue')return;
+                if(this.scene.isPaused()||document.hidden||!document.hasFocus()||
+                   window.innerWidth<window.innerHeight){
+                  this.airshipDialogueTimer=setTimeout(reveal,150);return;
+                }
+                this.airshipDialogueTimer=null;
+                this.airshipFinalPhase='dialogue-shown';
+                if(beginDialogue(this.dialogueState,'act2-finale'))this.dialoguePanel.show(this.dialogueState);
+              };
+              reveal();
             });
           });
           this.cameras.main.fadeIn(450,0,0,0);
