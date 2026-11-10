@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {retroAudio} from './retro-audio.js';
+import {createBossBarks,KLUSOCZLEK_BARKS} from './boss-barks.js';
 import {createPlayer} from './player.js';
 import {createPlayerVisual} from './character-visual.js';
 import {createJoystick} from './joystick.js';
@@ -101,6 +102,11 @@ export class CatacombsScene extends Phaser.Scene{
   this.bossFallbackHat=this.add.rectangle(0,-73,65,12,0x46402d);
   this.bossArt=this.add.sprite(0,0,'__DEFAULT').setOrigin(.5,1).setVisible(false);
   this.bossActor.add([this.bossShadow,this.bossFallback,this.bossFallbackHat,this.bossArt]);
+  this.bossBarks=createBossBarks(this,{
+   phrases:KLUSOCZLEK_BARKS,speaker:()=>this.bossActor,
+   offsetY:129,allowed:()=>this.canPlay()&&!this.boss.defeated&&
+    (this.boss.phase==='gun'||this.boss.phase==='summon')
+  });
   this.bossHp=this.add.graphics().setScrollFactor(0).setDepth(75);
   this.bossTintClock=0;
   this.fairyActor=null;
@@ -341,6 +347,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.finalized=true;this.boss.hp=0;this.boss.phase='defeated';this.boss.defeated=true;
   if(debug)this.boss.defeatEvents=1;
   this.clearShots();this.clearSummons();this.resetMovement();this.stopFlame(true);
+  this.bossBarks?.suspend();
   this.phase='boss-death';this.objective.setText('RUDOLF POKONANY');
   this.cameras.main.stopFollow();this.cameras.main.centerOn(CATACOMBS.width/2,350);
   this.bossHp.clear();this.bossActor.setAlpha(1);
@@ -544,6 +551,7 @@ export class CatacombsScene extends Phaser.Scene{
   if(this.disposed||!this.entryGateReady)return;
   updateBursts(this.deathBursts,delta);
   this.syncControls();
+  this.bossBarks?.tick(delta);
   if(!this.canPlay()){resetFiring(this.firing,this.weapon);
    this.flameStream.clear();retroAudio.stopStream();
    if(!this.aimJoystick.held)this.fire.step(false,0);

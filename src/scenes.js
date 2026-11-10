@@ -3,6 +3,7 @@ import {selectOrdinarySpawn} from './enemy-spawn.js';
 import {createIntroEvidence,rememberOrdinaryDeath,introductionEvidence,claimIntroduction} from './introduction-evidence.js';
 import {createDirector,directorPopulation,directorOpportunity,nextDirectorType,recordDirectorSpawn} from './encounter-director.js';
 import {createAmbientBarks} from './ambient-bark-view.js';
+import {createBossBarks,MARCIN_BARKS} from './boss-barks.js';
 import Phaser from 'phaser';
 import {retroAudio} from './retro-audio.js';
 import { ARENA, PLAYER_SPEED, normalizeInput } from './movement.js';
@@ -590,6 +591,13 @@ export class ArenaScene extends Phaser.Scene {
     resizeHud();
     this.scale.on(Phaser.Scale.Events.RESIZE, resizeHud);
     this.ambientBarks=createAmbientBarks(this,seededRandom((this.arenaSeed^0x46babc)>>>0));
+    this.bossBarks=createBossBarks(this,{
+      phrases:MARCIN_BARKS,speaker:()=>this.boss?.sprite,
+      allowed:()=>!!this.boss&&!this.boss.dead&&this.boss.hp>0&&
+       !this.bossEntrance&&!this.finalResolution&&!this.dialogueLoading&&
+       !this.dialogueState?.id&&this.episode.state==='active'&&this.canResume(),
+      otherBubbles:()=>this.ambientBarks.pool.some(p=>p.root.visible)
+    });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
       this.scale.off(Phaser.Scale.Events.RESIZE, resizeHud));
 
@@ -849,7 +857,7 @@ export class ArenaScene extends Phaser.Scene {
       }
       if(id===BOCIANOLAK_HIT_DIALOGUE)this.enemies=this.enemies.filter(enemy=>!enemy.dead);
       if(!beginDialogue(this.dialogueState,id))return false;
-      this.ambientBarks?.suspend();
+      this.ambientBarks?.suspend();this.bossBarks?.suspend();
       if(id===BOCIANOLAK_HIT_DIALOGUE||id==='before-marcin')this.events.emit('episode-boundary',id,this);
       if(id==='after-final-enemy'||id==='act1-marcin-last')this.holdFinalOutcome();
       advanceGameplayClock(this.gameplayClock,0,false);
@@ -1582,6 +1590,7 @@ export class ArenaScene extends Phaser.Scene {
     this.enemies=this.enemies.filter(enemy=>!enemy.dead);
     this.collectPickups();
     this.ambientBarks.tick(this.elapsedGameplayMs);
+    this.bossBarks.tick(this.game.loop.delta);
   }
 }
 
