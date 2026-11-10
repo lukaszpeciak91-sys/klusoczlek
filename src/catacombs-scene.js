@@ -325,9 +325,10 @@ export class CatacombsScene extends Phaser.Scene{
   this.cameras.main.pan(this.player.x,this.player.y,320,'Sine.easeInOut');
   this.transitionVeil.setAlpha(0);
   finalBossStart(this.boss);
+  let following=false;
   const follow=()=>{
-   if(!this.disposed&&this.phase==='boss'&&!this.cameras.main._follow)
-    this.cameras.main.startFollow(this.player,true,.12,.12);
+   if(following||this.disposed||this.phase!=='boss')return;
+   following=true;this.cameras.main.startFollow(this.player,true,.12,.12);
   };
   this.time.delayedCall(330,follow);
   this.scheduleFinalRecovery(550,follow);
