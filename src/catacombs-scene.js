@@ -306,7 +306,9 @@ export class CatacombsScene extends Phaser.Scene{
    this.transformationCompleted=true;
    this.phase='opening';this.syncControls();
    this.dialoguePanel.resume();
-   this.cameras.main.pan(CATACOMBS.width/2,347,340,'Sine.easeInOut');
+   // Move back toward Aloes, but retain the entire transformed Rudolf
+   // silhouette while the remaining betrayal dialogue is visible.
+   this.cameras.main.pan(CATACOMBS.width/2,280,340,'Sine.easeInOut');
   });
   return true;
  }
