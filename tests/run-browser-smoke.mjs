@@ -1101,14 +1101,16 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
   await cdp('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:false});
   await evaluate('window.__game.scale.refresh();true');
   await wait("window.__game.scale.width==="+w+"&&window.__game.scale.height==="+h,'Act V opening landscape '+w+'x'+h,1800);
-  const view=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,b=s.dialoguePanel.shell.list[0],a=s.player.getBounds();const sy=y=>(y-c.scrollY)*c.zoom;return {zoom:c.zoom,spawn:{x:s.player.x,y:s.player.y},facing:s.facing,walkable:s.player.x===480&&s.player.y===393,marian:s.bossActor.y,altar:312,top:sy(s.bossActor.y-256*.62*1.23),playerTop:sy(a.top),playerBottom:sy(a.bottom),dialogueTop:b.y,screenCenter:(s.player.x-c.scrollX)*c.zoom,viewport:s.scale.width}})()");
+  await sleep(110);
+  if(w>=900)await captureAct5('A-opening-'+w+'x'+h);
+  const view=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,b=s.dialoguePanel.shell.list[0],bounds=p.getBounds();const screen=(x,y)=>c.matrix.transformPoint(x,y);return {zoom:c.zoom,scroll:{x:c.scrollX,y:c.scrollY},spawn:{x:s.player.x,y:s.player.y},facing:s.facing,walkable:s.player.x===480&&s.player.y===393,marian:s.bossActor.y,altar:312,top:screen(s.bossActor.x,s.bossActor.y-256*.62*1.23).y,playerTop:screen(s.player.x,bounds.top).y,playerBottom:screen(s.player.x,bounds.bottom).y,dialogueTop:b.y,screenCenter:screen(s.player.x,s.player.y).x,viewport:s.scale.width}})()");
+  console.log('ACT V OPENING SCREEN QA '+w+'x'+h+' '+JSON.stringify(view));
   assert.equal(view.facing,'n','Aloes looks north toward Marian');
   assert.ok(view.walkable&&view.marian<view.altar&&view.altar<view.spawn.y,
    'central Aloes / altar / Marian staging '+JSON.stringify(view));
   assert.ok(view.top>=-1&&view.playerTop>=0&&view.playerBottom<view.dialogueTop-2,
    'Act V actors clear the actual screen-space dialogue overlay '+w+'x'+h+' '+JSON.stringify(view));
   assert.ok(view.screenCenter>=0&&view.screenCenter<=view.viewport,'opening framing horizontal bounds');
-  if(w>=900){await sleep(120);await captureAct5('A-opening-'+w+'x'+h);}
  }
  await cdp('Emulation.setDeviceMetricsOverride',{width:originalViewport.width,height:originalViewport.height,deviceScaleFactor:1,mobile:false});
  await evaluate('window.__game.scale.refresh();true');
