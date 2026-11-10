@@ -1138,7 +1138,20 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(transform5.started,true);assert.equal(transform5.completed,false);
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='opening'&&s.transformationCompleted&&s.dialoguePanel.button.visible&&s.dialogueState.index===1})()",'transformed Marian resumes with Aloes panel 2',5500);
  await sleep(420);await captureAct5('B2-rudolf-transformed-960x432');
- assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').cameras.main.zoom"),1,'post-transformation camera stays at 1');
+ for(const [w,h] of [[960,432],[915,412]]){
+  if(w!==960){
+   await cdp('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:false});
+   await evaluate('window.__game.scale.refresh();true');
+   await wait("window.__game.scale.width===915&&window.__game.scale.height===412",'post-transformation resize',1800);
+   await sleep(130);await captureAct5('B2-rudolf-transformed-915x412');
+  }
+  const afterTransform=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main;return {zoom:c.zoom,top:s.bossActor.y-s.bossArt.displayHeight*s.bossActor.scaleY-c.scrollY,feet:s.bossActor.y-c.scrollY,visible:s.dialoguePanel.button.visible}})()");
+  assert.equal(afterTransform.zoom,1,'Rudolf revealed at native scale '+w+'x'+h);
+  assert.ok(afterTransform.top>=0&&afterTransform.feet<h,'entire transformed Rudolf including mohawk visible '+w+'x'+h+' '+JSON.stringify(afterTransform));
+  assert.equal(afterTransform.visible,true,'dialogue remains interactive after transform');
+ }
+ await cdp('Emulation.setDeviceMetricsOverride',{width:960,height:432,deviceScaleFactor:1,mobile:false});
+ await evaluate('window.__game.scale.refresh();true');
  const revealed5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {world:s.bossArt.texture.key,portraitLoaded:s.textures.exists('dialogue-marian-transformed'),boss:s.boss.phase,combat:s.canPlay()}})()");
  assert.equal(revealed5.world,'act5-marian-transformed');
  assert.equal(revealed5.portraitLoaded,true);
