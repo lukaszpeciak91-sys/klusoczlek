@@ -1047,6 +1047,11 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(act5Opening.world,'npc-captain','normal Marian sheet before first panel');
  assert.ok(act5Opening.portrait.includes('dialogue-captain'),'normal Marian dialogue portrait');
  assert.equal(act5Opening.boss,'staging');
+ const introVisible=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,
+   panel=s.dialoguePanel.shell.list[0];return {bottom:p.getBounds().bottom-c.scrollY,dialogueTop:panel.y,
+   bossTop:s.bossActor.y-256*.62*1.23-c.scrollY}})()");
+ assert.ok(introVisible.bottom<introVisible.dialogueTop-2,'Act V Aloes must appear above dialogue '+JSON.stringify(introVisible));
+ assert.ok(introVisible.bossTop>=0,'Act V transformed Marian head must fit portrait landscape');
  await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian transforms immediately after panel 1',3000);
  const transform5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,visible:s.dialoguePanel.button.visible,controls:s.joystick.enabled,boss:s.boss.phase,started:s.transformationStarted,completed:s.transformationCompleted}})()");
@@ -1102,9 +1107,13 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  const cleared=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');for(const e of [...s.summons])s.damageEnemy(e,e.hp);return {phase:s.boss.phase,n:s.summons.length}})()");
  assert.deepEqual(cleared,{phase:'gun',n:0},'defeating all summoned enemies restores vulnerability');
  await sleep(240);
- await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.damageBoss(s.boss.hp);return true})()");
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.damageBoss(s.boss.hp);return true})()");
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.boss.defeated&&s.fairyActor?.active})()",'Marian defeated once, fairy arrives',4000);
  await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-fairy'",'fairy dialogue',3500);
+ const fairyView=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),b=s.fairyActor.getBounds(),v=s.fairyVisibleBounds();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom,view:v}})()");
+ assert.ok(fairyView.left>=fairyView.view.left&&fairyView.right<=fairyView.view.right&&
+  fairyView.top>=fairyView.view.top&&fairyView.bottom<=fairyView.view.bottom,
+  'Act V fairy visibly clears camera and dialogue after close-distance boss kill '+JSON.stringify(fairyView));
  for(let i=0;i<3;i++)await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='magic'",'fairy MYK magic particles',3000);
  assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').dialogueState.id"),null,'no home dialogue');

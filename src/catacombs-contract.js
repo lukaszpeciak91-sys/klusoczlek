@@ -5,7 +5,7 @@ import {resolveObstaclePosition} from './obstacles.js';
 // Deliberately self-contained geometry: artwork will not own collision.
 export const CATACOMBS=Object.freeze({
  width:960,height:640,
- playerStart:Object.freeze({x:350,y:330}),
+ playerStart:Object.freeze({x:300,y:165}),
  marianStart:Object.freeze({x:480,y:246}),
  fairyStart:Object.freeze({x:650,y:410}),
  wall:38, bossRadius:25,enemyRadius:17
@@ -29,8 +29,11 @@ export function catacombsWalkable(p,radius=PLAYER_RADIUS){
  return CATACOMBS_OBSTACLES.every(o=>!footprintOverlap(o.footprint,p,radius));
 }
 // Prefer the approved position; find an accessible alternative when Rudolf dies nearby.
-export function catacombsFairyArrival(boss,player,preferred=CATACOMBS.fairyStart){
- const safe=p=>catacombsWalkable(p,CATACOMBS.enemyRadius)&&
+export function catacombsFairyArrival(boss,player,preferred=CATACOMBS.fairyStart,visible=null){
+ // visible is a world-space rectangle already reduced by the dialogue overlay.
+ const fits=p=>!visible||(p.x>=visible.left+39&&p.x<=visible.right-39&&
+  p.y>=visible.top+39&&p.y<=visible.bottom-39);
+ const safe=p=>fits(p)&&catacombsWalkable(p,CATACOMBS.enemyRadius)&&
   Math.hypot(p.x-boss.x,p.y-boss.y)>=110&&
   Math.hypot(p.x-player.x,p.y-player.y)>=CATACOMBS.enemyRadius+PLAYER_RADIUS+12;
  if(safe(preferred))return preferred;
