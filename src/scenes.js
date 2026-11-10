@@ -107,7 +107,9 @@ export class MenuScene extends Phaser.Scene {
     const terminal = hasSession && ((sessionKey==='Arena' && this.scene.get('Arena').episode?.ended) || (sessionKey==='Volcano' && this.scene.get('Volcano').defeated) || (sessionKey==='School' && this.scene.get('School').defeated) || (sessionKey==='Catacombs' && this.scene.get('Catacombs').defeated));
     const defeated = terminal && (sessionKey==='Volcano'||sessionKey==='School'||sessionKey==='Catacombs'||(sessionKey==='Arena'&&this.scene.get('Arena').episode.state==='defeat'));
     const victorious=terminal&&!defeated;
-    const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'PIĘĆ AKTÓW · JEDNA PRZYGODA', initial.subtitleSize);
+    const subtitle = (defeated||victorious)
+      ?label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':'ZWYCIĘSTWO!', initial.subtitleSize)
+      :null;
     const allowed = () => !this.navigating && !this.optionsOpen && !document.hidden && window.innerWidth >= window.innerHeight;
     const newGame = button(this, initial.centerX, 0, initial.startWidth, 44, 'NOWA GRA', () => {
       if (!allowed()) return;
@@ -259,8 +261,8 @@ export class MenuScene extends Phaser.Scene {
         :Math.max(18,Math.min(31,h*.09));
       title.setPosition(layout.centerX,logoY)
         .setFontSize(logoSize).setVisible(!this.optionsOpen);
-      subtitle.setVisible(showMain);
-      subtitle.setPosition(layout.centerX,h*.39)
+      if(subtitle)subtitle.setVisible(showMain)
+        .setPosition(layout.centerX,h*.39)
         .setFontSize(Math.max(11,Math.min(18,h*.039,w*.026)))
         .setColor('#aa956e');
       const controls=[newGame,resume,acts,optionsButton].filter(Boolean);
