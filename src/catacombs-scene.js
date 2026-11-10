@@ -288,6 +288,9 @@ export class CatacombsScene extends Phaser.Scene{
   if(this.phase!=='opening'||this.transformationStarted||this.dialogueState.id!=='act5-betrayal'||this.dialogueState.index!==1)return false;
   this.transformationStarted=true;
   this.phase='transform';this.resetMovement();this.stopFlame();this.syncControls();
+  // Focus on Marian during the original blinking evolution; no camera snap.
+  this.cameras.main.zoomTo(Math.min(.82,this.openingCameraZoom()*1.16),340,'Sine.easeInOut');
+  this.cameras.main.pan(CATACOMBS.marianStart.x,215,340,'Sine.easeInOut');
   this.transitionVeil.setFillStyle(0x0d0815,.55).setAlpha(.55);
   this.selectMarianAppearance(false);
   let pulses=0;
@@ -307,6 +310,8 @@ export class CatacombsScene extends Phaser.Scene{
    this.selectMarianAppearance(true);
    this.transformationCompleted=true;
    this.phase='opening';this.syncControls();
+   this.cameras.main.zoomTo(this.openingCameraZoom(),340,'Sine.easeInOut');
+   this.cameras.main.pan(CATACOMBS.width/2,250,340,'Sine.easeInOut');
    this.dialoguePanel.resume();
   });
   return true;
@@ -320,9 +325,12 @@ export class CatacombsScene extends Phaser.Scene{
   this.cameras.main.pan(this.player.x,this.player.y,320,'Sine.easeInOut');
   this.transitionVeil.setAlpha(0);
   finalBossStart(this.boss);
-  this.time.delayedCall(330,()=>{
-   if(!this.disposed&&this.phase==='boss')this.cameras.main.startFollow(this.player,true,.12,.12);
-  });
+  const follow=()=>{
+   if(!this.disposed&&this.phase==='boss'&&!this.cameras.main._follow)
+    this.cameras.main.startFollow(this.player,true,.12,.12);
+  };
+  this.time.delayedCall(330,follow);
+  this.scheduleFinalRecovery(550,follow);
   this.objective.setText('POKONAJ KŁUSOCZŁEKA!');
   this.syncControls();return true;
  }
