@@ -909,17 +909,17 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  await wait("window.__game.scene.getScene('Volcano').dialogueState.id==='act3-captain-extraction'",'three-panel Captain extraction',4500);
  // Observe the actual Phaser ScenePlugin transition without intercepting or
  // manually dispatching it. This is the same path as the player's last DALEJ.
- await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),original=s.scene.start.bind(s.scene);window.__act4Handoffs=[];s.scene.start=(key,data)=>{if(key==='ActTitle')window.__act4Handoffs.push({key,data});return original(key,data);};return true})()");
+ await evaluate("(()=>{const g=window.__game;window.__act4TitleStarts=0;g.scene.getScene('ActTitle').events.on('start',()=>{window.__act4TitleStarts++;});return true})()");
  for(let i=0;i<3;i++){
   await sleep(230);
   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),b=s.dialoguePanel.button,r=window.__game.canvas.getBoundingClientRect();return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,hp:s.run.hp,id:s.dialogueState.id}})()");
   assert.ok(p.visible&&p.hp===2&&p.id==='act3-captain-extraction','Act III dialogue must not heal Aloes');
   await touch(p.x,p.y);
  }
- await wait("window.__game.scene.isActive('ActTitle')&&window.__act4Handoffs?.length===1",'natural Volcano fade actually starts Act IV title once',4500);
- const actualHandoff=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run'),calls=window.__act4Handoffs;return {count:calls.length,key:calls[0].key,act:calls[0].data.actId,scene:calls[0].data.handoff?.scene,hp:calls[0].data.handoff?.hp,max:calls[0].data.handoff?.maxHp,selected:calls[0].data.handoff?.selectedWeapon,horn:calls[0].data.handoff?.artifacts.has('bogdan-hunting-horn'),completed:[...r.completedActs],runtimeHp:r.hp,menu:g.scene.isActive('Menu')}})()");
- assert.deepEqual([actualHandoff.count,actualHandoff.key,actualHandoff.act,actualHandoff.scene,actualHandoff.hp,actualHandoff.max,actualHandoff.selected,actualHandoff.horn,actualHandoff.runtimeHp,actualHandoff.menu],
-  [1,'ActTitle','act4','School',5,5,'rifle',true,5,false],'exactly one authorized natural Act IV handoff');
+ await wait("(()=>{try{return JSON.parse(localStorage.getItem('klusoczlek-campaign-v1'))?.actId==='act4'}catch{return false}})()",'natural Volcano completed Act IV checkpoint',4500);
+ const actualHandoff=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run'),t=g.scene.getScene('ActTitle');return {count:window.__act4TitleStarts,act:t.actId,scene:t.nextScene,hp:t.handoff?.hp,max:t.handoff?.maxHp,selected:t.handoff?.selectedWeapon,horn:t.handoff?.artifacts.has('bogdan-hunting-horn'),completed:[...r.completedActs],runtimeHp:r.hp,menu:g.scene.isActive('Menu')}})()");
+ assert.deepEqual([actualHandoff.count,actualHandoff.act,actualHandoff.scene,actualHandoff.hp,actualHandoff.max,actualHandoff.selected,actualHandoff.horn,actualHandoff.runtimeHp,actualHandoff.menu],
+  [1,'act4','School',5,5,'rifle',true,5,false],'exactly one native Act IV title from Volcano');
  assert.deepEqual(actualHandoff.completed.sort(),['act1','act2','act3']);
  await wait("(()=>{try{return JSON.parse(localStorage.getItem('klusoczlek-campaign-v1'))?.actId==='act4'}catch{return false}})()",'ActTitle wrote valid Act IV checkpoint',3500);
  const titleHP=await evaluate("(()=>{const g=window.__game,r=g.registry.get('campaign-run'),t=g.scene.getScene('ActTitle'),raw=JSON.parse(localStorage.getItem('klusoczlek-campaign-v1'));return {hp:r.hp,max:r.maxHp,handoffHp:t.handoff?.hp,handoffMax:t.handoff?.maxHp,act:t.actId,selected:r.selectedWeapon,water:r.unlockedWeapons.has('water-flamethrower'),horn:r.artifacts.has('bogdan-hunting-horn'),completed:[...r.completedActs],saved:{act:raw.actId,hp:raw.hp,max:raw.maxHp,selected:raw.selectedWeapon,horn:raw.artifacts.includes('bogdan-hunting-horn')},menu:g.scene.isActive('Menu')}})()");
