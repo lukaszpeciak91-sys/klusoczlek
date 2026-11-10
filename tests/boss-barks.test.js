@@ -23,6 +23,7 @@ test('boss bark is cosmetic, timed, paused and shut down without touching gamepl
    fillRoundedRect(){return this;},strokeRoundedRect(){return this;},fillTriangle(){return this;}};
   const caption={width:80,height:30,setOrigin(){return this;},
    setText(s){this.text=s;this.width=Math.min(240,s.length*7);return this;},
+   setWordWrapWidth(){return this;},
    setPosition(){return this;}};
   const scene={add:{container:()=>root,graphics:()=>graphics,text:()=>caption},
    events,sys:{isActive:()=>true},scene:{isPaused:()=>false},
@@ -33,14 +34,19 @@ test('boss bark is cosmetic, timed, paused and shut down without touching gamepl
   const actor={active:true,x:390,y:310};
   const barks=createBossBarks(scene,{phrases:MARCIN_BARKS,speaker:()=>actor,
    allowed:()=>true});
-  for(let i=0;i<105;i++)barks.tick(50);
+  for(let i=0;i<41;i++)barks.tick(50);
   assert.equal(barks.shown,1);
   assert.equal(barks.root.visible,true);
   assert.equal(caption.text,MARCIN_BARKS[0]);
   events.emit('pause');
   assert.equal(root.visible,false,'pause hides the bubble immediately');
-  for(let i=0;i<60;i++)barks.tick(50);
+  for(let i=0;i<35;i++)barks.tick(50);
   assert.equal(barks.shown,1,'no bark before next interval');
+  actor.y=95; // A boss near the top HUD still deserves a visible bark.
+  for(let i=0;i<110;i++)barks.tick(50);
+  assert.equal(barks.shown,2,'boss above HUD uses bounded fallback');
+  assert.equal(root.visible,true);
+  assert.ok(root.y>=scene.hudLayout.panelY+scene.hudLayout.panelHeight,'HUD remains clear');
   events.emit('shutdown');
   assert.equal(root.active,false,'shutdown destroys the overlay');
  }finally{globalThis.document=previousDocument;globalThis.window=previousWindow;}
