@@ -955,6 +955,25 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(await evaluate("window.__game.scene.getScene('School').captainDialogueStarted"),true,
   'autosave resume played exactly one Captain intro for its new scene entry');
  console.log('PASS Act III -> IV real Chromium: 2/5 during escape/extraction, 5/5 live title, 5/5 autosave reload, horn, rifle, Marian and MENU/WZNÓW');
+ // Regression: a missing FADE_OUT_COMPLETE must not strand the final
+ // Captain dialogue on a permanently black screen.
+ await cdp('Page.reload',{ignoreCache:true});
+ await sleep(250);
+ await wait("window.__game?.scene.isActive('Menu')",'Menu before stuck fade regression');
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-escape');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-escape'});return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return s.finale.state==='ESCAPE_ACTIVE'&&s.extractionPoint&&!s.cameras.main.fadeEffect?.isRunning})()",'Volcano ready for stalled fade',16000);
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano');s.run.isDebugRun=false;s.run.artifacts.add('bogdan-hunting-horn');s.player.setPosition(s.extractionPoint.x,s.extractionPoint.y);s.player.body.reset(s.player.x,s.player.y);return true})()");
+ await wait("window.__game.scene.getScene('Volcano').dialogueState.id==='act3-captain-extraction'",'Captain extraction before missing fade',4500);
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano');s.cameras.main.fadeOut=()=>s.cameras.main;return true})()");
+ for(let i=0;i<3;i++){
+  await sleep(220);
+  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),b=s.dialoguePanel.button,r=window.__game.canvas.getBoundingClientRect();return {x:r.x+b.x,y:r.y+b.y}})()");
+  await touch(p.x,p.y);
+ }
+ await wait("window.__game.scene.isActive('ActTitle')",'Act III fade watchdog starts real ActTitle with no camera event',4000);
+ await wait("window.__game.scene.isActive('School')",'Act III fade watchdog reaches School',8000);
+ assert.equal(await evaluate("window.__game.scene.getScene('School').run.artifacts.has('bogdan-hunting-horn')"),true);
+ console.log('PASS Act III -> IV Chromium: missing fade event recovered by independent watchdog, real ActTitle -> School');
  // Approved Act III horn: stage the real Bogdan boss using existing DEBUG,
  // then verify original two-panel finale, award, art and eruption sequence.
  await cdp('Page.reload',{ignoreCache:true});
