@@ -52,15 +52,29 @@ export class CatacombsScene extends Phaser.Scene{
   // expands to 256*.62*1.23 px during flashing, and Aloes stands south
   // of the altar. Reserve the lower dialogue panel in screen pixels.
   this.openingCameraZoom=()=>{
-   const top=CATACOMBS.marianStart.y-256*.62*1.23;
-   const bottom=CATACOMBS.playerStart.y+8;
-   return Math.min(.72,Math.max(.3,(this.scale.height*.63-16)/(bottom-top)));
+   const transformedTop=CATACOMBS.marianStart.y-256*.62*1.23;
+   const playerBottom=CATACOMBS.playerStart.y+64*.65;
+   // Dialogue UI has measured its actual wrapped height by this point.
+   // Leave at least 45 screen pixels for breathing room and safe areas.
+   const dialogueTop=this.dialoguePanel?.shell?.list?.[0]?.y??this.scale.height*.66;
+   return Math.min(.58,Math.max(.08,(dialogueTop-45)/(playerBottom-transformedTop)));
+  };
+  this.openingCameraScroll=()=>{
+   const zoom=this.openingCameraZoom();
+   const transformedTop=CATACOMBS.marianStart.y-256*.62*1.23;
+   // Phaser zoom is around the viewport center. The camera scroll is
+   // calibrated so transformed head projects 12px below the top edge.
+   return {x:CATACOMBS.width/2-this.scale.width/2,
+    y:transformedTop+((1-zoom)*this.scale.height/2-12)/zoom};
   };
   this.resizeCamera=()=>{
    const opening=this.phase==='opening'||this.phase==='transform';
    if(opening){
-    const zoom=this.openingCameraZoom();
-    this.cameras.main.setZoom(zoom).centerOn(CATACOMBS.width/2,250);
+    const {x,y}=this.openingCameraScroll();
+    // Opening art may be narrower than the physical landscape viewport.
+    // Do not clamp it to the left wall; symmetrical margins are deliberate.
+    this.cameras.main.removeBounds();
+    this.cameras.main.setZoom(this.openingCameraZoom()).setScroll(x,y);
    }else if(['boss-death','fairy','magic'].includes(this.phase))
     this.cameras.main.setZoom(1).centerOn(CATACOMBS.width/2,350);
   };
@@ -270,7 +284,9 @@ export class CatacombsScene extends Phaser.Scene{
  }
  showDialogue(id){
   if(this.disposed||this.dialogueState.id||!beginDialogue(this.dialogueState,id))return false;
-  this.resetMovement();this.stopFlame();this.dialoguePanel.show(this.dialogueState);return true;
+  this.resetMovement();this.stopFlame();this.dialoguePanel.show(this.dialogueState);
+  if(this.phase==='opening')this.resizeCamera();
+  return true;
  }
  onDialogueAdvance(state){
   // Only the first panel may trigger transformation. Keep the panel's
@@ -310,9 +326,10 @@ export class CatacombsScene extends Phaser.Scene{
    this.selectMarianAppearance(true);
    this.transformationCompleted=true;
    this.phase='opening';this.syncControls();
-   this.cameras.main.zoomTo(this.openingCameraZoom(),340,'Sine.easeInOut');
-   this.cameras.main.pan(CATACOMBS.width/2,250,340,'Sine.easeInOut');
    this.dialoguePanel.resume();
+   const {x,y}=this.openingCameraScroll();
+   this.cameras.main.zoomTo(this.openingCameraZoom(),340,'Sine.easeInOut');
+   this.tweens.add({targets:this.cameras.main,scrollX:x,scrollY:y,duration:340,ease:'Sine.easeInOut'});
   });
   return true;
  }
@@ -322,6 +339,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.bossHpLabel.setVisible(true);
   // Restore player-follow before enabling damage/combat. Phaser's lerp
   // avoids a hard camera snap while the existing local zoom eases to 1.
+  this.cameras.main.setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
   this.cameras.main.startFollow(this.player,true,.12,.12);
   this.cameras.main.zoomTo(1,320,'Sine.easeInOut');
   this.transitionVeil.setAlpha(0);
