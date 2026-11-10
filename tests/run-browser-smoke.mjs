@@ -145,8 +145,11 @@ try{
  await tapMenu('AKTY');
  const actTwo=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect();const t=m.children.list.find(x=>x.type==='Text'&&x.visible&&x.text.includes('AKT II')&&x.text.includes('ODBLOKOWANY'));return t?{x:r.x+t.x,y:r.y+t.y}:null})()");
  assert.ok(actTwo,'legitimate completion visibly unlocks Act II');
+ // Model a dropped camera completion event on mobile without replacing
+ // the menu input route: the one-shot fallback must still enter ActTitle.
+ await evaluate("(()=>{const m=window.__game.scene.getScene('Menu');m.cameras.main.fadeOut=()=>m.cameras.main;return true})()");
  await touch(actTwo.x,actTwo.y);
- await wait("window.__game.scene.isActive('ActTitle')",'AKTY Act II opens real ActTitle',4500);
+ await wait("window.__game.scene.isActive('ActTitle')",'AKTY replay watchdog survives missing camera fade event',4500);
  const replay=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle'),r=g.registry.get('campaign-run');return {act:t.actId,entry:r.actId,replay:r.isReplayRun,hp:r.hp,max:r.maxHp,artifacts:[...r.artifacts],weapon:r.selectedWeapon}})()");
  assert.equal(replay.act,'act2');assert.equal(replay.entry,'act1');assert.equal(replay.replay,true);
  assert.equal(replay.hp,replay.max);assert.ok(replay.artifacts.includes('marcin-mohawk'));
