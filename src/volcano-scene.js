@@ -691,7 +691,9 @@ export class VolcanoScene extends Phaser.Scene {
   }
   resetEruption(){
     this.escapeLastImpulse=null;
-    this.cameras.main.shakeEffect.reset();
+    // Phaser may have already destroyed the camera by SHUTDOWN.
+    // Cleanup must never throw and abort the queued ActTitle transition.
+    if(this.cameras.main?.shakeEffect)this.cameras.main.shakeEffect.reset();
     if(this.lava?.active)this.lava.setAlpha(1).clearTint();
   }
   updateEruption(){
@@ -742,11 +744,32 @@ export class VolcanoScene extends Phaser.Scene {
       ??(allowed.includes('rifle')?'rifle':allowed[0]??'blunderbuss');
     const handoff=nextActHandoff(this.run,new Set(Object.keys(this.scene.manager.keys)));
     if(!handoff||handoff.actId!=='act4')console.error('[Volcano] Act IV handoff unavailable');
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
-      if(this.disposed)return;
-      if(handoff)this.scene.start('ActTitle',{actId:'act4',handoff});
+    // Android may suspend the Phaser camera clock during the final fade.
+    // Make the real handoff independent of FADE_OUT_COMPLETE, but preserve
+    // the normal 550ms fade and never start a second scene.
+    let transitionDone=false,fadeFinished=false,watchdog=null;
+    const canTransition=()=>!document.hidden&&window.innerWidth>=window.innerHeight;
+    const clear=()=>{
+      if(watchdog!==null){clearTimeout(watchdog);watchdog=null;}
+      this.cameras.main?.off(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,onFade);
+      window.removeEventListener('resize',finish);
+      window.removeEventListener('orientationchange',finish);
+      document.removeEventListener('visibilitychange',finish);
+    };
+    const finish=()=>{
+      if(transitionDone||this.disposed||!fadeFinished||!canTransition())return;
+      transitionDone=true;clear();
+      if(handoff?.actId==='act4')this.scene.start('ActTitle',{actId:'act4',handoff});
       else this.scene.start('Menu');
-    });
+    };
+    const onFade=()=>{fadeFinished=true;finish();};
+    this.cameras.main.on(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,onFade);
+    window.addEventListener('resize',finish);
+    window.addEventListener('orientationchange',finish);
+    document.addEventListener('visibilitychange',finish);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,clear);
+    // A stalled Phaser fade must not strand the player on a black canvas.
+    watchdog=window.setTimeout(()=>{fadeFinished=true;finish();},1150);
     this.cameras.main.fadeOut(550,0,0,0);
   }
   refreshWeaponHud(){
