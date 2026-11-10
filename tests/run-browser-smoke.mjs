@@ -990,15 +990,33 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  const bogdanDefeat=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),b=s.boss;const hit=b.damage(b.hp,s.time.now);return {hit,defeated:b.defeated,pending:b.defeatPending,artifacts:[...s.run.artifacts]}})()");
  assert.ok(bogdanDefeat.hit&&bogdanDefeat.defeated&&bogdanDefeat.pending&&!bogdanDefeat.artifacts.includes('bogdan-hunting-horn'));
  await wait("window.__game.scene.getScene('Volcano').dialogueState.id==='act3-bogdan-final'",'two-panel Bogdan finale dialogue',4000);
- const volcanoDialogueNext=async expected=>{
-  await sleep(230);
-  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),b=s.dialoguePanel.button,r=window.__game.canvas.getBoundingClientRect();return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,id:s.dialogueState.id,index:s.dialogueState.index,caption:s.dialoguePanel.text.text}})()");
-  assert.ok(p.visible&&p.id===expected&&p.caption.length>0,'approved Bogdan final dialogue and DALEJ '+JSON.stringify(p));
-  await touch(p.x,p.y);
+ const volcanoDialogueNext=async(expected,nextIndex)=>{
+  const initial=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
+  assert.equal(initial.id,expected,'expected dialogue before DALEJ');
+  // A touch during dialogue-ui's 180ms input guard can be ignored.
+  // Retry only while the SAME panel remains; never advance state in JS.
+  const deadline=Date.now()+1800;
+  let last=null,attempts=0;
+  while(Date.now()<deadline&&attempts<5){
+   await sleep(230);
+   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),b=s.dialoguePanel.button,r=window.__game.canvas.getBoundingClientRect();return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,id:s.dialogueState.id,index:s.dialogueState.index,caption:s.dialoguePanel.text.text,loop:s.game.loop.time,focus:document.hasFocus(),hidden:document.hidden,paused:s.scene.isPaused()}})()");
+   last=p;
+   if(p.id!==initial.id||p.index!==initial.index)break;
+   assert.ok(p.visible&&p.caption.length>0,'Bogdan DALEJ visible '+JSON.stringify(p));
+   await touch(p.x,p.y);attempts++;
+   await sleep(95);
+   last=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano');return {id:s.dialogueState.id,index:s.dialogueState.index,loop:s.game.loop.time,focus:document.hasFocus(),hidden:document.hidden,paused:s.scene.isPaused()}})()");
+   if(last.id!==initial.id||last.index!==initial.index)break;
+  }
+  if(nextIndex===null){
+   assert.notEqual(last.id,initial.id,'Bogdan finale closes after second DALEJ '+JSON.stringify({initial,last,attempts}));
+  }else{
+   assert.equal(last.id,expected,'Bogdan panel identity retained '+JSON.stringify({initial,last,attempts}));
+   assert.equal(last.index,nextIndex,'second original Bogdan panel not skipped '+JSON.stringify({initial,last,attempts}));
+  }
  };
- await volcanoDialogueNext('act3-bogdan-final');
- assert.equal(await evaluate("window.__game.scene.getScene('Volcano').dialogueState.index"),1,'second original Bogdan panel not skipped');
- await volcanoDialogueNext('act3-bogdan-final');
+ await volcanoDialogueNext('act3-bogdan-final',1);
+ await volcanoDialogueNext('act3-bogdan-final',null);
  await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return s.finale.state==='ARTIFACT_REWARD'&&s.rewardRoot.visible&&s.rewardButton.visible})()",'approved horn reward after both Bogdan panels',3000);
  const hornPanel=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),h=s.scale.height,w=s.scale.width,i=s.hornRewardImage,t=s.rewardRoot.list.filter(o=>o.type==='Text').map(o=>({text:o.text,y:o.y}));return {artifacts:[...s.run.artifacts],image:{key:i.texture.key,x:i.x,y:i.y,w:i.displayWidth,h:i.displayHeight,visible:i.visible},texts:t,button:s.rewardButton.visible,width:w,height:h,layout:s.rewardRoot.visible}})()");
  assert.ok(hornPanel.artifacts.includes('bogdan-hunting-horn')&&hornPanel.layout&&hornPanel.button);
