@@ -401,7 +401,9 @@ export class CatacombsScene extends Phaser.Scene{
   this.clearShots();this.clearSummons();this.resetMovement();this.stopFlame(true);
   this.bossBarks?.suspend();
   this.phase='boss-death';this.objective.setText('RUDOLF POKONANY');
-  this.cameras.main.stopFollow();this.cameras.main.centerOn(CATACOMBS.width/2,350);
+  this.cameras.main.stopFollow();
+  this.cameras.main.setBounds(0,0,CATACOMBS.width,CATACOMBS.height)
+   .setZoom(1).centerOn(CATACOMBS.width/2,350);
   this.bossHp.clear();this.bossHpLabel.setVisible(false);this.bossActor.setAlpha(1);
   retroAudio.death();
   const x=this.bossActor.x,y=this.bossActor.y;
