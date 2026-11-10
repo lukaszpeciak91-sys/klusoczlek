@@ -1081,7 +1081,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
   assert.ok(initial.id,'Act V dialogue is active');
   for(let attempt=0;attempt<3;attempt++){
    await sleep(235);
-   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.dialoguePanel.button.x,y:r.y+s.dialoguePanel.button.y,visible:s.dialoguePanel.button.visible}})()");
+   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect(),c=s.cameras.main,b=s.dialoguePanel.button;return {x:r.x+b.x*c.zoom+(1-c.zoom)*s.scale.width/2,y:r.y+b.y*c.zoom+(1-c.zoom)*s.scale.height/2,visible:b.visible,zoom:c.zoom}})()");
    assert.ok(p.visible,'Act V DALEJ');
    await touch(p.x,p.y);await sleep(90);
    const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
