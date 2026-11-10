@@ -1249,6 +1249,17 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
   await sleep(250); // Wait for the new document; the old Menu context can still satisfy the guard.
   await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'menu and fixture before '+id);
   await evaluate(`(()=>{const g=window.__game,f=window.__createDebugFixture(${JSON.stringify(id)});f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:${JSON.stringify(id)}});return true})()`);
+  if(id==='act5-ending'){
+   await wait("(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.phase==='boss-death'})()",'Act V DEBUG boss death before pause',12000);
+   assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').openMenu()"),true,'MENU pauses the boss-death cinematic');
+   await wait("window.__game.scene.isActive('Menu')",'Act V finale pause menu');
+   await sleep(1850); // Beyond the existing wall-clock death/fairy watchdog.
+   const paused=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {phase:s.phase,fairy:s.fairyActor?.active??false,paused:s.scene.isPaused()}})()");
+   assert.deepEqual(paused,{phase:'boss-death',fairy:false,paused:true},
+    'finale cannot progress behind MENU despite watchdog expiry');
+   await tapMenu('WZNÓW');
+   await wait("window.__game.scene.isActive('Catacombs')",'Act V finale resumes after MENU');
+  }
   await wait(`(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.phase===${JSON.stringify(phase)}})()`,'Act V DEBUG '+id,12000);
   const v=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hp:s.run.hp,artifacts:s.run.artifacts.size,completed:s.run.completedActs.size,water:s.weapon==='water-flamethrower'}})()");
   assert.deepEqual(v,{hp:5,artifacts:3,completed:4,water:false});
