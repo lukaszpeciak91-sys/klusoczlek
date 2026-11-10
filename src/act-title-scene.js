@@ -71,7 +71,9 @@ export class ActTitleScene extends Phaser.Scene {
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,cleanup);
     const finish=()=>{
-      if(!eligible()||gate.starting||!gate.minimumElapsed||!gate.ready)return;
+      if(gate.starting||!gate.minimumElapsed||!gate.ready||
+         this.assetAbort.signal.aborted||!this.sys.isActive())return;
+      if(!eligible()){cleanup();watchdog=setTimeout(finish,150);return;}
       gate.starting=true;status.setVisible(false);retry.setVisible(false);
       launchPending=true;
       this.tweens.add({targets:[number,name],alpha:0,duration:220,ease:'Linear',
