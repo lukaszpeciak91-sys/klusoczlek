@@ -108,6 +108,18 @@ try{
  await wait("window.__game?.scene.isActive('Menu')",'audio settings saved');
  assert.deepEqual((await audioState()).save,{music:dragged.save.music,sfx:dragged.save.sfx,muted:false});
  console.log('PASS Chromium real Options sliders, touch drag, mute, back and reload');
+ // Real Marcin boss bark: reach Act I via a validated internal test
+ // checkpoint, then assert an actual visible screen-space bubble.
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act1-marcin');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Arena',{debugCheckpoint:'act1-marcin'});return true})()");
+ await wait("(()=>{const s=window.__game?.scene.getScene('Arena');return s?.entryGateReady&&s.boss&&!s.bossEntrance&&!s.dialogueState?.id})()",'real Marcin entered Act I combat',16000);
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Arena');s.invulnerableUntil=Infinity;return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('Arena');return s.bossBarks.shown>0&&s.bossBarks.root.visible})()",'Marcin boss bark visibly renders',5200);
+ const marcinBark=await evaluate("(()=>{const s=window.__game.scene.getScene('Arena'),b=s.bossBarks;return {text:b.caption.text,x:b.root.x,y:b.root.y,visible:b.root.visible,top:s.hudLayout.panelY+s.hudLayout.panelHeight,width:s.scale.width,height:s.scale.height}})()");
+ assert.equal(marcinBark.text,'Aaaaaa');
+ assert.ok(marcinBark.visible&&marcinBark.x>=0&&marcinBark.y>=marcinBark.top&&marcinBark.y<marcinBark.height,'Marcin visible on mobile '+JSON.stringify(marcinBark));
+ await cdp('Page.reload',{ignoreCache:true});await sleep(250);
+ await wait("window.__game?.scene.isActive('Menu')",'Menu after Marcin bark QA');
+ console.log('PASS real Chromium: Marcin boss bark visible in Act I combat');
  // Public AKTY list: locked entries remain visible but never launch.
  await tapMenu('AKTY');
  assert.equal((await geometry()).acts,true,'AKTY opens');
@@ -1111,6 +1123,11 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  }
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='boss'&&s.boss.phase==='gun'&&s.canPlay()})()",'boss after all 17 dialogue panels',4500);
  await wait("window.__game.scene.getScene('Catacombs').bossShots.length>0",'rotating gun emits real shots',6500);
+ await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.bossBarks.shown>0&&s.bossBarks.root.visible})()",'Rudolf boss bark visibly renders',5200);
+ const rudolfBark=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),b=s.bossBarks;return {text:b.caption.text,x:b.root.x,y:b.root.y,visible:b.root.visible,top:s.hudLayout.panelY+s.hudLayout.panelHeight,width:s.scale.width,height:s.scale.height}})()");
+ assert.equal(rudolfBark.text,'Niech Cię kule biją!');
+ assert.ok(rudolfBark.visible&&rudolfBark.x>=0&&rudolfBark.y>=rudolfBark.top&&rudolfBark.y<rudolfBark.height,'Rudolf visible on mobile '+JSON.stringify(rudolfBark));
+ console.log('PASS real Chromium: Kłusoczłek boss bark visible in Act V combat');
   // R2 live Act V flame: controlled unobstructed boss position and real touch.
  for(let j=0;j<3;j++){
   if(await evaluate("window.__game.scene.getScene('Catacombs').weapon==='flamethrower'"))break;

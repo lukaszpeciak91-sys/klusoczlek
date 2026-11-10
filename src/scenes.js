@@ -1624,7 +1624,10 @@ export class ArenaScene extends Phaser.Scene {
     }
     this.enemies=this.enemies.filter(enemy=>!enemy.dead);
     this.collectPickups();
-    this.ambientBarks.tick(this.elapsedGameplayMs);
+    // The boss owns the speech lane during Marcin's fight: ordinary
+    // ambient bubbles must never starve his short, time-limited encounter.
+    if(this.boss?.hp>0&&!this.boss.dead)this.ambientBarks.suspend();
+    else this.ambientBarks.tick(this.elapsedGameplayMs);
     this.bossBarks.tick(this.game.loop.delta);
   }
 }
