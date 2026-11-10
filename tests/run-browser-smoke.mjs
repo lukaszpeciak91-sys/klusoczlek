@@ -964,7 +964,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  await sleep(250);
  await wait("window.__game?.scene.isActive('Menu')",'Menu before stuck fade regression');
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-escape');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-escape'});return true})()");
- await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return s.finale.state==='ESCAPE_ACTIVE'&&s.extractionPoint&&!s.cameras.main.fadeEffect?.isRunning})()",'Volcano ready for stalled fade',16000);
+ await wait("(()=>{const s=window.__game?.scene.getScene('Volcano');return s?.finale?.state==='ESCAPE_ACTIVE'&&!!s.extractionPoint&&!s.cameras.main?.fadeEffect?.isRunning})()",'Volcano ready for stalled fade',16000);
  await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano');s.run.isDebugRun=false;s.run.artifacts.add('bogdan-hunting-horn');s.player.setPosition(s.extractionPoint.x,s.extractionPoint.y);s.player.body.reset(s.player.x,s.player.y);return true})()");
  await wait("window.__game.scene.getScene('Volcano').dialogueState.id==='act3-captain-extraction'",'Captain extraction before missing fade',4500);
  await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano');s.cameras.main.fadeOut=()=>s.cameras.main;return true})()");
