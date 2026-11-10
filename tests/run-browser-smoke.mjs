@@ -1029,7 +1029,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  await sleep(250);await touch(nextHorn.x,nextHorn.y);
  await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return s.finale.state==='BOGDAN_EXPLOSION'||s.dialogueState?.id==='act3-eruption-warning'})()",'horn DALEJ advances to existing eruption',3500);
  await wait("window.__game.scene.getScene('Volcano').dialogueState.id==='act3-eruption-warning'",'approved eruption warning retained',5000);
- await volcanoDialogueNext('act3-eruption-warning');
+ await volcanoDialogueNext('act3-eruption-warning',null);
  await wait("window.__game.scene.getScene('Volcano').finale.state==='ESCAPE_ACTIVE'",'existing eruption escape begins',4000);
  console.log('PASS approved Act III horn Chromium: real boss defeat, 2 finale panels, decoded 192x192 PNG, responsive artifact 2/3, DALEJ and eruption escape');
  // Act V fast end-to-end using the real approved chapel completion and
