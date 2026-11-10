@@ -691,7 +691,9 @@ export class VolcanoScene extends Phaser.Scene {
   }
   resetEruption(){
     this.escapeLastImpulse=null;
-    this.cameras.main.shakeEffect.reset();
+    // Phaser may have already destroyed the camera by SHUTDOWN.
+    // Cleanup must never throw and abort the queued ActTitle transition.
+    this.cameras.main?.shakeEffect?.reset();
     if(this.lava?.active)this.lava.setAlpha(1).clearTint();
   }
   updateEruption(){
