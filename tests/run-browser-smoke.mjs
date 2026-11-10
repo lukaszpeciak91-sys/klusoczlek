@@ -62,6 +62,13 @@ try{
  }
  await wait("window.__game?.scene.isActive('Menu')",'menu boot');
  const menu=await geometry();assert.ok(menu.buttons.some(b=>b.text==='NOWA GRA')&&menu.buttons.some(b=>b.text==='AKTY'),'menu buttons');
+ const menuPresentation=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return m.children.list.filter(x=>x.type==='Text'&&x.visible).map(x=>x.text)})()");
+ assert.ok(menuPresentation.includes('KŁUSOCZŁEK')&&menuPresentation.some(t=>t.includes('NEPAHU STUDIOS')),
+  'NES Deluxe logo and footer preserved');
+ assert.ok(!menuPresentation.includes('PIĘĆ AKTÓW · JEDNA PRZYGODA'),
+  'no ordinary subtitle beneath main menu logo');
+ assert.ok(['NOWA GRA','AKTY','OPCJE'].every(t=>menuPresentation.includes(t)),
+  'all fresh-menu controls remain visible');
  // Chromium touches actual Phaser controls, not storage-only assertions.
  const audioState=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return {open:m.optionsOpen,acts:m.actsOpen,save:JSON.parse(localStorage.getItem('klusoczlek-audio-v1')||'{}'),labels:m.children.list.filter(x=>x.type==='Text'&&x.visible).map(x=>x.text)}})()");
  const audioRect=await evaluate("(()=>{const g=window.__game,r=g.canvas.getBoundingClientRect();return {x:r.x,y:r.y,w:g.scale.width,h:g.scale.height}})()");
@@ -1157,7 +1164,19 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  await wait("(()=>{const g=window.__game,c=g.scene.getScene('Catacombs');return g.scene.isActive('Credits')&&c.completed&&c.run.completedActs.has('act5')})()",'Act V MYK completes campaign and enters credits',3000);
  const creditsStart=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {finished:s.finished,returning:s.returning,lines:s.lines.length,distance:s.scrollDistance,elapsed:s.elapsedScroll,track:window.__retroAudio.track,loop:window.__retroAudio.music?.loop,heading:s.lines.slice(0,2).map(x=>x.text),back:s.backButton.visible}})()");
  assert.equal(creditsStart.finished,false);assert.equal(creditsStart.returning,false);
- assert.equal(creditsStart.lines,50,'25 pairs of credit lines');
+ assert.equal(creditsStart.lines,64,'32 pairs of credit lines: all 25 originals plus seven additions');
+ const creditsRoles=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return s.lines.map(x=>x.text)})()");
+ assert.equal(creditsRoles.indexOf('PIERWSZE SZKICE BOBROZOMBI, BOCIANOŁAKÓW I ŻUBROKRYPTYD'),
+  creditsRoles.indexOf('PROJEKT POSTACI I ŚWIATA')+2,'genuine artwork attribution follows original credit');
+ assert.equal(creditsRoles[creditsRoles.indexOf('PIERWSZE SZKICE BOBROZOMBI, BOCIANOŁAKÓW I ŻUBROKRYPTYD')+1],
+  'Michał Aloes Świderski','genuine original sketch attribution');
+ for(const role of ['KIEROWNIK DS. NIEKONTROLOWANYCH WRZASKÓW',
+  'SPECJALISTA DS. NIELEGALNEGO FRYZJERSTWA',
+  'NADZÓR NAD PRZEDWCZESNYM KOŃCEM ŚWIATA',
+  'KOMISJA DS. POSZUKIWANIA ZAGINIONYCH KIEŁBAS',
+  'GŁÓWNY INSPEKTOR DS. TUPANIA','DEPARTAMENT SPRAW BEZNADZIEJNYCH']){
+  assert.ok(creditsRoles.includes(role),'missing extra staff credit '+role);
+ }
  assert.ok(creditsStart.distance>3000);
  assert.equal(creditsStart.heading[0],'OPARTE NA MOTYWACH SMS-OWEJ OPOWIASTKI');
  assert.ok(creditsStart.heading[1].includes('LEŚNI PRZYJACIELE')&&creditsStart.heading[1].includes('MICHAŁA ALOESA ŚWIDERSKIEGO'));
