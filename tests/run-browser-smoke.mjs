@@ -1040,6 +1040,10 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  await wait("(()=>{const s=window.__game.scene.getScene('School');return s.entryGateReady&&!!s.combat})()",'School final chapel debug',15000);
  const act5Handoff=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.run.artifacts.add('blazej-bicycle');s.run.hp=3;s.schoolPhase='CHAPEL_RETURN';return s.completeActFour()})()");
  assert.equal(act5Handoff,true,'real School.completeActFour handoff');
+ // Lifecycle signals must NOT truncate the original 520ms camera fade.
+ await evaluate("(()=>{window.dispatchEvent(new Event('focus'));window.dispatchEvent(new Event('resize'));document.dispatchEvent(new Event('visibilitychange'));return true})()");
+ assert.equal(await evaluate("window.__game.scene.isActive('School')&& !window.__game.scene.isActive('ActTitle')"),true,
+  'Act IV handoff is not triggered by premature focus/resize/visibility');
  await wait("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return g.scene.isActive('ActTitle')&&t.actId==='act5'&&t.nextScene==='Catacombs'})()",'Act IV -> V via title',5000);
  assert.equal(await evaluate("window.__game.registry.get('campaign-run').hp"),5,'Act V restores full HP');
  await wait("(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.dialogueState.id==='act5-betrayal'})()",'Act V scene opening dialogue',16000);
