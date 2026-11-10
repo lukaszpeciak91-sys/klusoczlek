@@ -546,11 +546,11 @@ export class SchoolScene extends Phaser.Scene {
     // campaign snapshot to the actual final act through the existing title.
     updateRunHealth(this.run,this.run.maxHp);
     const handoff=nextActHandoff(this.run,new Set(Object.keys(this.scene.manager.keys)));
-    let done=false,timer=null;
+    let done=false,timer=null,fadeCompleted=false,watchdogExpired=false;
     const event=Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE;
     const cleanup=()=>{
       clearTimeout(timer);timer=null;
-      this.cameras.main.off(event,advance);
+      this.cameras.main.off(event,onFadeComplete);
       window.removeEventListener('focus',advance);
       window.removeEventListener('resize',advance);
       document.removeEventListener('visibilitychange',advance);
@@ -558,19 +558,26 @@ export class SchoolScene extends Phaser.Scene {
       this.act4HandoffCleanup=null;
     };
     const advance=()=>{
-      if(done||this.disposed||!this.sys.isActive())return;
-      if(!this.transitionEligible()){clearTimeout(timer);timer=setTimeout(advance,150);return;}
+      if(done||this.disposed||!this.sys.isActive()||
+         (!fadeCompleted&&!watchdogExpired))return;
+      if(!this.transitionEligible()){
+        clearTimeout(timer);
+        timer=setTimeout(advance,150);
+        return;
+      }
       done=true;cleanup();
       if(handoff?.actId==='act5')this.scene.start('ActTitle',{actId:'act5',handoff});
       else this.scene.start('Menu');
     };
+    const onFadeComplete=()=>{fadeCompleted=true;advance();};
+    const onWatchdog=()=>{watchdogExpired=true;advance();};
     this.act4HandoffCleanup=cleanup;
-    this.cameras.main.once(event,advance);
+    this.cameras.main.once(event,onFadeComplete);
     window.addEventListener('focus',advance);
     window.addEventListener('resize',advance);
     document.addEventListener('visibilitychange',advance);
     this.events.on(Phaser.Scenes.Events.RESUME,advance);
-    timer=setTimeout(advance,780);
+    timer=setTimeout(onWatchdog,780);
     this.cameras.main.fadeOut(520,0,0,0);
     return true;
   }
