@@ -1084,7 +1084,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
   assert.ok(initial.id,'Act V dialogue is active');
   for(let attempt=0;attempt<3;attempt++){
    await sleep(235);
-   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect(),c=s.cameras.main,b=s.dialoguePanel.button;return {x:r.x+b.x*c.zoom+(1-c.zoom)*s.scale.width/2,y:r.y+b.y*c.zoom+(1-c.zoom)*s.scale.height/2,visible:b.visible,zoom:c.zoom}})()");
+   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect(),b=s.dialoguePanel.button;return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,zoom:s.cameras.main.zoom}})()");
    assert.ok(p.visible,'Act V DALEJ');
    await touch(p.x,p.y);await sleep(90);
    const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
@@ -1097,8 +1097,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(act5Opening.world,'npc-captain','normal Marian sheet before first panel');
  assert.ok(act5Opening.portrait.includes('dialogue-captain'),'normal Marian dialogue portrait');
  assert.equal(act5Opening.boss,'staging');
- // Verify rendered screen-space bounds, not world-space coordinates:
- // opening has a local camera zoom to keep Aloes, altar and Marian above DALEJ.
+ // Native-scale Act V opening: keep real viewport / sprite size, not a 0.58 zoom.
  const originalViewport=await evaluate("({width:innerWidth,height:innerHeight})");
  for(const [w,h] of [[915,412],[960,432],[568,220],[568,240],[568,320]]){
   await cdp('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:false});
@@ -1106,14 +1105,19 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
   await wait("window.__game.scale.width==="+w+"&&window.__game.scale.height==="+h,'Act V opening landscape '+w+'x'+h,1800);
   await sleep(110);
   if(w>=900)await captureAct5('A-opening-'+w+'x'+h);
-  const view=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,b=s.dialoguePanel.shell.list[0],bounds=p.getBounds();const screen=(x,y)=>({x:(x-c.scrollX)*c.zoom+(1-c.zoom)*s.scale.width/2,y:(y-c.scrollY)*c.zoom+(1-c.zoom)*s.scale.height/2});return {zoom:c.zoom,scroll:{x:c.scrollX,y:c.scrollY},spawn:{x:s.player.x,y:s.player.y},facing:s.facing,walkable:s.player.x===480&&s.player.y===393,marian:s.bossActor.y,altar:312,top:screen(s.bossActor.x,s.bossActor.y-256*.62*1.23).y,playerTop:screen(s.player.x,bounds.top).y,playerBottom:screen(s.player.x,bounds.bottom).y,dialogueTop:b.y,screenCenter:screen(s.player.x,s.player.y).x,viewport:s.scale.width}})()");
-  console.log('ACT V OPENING SCREEN QA '+w+'x'+h+' '+JSON.stringify(view));
-  assert.equal(view.facing,'n','Aloes looks north toward Marian');
-  assert.ok(view.walkable&&view.marian<view.altar&&view.altar<view.spawn.y,
-   'central Aloes / altar / Marian staging '+JSON.stringify(view));
-  assert.ok(view.top>=-1&&view.playerTop>=0&&view.playerBottom<view.dialogueTop-2,
-   'Act V actors clear the actual screen-space dialogue overlay '+w+'x'+h+' '+JSON.stringify(view));
-  assert.ok(Math.abs(view.screenCenter-view.viewport/2)<3,'Aloes is visibly centered on phone landscape '+JSON.stringify(view));
+  const view=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,b=s.dialoguePanel.shell.list[0],bounds=p.getBounds();return {zoom:c.zoom,scroll:{x:c.scrollX,y:c.scrollY},spawn:{x:s.player.x,y:s.player.y},facing:s.facing,marian:s.bossActor.y,altar:312,normalMarianHead:s.bossActor.y-128*.72-c.scrollY,playerTop:bounds.top-c.scrollY,playerBottom:bounds.bottom-c.scrollY,dialogueTop:b.y,screenCenter:s.player.x-c.scrollX,viewport:s.scale.width,locationLabel:s.objective.text}})()");
+  console.log('ACT V NATIVE OPENING QA '+w+'x'+h+' '+JSON.stringify(view));
+  assert.equal(view.zoom,1,'Act V world must never shrink to miniature');
+  assert.equal(view.locationLabel,'','no KATAKUMBY KAPLICY opening clutter');
+  assert.deepEqual(view.spawn,{x:480,y:393});
+  assert.equal(view.facing,'n');
+  assert.ok(view.marian<view.altar&&view.altar<view.spawn.y,'central axis across unchanged altar');
+  assert.ok(view.playerTop<h&&view.playerBottom>0,'Aloes visible in normal opening');
+  assert.ok(view.normalMarianHead<h,'Marian partially or fully visible in native opening');
+  if(w>=900){
+   assert.ok(view.normalMarianHead>=-2,'Marian normal sprite head visible '+JSON.stringify(view));
+   assert.ok(Math.abs(view.screenCenter-view.viewport/2)<2,'Aloes central in gameplay view');
+  }
  }
  await cdp('Emulation.setDeviceMetricsOverride',{width:originalViewport.width,height:originalViewport.height,deviceScaleFactor:1,mobile:false});
  await evaluate('window.__game.scale.refresh();true');
@@ -1124,13 +1128,17 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  await wait("window.__game.scale.width===960&&window.__game.scale.height===432",'Act V 960x432 cinematic QA',1500);
  await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian transforms immediately after panel 1',3000);
- await sleep(160);await captureAct5('B-transformation-960x432');
+ await sleep(360);await captureAct5('B-transformation-960x432');
+ const transformView=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main;return {zoom:c.zoom,top:s.bossActor.y-s.bossArt.displayHeight*s.bossActor.scaleY-c.scrollY,viewport:s.scale.height}})()");
+ assert.equal(transformView.zoom,1,'transformation must retain native camera scale');
+ assert.ok(transformView.top>=-2,'Marian fully framed during blinking '+JSON.stringify(transformView));
  const transform5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,visible:s.dialoguePanel.button.visible,controls:s.joystick.enabled,boss:s.boss.phase,started:s.transformationStarted,completed:s.transformationCompleted}})()");
  assert.equal(transform5.index,1);assert.equal(transform5.visible,false);
  assert.equal(transform5.controls,false);assert.equal(transform5.boss,'staging');
  assert.equal(transform5.started,true);assert.equal(transform5.completed,false);
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='opening'&&s.transformationCompleted&&s.dialoguePanel.button.visible&&s.dialogueState.index===1})()",'transformed Marian resumes with Aloes panel 2',5500);
  await sleep(420);await captureAct5('B2-rudolf-transformed-960x432');
+ assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').cameras.main.zoom"),1,'post-transformation camera stays at 1');
  const revealed5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {world:s.bossArt.texture.key,portraitLoaded:s.textures.exists('dialogue-marian-transformed'),boss:s.boss.phase,combat:s.canPlay()}})()");
  assert.equal(revealed5.world,'act5-marian-transformed');
  assert.equal(revealed5.portraitLoaded,true);
