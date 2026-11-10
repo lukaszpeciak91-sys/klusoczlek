@@ -49,7 +49,7 @@ import {createMarcinRenderer} from './marcin-renderer.js';
 import {enemyProjectileHit,enemyFlameVisible} from './enemy-damage.js';
 
 const COLORS = {
-  background: 0x0e101a,
+  background: 0x0b0d10,
   panel: 0x1b2330,
   border: 0xd4aa5a,
   accent: '#f3ca76',
@@ -65,12 +65,15 @@ function label(scene, x, y, value, size = 28) {
   }).setOrigin(0.5);
 }
 
-function button(scene, x, y, width, height, value, onClick, event='pointerdown') {
-  const background = scene.add.rectangle(x, y, width, height, COLORS.panel)
-    .setStrokeStyle(3, COLORS.border).setInteractive({ useHandCursor: true });
+function button(scene, x, y, width, height, value, onClick, event='pointerdown', appearance='panel') {
+  const menuRow = appearance === 'menu';
+  const background = scene.add.rectangle(x, y, width, height, menuRow?0x30271a:COLORS.panel, menuRow?.10:1)
+    .setStrokeStyle(menuRow?0:3, COLORS.border).setInteractive({ useHandCursor: true });
   const caption = label(scene, x, y, value);
-  background.on('pointerover', () => background.setFillStyle(0x344255));
-  background.on('pointerout', () => background.setFillStyle(COLORS.panel));
+  if(!menuRow){
+    background.on('pointerover', () => background.setFillStyle(0x344255));
+    background.on('pointerout', () => background.setFillStyle(COLORS.panel));
+  }
   background.on(event, onClick);
   return { background, caption };
 }
@@ -82,18 +85,19 @@ export class MenuScene extends Phaser.Scene {
     this.navigating = false;
     this.cameras.main.setBackgroundColor(COLORS.background);
     const initial = menuLayout(this.scale.width, this.scale.height);
-    const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize).setColor(COLORS.accent);
-    // Console-era graphics only: crisp rails, restrained scanlines and a
-    // pulsing selection cursor. All actions remain instantly tappable.
+    const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize)
+      .setColor('#d8b36f').setShadow(3,4,'#030304',4);
+    // One-time graphics objects; redraw only when the viewport changes.
     const trim=this.add.graphics().setDepth(-20);
+    const antlers=this.add.graphics().setDepth(-1);
     const brand=label(this,0,0,'NEPAHU STUDIOS  © 2026',12)
       .setColor('#93815f').setDepth(-1);
     const selection=this.add.text(0,0,'▶',{
       fontFamily:'monospace',fontSize:'21px',color:'#f3ca76'
     }).setOrigin(.5).setDepth(2);
     let selectedMenuIndex=0;
-    title.setAlpha(0).setScale(.93);
-    this.tweens.add({targets:title,alpha:1,scale:1,duration:450,ease:'Sine.Out'});
+    title.setAlpha(0);
+    this.tweens.add({targets:title,alpha:1,duration:400,ease:'Sine.Out'});
     this.tweens.add({targets:selection,alpha:.48,duration:680,yoyo:true,repeat:-1});
 
     const sessionKey=['Catacombs','School','Volcano','Airship','Arena'].find(key=>this.scene.isPaused(key))??'Arena';
@@ -103,7 +107,7 @@ export class MenuScene extends Phaser.Scene {
     const terminal = hasSession && ((sessionKey==='Arena' && this.scene.get('Arena').episode?.ended) || (sessionKey==='Volcano' && this.scene.get('Volcano').defeated) || (sessionKey==='School' && this.scene.get('School').defeated) || (sessionKey==='Catacombs' && this.scene.get('Catacombs').defeated));
     const defeated = terminal && (sessionKey==='Volcano'||sessionKey==='School'||sessionKey==='Catacombs'||(sessionKey==='Arena'&&this.scene.get('Arena').episode.state==='defeat'));
     const victorious=terminal&&!defeated;
-    const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'RETRO SURVIVAL // PROTOTYP', initial.subtitleSize);
+    const subtitle = label(this, initial.centerX, initial.subtitleY, defeated?'KONIEC GRY':victorious?'ZWYCIĘSTWO!':'PIĘĆ AKTÓW · JEDNA PRZYGODA', initial.subtitleSize);
     const allowed = () => !this.navigating && !this.optionsOpen && !document.hidden && window.innerWidth >= window.innerHeight;
     const newGame = button(this, initial.centerX, 0, initial.startWidth, 44, 'NOWA GRA', () => {
       if (!allowed()) return;
@@ -112,11 +116,11 @@ export class MenuScene extends Phaser.Scene {
       const run=beginCampaignRun(this.game);
       writeCampaignCheckpoint(run,FIRST_ACT_ID);
       this.scene.start('ActTitle',{actId:FIRST_ACT_ID});
-    });
+    },'pointerdown','menu');
     const acts = button(this, initial.centerX, 0, initial.startWidth, 44, 'AKTY', pointer => {
       if(!allowed()||this.actsOpen)return;
       actsOpeningPointer=pointer.id;actsScroll=0;this.actsOpen=true;actsGesture=null;resize();
-    });
+    },'pointerdown','menu');
     const resume = ((hasSession&&!terminal)||savedCheckpoint) ? button(this, initial.centerX, 0, initial.startWidth, 44, 'WZNÓW', () => {
       if (!allowed()) return;
       this.navigating = true;
@@ -142,7 +146,7 @@ export class MenuScene extends Phaser.Scene {
       if(hasSession)this.scene.stop(sessionKey);
       this.game.registry.set('campaign-run',run);
       this.scene.start('ActTitle',{actId:handoff?.actId??FIRST_ACT_ID,handoff});
-    }) : null;
+    },'pointerdown','menu') : null;
     this.actsOpen=false;
     this.optionsOpen=false;
     const unlockedAtOpen=readActUnlocks().highest;
@@ -204,7 +208,7 @@ export class MenuScene extends Phaser.Scene {
       this.optionsOpen=true;
       optionsOpeningPointer=pointer.id;
       resize();
-    });
+    },'pointerdown','menu');
     const optionsTitle=label(this,0,0,'OPCJE',28).setColor(COLORS.accent);
     const audioHeading=label(this,0,0,'DŹWIĘK',19);
     const muteControl=button(this,0,0,170,42,'WYCISZ',()=>{
@@ -248,36 +252,65 @@ export class MenuScene extends Phaser.Scene {
     const resize = () => {
       const layout = menuLayout(this.scale.width, this.scale.height);
       const w=this.scale.width,h=this.scale.height;
-      title.setPosition(layout.centerX,this.actsOpen?h*.105:layout.titleY)
-        .setFontSize(this.actsOpen?Math.max(18,Math.min(31,h*.09)):layout.titleSize)
-        .setVisible(!this.optionsOpen);
-      subtitle.setVisible(!this.actsOpen&&!this.optionsOpen);
-      subtitle.setPosition(layout.centerX,layout.subtitleY).setFontSize(layout.subtitleSize);
       const showMain=!this.actsOpen&&!this.optionsOpen;
+      const logoY=showMain?h*.265:this.actsOpen?h*.105:layout.titleY;
+      const logoSize=showMain
+        ?Math.max(27,Math.min(layout.titleSize*1.12,w*.078,h*.136))
+        :Math.max(18,Math.min(31,h*.09));
+      title.setPosition(layout.centerX,logoY)
+        .setFontSize(logoSize).setVisible(!this.optionsOpen);
+      subtitle.setVisible(showMain);
+      subtitle.setPosition(layout.centerX,h*.39)
+        .setFontSize(Math.max(11,Math.min(18,h*.039,w*.026)))
+        .setColor('#aa956e');
       const controls=[newGame,resume,acts,optionsButton].filter(Boolean);
       selection.setVisible(showMain);
       selectedMenuIndex=Math.min(selectedMenuIndex,controls.length-1);
       trim.clear();
-      trim.lineStyle(2,0x755c34,.67);
-      trim.lineBetween(Math.max(12,w*.11),h*.105,w-Math.max(12,w*.11),h*.105);
-      trim.lineBetween(Math.max(12,w*.11),h*.93,w-Math.max(12,w*.11),h*.93);
-      trim.lineStyle(1,0x28283a,.4);
-      for(let y=7;y<h;y+=7)trim.lineBetween(0,y,w,y);
-      brand.setPosition(Math.max(85,w*.18),h*.963)
+      // Sparse carved-stone texture and restrained bronze frame.
+      trim.lineStyle(1,0x665033,.22);
+      const left=Math.max(15,w*.075),right=w-left;
+      trim.lineBetween(left,h*.09,right,h*.09);
+      trim.lineBetween(left,h*.925,right,h*.925);
+      trim.lineStyle(1,0x433a30,.10);
+      for(let y=16;y<h*.93;y+=24)trim.lineBetween(left+8,y,right-8,y);
+      trim.lineStyle(2,0x9b7741,.55);
+      const separatorWidth=Math.min(w*.22,170);
+      trim.lineBetween(w/2-separatorWidth/2,h*.442,w/2+separatorWidth/2,h*.442);
+      antlers.clear().setVisible(showMain);
+      if(showMain){
+        // Small symmetrical pixel-line antlers; no extra textures or assets.
+        antlers.setPosition(w/2,h*.265-logoSize*.93);
+        antlers.lineStyle(Math.max(1,Math.min(2,h*.0045)),0x987642,.85);
+        for(const sign of [-1,1]){
+          const p=[[0,12],[sign*11,7],[sign*18,-3],[sign*21,-17]];
+          for(let i=1;i<p.length;i++)antlers.lineBetween(...p[i-1],...p[i]);
+          antlers.lineBetween(sign*11,7,sign*7,-8);
+          antlers.lineBetween(sign*18,-3,sign*31,-12);
+          antlers.lineBetween(sign*21,-17,sign*28,-25);
+        }
+      }
+      brand.setPosition(w/2,h*.962)
         .setFontSize(Math.max(9,Math.min(12,h*.027)))
         .setVisible(showMain);
 
-      const gap=Math.min(54,Math.max(38,h*.12));
-      const base=h*(resume?.49:.53);
-      const menuHeight=Math.min(47,Math.max(32,h*.095));
+      const gap=Math.max(41,Math.min(52,h*.11));
+      const base=h*(resume?.49:.55);
+      const menuHeight=Math.max(40,Math.min(47,h*.115));
+      const menuWidth=Math.min(layout.startWidth,w*.52,370);
       controls.forEach((control,index)=>{
         const y=base+index*gap;
-        if(index===selectedMenuIndex){
-          selection.setPosition(layout.centerX-layout.startWidth/2-Math.max(15,Math.min(24,w*.027)),y)
-            .setFontSize(Math.max(14,Math.min(23,h*.06)));
+        const active=index===selectedMenuIndex;
+        if(active){
+          selection.setPosition(layout.centerX-menuWidth/2+17,y)
+            .setFontSize(Math.max(14,Math.min(21,h*.052)));
         }
-        control.background.setPosition(layout.centerX,y).setSize(layout.startWidth,menuHeight).setVisible(showMain);
-        control.caption.setPosition(layout.centerX,y).setFontSize(Math.max(13,Math.min(22,h*.055))).setVisible(showMain);
+        control.background.setPosition(layout.centerX,y).setSize(menuWidth,menuHeight)
+          .setFillStyle(active?0x75552d:0x30271a,active?.29:.10)
+          .setVisible(showMain);
+        control.caption.setPosition(layout.centerX,y)
+          .setFontSize(Math.max(14,Math.min(21,h*.052)))
+          .setColor(active?'#f0cd83':'#e4d9c3').setVisible(showMain);
         control.background.input.enabled=showMain;
       });
       controls.forEach((control,index)=>{
