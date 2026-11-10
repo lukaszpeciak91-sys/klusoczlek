@@ -476,7 +476,7 @@ export class CatacombsScene extends Phaser.Scene{
   // Even a suspended Phaser tween/clock cannot permanently strand MYK.
   this.scheduleFinalRecovery(1550,()=>{
    if(this.phase!=='magic'||this.endingFadeQueued)return;
-   this.endingFadeQueued=true;this.transitionVeil.setAlpha(1);
+   this.endingFadeQueued=true;this.transitionVeil.setFillStyle(0x08050d,1).setAlpha(1);
    this.completeEnding();
   });
   // Approved MYK moment: short Phaser-only sparkle, then an opaque fade.

@@ -1171,6 +1171,35 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
   assert.deepEqual(v,{hp:5,artifacts:3,completed:4,water:false});
  }
  console.log('PASS Act V Chromium DEBUG: opening, Marian boss and ending checkpoints with complete prior artifacts and full HP');
+ // Cold-cache Act V recovery: fail ONE required production PNG network request
+ // and tap the actual ActTitle PONÓW control before entering Catacombs.
+ await cdp('Page.reload',{ignoreCache:true});
+ await sleep(250);
+ await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'Menu before Act V PNG retry');
+ await cdp('Network.clearBrowserCache');
+ let failedRequired=0;const interceptErrors=[];
+ const interceptRequired=event=>{
+  const m=JSON.parse(event.data);
+  if(m.method!=='Fetch.requestPaused'||!m.params?.request?.url.includes('act5-catacombs.png'))return;
+  const first=failedRequired++===0;
+  void cdp(first?'Fetch.failRequest':'Fetch.continueRequest',
+   first?{requestId:m.params.requestId,errorReason:'Failed'}:{requestId:m.params.requestId})
+   .catch(e=>interceptErrors.push(String(e)));
+ };
+ socket.addEventListener('message',interceptRequired);
+ await cdp('Fetch.enable',{patterns:[{urlPattern:'*act5-catacombs.png',requestStage:'Request'}]});
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act5-opening');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:'act5-opening'});return true})()");
+ await wait("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle');return g.scene.isActive('ActTitle')&&t.assetGate?.failed.some(x=>x.required)&&t.children.list.some(o=>o.text==='PONÓW'&&o.visible)})()",
+  'Act V failed required PNG exposes PONÓW',16000);
+ assert.ok(failedRequired>=1,'required Act V PNG request must be intercepted');
+ assert.deepEqual(interceptErrors,[],'failed required PNG interception');
+ await cdp('Fetch.disable');
+ socket.removeEventListener('message',interceptRequired);
+ const retryAt=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle'),p=t.children.list.find(o=>o.text==='PONÓW'&&o.visible),r=g.canvas.getBoundingClientRect();return {x:r.x+p.x,y:r.y+p.y}})()");
+ await touch(retryAt.x,retryAt.y);
+ await wait("(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.dialogueState.id==='act5-betrayal'})()",
+  'Act V PONÓW recovers required PNG and enters Catacombs',16000);
+ console.log('PASS Act V cold-cache required PNG failure -> PONÓW -> playable Catacombs');
  assert.deepEqual(exceptions,[],'uncaught Chromium exceptions');
  console.log('PASS FAST real Chromium: menu, DEBUG Act II/IV, handoffs, school placeholders, Act IV pause/resume and water filtering');
  console.log('FAST runtime ms',Date.now()-started);
