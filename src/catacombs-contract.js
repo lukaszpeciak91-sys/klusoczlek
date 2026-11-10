@@ -5,7 +5,7 @@ import {resolveObstaclePosition} from './obstacles.js';
 // Deliberately self-contained geometry: artwork will not own collision.
 export const CATACOMBS=Object.freeze({
  width:960,height:640,
- playerStart:Object.freeze({x:480,y:375}),
+ playerStart:Object.freeze({x:350,y:330}),
  marianStart:Object.freeze({x:480,y:246}),
  fairyStart:Object.freeze({x:650,y:410}),
  wall:38, bossRadius:25,enemyRadius:17
@@ -27,6 +27,25 @@ export function catacombsWalkable(p,radius=PLAYER_RADIUS){
  p.x>CATACOMBS.width-CATACOMBS.wall-radius||
  p.y>CATACOMBS.height-CATACOMBS.wall-radius)return false;
  return CATACOMBS_OBSTACLES.every(o=>!footprintOverlap(o.footprint,p,radius));
+}
+// Prefer the approved position; find an accessible alternative when Rudolf dies nearby.
+export function catacombsFairyArrival(boss,player,preferred=CATACOMBS.fairyStart){
+ const safe=p=>catacombsWalkable(p,CATACOMBS.enemyRadius)&&
+  Math.hypot(p.x-boss.x,p.y-boss.y)>=110&&
+  Math.hypot(p.x-player.x,p.y-player.y)>=CATACOMBS.enemyRadius+PLAYER_RADIUS+12;
+ if(safe(preferred))return preferred;
+ for(const distance of [115,145,180,220,260,300]){
+  for(let i=0;i<16;i++){
+   const angle=i*Math.PI/8;
+   const p={x:preferred.x+Math.cos(angle)*distance,y:preferred.y+Math.sin(angle)*distance};
+   if(safe(p))return p;
+  }
+ }
+ // The arena has ample walkable space; include a deterministic exhaustive fallback.
+ for(let y=CATACOMBS.wall+CATACOMBS.enemyRadius+8;y<CATACOMBS.height-CATACOMBS.wall;y+=24)
+  for(let x=CATACOMBS.wall+CATACOMBS.enemyRadius+8;x<CATACOMBS.width-CATACOMBS.wall;x+=24)
+   if(safe({x,y}))return {x,y};
+ return null;
 }
 export function catacombsResolve(from,to,radius=PLAYER_RADIUS){
  const p=resolveObstaclePosition(from,to,radius,CATACOMBS_OBSTACLES);
