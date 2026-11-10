@@ -14,6 +14,9 @@ export function beginSceneReveal(scene,preparation,{critical=()=>true,onReady=()
   backgroundColor:'#3b2d25',padding:{x:18,y:10}
  }).setOrigin(.5).setScrollFactor(0).setDepth(10002).setInteractive().setVisible(false);
  const resize=()=>{
+  // The reveal shield is destroyed after its fade, before scene shutdown.
+  // A later viewport resize must never touch the destroyed Phaser rectangle.
+  if(disposed||!shield.active)return;
   shield.setSize(scene.scale.width,scene.scale.height);
   notice.setPosition(scene.scale.width/2,scene.scale.height*.52).setWordWrapWidth(scene.scale.width-30);
   retry.setPosition(scene.scale.width/2,scene.scale.height*.68);
