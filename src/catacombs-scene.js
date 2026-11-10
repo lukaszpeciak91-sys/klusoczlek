@@ -442,7 +442,7 @@ export class CatacombsScene extends Phaser.Scene{
   }
   const key='act5-fairy';
   if(this.textures.exists(key)){
-   this.fairyActor=this.add.image(point.x,point.y,key).setDisplaySize(78,78).setDepth(13);
+   this.fairyActor=this.add.image(point.x,point.y,key).setDepth(13);
   }else{
    this.fairyActor=this.add.container(point.x,point.y).setDepth(13);
    this.fairyActor.add(this.add.ellipse(0,0,76,64,0xd8a8ac).setStrokeStyle(3,0x59373c));
@@ -451,7 +451,7 @@ export class CatacombsScene extends Phaser.Scene{
   }
   this.phase='fairy';this.objective.setText('ŚWINIA-WRÓŻKA');
   // PNG is 256px natively; container fallback already has a 76px silhouette.
-  const finalScale=1;
+  const finalScale=this.textures.exists(key)?78/256:1;
   this.fairyActor.setAlpha(0).setScale(finalScale*.85);
   for(let i=0;i<10;i++){
    const a=i*Math.PI/5,spark=this.add.circle(point.x,point.y,2+(i%3),0xdcc5ff,.9).setDepth(100);
