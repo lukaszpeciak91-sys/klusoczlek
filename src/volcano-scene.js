@@ -749,7 +749,7 @@ export class VolcanoScene extends Phaser.Scene {
     const canTransition=()=>!document.hidden&&window.innerWidth>=window.innerHeight;
     const clear=()=>{
       if(watchdog!==null){clearTimeout(watchdog);watchdog=null;}
-      this.cameras.main.off(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,onFade);
+      this.cameras.main?.off(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,onFade);
       window.removeEventListener('resize',finish);
       window.removeEventListener('orientationchange',finish);
       document.removeEventListener('visibilitychange',finish);
