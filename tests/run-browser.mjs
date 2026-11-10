@@ -172,7 +172,7 @@ try {
     }
   }
   await cdp('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
-  await waitFor(s=>s.menu&&s.actions.length===2&&s.actions[0].label==='NOWA GRA'&&s.actions[1].label==='DEBUG','initial single new game');
+  await waitFor(s=>s.menu&&s.actions.length===2&&s.actions[0].label==='NOWA GRA'&&s.actions[1].label==='AKTY','initial single new game');
   await evaluate('window.__traceEvents()');
   for(const height of [320,360,375,420]){
     const width=Math.round(height*20/9);
@@ -235,52 +235,10 @@ try {
     ['act2-last15','AKT II — OSTATNIE 15 S','Airship'],
     ['act2-results','AKT II — ZAKOŃCZENIE','Airship'],
   ]){
-    await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2&&v.actions[0].label==='NOWA GRA'&&v.actions[1].label==='DEBUG','PR65 checkpoint menu '+id);
-    assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG'],'PR65 DEBUG missing');
-    await clickControl('DEBUG');
-    assert.equal(await evaluate("window.__game.scene.getScene('Menu').debugOpen"),true,'PR65 selector not opened');
-    assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'DEBUG opening launched checkpoint');
-    // Inspect the label even when clipped: invisible objects still retain
-    // their world position, which tells us the correct scroll direction.
-    const checkpointGeometry=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');const t=m.children.list.find(o=>o.type==='Text'&&o.text==="+JSON.stringify(label)+");if(!t)return null;const b=m.children.list.find(o=>o!==t&&o.geom&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1&&o.width>200);return b?{x:b.x,y:b.y,width:b.width,height:b.height,visible:!!(t.visible&&b.visible),interactive:!!b.input?.enabled}:null})()");
-    let target=await checkpointGeometry();
-    if(id==='act1-opening')console.log('DEBUG initial first checkpoint',JSON.stringify(target));
-    assert.ok(target,'PR65 checkpoint label/background absent '+id);
-    const swipe=async(direction)=>{
-      const rect=(await snapshot()).rect;
-      const x=rect.x+rect.width/2;
-      const fromY=rect.y+rect.height*(direction==='down'?.32:.70);
-      const toY=rect.y+rect.height*(direction==='down'?.70:.32);
-      await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y:fromY,id:1}]});
-      for(let step=1;step<=8;step++){
-        await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:fromY+(toY-fromY)*step/8,id:1}]});
-      }
-      await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-      assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'scroll gesture launched checkpoint '+id);
-    };
-    // The list viewport is bounded by the first/last fully visible rows;
-    // hidden rows above have smaller Y, hidden rows below have larger Y.
-    for(let scroll=0;!target.visible&&scroll<24;scroll++){
-      const visibleRows=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return m.children.list.filter(o=>o.type==='Text'&&o.visible&&o.text.includes('AKT ')).map(o=>o.y).sort((a,b)=>a-b)})()");
-      assert.ok(visibleRows.length,'DEBUG has no visible checkpoint rows');
-      const direction=target.y<visibleRows[0]?'down':target.y>visibleRows.at(-1)?'up':null;
-      assert.ok(direction,'DEBUG checkpoint hidden within visible row range '+id+' '+JSON.stringify(target));
-      await swipe(direction);
-      const next=await checkpointGeometry();
-      assert.ok(next,'DEBUG checkpoint disappeared after scroll '+id);
-      assert.ok(Math.abs(next.y-target.y)>1||next.visible,'DEBUG scroll made no progress '+id);
-      target=next;
-    }
-    if(!target.visible){
-      const diagnostic=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return m.children.list.filter(o=>o.type==='Text'||o.geom).map(o=>({type:o.type,geomType:o.geom?.type,text:o.text,x:o.x,y:o.y,w:o.width,h:o.height,visible:o.visible,input:!!o.input}))})()");
-      console.error('DEBUG actual Phaser GameObjects',JSON.stringify(diagnostic));
-    }
-    assert.ok(target.visible,'PR65 visible checkpoint missing after directional scrolling '+id);
-    assert.equal(target.interactive,false,'DEBUG checkpoints must use independent gestures');
-    assert.ok(target.x-target.width/2>=0&&target.x+target.width/2<=800,'PR65 checkpoint clipped');
-    const rect=(await snapshot()).rect;
-    await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:rect.x+target.x,y:rect.y+target.y,id:1}]});
-    await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await waitFor(v=>v.menu&&!v.arena&&v.actions.some(a=>a.label==='AKTY'),'internal checkpoint menu '+id);
+    // Retired public DEBUG selector: this legacy full Chromium suite still
+    // uses internal fixtures, never a production checkpoint button.
+    await evaluate(`(()=>{const g=window.__game,f=window.__createDebugFixture(${JSON.stringify(id)});f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:f.checkpoint.actId,handoff:f.handoff,debugCheckpoint:f.checkpoint.id});return true})()`);
     for(let n=0;n<100;n++){if(await evaluate("window.__game.scene.isActive("+JSON.stringify(expectedScene)+")"))break;await sleep(35);}
     assert.equal(await evaluate("window.__game.scene.isActive("+JSON.stringify(expectedScene)+")"),true,'PR65 scene start failed '+id);
     const check=await evaluate("(()=>{const g=window.__game,s=g.scene.getScene("+JSON.stringify(expectedScene)+"),r=s.campaignRun;return {checkpoint:s.debugCheckpoint,act:r.actId,hp:r.hp,weapon:r.selectedWeapon,artifact:r.artifacts.has('marcin-mohawk'),completed:[...r.completedActs],phase:s.openingPhase,defense:s.defense?.state,remaining:180000-(s.defense?.elapsedMs??0),results:s.act1Panels?.mode}})()");
@@ -532,8 +490,8 @@ try {
     // A fresh menu deliberately stops the debug scene; the next checkpoint cannot inherit timers/listeners.
     await evaluate("(()=>{const g=window.__game;g.scene.stop("+JSON.stringify(expectedScene)+");g.scene.start('Menu');return true})()");
   }
-  await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2&&v.actions[0].label==='NOWA GRA'&&v.actions[1].label==='DEBUG','PR65 final return to menu');
-  assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','DEBUG']);
+  await waitFor(v=>v.menu&&!v.arena&&v.actions.length===2&&v.actions[0].label==='NOWA GRA'&&v.actions[1].label==='AKTY','PR65 final return to menu');
+  assert.deepEqual((await snapshot()).actions.map(a=>a.label),['NOWA GRA','AKTY']);
   console.log('PASS PR65 eight real-touch debug checkpoints, isolated runs, clean repeated scene stops');
   await clickControl('NOWA GRA');
   await waitFor(s=>s.arena&&!s.menu,'NOWA GRA to Arena');
@@ -690,7 +648,7 @@ try {
   for(let i=0;i<20;i++){
     await clickControl('hud');
     let state=await waitFor(s=>s.menu&&s.arenaPaused&&s.actions.length===3,'Menu three buttons '+i);
-    assert.deepEqual(state.actions.map(a=>a.label),['NOWA GRA','DEBUG','WZNÓW']);
+    assert.deepEqual(state.actions.map(a=>a.label),['NOWA GRA','WZNÓW','AKTY']);
     assert.equal(state.menuOverArena,true);
     assert.equal(state.fullscreenVisible,true);
     assert.equal(state.physics,true);
@@ -789,7 +747,7 @@ try {
   assert.equal((await snapshot()).controls.hp,4,'Invulnerability failed on continuous overlap');
   await waitFor(s=>s.menu&&s.arenaPaused&&s.controls.defeated,'Defeat opens existing Menu');
   const defeat=await snapshot();
-  assert.deepEqual(defeat.actions.map(a=>a.label),['NOWA GRA','DEBUG','WZNÓW'],'PR79 defeat may offer safe checkpoint resume, never live defeated session');
+  assert.deepEqual(defeat.actions.map(a=>a.label),['NOWA GRA','WZNÓW','AKTY'],'PR79 defeat may offer safe checkpoint resume, never live defeated session');
   await clickControl('NOWA GRA');
   const revived=await waitFor(s=>s.arena&&!s.menu&&!s.controls.defeated,'New game after defeat');
   assert.equal(revived.controls.hp,5);
@@ -2740,35 +2698,9 @@ try {
   const genuineSave=await evaluate("localStorage.getItem('klusoczlek-campaign-v1')");
   await evaluate("window.__game.scene.getScene('Airship').openMenu();true");
   await waitFor(v=>v.menu,'PR79 DEBUG isolation MENU');
-  await clickControl('DEBUG');
-  // The defense checkpoint is below the fold on the saved-game menu.
-  // Use real touch swipes, as in PR65, rather than assuming it is initially visible.
-  const defenseGeometry=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');const t=m.children.list.find(o=>o.type==='Text'&&o.text==='AKT II — OBRONA');if(!t)return null;const b=m.children.list.find(o=>o!==t&&o.geom&&Math.abs(o.x-t.x)<1&&Math.abs(o.y-t.y)<1&&o.width>200);return b?{x:b.x,y:b.y,visible:!!(t.visible&&b.visible)}:null})()");
-  let debugTarget=await defenseGeometry();
-  assert.ok(debugTarget,'PR79 DEBUG defense checkpoint objects missing');
-  for(let scroll=0;!debugTarget.visible&&scroll<24;scroll++){
-    const visibleRows=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return m.children.list.filter(o=>o.type==='Text'&&o.visible&&o.text.includes('AKT ')).map(o=>o.y).sort((a,b)=>a-b)})()");
-    assert.ok(visibleRows.length,'PR79 DEBUG has no visible checkpoint rows');
-    const direction=debugTarget.y<visibleRows[0]?'down':debugTarget.y>visibleRows.at(-1)?'up':null;
-    assert.ok(direction,'PR79 DEBUG checkpoint hidden within visible row range '+JSON.stringify(debugTarget));
-    const rect=(await snapshot()).rect;
-    const x=rect.x+rect.width/2;
-    const fromY=rect.y+rect.height*(direction==='down'?.32:.70);
-    const toY=rect.y+rect.height*(direction==='down'?.70:.32);
-    await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y:fromY,id:1}]});
-    for(let step=1;step<=8;step++){
-      await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:fromY+(toY-fromY)*step/8,id:1}]});
-    }
-    await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-    assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'PR79 scroll launched checkpoint');
-    const next=await defenseGeometry();
-    assert.ok(next,'PR79 DEBUG checkpoint disappeared during scroll');
-    assert.ok(Math.abs(next.y-debugTarget.y)>1||next.visible,'PR79 DEBUG scroll made no progress');
-    debugTarget=next;
-  }
-  assert.ok(debugTarget.visible,'PR79 DEBUG defense entry not visible after scrolling');
-  const debugRect=(await snapshot()).rect;
-  await click(debugRect.x+debugTarget.x,debugRect.y+debugTarget.y);
+  // Internal defense fixture preserves the saved checkpoint; public AKTY
+  // never offers sub-act developer destinations.
+  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act2-defense');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act2',handoff:f.handoff,debugCheckpoint:f.checkpoint.id});return true})()");
   for(let n=0;n<100;n++){
     if(await evaluate("window.__game.scene.isActive('Airship')&&window.__game.scene.getScene('Airship').debugCheckpoint==='act2-defense'"))break;
     await sleep(40);

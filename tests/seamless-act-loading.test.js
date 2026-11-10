@@ -97,9 +97,11 @@ test('each playable scene blocks controls and early updates under the opaque rev
  assert.ok(gate.includes('scene.entryGateReady=true'));
  assert.ok(gate.includes('retry.on('));
 });
-test('DEBUG routes through ActTitle while four wave clocks remain unchanged',()=>{
+test('internal DEBUG fixtures still use ActTitle while public AKTY replaces DEBUG',()=>{
  const menu=source('../src/scenes.js');
- assert.ok(menu.includes("this.scene.start('ActTitle',{actId:checkpoint.actId,handoff:fixture.handoff,debugCheckpoint:checkpoint.id})"));
+ assert.ok(menu.includes("this.scene.start('ActTitle',{actId:act.id,handoff:replay.handoff})"));
+ assert.ok(!menu.includes("'DEBUG', pointer"));
+ assert.ok(source('../src/debug-checkpoints.js').includes('createDebugFixture'));
  const wave=source('../src/school-combat.js');
  assert.ok(wave.includes('advanceGameplayClock'));
  assert.ok(wave.includes('170000')||wave.includes('SCHOOL_COMBAT_MS'));

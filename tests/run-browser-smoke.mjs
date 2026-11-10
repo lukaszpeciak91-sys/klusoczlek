@@ -39,7 +39,7 @@ try{
  const evaluate=async expression=>{const r=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result?.value;};
  const wait=async(expression,label,timeout=12000)=>{const end=Date.now()+timeout;while(Date.now()<end){try{if(await evaluate(expression))return;}catch(error){if(!/Inspected target navigated|Execution context was destroyed|Cannot find context/.test(String(error)))throw error;}await sleep(80);}let detail='';try{detail=JSON.stringify(await evaluate("(()=>{const g=window.__game;return {active:g?.scene?.getScenes(true)?.map(s=>s.scene.key),title:(()=>{const t=g?.scene?.getScene('ActTitle');return t?.assetGate?{act:t.actId,next:t.nextScene,...t.assetGate,progress:t.assetProgress,attempts:t.preparationAttempts,error:t.lastPreparationError,retry:t.children.list.some(x=>x.text==='PONÓW'&&x.visible)}:null})(),school:(()=>{const s=g?.scene?.getScene('School');return s?{phase:s.schoolPhase,intro:s.introActive,dialogue:s.dialogueState,storyBusy:s.storyBusy,started:s.combat?.started,pitch:s.pitchStarted,entryGateReady:s.entryGateReady,allowed:s.controlsAllowed(),focus:document.hasFocus(),hidden:document.hidden,landscape:innerWidth>=innerHeight,shield:s.entryGate?.visible,menuButton:{visible:s.menuButton?.visible,x:s.menuButton?.x,y:s.menuButton?.y}}:null})(),catacombs:(()=>{const s=g?.scene?.getScene('Catacombs');return s?{phase:s.phase,dialogue:s.dialogueState,ready:s.entryGateReady,boss:s.boss?.phase,hp:s.run?.hp}:null})(),airship:g?.scene?.getScene('Airship')?.openingPhase}})()"));}catch{}throw Error('Timeout '+label+' '+detail);};
  const touch=async(x,y)=>{await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
- const geometry=()=>evaluate("(()=>{const g=window.__game,m=g.scene.getScene('Menu'),r=g.canvas.getBoundingClientRect();return {rect:{x:r.x,y:r.y},active:g.scene.isActive('Menu'),debug:m.debugOpen,buttons:m.children.list.filter(o=>o.type==='Text'&&o.visible&&['NOWA GRA','DEBUG','WZNÓW','WRÓĆ','OPCJE'].includes(o.text)).map(o=>({text:o.text,x:o.x,y:o.y}))}})()");
+ const geometry=()=>evaluate("(()=>{const g=window.__game,m=g.scene.getScene('Menu'),r=g.canvas.getBoundingClientRect();return {rect:{x:r.x,y:r.y},active:g.scene.isActive('Menu'),acts:m.actsOpen,buttons:m.children.list.filter(o=>o.type==='Text'&&o.visible&&['NOWA GRA','AKTY','WZNÓW','WRÓĆ','OPCJE'].includes(o.text)).map(o=>({text:o.text,x:o.x,y:o.y}))}})()");
  const tapMenu=async label=>{const g=await geometry();const b=g.buttons.find(b=>b.text===label);assert.ok(b,'Missing '+label+' '+JSON.stringify(g));await touch(g.rect.x+b.x,g.rect.y+b.y);};
  await wait("Boolean(window.__game?.scene.getScene('StudioIntro')?.sys)",'Phaser game and boot scene initialized',7000);
  const introBoot=await evaluate("(()=>{const g=window.__game;return {active:g.scene.isActive('StudioIntro'),exists:!!g.scene.getScene('StudioIntro')}})()");
@@ -61,9 +61,9 @@ try{
   assert.equal(await evaluate("window.__game.scene.isActive('StudioIntro')"),false,'intro stopped on skip');
  }
  await wait("window.__game?.scene.isActive('Menu')",'menu boot');
- const menu=await geometry();assert.ok(menu.buttons.some(b=>b.text==='NOWA GRA')&&menu.buttons.some(b=>b.text==='DEBUG'),'menu buttons');
+ const menu=await geometry();assert.ok(menu.buttons.some(b=>b.text==='NOWA GRA')&&menu.buttons.some(b=>b.text==='AKTY'),'menu buttons');
  // Chromium touches actual Phaser controls, not storage-only assertions.
- const audioState=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return {open:m.optionsOpen,debug:m.debugOpen,save:JSON.parse(localStorage.getItem('klusoczlek-audio-v1')||'{}'),labels:m.children.list.filter(x=>x.type==='Text'&&x.visible).map(x=>x.text)}})()");
+ const audioState=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu');return {open:m.optionsOpen,acts:m.actsOpen,save:JSON.parse(localStorage.getItem('klusoczlek-audio-v1')||'{}'),labels:m.children.list.filter(x=>x.type==='Text'&&x.visible).map(x=>x.text)}})()");
  const audioRect=await evaluate("(()=>{const g=window.__game,r=g.canvas.getBoundingClientRect();return {x:r.x,y:r.y,w:g.scale.width,h:g.scale.height}})()");
  const slide=async(kind,value)=>{
   const p={x0:audioRect.x+audioRect.w*.375,x1:audioRect.x+audioRect.w*.765,y:audioRect.y+audioRect.h*(kind==='music'?.55:.705)};
@@ -74,9 +74,9 @@ try{
  assert.ok((await geometry()).buttons.some(b=>b.text==='OPCJE'),'Options in main menu');
  await tapMenu('OPCJE');
  const panel=await audioState();
- assert.equal(panel.open,true);assert.equal(panel.debug,false);
+ assert.equal(panel.open,true);assert.equal(panel.acts,false);
  assert.ok(['DŹWIĘK','MUZYKA','EFEKTY SFX','WYCISZ','WRÓĆ'].every(s=>panel.labels.includes(s)),JSON.stringify(panel));
- assert.ok(!panel.labels.includes('NOWA GRA')&&!panel.labels.includes('DEBUG'),'no click-through');
+ assert.ok(!panel.labels.includes('NOWA GRA')&&!panel.labels.includes('AKTY'),'no click-through');
  await slide('music',.32);await slide('sfx',.73);
  const dragged=await audioState();
  assert.ok(Math.abs(dragged.save.music-.32)<=.01,'music dragged '+JSON.stringify(dragged));
@@ -101,6 +101,67 @@ try{
  await wait("window.__game?.scene.isActive('Menu')",'audio settings saved');
  assert.deepEqual((await audioState()).save,{music:dragged.save.music,sfx:dragged.save.sfx,muted:false});
  console.log('PASS Chromium real Options sliders, touch drag, mute, back and reload');
+ // Public AKTY list: locked entries remain visible but never launch.
+ await tapMenu('AKTY');
+ assert.equal((await geometry()).acts,true,'AKTY opens');
+ await sleep(300);
+ const locateLocked=()=>evaluate("(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect();const t=m.children.list.find(x=>x.type==='Text'&&x.visible&&x.text.includes('AKT V')&&x.text.includes('ZABLOKOWANY'));return t?{x:r.x+t.x,y:r.y+t.y}:null})()");
+ assert.ok((await evaluate("window.__game.scene.getScene('Menu').children.list.filter(x=>x.type==='Text'&&x.text.includes('ZABLOKOWANY')).length"))>=4);
+ let locked=await locateLocked();
+ for(let attempt=0;attempt<12&&!locked;attempt++){
+  const r=await evaluate("(()=>{const r=window.__game.canvas.getBoundingClientRect();return {x:r.x+r.width/2,top:r.y+r.height*.29,bottom:r.y+r.height*.72}})()");
+  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:r.x,y:r.bottom,id:3}]});
+  for(let i=1;i<=5;i++)await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:r.x,y:r.bottom+(r.top-r.bottom)*i/5,id:3}]});
+  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await sleep(70);locked=await locateLocked();
+ }
+ assert.ok(locked,'locked Act V entry reachable by landscape scrolling');
+ await touch(locked.x,locked.y);
+ assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'locked Act V cannot launch');
+ assert.equal((await geometry()).acts,true,'locked touch cannot close AKTY');
+ await tapMenu('WRÓĆ');
+ assert.equal((await geometry()).acts,false,'WRÓĆ closes AKTY');
+ console.log('PASS real Chromium AKTY: fresh lock, no DEBUG public button, no opening click-through, WRÓĆ');
+ // Deterministically complete Act I through the real campaign completion
+ // contract (not a DEBUG checkpoint), then exercise the public replay touch.
+ const unlockCompleted=await evaluate(`(async()=>{
+  const {createCampaignRun,completeCampaignAct,MARCIN_MOHAWK_ID}=await import('/klusoczlek/src/campaign-run.js');
+  const {writeCampaignCheckpoint}=await import('/klusoczlek/src/campaign-save.js');
+  const {recordActCompletion}=await import('/klusoczlek/src/act-unlocks.js');
+  const saved=createCampaignRun();
+  if(!writeCampaignCheckpoint(saved,'act1'))return false;
+  const run=createCampaignRun();run.artifacts.add(MARCIN_MOHAWK_ID);
+  run.unlockedWeapons.add('rifle');run.selectedWeapon='rifle';
+  const ok=completeCampaignAct(run,'act1',{hp:run.maxHp,maxHp:run.maxHp,
+   unlockedWeapons:run.unlockedWeapons,selectedWeapon:run.selectedWeapon,
+   kills:1,activeCombatMs:1000});
+  return ok&&recordActCompletion(run,'act1');
+ })()`);
+ assert.equal(unlockCompleted,true,'normal completion unlocks Act II');
+ const savedBeforeReplay=await evaluate("localStorage.getItem('klusoczlek-campaign-v1')");
+ await cdp('Page.reload',{ignoreCache:true});
+ await sleep(250); // The old context may still be active immediately after CDP reload.
+ await wait("window.__game?.scene.isActive('Menu')",'AKTY persisted after reload');
+ await tapMenu('AKTY');
+ const actTwo=await evaluate("(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect();const t=m.children.list.find(x=>x.type==='Text'&&x.visible&&x.text.includes('AKT II')&&x.text.includes('ODBLOKOWANY'));return t?{x:r.x+t.x,y:r.y+t.y}:null})()");
+ assert.ok(actTwo,'legitimate completion visibly unlocks Act II');
+ // Model a dropped camera completion event on mobile without replacing
+ // the menu input route: the one-shot fallback must still enter ActTitle.
+ await evaluate("(()=>{const m=window.__game.scene.getScene('Menu');m.cameras.main.fadeOut=()=>m.cameras.main;return true})()");
+ await touch(actTwo.x,actTwo.y);
+ await wait("window.__game.scene.isActive('ActTitle')",'AKTY replay watchdog survives missing camera fade event',4500);
+ const replay=await evaluate("(()=>{const g=window.__game,t=g.scene.getScene('ActTitle'),r=g.registry.get('campaign-run');return {act:t.actId,entry:r.actId,replay:r.isReplayRun,hp:r.hp,max:r.maxHp,artifacts:[...r.artifacts],weapon:r.selectedWeapon}})()");
+ assert.equal(replay.act,'act2');assert.equal(replay.entry,'act1');assert.equal(replay.replay,true);
+ assert.equal(replay.hp,replay.max);assert.ok(replay.artifacts.includes('marcin-mohawk'));
+ assert.equal(replay.weapon,'rifle');
+ assert.equal(await evaluate("localStorage.getItem('klusoczlek-campaign-v1')"),savedBeforeReplay,'replay cannot overwrite WZNÓW');
+ await cdp('Page.reload',{ignoreCache:true});
+ await sleep(250); // The old context may still be active immediately after CDP reload.
+ await wait("window.__game?.scene.isActive('Menu')",'menu after replay reload');
+ assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'),'replay retains independent WZNÓW');
+ console.log('PASS real Chromium AKTY: normal Act I completion, persistent Act II unlock, touch replay via ActTitle, separate autosave');
+
+
  // Fast direct Act V opening visual QA; does not replay Acts I–IV.
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act5-opening');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:'act5-opening'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Catacombs');return window.__game?.scene.isActive('Catacombs')&&s?.entryGateReady&&s.dialogueState.id==='act5-betrayal'})()",'direct approved Act V visual QA ready',18000);
@@ -169,27 +230,9 @@ try{
  await tapMenu('WZNÓW');
  await wait("window.__game.scene.isActive('ActTitle')",'WZNÓW restores Act I title',3000);
  await cdp('Page.reload',{ignoreCache:true});
- await wait("window.__game?.scene.isActive('Menu')",'menu before DEBUG');
- await tapMenu('DEBUG');
- assert.equal((await geometry()).debug,true,'DEBUG opens');
- await sleep(330);
- assert.equal(await evaluate("window.__game.scene.isActive('Menu')"),true,'opening DEBUG cannot select checkpoint');
- // Scroll using actual touch gestures; locate checkpoint by its configured label,
- // not by index, count, or a hard-coded screen coordinate.
- const target=DEBUG_CHECKPOINTS.find(c=>c.id==='act2-results');
- assert.ok(target,'Act II results fixture required for implemented handoff');
- const locate=()=>evaluate(`(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect(),o=m.children.list.find(o=>o.type==='Text'&&o.visible&&o.text===${JSON.stringify(target.label)});return o?{x:r.x+o.x,y:r.y+o.y}:null})()`);
- let point=await locate();
- for(let k=0;k<15&&!point;k++){
-  const r=await evaluate("(()=>{const r=window.__game.canvas.getBoundingClientRect();return {x:r.x+r.width/2,top:r.y+r.height*.28,bottom:r.y+r.height*.73}})()");
-  await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:r.x,y:r.bottom,id:2}]});
-  for(let j=1;j<=5;j++)await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:r.x,y:r.bottom+(r.top-r.bottom)*j/5,id:2}]});
-  await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-  await sleep(80);point=await locate();
- }
- assert.ok(point,'DEBUG checkpoint scroll did not reveal '+target.id);
- // Simulate a real slow required Act II PNG via CDP interception. No new
- // server, no waiting through gameplay waves, no fixture-only mock loading.
+ await wait("window.__game?.scene.isActive('Menu')",'menu before internal Act II QA');
+ // Public DEBUG navigation was retired. The existing internal fixture still
+ // exercises real asset loading, dialogue, handoff and audio.
  let heldSky=null,skyRequests=0;
  const skyPaused=event=>{
   const message=JSON.parse(event.data);
@@ -199,7 +242,7 @@ try{
  };
  socket.addEventListener('message',skyPaused);
  await cdp('Fetch.enable',{patterns:[{urlPattern:'*act2-sky.png',requestStage:'Request'}]});
- await touch(point.x,point.y);
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act2-results');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act2',handoff:f.handoff,debugCheckpoint:'act2-results'});return true})()");
  await wait("window.__game.scene.isActive('ActTitle')",'Act II title before PNG readiness',4000);
  for(let attempt=0;attempt<80&&!heldSky;attempt++)await sleep(50);
  assert.ok(heldSky,'cold Act II title fetches approved sky PNG once');
@@ -252,21 +295,8 @@ try{
  assert.ok((await geometry()).buttons.some(b=>b.text==='WZNÓW'),'real saved WZNÓW survives DEBUG');
 
  // PR104: exercise the REAL new Phaser scene, not just a pure school contract.
- await tapMenu('DEBUG');
- await sleep(300);
- const schoolTarget=DEBUG_CHECKPOINTS.find(c=>c.id==='act4-opening');
- assert.ok(schoolTarget,'Act IV opening checkpoint missing');
- const locateSchool=()=>evaluate(`(()=>{const m=window.__game.scene.getScene('Menu'),r=window.__game.canvas.getBoundingClientRect(),o=m.children.list.find(o=>o.type==='Text'&&o.visible&&o.text===${JSON.stringify(schoolTarget.label)});return o?{x:r.x+o.x,y:r.y+o.y}:null})()`);
- let schoolPoint=await locateSchool();
- for(let k=0;k<25&&!schoolPoint;k++){
-   const r=await evaluate("(()=>{const r=window.__game.canvas.getBoundingClientRect();return {x:r.x+r.width/2,top:r.y+r.height*.28,bottom:r.y+r.height*.73}})()");
-   await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:r.x,y:r.bottom,id:2}]});
-   for(let j=1;j<=5;j++)await cdp('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:r.x,y:r.bottom+(r.top-r.bottom)*j/5,id:2}]});
-   await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-   await sleep(70);schoolPoint=await locateSchool();
- }
- assert.ok(schoolPoint,'DEBUG checkpoint scroll did not reach Act IV opening');
- await touch(schoolPoint.x,schoolPoint.y);
+ // Internal Act IV fixture bypasses only the retired public DEBUG panel.
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act4-opening');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act4',handoff:f.handoff,debugCheckpoint:'act4-opening'});return true})()");
  await wait("window.__game.scene.isActive('ActTitle')",'Act IV title',3200);
  try{
    await wait("window.__game.scene.isActive('School')",'Act IV school scene',6000);
@@ -1089,6 +1119,7 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  // Remaining final-chapter DEBUG entries must start at their actual stages.
  for(const [id,phase] of [['act5-boss','boss'],['act5-ending','fairy']]){
   await cdp('Page.reload',{ignoreCache:true});
+  await sleep(250); // Wait for the new document; the old Menu context can still satisfy the guard.
   await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'menu and fixture before '+id);
   await evaluate(`(()=>{const g=window.__game,f=window.__createDebugFixture(${JSON.stringify(id)});f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:${JSON.stringify(id)}});return true})()`);
   await wait(`(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.phase===${JSON.stringify(phase)}})()`,'Act V DEBUG '+id,12000);

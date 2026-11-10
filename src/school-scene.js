@@ -10,6 +10,7 @@ import {arenaHudLayout} from './ui-layout.js';
 import {normalizeInput} from './movement.js';
 import {facingOf,playerFrame} from './combat-contract.js';
 import {currentCampaignRun,prepareActStart,awardRunArtifact,completeCampaignAct,nextActHandoff,updateRunHealth} from './campaign-run.js';
+import {recordActCompletion} from './act-unlocks.js';
 import {availableWeapons,cycleUnlockedWeapon,selectUnlockedWeapon,WEAPONS} from './weapon-progression.js';
 import {enforceOrientationOnSceneStart} from './viewport.js';
 import {createSchoolCombat} from './school-combat.js';
@@ -519,6 +520,7 @@ export class SchoolScene extends Phaser.Scene {
       activeCombatMs:this.combat.elapsedMs
     });
     if(!committed)return false;
+    recordActCompletion(this.run,'act4');
     this.actCompleted=true;this.storyBusy=true;
     this.combat.advanceFinale('ACT_IV_COMPLETE');
     this.combat.suspend();this.ambientBarks.suspend();this.resetMovement();
