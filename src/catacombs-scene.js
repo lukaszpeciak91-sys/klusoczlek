@@ -320,18 +320,12 @@ export class CatacombsScene extends Phaser.Scene{
   if(this.disposed||this.phase==='boss'||this.boss.defeated)return false;
   this.phase='boss';this.selectMarianAppearance(true);
   this.bossHpLabel.setVisible(true);
-  // Smooth transition from the two-actor establishing shot to gameplay.
+  // Restore player-follow before enabling damage/combat. Phaser's lerp
+  // avoids a hard camera snap while the existing local zoom eases to 1.
+  this.cameras.main.startFollow(this.player,true,.12,.12);
   this.cameras.main.zoomTo(1,320,'Sine.easeInOut');
-  this.cameras.main.pan(this.player.x,this.player.y,320,'Sine.easeInOut');
   this.transitionVeil.setAlpha(0);
   finalBossStart(this.boss);
-  let following=false;
-  const follow=()=>{
-   if(following||this.disposed||this.phase!=='boss')return;
-   following=true;this.cameras.main.startFollow(this.player,true,.12,.12);
-  };
-  this.time.delayedCall(330,follow);
-  this.scheduleFinalRecovery(550,follow);
   this.objective.setText('POKONAJ KŁUSOCZŁEKA!');
   this.syncControls();return true;
  }
