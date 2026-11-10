@@ -76,8 +76,14 @@ export class ActTitleScene extends Phaser.Scene {
         if(!this.sys.isActive()||this.assetAbort.signal.aborted)return;
         gate.failed=result.failed;gate.ready=result.ready;
         if(!result.ready){
-          status.setText('NIE UDAŁO SIĘ WCZYTAĆ TERENU.');retry.setVisible(true);
-        }else{status.setText(result.failed.length?'WŁĄCZONO BEZPIECZNE ZAMIENNIKI':'GOTOWE');finish();}
+          const required=result.failed.filter(asset=>asset.required);
+          console.warn('[ActTitle] required assets unavailable',this.actId,required);
+          status.setText(this.actId==='act5'?'BŁĄD PLIKÓW AKTU V — PONÓW':'NIE UDAŁO SIĘ WCZYTAĆ TERENU.');
+          retry.setVisible(true);
+        }else{
+          status.setText(result.failed.length?'GOTOWE (ELEMENTY OPCJONALNE POMINIĘTE)':'GOTOWE');
+          finish();
+        }
       }).catch(error=>{
         if(this.assetAbort.signal.aborted)return;
         this.lastPreparationError=String(error?.message??error);
