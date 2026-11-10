@@ -1047,9 +1047,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(act5Opening.world,'npc-captain','normal Marian sheet before first panel');
  assert.ok(act5Opening.portrait.includes('dialogue-captain'),'normal Marian dialogue portrait');
  assert.equal(act5Opening.boss,'staging');
- const introVisible=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,
-   panel=s.dialoguePanel.shell.list[0];return {bottom:p.getBounds().bottom-c.scrollY,dialogueTop:panel.y,
-   bossTop:s.bossActor.y-256*.62*1.23-c.scrollY}})()");
+ const introVisible=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,panel=s.dialoguePanel.shell.list[0];return {bottom:p.getBounds().bottom-c.scrollY,dialogueTop:panel.y,bossTop:s.bossActor.y-256*.62*1.23-c.scrollY}})()");
  assert.ok(introVisible.bottom<introVisible.dialogueTop-2,'Act V Aloes must appear above dialogue '+JSON.stringify(introVisible));
  assert.ok(introVisible.bossTop>=0,'Act V transformed Marian head must fit portrait landscape');
  await next5();
