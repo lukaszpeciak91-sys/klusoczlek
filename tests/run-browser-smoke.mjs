@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process';
-import {access,mkdtemp,rm} from 'node:fs/promises';
+import {access,mkdtemp,rm,mkdir,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as sleep} from 'node:timers/promises';
@@ -39,6 +39,12 @@ try{
  const evaluate=async expression=>{const r=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result?.value;};
  const wait=async(expression,label,timeout=12000)=>{const end=Date.now()+timeout;while(Date.now()<end){try{if(await evaluate(expression))return;}catch(error){if(!/Inspected target navigated|Execution context was destroyed|Cannot find context/.test(String(error)))throw error;}await sleep(80);}let detail='';try{detail=JSON.stringify(await evaluate("(()=>{const g=window.__game;return {active:g?.scene?.getScenes(true)?.map(s=>s.scene.key),title:(()=>{const t=g?.scene?.getScene('ActTitle');return t?.assetGate?{act:t.actId,next:t.nextScene,...t.assetGate,progress:t.assetProgress,attempts:t.preparationAttempts,error:t.lastPreparationError,retry:t.children.list.some(x=>x.text==='PONÓW'&&x.visible)}:null})(),school:(()=>{const s=g?.scene?.getScene('School');return s?{phase:s.schoolPhase,intro:s.introActive,dialogue:s.dialogueState,storyBusy:s.storyBusy,started:s.combat?.started,pitch:s.pitchStarted,entryGateReady:s.entryGateReady,allowed:s.controlsAllowed(),focus:document.hasFocus(),hidden:document.hidden,landscape:innerWidth>=innerHeight,shield:s.entryGate?.visible,menuButton:{visible:s.menuButton?.visible,x:s.menuButton?.x,y:s.menuButton?.y}}:null})(),catacombs:(()=>{const s=g?.scene?.getScene('Catacombs');return s?{phase:s.phase,dialogue:s.dialogueState,ready:s.entryGateReady,boss:s.boss?.phase,hp:s.run?.hp}:null})(),airship:g?.scene?.getScene('Airship')?.openingPhase}})()"));}catch{}throw Error('Timeout '+label+' '+detail);};
  const touch=async(x,y)=>{await cdp('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});await cdp('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});};
+ const captureAct5=async(name)=>{
+  if(!process.env.CI)return;
+  const {data}=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});
+  await mkdir('qa/act5',{recursive:true});
+  await writeFile('qa/act5/'+name+'.png',Buffer.from(data,'base64'));
+ };
  const geometry=()=>evaluate("(()=>{const g=window.__game,m=g.scene.getScene('Menu'),r=g.canvas.getBoundingClientRect();return {rect:{x:r.x,y:r.y},active:g.scene.isActive('Menu'),acts:m.actsOpen,buttons:m.children.list.filter(o=>o.type==='Text'&&o.visible&&['NOWA GRA','AKTY','WZNÓW','WRÓĆ','OPCJE'].includes(o.text)).map(o=>({text:o.text,x:o.x,y:o.y}))}})()");
  const tapMenu=async label=>{const g=await geometry();const b=g.buttons.find(b=>b.text===label);assert.ok(b,'Missing '+label+' '+JSON.stringify(g));await touch(g.rect.x+b.x,g.rect.y+b.y);};
  await wait("Boolean(window.__game?.scene.getScene('StudioIntro')?.sys)",'Phaser game and boot scene initialized',7000);
@@ -112,6 +118,7 @@ try{
  // checkpoint, then assert an actual visible screen-space bubble.
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act1-marcin');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Arena',{debugCheckpoint:'act1-marcin'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Arena');return s?.entryGateReady&&s.boss&&!s.bossEntrance&&!s.dialogueState?.id})()",'real Marcin entered Act I combat',16000);
+ await captureAct5('REF-marcin-hp-chromium');
  await evaluate("(()=>{const s=window.__game.scene.getScene('Arena');s.invulnerableUntil=Infinity;return true})()");
  await wait("(()=>{const s=window.__game.scene.getScene('Arena');return s.bossBarks.shown>0&&s.bossBarks.root.visible})()",'Marcin boss bark visibly renders',5200);
  const marcinBark=await evaluate("(()=>{const s=window.__game.scene.getScene('Arena'),b=s.bossBarks;return {text:b.caption.text,x:b.root.x,y:b.root.y,visible:b.root.visible,top:s.hudLayout.panelY+s.hudLayout.panelHeight,width:s.scale.width,height:s.scale.height}})()");
@@ -1002,6 +1009,8 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  await wait("typeof window.__createDebugFixture==='function'&&window.__game?.scene.isActive('Menu')",'Menu before approved Bogdan horn QA');
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-boss');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-boss'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Volcano');return s?.boss?.active&&s.boss.ready&&!!s.walkability&&s.finale.state==='BOGDAN_ACTIVE'})()",'real Volcano boss DEBUG with approved terrain and active Bogdan',16000);
+ await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !s.cameras.main.fadeEffect?.isRunning})()",'Bogdan HUD clear of camera reveal fade',3000);
+ await captureAct5('REF-bogdan-hp-chromium');
  await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !!s.hornRewardImage?.active&&s.hornRewardImage.texture.key==='artifact-bogdan-horn'})()",'approved Bogdan horn PNG loaded and decoded in Volcano',8500);
  const loadedHorn=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),i=s.hornRewardImage,t=s.textures.get('artifact-bogdan-horn');return {texture:i.texture.key,width:t.source[0].width,height:t.source[0].height,index:s.rewardRoot.list.indexOf(i),visible:s.rewardRoot.visible,owner:s.run.artifacts.has('bogdan-hunting-horn')}})()");
  assert.deepEqual(loadedHorn,{texture:'artifact-bogdan-horn',width:192,height:192,index:2,visible:false,owner:false},
@@ -1075,7 +1084,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
   assert.ok(initial.id,'Act V dialogue is active');
   for(let attempt=0;attempt<3;attempt++){
    await sleep(235);
-   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.dialoguePanel.button.x,y:r.y+s.dialoguePanel.button.y,visible:s.dialoguePanel.button.visible}})()");
+   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect(),c=s.cameras.main,b=s.dialoguePanel.button;return {x:r.x+b.x*c.zoom+(1-c.zoom)*s.scale.width/2,y:r.y+b.y*c.zoom+(1-c.zoom)*s.scale.height/2,visible:b.visible,zoom:c.zoom}})()");
    assert.ok(p.visible,'Act V DALEJ');
    await touch(p.x,p.y);await sleep(90);
    const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
@@ -1088,29 +1097,40 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(act5Opening.world,'npc-captain','normal Marian sheet before first panel');
  assert.ok(act5Opening.portrait.includes('dialogue-captain'),'normal Marian dialogue portrait');
  assert.equal(act5Opening.boss,'staging');
- const introVisible=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,panel=s.dialoguePanel.shell.list[0];return {bottom:p.getBounds().bottom-c.scrollY,dialogueTop:panel.y,bossTop:s.bossActor.y-256*.62*1.23-c.scrollY}})()");
- assert.ok(introVisible.bottom<introVisible.dialogueTop-2,'Act V Aloes must appear above dialogue '+JSON.stringify(introVisible));
- assert.ok(introVisible.bossTop>=0,'Act V transformed Marian head must fit portrait landscape');
+ // Verify rendered screen-space bounds, not world-space coordinates:
+ // opening has a local camera zoom to keep Aloes, altar and Marian above DALEJ.
  const originalViewport=await evaluate("({width:innerWidth,height:innerHeight})");
- for(const h of [220,240,320]){
-  await cdp('Emulation.setDeviceMetricsOverride',{width:568,height:h,deviceScaleFactor:1,mobile:false});
+ for(const [w,h] of [[915,412],[960,432],[568,220],[568,240],[568,320]]){
+  await cdp('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:false});
   await evaluate('window.__game.scale.refresh();true');
-  await wait('window.__game.scale.height==='+h,'Act V short landscape '+h,1500);
-  const shortView=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,b=s.dialoguePanel.shell.list[0];return {bossTop:s.bossActor.y-256*.62*1.23-c.scrollY,playerTop:p.getBounds().top-c.scrollY,playerBottom:p.getBounds().bottom-c.scrollY,dialogueTop:b.y}})()");
-  assert.ok(shortView.bossTop>=0&&shortView.playerTop<shortView.dialogueTop,
-   'Act V characters visible despite Android browser bars '+h+' '+JSON.stringify(shortView));
-  if(h>=240)assert.ok(shortView.playerBottom<shortView.dialogueTop,'Aloes clears dialogue '+h);
+  await wait("window.__game.scale.width==="+w+"&&window.__game.scale.height==="+h,'Act V opening landscape '+w+'x'+h,1800);
+  await sleep(110);
+  if(w>=900)await captureAct5('A-opening-'+w+'x'+h);
+  const view=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,b=s.dialoguePanel.shell.list[0],bounds=p.getBounds();const screen=(x,y)=>({x:(x-c.scrollX)*c.zoom+(1-c.zoom)*s.scale.width/2,y:(y-c.scrollY)*c.zoom+(1-c.zoom)*s.scale.height/2});return {zoom:c.zoom,scroll:{x:c.scrollX,y:c.scrollY},spawn:{x:s.player.x,y:s.player.y},facing:s.facing,walkable:s.player.x===480&&s.player.y===393,marian:s.bossActor.y,altar:312,top:screen(s.bossActor.x,s.bossActor.y-256*.62*1.23).y,playerTop:screen(s.player.x,bounds.top).y,playerBottom:screen(s.player.x,bounds.bottom).y,dialogueTop:b.y,screenCenter:screen(s.player.x,s.player.y).x,viewport:s.scale.width}})()");
+  console.log('ACT V OPENING SCREEN QA '+w+'x'+h+' '+JSON.stringify(view));
+  assert.equal(view.facing,'n','Aloes looks north toward Marian');
+  assert.ok(view.walkable&&view.marian<view.altar&&view.altar<view.spawn.y,
+   'central Aloes / altar / Marian staging '+JSON.stringify(view));
+  assert.ok(view.top>=-1&&view.playerTop>=0&&view.playerBottom<view.dialogueTop-2,
+   'Act V actors clear the actual screen-space dialogue overlay '+w+'x'+h+' '+JSON.stringify(view));
+  assert.ok(Math.abs(view.screenCenter-view.viewport/2)<3,'Aloes is visibly centered on phone landscape '+JSON.stringify(view));
  }
  await cdp('Emulation.setDeviceMetricsOverride',{width:originalViewport.width,height:originalViewport.height,deviceScaleFactor:1,mobile:false});
  await evaluate('window.__game.scale.refresh();true');
- await wait('window.__game.scale.height==='+originalViewport.height,'restore Act V landscape',1500);
+ await wait("window.__game.scale.height==="+originalViewport.height,'restore Act V landscape',1500);
+ // All following Act V frames use the approved mobile landscape target.
+ await cdp('Emulation.setDeviceMetricsOverride',{width:960,height:432,deviceScaleFactor:1,mobile:false});
+ await evaluate('window.__game.scale.refresh();true');
+ await wait("window.__game.scale.width===960&&window.__game.scale.height===432",'Act V 960x432 cinematic QA',1500);
  await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian transforms immediately after panel 1',3000);
+ await sleep(160);await captureAct5('B-transformation-960x432');
  const transform5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,visible:s.dialoguePanel.button.visible,controls:s.joystick.enabled,boss:s.boss.phase,started:s.transformationStarted,completed:s.transformationCompleted}})()");
  assert.equal(transform5.index,1);assert.equal(transform5.visible,false);
  assert.equal(transform5.controls,false);assert.equal(transform5.boss,'staging');
  assert.equal(transform5.started,true);assert.equal(transform5.completed,false);
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='opening'&&s.transformationCompleted&&s.dialoguePanel.button.visible&&s.dialogueState.index===1})()",'transformed Marian resumes with Aloes panel 2',5500);
+ await sleep(420);await captureAct5('B2-rudolf-transformed-960x432');
  const revealed5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {world:s.bossArt.texture.key,portraitLoaded:s.textures.exists('dialogue-marian-transformed'),boss:s.boss.phase,combat:s.canPlay()}})()");
  assert.equal(revealed5.world,'act5-marian-transformed');
  assert.equal(revealed5.portraitLoaded,true);
@@ -1122,6 +1142,10 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
   await next5();
  }
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='boss'&&s.boss.phase==='gun'&&s.canPlay()})()",'boss after all 17 dialogue panels',4500);
+ await sleep(650);await captureAct5('C-rudolf-hp-960x432');
+ const bossFraming=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main;return {zoom:c.zoom,head:(s.bossActor.y-s.bossArt.displayHeight-c.scrollY)*c.zoom+(1-c.zoom)*s.scale.height/2,feet:(s.bossActor.y-c.scrollY)*c.zoom+(1-c.zoom)*s.scale.height/2,hp:s.boss.hp,maxHp:s.boss.maxHp,phase:s.phase,label:s.bossHpLabel.visible,scrollY:c.scrollY}})()");
+ assert.ok(Math.abs(bossFraming.zoom-1)<.01&&bossFraming.head>=-1&&bossFraming.feet<432,
+  'full transformed Rudolf silhouette visible in normal combat follow '+JSON.stringify(bossFraming));
  await wait("window.__game.scene.getScene('Catacombs').bossShots.length>0",'rotating gun emits real shots',6500);
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.bossBarks.shown>0&&s.bossBarks.root.visible})()",'Rudolf boss bark visibly renders',5200);
  const rudolfBark=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),b=s.bossBarks;return {text:b.caption.text,x:b.root.x,y:b.root.y,visible:b.root.visible,top:s.hudLayout.panelY+s.hudLayout.panelHeight,width:s.scale.width,height:s.scale.height}})()");
@@ -1165,8 +1189,12 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  assert.deepEqual(cleared,{phase:'gun',n:0},'defeating all summoned enemies restores vulnerability');
  await sleep(240);
  await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.damageBoss(s.boss.hp);return true})()");
+ await wait("window.__game.scene.getScene('Catacombs').phase==='boss-death'",'Rudolf explosion starts');
+ await sleep(160);await captureAct5('D-rudolf-death-960x432');
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.boss.defeated&&s.fairyActor?.active})()",'Marian defeated once, fairy arrives',4000);
+ await sleep(240);await captureAct5('E-fairy-arrival-960x432');
  await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-fairy'",'fairy dialogue',3500);
+ await captureAct5('F-fairy-dialogue-960x432');
  const fairyView=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),b=s.fairyActor.getBounds(),v=s.fairyVisibleBounds();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom,view:v}})()");
  assert.ok(fairyView.left>=fairyView.view.left&&fairyView.right<=fairyView.view.right&&
   fairyView.top>=fairyView.view.top&&fairyView.bottom<=fairyView.view.bottom,
@@ -1179,6 +1207,7 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  await wait("window.__game.scene.getScene('Catacombs').phase==='magic'",'fairy MYK magic particles',3000);
  assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').dialogueState.id"),null,'no home dialogue');
  await wait("(()=>{const g=window.__game,c=g.scene.getScene('Catacombs');return g.scene.isActive('Credits')&&c.completed&&c.run.completedActs.has('act5')})()",'Act V MYK completes campaign and enters credits',3000);
+ await sleep(1600);await captureAct5('G-credits-960x432');
  const creditsStart=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {finished:s.finished,returning:s.returning,lines:s.lines.length,distance:s.scrollDistance,elapsed:s.elapsedScroll,track:window.__retroAudio.track,loop:window.__retroAudio.music?.loop,heading:s.lines.slice(0,2).map(x=>x.text),back:s.backButton.visible}})()");
  assert.equal(creditsStart.finished,false);assert.equal(creditsStart.returning,false);
  assert.equal(creditsStart.lines,64,'32 pairs of credit lines: all 25 originals plus seven additions');
@@ -1208,6 +1237,7 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');s.elapsedScroll=s.scrollDistance-.5;s.update(0,50);return true})()");
  const endCredits=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits');return {finished:s.finished,dedication:s.dedication.text,visible:s.dedication.visible,back:s.backButton.visible,track:window.__retroAudio.track,elapsed:s.elapsedScroll}})()");
  assert.equal(endCredits.finished,true);assert.equal(endCredits.visible,true);
+ await captureAct5('H-static-dedication-960x432');
  assert.equal(endCredits.dedication,'WSZYSTKIEGO NAJLEPSZEGO MICHAŁ!');
  assert.equal(endCredits.back,true);assert.equal(endCredits.track,'credits');
  await sleep(900);
@@ -1215,6 +1245,8 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  const backCredits=await evaluate("(()=>{const s=window.__game.scene.getScene('Credits'),r=window.__game.canvas.getBoundingClientRect();return {x:r.x+s.backButton.x,y:r.y+s.backButton.y}})()");
  await touch(backCredits.x,backCredits.y);
  await wait("window.__game.scene.isActive('Menu')",'WRÓĆ returns from credits to menu',3000);
+ await cdp('Emulation.setDeviceMetricsOverride',{width:originalViewport.width,height:originalViewport.height,deviceScaleFactor:1,mobile:false});
+ await evaluate('window.__game.scale.refresh();true');
  assert.equal(await evaluate("window.__game.scene.isActive('StudioIntro')"),false,'studio intro does not repeat');
  assert.equal(await evaluate("window.__retroAudio.track"),'menu','menu music takes over from credits');
  console.log('PASS Act V real Chromium Android landscape: approved fairy, Credits scroll and WRÓĆ, birthday dedication, HUD, boss and DEBUG');
@@ -1224,6 +1256,17 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
   await sleep(250); // Wait for the new document; the old Menu context can still satisfy the guard.
   await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'menu and fixture before '+id);
   await evaluate(`(()=>{const g=window.__game,f=window.__createDebugFixture(${JSON.stringify(id)});f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:${JSON.stringify(id)}});return true})()`);
+  if(id==='act5-ending'){
+   await wait("(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.phase==='boss-death'})()",'Act V DEBUG boss death before pause',12000);
+   assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').openMenu()"),true,'MENU pauses the boss-death cinematic');
+   await wait("window.__game.scene.isActive('Menu')",'Act V finale pause menu');
+   await sleep(1850); // Beyond the existing wall-clock death/fairy watchdog.
+   const paused=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {phase:s.phase,fairy:s.fairyActor?.active??false,paused:s.scene.isPaused()}})()");
+   assert.deepEqual(paused,{phase:'boss-death',fairy:false,paused:true},
+    'finale cannot progress behind MENU despite watchdog expiry');
+   await tapMenu('WZNÓW');
+   await wait("window.__game.scene.isActive('Catacombs')",'Act V finale resumes after MENU');
+  }
   await wait(`(()=>{const g=window.__game,s=g.scene.getScene('Catacombs');return g.scene.isActive('Catacombs')&&s.entryGateReady&&s.phase===${JSON.stringify(phase)}})()`,'Act V DEBUG '+id,12000);
   const v=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {hp:s.run.hp,artifacts:s.run.artifacts.size,completed:s.run.completedActs.size,water:s.weapon==='water-flamethrower'}})()");
   assert.deepEqual(v,{hp:5,artifacts:3,completed:4,water:false});

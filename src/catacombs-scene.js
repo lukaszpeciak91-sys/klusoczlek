@@ -37,7 +37,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.defeated=false;this.completed=false;this.finalized=false;
   this.transformationStarted=false;this.transformationCompleted=false;
   this.summons=[];this.shots=[];this.bossShots=[];this.shotCooldowns=new Map();
-  this.killCount=0;this.combatMs=0;this.facing='se';this.bossFacing='s';this.hitUntil=0;
+  this.killCount=0;this.combatMs=0;this.facing='n';this.bossFacing='s';this.hitUntil=0;
   this.deathBursts=[];this.bossDeathClock=0;this.lastShotAim={x:0,y:-1};
   this.boss=createFinalBossState();
   this.run=currentCampaignRun(this.game);
@@ -48,14 +48,35 @@ export class CatacombsScene extends Phaser.Scene{
   updateRunHealth(this.run,this.run.maxHp);
   this.physics.world.setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
   this.cameras.main.setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
-  // The existing joystick/HUD dialogue controls use unzoomed screen pixels.
-  // Preserve zoom=1 as in Acts I–IV; crop the compact chamber naturally.
+  // Only Act V's opening uses a wide shot: the actual 256px Rudolf atlas
+  // expands to 256*.62*1.23 px during flashing, and Aloes stands south
+  // of the altar. Reserve the lower dialogue panel in screen pixels.
+  this.openingCameraZoom=()=>{
+   const transformedTop=CATACOMBS.marianStart.y-256*.62*1.23;
+   const playerBottom=CATACOMBS.playerStart.y+64*.65;
+   // Dialogue UI has measured its actual wrapped height by this point.
+   // Leave at least 45 screen pixels for breathing room and safe areas.
+   const dialogueTop=this.dialoguePanel?.shell?.list?.[0]?.y??this.scale.height*.66;
+   return Math.min(.58,Math.max(.08,(dialogueTop-45)/(playerBottom-transformedTop)));
+  };
+  this.openingCameraScroll=()=>{
+   const zoom=this.openingCameraZoom();
+   const transformedTop=CATACOMBS.marianStart.y-256*.62*1.23;
+   // Phaser zoom is around the viewport center. The camera scroll is
+   // calibrated so transformed head projects 12px below the top edge.
+   return {x:CATACOMBS.width/2-this.scale.width/2,
+    y:transformedTop+((1-zoom)*this.scale.height/2-12)/zoom};
+  };
   this.resizeCamera=()=>{
-   this.cameras.main.setZoom(1);
-   if(this.phase==='opening'||this.phase==='transform')
-    this.cameras.main.centerOn(CATACOMBS.width/2,Math.min(200,this.scale.height/2+40));
-   else if(['boss-death','fairy','magic'].includes(this.phase))
-    this.cameras.main.centerOn(CATACOMBS.width/2,350);
+   const opening=this.phase==='opening'||this.phase==='transform';
+   if(opening){
+    const {x,y}=this.openingCameraScroll();
+    // Opening art may be narrower than the physical landscape viewport.
+    // Do not clamp it to the left wall; symmetrical margins are deliberate.
+    this.cameras.main.removeBounds();
+    this.cameras.main.setZoom(this.openingCameraZoom()).setScroll(x,y);
+   }else if(['boss-death','fairy','magic'].includes(this.phase))
+    this.cameras.main.setZoom(1).centerOn(CATACOMBS.width/2,350);
   };
   this.drawCatacombs();
   const start=CATACOMBS.playerStart;
@@ -113,8 +134,8 @@ export class CatacombsScene extends Phaser.Scene{
   });
   this.bossHp=this.add.graphics().setScrollFactor(0).setDepth(75);
   this.bossHpLabel=this.add.text(0,0,'RUDOLF / KŁUSOCZŁEK',{
-   fontFamily:'monospace',fontSize:'11px',color:'#e1c59e',fontStyle:'bold'
-  }).setOrigin(.5,1).setScrollFactor(0).setDepth(75).setVisible(false);
+   fontFamily:'monospace',fontSize:'12px',color:'#ffb4a1'
+  }).setOrigin(.5).setScrollFactor(0).setDepth(76).setVisible(false);
   this.bossTintClock=0;
   this.fairyActor=null;
   this.fairyQueued=false;this.fairyDialogueQueued=false;this.endingFadeQueued=false;
@@ -263,7 +284,9 @@ export class CatacombsScene extends Phaser.Scene{
  }
  showDialogue(id){
   if(this.disposed||this.dialogueState.id||!beginDialogue(this.dialogueState,id))return false;
-  this.resetMovement();this.stopFlame();this.dialoguePanel.show(this.dialogueState);return true;
+  this.resetMovement();this.stopFlame();this.dialoguePanel.show(this.dialogueState);
+  if(this.phase==='opening')this.resizeCamera();
+  return true;
  }
  onDialogueAdvance(state){
   // Only the first panel may trigger transformation. Keep the panel's
@@ -281,6 +304,9 @@ export class CatacombsScene extends Phaser.Scene{
   if(this.phase!=='opening'||this.transformationStarted||this.dialogueState.id!=='act5-betrayal'||this.dialogueState.index!==1)return false;
   this.transformationStarted=true;
   this.phase='transform';this.resetMovement();this.stopFlame();this.syncControls();
+  // Focus on Marian during the original blinking evolution; no camera snap.
+  this.cameras.main.zoomTo(Math.min(.82,this.openingCameraZoom()*1.16),340,'Sine.easeInOut');
+  this.cameras.main.pan(CATACOMBS.marianStart.x,215,340,'Sine.easeInOut');
   this.transitionVeil.setFillStyle(0x0d0815,.55).setAlpha(.55);
   this.selectMarianAppearance(false);
   let pulses=0;
@@ -301,6 +327,9 @@ export class CatacombsScene extends Phaser.Scene{
    this.transformationCompleted=true;
    this.phase='opening';this.syncControls();
    this.dialoguePanel.resume();
+   const {x,y}=this.openingCameraScroll();
+   this.cameras.main.zoomTo(this.openingCameraZoom(),340,'Sine.easeInOut');
+   this.tweens.add({targets:this.cameras.main,scrollX:x,scrollY:y,duration:340,ease:'Sine.easeInOut'});
   });
   return true;
  }
@@ -308,7 +337,13 @@ export class CatacombsScene extends Phaser.Scene{
   if(this.disposed||this.phase==='boss'||this.boss.defeated)return false;
   this.phase='boss';this.selectMarianAppearance(true);
   this.bossHpLabel.setVisible(true);
-  this.cameras.main.startFollow(this.player,true,.12,.12);
+  // Restore player-follow before enabling damage/combat. Phaser's lerp
+  // avoids a hard camera snap while the existing local zoom eases to 1.
+  this.cameras.main.setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
+  // Keep Rudolf's full 256px transformed sprite in view at combat entry,
+  // without losing normal smooth follow of Aloes or changing world physics.
+  this.cameras.main.startFollow(this.player,true,.12,.12,0,108);
+  this.cameras.main.zoomTo(1,320,'Sine.easeInOut');
   this.transitionVeil.setAlpha(0);
   finalBossStart(this.boss);
   this.objective.setText('POKONAJ KŁUSOCZŁEKA!');
@@ -368,7 +403,9 @@ export class CatacombsScene extends Phaser.Scene{
   this.clearShots();this.clearSummons();this.resetMovement();this.stopFlame(true);
   this.bossBarks?.suspend();
   this.phase='boss-death';this.objective.setText('RUDOLF POKONANY');
-  this.cameras.main.stopFollow();this.cameras.main.centerOn(CATACOMBS.width/2,350);
+  this.cameras.main.stopFollow();
+  this.cameras.main.setBounds(0,0,CATACOMBS.width,CATACOMBS.height)
+   .setZoom(1).centerOn(CATACOMBS.width/2,350);
   this.bossHp.clear();this.bossHpLabel.setVisible(false);this.bossActor.setAlpha(1);
   retroAudio.death();
   const x=this.bossActor.x,y=this.bossActor.y;
@@ -411,7 +448,8 @@ export class CatacombsScene extends Phaser.Scene{
   };
   const flush=()=>{
    if(closed||!elapsed||this.disposed||!this.sys.isActive()||
-    document.hidden||!document.hasFocus()||window.innerHeight>window.innerWidth)return;
+    this.scene.isPaused()||document.hidden||!document.hasFocus()||
+    window.innerHeight>window.innerWidth)return;
    dispose();action();
   };
   window.addEventListener('focus',flush);
@@ -695,16 +733,15 @@ export class CatacombsScene extends Phaser.Scene{
   this.updateProjectiles(this.bossShots,delta);
   this.bossHp.clear();
   if(this.phase==='boss'&&(this.boss.phase==='gun'||this.boss.phase==='summon')){
-   // Thin screen-space boss meter, clear of the top MENU/HP controls.
-   const width=Math.min(320,Math.max(140,this.scale.width*.40));
-   const x=(this.scale.width-width)/2;
-   const y=Math.max(54,(this.hudLayout?.menuY??35)+(this.hudLayout?.menuHeight??38)/2+8);
+   // Exact established Marcin/Bogdan meter geometry. Purple summon
+   // feedback stays on Rudolf and does not alter his damage immunity.
+   const width=Math.min(210,this.scale.width*.38);
+   const x=(this.scale.width-width)/2,y=Math.min(80,this.scale.height*.23);
    const hpRatio=Math.max(0,Math.min(1,this.boss.hp/this.boss.maxHp));
-   this.bossHp.fillStyle(0x1b151c,.92).fillRect(x,y,width,10);
-   this.bossHp.fillStyle(this.boss.phase==='summon'?0x9278db:0xd86556)
-    .fillRect(x+2,y+2,(width-4)*hpRatio,6);
-   this.bossHp.lineStyle(1,0xe1c59e).strokeRect(x,y,width,10);
-   this.bossHpLabel.setPosition(this.scale.width/2,y-3).setVisible(true);
+   this.bossHp.fillStyle(0x241d20,.9).fillRect(x,y,width,7);
+   this.bossHp.fillStyle(this.boss.phase==='summon'?0x9278db:0xd64b44)
+    .fillRect(x,y,width*hpRatio,7);
+   this.bossHpLabel.setPosition(this.scale.width/2,y-10).setVisible(true);
   }else this.bossHpLabel.setVisible(false);
  }
 }

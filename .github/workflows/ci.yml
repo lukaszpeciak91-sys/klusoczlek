@@ -61,6 +61,13 @@ jobs:
         run: npm run test:browser
       - name: Verify Pages output
         run: test -f dist/index.html
+      - name: Act V Chromium screenshots (QA only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: act5-chromium-qa
+          path: qa/act5/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: klusoczlek-dist

@@ -280,7 +280,9 @@ test('catacombs player and boss swept movement, gunshots and summons share the s
 
 test('Act V final visual regression contracts preserve combat, fairy and credits',async()=>{
  const {RUDOLF_DAMAGE_BOX,segmentRudolfHit,rudolfFlameTarget,FAIRY_ARRIVAL}=await import('../src/act5-final-visuals.js');
- assert.deepEqual(CATACOMBS.playerStart,{x:300,y:108});
+ assert.deepEqual(CATACOMBS.playerStart,{x:480,y:393});
+ assert.equal(CATACOMBS.playerStart.x,CATACOMBS.marianStart.x,'Aloes faces Marian on central axis');
+ assert.ok(CATACOMBS.marianStart.y<312&&312<CATACOMBS.playerStart.y,'altar separates both actors');
  assert.ok(catacombsWalkable(CATACOMBS.playerStart));
  assert.ok(catacombsWalkable(CATACOMBS.fairyStart,CATACOMBS.enemyRadius));
  assert.ok(Math.hypot(CATACOMBS.fairyStart.x-CATACOMBS.marianStart.x,
