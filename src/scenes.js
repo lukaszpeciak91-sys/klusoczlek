@@ -152,17 +152,41 @@ export class MenuScene extends Phaser.Scene {
       const text=act.label+' — '+(act.id==='act3'?'PRZYTULNE M4\nW CENTRUM WULKANU':act.title)+'\n'+(unlocked?'ODBLOKOWANY':'ZABLOKOWANY');
       return {act,unlocked,control:button(this,initial.centerX,0,160,34,text,()=>{})};
     });
+    let actFadeWatchdog=null,actFadePending=null;
+    const clearActFade=()=>{
+      if(actFadeWatchdog!==null){clearTimeout(actFadeWatchdog);actFadeWatchdog=null;}
+      if(actFadePending){
+        this.cameras.main.off('camerafadeoutcomplete',actFadePending);
+        window.removeEventListener('resize',actFadePending);
+        window.removeEventListener('orientationchange',actFadePending);
+        document.removeEventListener('visibilitychange',actFadePending);
+        actFadePending=null;
+      }
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,clearActFade);
     const activateAct=act=>{
       if(!allowed()||!this.actsOpen||!actIsUnlocked(act.id))return;
       const replay=createActReplay(act.id);
       if(!replay)return;
       this.navigating=true;
-      this.cameras.main.once('camerafadeoutcomplete',()=>{
-        if(!this.sys.isActive())return;
+      let completed=false,fadeElapsed=false;
+      const finish=()=>{
+        if(completed||!this.sys.isActive()||document.hidden||
+           window.innerWidth<window.innerHeight)return;
+        if(!fadeElapsed&&actFadePending)return;
+        completed=true;clearActFade();
         if(hasSession)this.scene.stop(sessionKey);
         this.game.registry.set('campaign-run',replay.run);
         this.scene.start('ActTitle',{actId:act.id,handoff:replay.handoff});
-      });
+      };
+      // A suspended camera fade cannot strand an otherwise valid replay.
+      // After the 240ms animation, an independent clock provides recovery.
+      actFadePending=finish;
+      this.cameras.main.on('camerafadeoutcomplete',finish);
+      window.addEventListener('resize',finish);
+      window.addEventListener('orientationchange',finish);
+      document.addEventListener('visibilitychange',finish);
+      actFadeWatchdog=window.setTimeout(()=>{fadeElapsed=true;finish();},550);
       this.cameras.main.fadeOut(240,0,0,0);
     };
     const back=button(this,initial.centerX,0,150,35,'WRÓĆ',()=>{
