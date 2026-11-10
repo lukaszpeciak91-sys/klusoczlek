@@ -194,6 +194,7 @@ export class SchoolScene extends Phaser.Scene {
       this.clearMaciekSebaActors();
       for(const heart of Object.values(this.hearts))heart.token?.destroy();
       this.cancelBicycleFade();
+      this.act4HandoffCleanup?.();
       this.bicycleCinematic?.destroy();
       this.bicycleWorld?.destroy();
     });
@@ -433,19 +434,36 @@ export class SchoolScene extends Phaser.Scene {
     this.rewardRoot.setVisible(true);this.rewardButton.setVisible(true);
     this.rewardButtonLabel.setVisible(true);this.syncControls();return true;
   }
+  transitionEligible(){
+    return !this.disposed&&this.sys.isActive()&&!this.scene.isPaused()&&
+      !document.hidden&&document.hasFocus()&&window.innerWidth>=window.innerHeight;
+  }
   cancelBicycleFade(){
     const listener=this.bicycleFadeListener;
-    if(listener)this.cameras.main.off(listener.event,listener.callback);
+    if(listener){
+      this.cameras.main.off(listener.event,listener.callback);
+      clearTimeout(listener.timer);
+    }
     this.bicycleFadeListener=null;
   }
-  afterBicycleFade(event,action){
+  afterBicycleFade(event,action,duration=350){
     this.cancelBicycleFade();
-    const callback=()=>{
-      this.bicycleFadeListener=null;
-      if(!this.disposed&&!this.defeated&&this.schoolPhase==='BICYCLE_RIDE')action();
+    const token={event,callback:null,timer:null,done:false};
+    const finish=()=>{
+      if(this.bicycleFadeListener!==token||token.done||this.disposed)return;
+      if(!this.transitionEligible()){
+        clearTimeout(token.timer);
+        token.timer=setTimeout(finish,150);
+        return;
+      }
+      token.done=true;
+      this.cancelBicycleFade();
+      action();
     };
-    this.bicycleFadeListener={event,callback};
-    this.cameras.main.once(event,callback);
+    token.callback=finish;
+    this.bicycleFadeListener=token;
+    this.cameras.main.once(event,finish);
+    token.timer=setTimeout(finish,duration+260);
   }
   startBicycleRide(){
     if(this.disposed||this.defeated||this.schoolPhase!=='BICYCLE_RIDE'||
@@ -528,11 +546,31 @@ export class SchoolScene extends Phaser.Scene {
     // campaign snapshot to the actual final act through the existing title.
     updateRunHealth(this.run,this.run.maxHp);
     const handoff=nextActHandoff(this.run,new Set(Object.keys(this.scene.manager.keys)));
-    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,()=>{
-      if(this.disposed)return;
+    let done=false,timer=null;
+    const event=Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE;
+    const cleanup=()=>{
+      clearTimeout(timer);timer=null;
+      this.cameras.main.off(event,advance);
+      window.removeEventListener('focus',advance);
+      window.removeEventListener('resize',advance);
+      document.removeEventListener('visibilitychange',advance);
+      this.events.off(Phaser.Scenes.Events.RESUME,advance);
+      this.act4HandoffCleanup=null;
+    };
+    const advance=()=>{
+      if(done||this.disposed||!this.sys.isActive())return;
+      if(!this.transitionEligible()){clearTimeout(timer);timer=setTimeout(advance,150);return;}
+      done=true;cleanup();
       if(handoff?.actId==='act5')this.scene.start('ActTitle',{actId:'act5',handoff});
       else this.scene.start('Menu');
-    });
+    };
+    this.act4HandoffCleanup=cleanup;
+    this.cameras.main.once(event,advance);
+    window.addEventListener('focus',advance);
+    window.addEventListener('resize',advance);
+    document.addEventListener('visibilitychange',advance);
+    this.events.on(Phaser.Scenes.Events.RESUME,advance);
+    timer=setTimeout(advance,780);
     this.cameras.main.fadeOut(520,0,0,0);
     return true;
   }
