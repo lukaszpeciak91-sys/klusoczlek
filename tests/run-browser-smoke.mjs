@@ -1050,6 +1050,19 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  const introVisible=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,panel=s.dialoguePanel.shell.list[0];return {bottom:p.getBounds().bottom-c.scrollY,dialogueTop:panel.y,bossTop:s.bossActor.y-256*.62*1.23-c.scrollY}})()");
  assert.ok(introVisible.bottom<introVisible.dialogueTop-2,'Act V Aloes must appear above dialogue '+JSON.stringify(introVisible));
  assert.ok(introVisible.bossTop>=0,'Act V transformed Marian head must fit portrait landscape');
+ const originalViewport=await evaluate("({width:innerWidth,height:innerHeight})");
+ for(const h of [220,240,320]){
+  await cdp('Emulation.setDeviceMetricsOverride',{width:568,height:h,deviceScaleFactor:1,mobile:false});
+  await evaluate('window.__game.scale.refresh();true');
+  await wait('window.__game.scale.height==='+h,'Act V short landscape '+h,1500);
+  const shortView=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,b=s.dialoguePanel.shell.list[0];return {bossTop:s.bossActor.y-256*.62*1.23-c.scrollY,playerTop:p.getBounds().top-c.scrollY,playerBottom:p.getBounds().bottom-c.scrollY,dialogueTop:b.y}})()");
+  assert.ok(shortView.bossTop>=0&&shortView.playerTop<shortView.dialogueTop,
+   'Act V characters visible despite Android browser bars '+h+' '+JSON.stringify(shortView));
+  if(h>=240)assert.ok(shortView.playerBottom<shortView.dialogueTop,'Aloes clears dialogue '+h);
+ }
+ await cdp('Emulation.setDeviceMetricsOverride',{width:originalViewport.width,height:originalViewport.height,deviceScaleFactor:1,mobile:false});
+ await evaluate('window.__game.scale.refresh();true');
+ await wait('window.__game.scale.height==='+originalViewport.height,'restore Act V landscape',1500);
  await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian transforms immediately after panel 1',3000);
  const transform5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,visible:s.dialoguePanel.button.visible,controls:s.joystick.enabled,boss:s.boss.phase,started:s.transformationStarted,completed:s.transformationCompleted}})()");

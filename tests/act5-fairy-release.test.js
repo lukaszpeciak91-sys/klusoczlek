@@ -45,15 +45,17 @@ test('fairy arrival avoids nearby player, altar and pillars',()=>{
 test('intro positioning fits Marian transformation and Aloes in narrow landscape',()=>{
  assert.ok(catacombsWalkable(CATACOMBS.playerStart));
  assert.ok(catacombsWalkable(CATACOMBS.marianStart,CATACOMBS.bossRadius));
- const cameraCenterY=200;
  const transformedHeight=256*.62*1.23;
- for(const height of [320,360,390]){
+ for(const height of [177,220,240,320,360,390]){
+  const cameraCenterY=Math.min(200,height/2+40);
   const viewTop=cameraCenterY-height/2;
-  const viewBottom=cameraCenterY+height/2;
   assert.ok(CATACOMBS.marianStart.y-transformedHeight>=viewTop,
-   'Marian transformed top must remain visible');
+   'Marian head must remain visible even beneath Android browser bars');
+  const spriteTop=CATACOMBS.playerStart.y-64*1.30/2;
   const spriteBottom=CATACOMBS.playerStart.y+64*1.30/2;
   const dialogueTop=height-Math.max(112,Math.min(108,Math.round(height*.32))+24)-12;
-  assert.ok(spriteBottom-viewTop<dialogueTop,'Aloes must be above the dialogue overlay');
+  assert.ok(spriteTop-viewTop<dialogueTop,'Aloes head must remain visible');
+  if(height>=240)assert.ok(spriteBottom-viewTop<dialogueTop,
+   'Aloes sprite must clear the dialogue panel when space allows');
  }
 });
