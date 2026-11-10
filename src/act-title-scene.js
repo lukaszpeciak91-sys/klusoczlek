@@ -57,14 +57,27 @@ export class ActTitleScene extends Phaser.Scene {
     this.tweens.add({targets:number,alpha:1,duration:380,ease:'Linear'});
     this.time.delayedCall(260,()=>this.tweens.add({targets:name,alpha:1,duration:440,ease:'Linear'}));
     const gate=this.assetGate;
+    let watchdog=null,launchPending=false,launched=false;
+    const eligible=()=>this.sys.isActive()&&!this.assetAbort.signal.aborted&&
+      !this.scene.isPaused()&&!document.hidden&&document.hasFocus()&&
+      window.innerWidth>=window.innerHeight;
+    const cleanup=()=>{clearTimeout(watchdog);watchdog=null;};
+    const launch=()=>{
+      if(launched||!launchPending||!gate.minimumElapsed||!gate.ready||
+         !sceneForAct(this.actId)||this.assetAbort.signal.aborted)return;
+      if(!eligible()){cleanup();watchdog=setTimeout(launch,150);return;}
+      launched=true;cleanup();
+      this.scene.start(this.nextScene,{handoff:this.handoff,debugCheckpoint:this.debugCheckpoint});
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,cleanup);
     const finish=()=>{
-      if(!this.sys.isActive()||this.assetAbort.signal.aborted||gate.starting||
-         !gate.minimumElapsed||!gate.ready)return;
+      if(!eligible()||gate.starting||!gate.minimumElapsed||!gate.ready)return;
       gate.starting=true;status.setVisible(false);retry.setVisible(false);
+      launchPending=true;
       this.tweens.add({targets:[number,name],alpha:0,duration:220,ease:'Linear',
-        onComplete:()=>{if(this.sys.isActive()&&sceneForAct(this.actId))
-          this.scene.start(this.nextScene,{handoff:this.handoff,debugCheckpoint:this.debugCheckpoint});}
+        onComplete:launch
       });
+      watchdog=setTimeout(launch,500);
     };
     const prepare=()=>{
       // create() runs before Phaser marks the scene fully active. Do not
