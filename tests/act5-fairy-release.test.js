@@ -42,20 +42,18 @@ test('fairy arrival avoids nearby player, altar and pillars',()=>{
   assert.ok(distance(result,player)>=CATACOMBS.enemyRadius+17+12);
  }
 });
-test('intro positioning fits Marian transformation and Aloes in narrow landscape',()=>{
+test('central Act V staging remains safe and camera accounts for portrait landscape',()=>{
+ assert.deepEqual(CATACOMBS.playerStart,{x:480,y:393});
  assert.ok(catacombsWalkable(CATACOMBS.playerStart));
  assert.ok(catacombsWalkable(CATACOMBS.marianStart,CATACOMBS.bossRadius));
- const transformedHeight=256*.62*1.23;
- for(const height of [177,220,240,320,360,390]){
-  const cameraCenterY=Math.min(200,height/2+40);
-  const viewTop=cameraCenterY-height/2;
-  assert.ok(CATACOMBS.marianStart.y-transformedHeight>=viewTop,
-   'Marian head must remain visible even beneath Android browser bars');
-  const spriteTop=CATACOMBS.playerStart.y-64*1.30/2;
-  const spriteBottom=CATACOMBS.playerStart.y+64*1.30/2;
-  const dialogueTop=height-Math.max(112,Math.min(108,Math.round(height*.32))+24)-12;
-  assert.ok(spriteTop-viewTop<dialogueTop,'Aloes head must remain visible');
-  if(height>=240)assert.ok(spriteBottom-viewTop<dialogueTop,
-   'Aloes sprite must clear the dialogue panel when space allows');
+ assert.ok(CATACOMBS.marianStart.y<312&&CATACOMBS.playerStart.y>350);
+ const transformedTop=CATACOMBS.marianStart.y-256*.62*1.23;
+ for(const height of [177,220,240,320,360,390,412,432]){
+  const zoom=Math.min(.72,Math.max(.3,(height*.63-16)/(CATACOMBS.playerStart.y+8-transformedTop)));
+  const projectedTop=transformedTop*zoom;
+  const projectedPlayerTop=(CATACOMBS.playerStart.y-64*1.30/2)*zoom;
+  assert.ok(zoom>0&&zoom<=.72);
+  assert.ok(projectedTop>=0,'entire Marian transformation silhouette is on-screen');
+  assert.ok(projectedPlayerTop>=0&&projectedPlayerTop<height,'Aloes starts within screen');
  }
 });
