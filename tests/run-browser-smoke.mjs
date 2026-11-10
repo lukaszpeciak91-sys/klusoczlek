@@ -1114,7 +1114,11 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  assert.ok(fairyView.left>=fairyView.view.left&&fairyView.right<=fairyView.view.right&&
   fairyView.top>=fairyView.view.top&&fairyView.bottom<=fairyView.view.bottom,
   'Act V fairy visibly clears camera and dialogue after close-distance boss kill '+JSON.stringify(fairyView));
- for(let i=0;i<3;i++)await next5();
+ // Simulate a Phaser clock stalled at the final MYK gesture. The
+ // independent browser timer must still complete Credits exactly once.
+ for(let i=0;i<2;i++)await next5();
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.time.delayedCall=()=>null;return true})()");
+ await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='magic'",'fairy MYK magic particles',3000);
  assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').dialogueState.id"),null,'no home dialogue');
  await wait("(()=>{const g=window.__game,c=g.scene.getScene('Catacombs');return g.scene.isActive('Credits')&&c.completed&&c.run.completedActs.has('act5')})()",'Act V MYK completes campaign and enters credits',3000);

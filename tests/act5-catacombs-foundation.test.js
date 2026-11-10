@@ -297,7 +297,7 @@ test('Act V final visual regression contracts preserve combat, fairy and credits
  assert.ok(s.includes("createPixelBurst(this,'marcin'"));
  assert.ok(s.includes('this.phase=\'boss-death\''));
  assert.ok(s.includes('this.time.delayedCall(FAIRY_ARRIVAL.pauseMs,()=>{'));
- assert.ok(s.includes('catacombsFairyArrival(this.bossActor,this.player)'));
+ assert.ok(s.includes('catacombsFairyArrival(this.bossActor,this.player,CATACOMBS.fairyStart,this.fairyVisibleBounds())'));
  assert.ok(s.includes('this.time.delayedCall(850,finish)'));
  assert.ok(s.includes("this.scene.start('Credits')"));
 });
