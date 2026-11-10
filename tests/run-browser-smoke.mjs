@@ -118,6 +118,7 @@ try{
  // checkpoint, then assert an actual visible screen-space bubble.
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act1-marcin');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Arena',{debugCheckpoint:'act1-marcin'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Arena');return s?.entryGateReady&&s.boss&&!s.bossEntrance&&!s.dialogueState?.id})()",'real Marcin entered Act I combat',16000);
+ await captureAct5('REF-marcin-hp-chromium');
  await evaluate("(()=>{const s=window.__game.scene.getScene('Arena');s.invulnerableUntil=Infinity;return true})()");
  await wait("(()=>{const s=window.__game.scene.getScene('Arena');return s.bossBarks.shown>0&&s.bossBarks.root.visible})()",'Marcin boss bark visibly renders',5200);
  const marcinBark=await evaluate("(()=>{const s=window.__game.scene.getScene('Arena'),b=s.bossBarks;return {text:b.caption.text,x:b.root.x,y:b.root.y,visible:b.root.visible,top:s.hudLayout.panelY+s.hudLayout.panelHeight,width:s.scale.width,height:s.scale.height}})()");
@@ -1008,6 +1009,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  await wait("typeof window.__createDebugFixture==='function'&&window.__game?.scene.isActive('Menu')",'Menu before approved Bogdan horn QA');
  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act3-boss');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('Volcano',{handoff:f.handoff,debugCheckpoint:'act3-boss'});return true})()");
  await wait("(()=>{const s=window.__game?.scene.getScene('Volcano');return s?.boss?.active&&s.boss.ready&&!!s.walkability&&s.finale.state==='BOGDAN_ACTIVE'})()",'real Volcano boss DEBUG with approved terrain and active Bogdan',16000);
+ await captureAct5('REF-bogdan-hp-chromium');
  await wait("(()=>{const s=window.__game.scene.getScene('Volcano');return !!s.hornRewardImage?.active&&s.hornRewardImage.texture.key==='artifact-bogdan-horn'})()",'approved Bogdan horn PNG loaded and decoded in Volcano',8500);
  const loadedHorn=await evaluate("(()=>{const s=window.__game.scene.getScene('Volcano'),i=s.hornRewardImage,t=s.textures.get('artifact-bogdan-horn');return {texture:i.texture.key,width:t.source[0].width,height:t.source[0].height,index:s.rewardRoot.list.indexOf(i),visible:s.rewardRoot.visible,owner:s.run.artifacts.has('bogdan-hunting-horn')}})()");
  assert.deepEqual(loadedHorn,{texture:'artifact-bogdan-horn',width:192,height:192,index:2,visible:false,owner:false},
@@ -1138,7 +1140,10 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
   await next5();
  }
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='boss'&&s.boss.phase==='gun'&&s.canPlay()})()",'boss after all 17 dialogue panels',4500);
- await sleep(120);await captureAct5('C-rudolf-hp-960x432');
+ await sleep(650);await captureAct5('C-rudolf-hp-960x432');
+ const bossFraming=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main;return {zoom:c.zoom,head:(s.bossActor.y-s.bossArt.displayHeight-c.scrollY)*c.zoom+(1-c.zoom)*s.scale.height/2,feet:(s.bossActor.y-c.scrollY)*c.zoom+(1-c.zoom)*s.scale.height/2,hp:s.boss.hp,maxHp:s.boss.maxHp,phase:s.phase,label:s.bossHpLabel.visible,scrollY:c.scrollY}})()");
+ assert.ok(Math.abs(bossFraming.zoom-1)<.01&&bossFraming.head>=-1&&bossFraming.feet<432,
+  'full transformed Rudolf silhouette visible in normal combat follow '+JSON.stringify(bossFraming));
  await wait("window.__game.scene.getScene('Catacombs').bossShots.length>0",'rotating gun emits real shots',6500);
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.bossBarks.shown>0&&s.bossBarks.root.visible})()",'Rudolf boss bark visibly renders',5200);
  const rudolfBark=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),b=s.bossBarks;return {text:b.caption.text,x:b.root.x,y:b.root.y,visible:b.root.visible,top:s.hudLayout.panelY+s.hudLayout.panelHeight,width:s.scale.width,height:s.scale.height}})()");
