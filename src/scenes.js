@@ -152,15 +152,18 @@ export class MenuScene extends Phaser.Scene {
       const text=act.label+' — '+(act.id==='act3'?'PRZYTULNE M4\nW CENTRUM WULKANU':act.title)+'\n'+(unlocked?'ODBLOKOWANY':'ZABLOKOWANY');
       return {act,unlocked,control:button(this,initial.centerX,0,160,34,text,()=>{})};
     });
-    let actFadeWatchdog=null,actFadePending=null;
+    let actFadeWatchdog=null,actFadePending=null,actFadeRestore=null;
     const clearActFade=()=>{
       if(actFadeWatchdog!==null){clearTimeout(actFadeWatchdog);actFadeWatchdog=null;}
       if(actFadePending){
         this.cameras.main.off('camerafadeoutcomplete',actFadePending);
-        window.removeEventListener('resize',actFadePending);
-        window.removeEventListener('orientationchange',actFadePending);
-        document.removeEventListener('visibilitychange',actFadePending);
         actFadePending=null;
+      }
+      if(actFadeRestore){
+        window.removeEventListener('resize',actFadeRestore);
+        window.removeEventListener('orientationchange',actFadeRestore);
+        document.removeEventListener('visibilitychange',actFadeRestore);
+        actFadeRestore=null;
       }
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,clearActFade);
@@ -181,8 +184,9 @@ export class MenuScene extends Phaser.Scene {
       };
       // A suspended camera fade cannot strand an otherwise valid replay.
       // After the 240ms animation, an independent clock provides recovery.
-      actFadePending=finish;
-      this.cameras.main.on('camerafadeoutcomplete',finish);
+      actFadePending=()=>{fadeElapsed=true;finish();};
+      actFadeRestore=finish;
+      this.cameras.main.on('camerafadeoutcomplete',actFadePending);
       window.addEventListener('resize',finish);
       window.addEventListener('orientationchange',finish);
       document.addEventListener('visibilitychange',finish);
