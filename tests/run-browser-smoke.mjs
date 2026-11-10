@@ -1088,22 +1088,24 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(act5Opening.world,'npc-captain','normal Marian sheet before first panel');
  assert.ok(act5Opening.portrait.includes('dialogue-captain'),'normal Marian dialogue portrait');
  assert.equal(act5Opening.boss,'staging');
- const introVisible=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,panel=s.dialoguePanel.shell.list[0];return {bottom:p.getBounds().bottom-c.scrollY,dialogueTop:panel.y,bossTop:s.bossActor.y-256*.62*1.23-c.scrollY}})()");
- assert.ok(introVisible.bottom<introVisible.dialogueTop-2,'Act V Aloes must appear above dialogue '+JSON.stringify(introVisible));
- assert.ok(introVisible.bossTop>=0,'Act V transformed Marian head must fit portrait landscape');
+ // Verify rendered screen-space bounds, not world-space coordinates:
+ // opening has a local camera zoom to keep Aloes, altar and Marian above DALEJ.
  const originalViewport=await evaluate("({width:innerWidth,height:innerHeight})");
- for(const h of [220,240,320]){
-  await cdp('Emulation.setDeviceMetricsOverride',{width:568,height:h,deviceScaleFactor:1,mobile:false});
+ for(const [w,h] of [[915,412],[960,432],[568,220],[568,240],[568,320]]){
+  await cdp('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:false});
   await evaluate('window.__game.scale.refresh();true');
-  await wait('window.__game.scale.height==='+h,'Act V short landscape '+h,1500);
-  const shortView=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,b=s.dialoguePanel.shell.list[0];return {bossTop:s.bossActor.y-256*.62*1.23-c.scrollY,playerTop:p.getBounds().top-c.scrollY,playerBottom:p.getBounds().bottom-c.scrollY,dialogueTop:b.y}})()");
-  assert.ok(shortView.bossTop>=0&&shortView.playerTop<shortView.dialogueTop,
-   'Act V characters visible despite Android browser bars '+h+' '+JSON.stringify(shortView));
-  if(h>=240)assert.ok(shortView.playerBottom<shortView.dialogueTop,'Aloes clears dialogue '+h);
+  await wait("window.__game.scale.width==="+w+"&&window.__game.scale.height==="+h,'Act V opening landscape '+w+'x'+h,1800);
+  const view=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),c=s.cameras.main,p=s.playerVisual.sprite,b=s.dialoguePanel.shell.list[0],a=s.player.getBounds();const sy=y=>(y-c.scrollY)*c.zoom;return {zoom:c.zoom,spawn:{x:s.player.x,y:s.player.y},facing:s.facing,walkable:s.player.x===480&&s.player.y===393,marian:s.bossActor.y,altar:312,top:sy(s.bossActor.y-256*.62*1.23),playerTop:sy(a.top),playerBottom:sy(a.bottom),dialogueTop:b.y,screenCenter:(s.player.x-c.scrollX)*c.zoom,viewport:s.scale.width}})()");
+  assert.equal(view.facing,'n','Aloes looks north toward Marian');
+  assert.ok(view.walkable&&view.marian<view.altar&&view.altar<view.spawn.y,
+   'central Aloes / altar / Marian staging '+JSON.stringify(view));
+  assert.ok(view.top>=-1&&view.playerTop>=0&&view.playerBottom<view.dialogueTop-2,
+   'Act V actors clear the actual screen-space dialogue overlay '+w+'x'+h+' '+JSON.stringify(view));
+  assert.ok(view.screenCenter>=0&&view.screenCenter<=view.viewport,'opening framing horizontal bounds');
  }
  await cdp('Emulation.setDeviceMetricsOverride',{width:originalViewport.width,height:originalViewport.height,deviceScaleFactor:1,mobile:false});
  await evaluate('window.__game.scale.refresh();true');
- await wait('window.__game.scale.height==='+originalViewport.height,'restore Act V landscape',1500);
+ await wait("window.__game.scale.height==="+originalViewport.height,'restore Act V landscape',1500);
  await next5();
  await wait("window.__game.scene.getScene('Catacombs').phase==='transform'",'Marian transforms immediately after panel 1',3000);
  const transform5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,visible:s.dialoguePanel.button.visible,controls:s.joystick.enabled,boss:s.boss.phase,started:s.transformationStarted,completed:s.transformationCompleted}})()");
