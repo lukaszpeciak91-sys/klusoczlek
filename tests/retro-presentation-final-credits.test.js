@@ -6,7 +6,7 @@ import {TRACKS} from '../src/retro-audio.js';
 const source=path=>readFileSync(new URL(path,import.meta.url),'utf8');
 
 test('approved scroll credits cover every role in exact stable order',()=>{
- assert.equal(FINAL_CREDITS.length,25);
+ assert.equal(FINAL_CREDITS.length,32,'25 approved original entries plus seven additional credits');
  assert.deepEqual(FINAL_CREDITS[0],{
   role:'OPARTE NA MOTYWACH SMS-OWEJ OPOWIASTKI',
   name:'"LEŚNI PRZYJACIELE"\nMICHAŁA ALOESA ŚWIDERSKIEGO'
