@@ -95,7 +95,10 @@ function createEnemyRenderer(scene,Phaser,type,visualAsset=null){
       if(!gait){gait=createEnemyGait(type,enemy.seed);enemy.sprite.setData(gaitKey,gait);}
       advanceEnemyGait(gait,type,distance,seconds);
       // Counter-rotate the sprite center so its feet stay at the container anchor.
-      art.setRotation(gait.rotation+fx.angle).setPosition(-Math.sin(gait.rotation)*offset+fx.x,offset*Math.cos(gait.rotation)+gait.bob+fx.y);
+      // Błażej-only readability polish; ordinary Żubrokryptydy keep original gait.
+      const strength=visualAsset===BLAZEJ_ASSET?1.35:1;
+      const angle=gait.rotation*strength;
+      art.setRotation(angle+fx.angle).setPosition(-Math.sin(angle)*offset+fx.x,offset*Math.cos(angle)+gait.bob*strength+fx.y);
     }else{
       // Fallback parts keep stable local coordinates; offset the whole visual only,
       // never its world collision/container position.
