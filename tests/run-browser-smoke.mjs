@@ -489,8 +489,15 @@ try{
 
  const optionalBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,maciek:s.maciekSeen,pitch:s.pitchStarted,actors:s.combat.optionalActors.length}})()");
  assert.deepEqual(optionalBefore,{intro:false,started:false,maciek:false,pitch:false,actors:2},'both NPCs staged, optional encounter not automatic');
- const approachMaciek=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(695,620);s.player.body.reset(695,620);return true})()");
- await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-maciek-seba'",'optional dialogue on actual approach',4000);
+ // 281 px must be outside the trigger; Maciek and Seba remain passive.
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(414,620);s.player.body.reset(414,620);return true})()");
+ await sleep(220);
+ const outsideMaciek=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {dialogue:s.dialogueState.id,hp:s.run.hp,seen:s.maciekSeen,passive:s.combat.optionalActors.length,hostile:s.combat.optionalHostile,ordinary:s.combat.enemies.length}})()");
+ assert.ok(outsideMaciek.dialogue===null&&!outsideMaciek.seen&&outsideMaciek.passive===2&&!outsideMaciek.hostile&&outsideMaciek.ordinary===0,
+  'no optional conversation or combat at 281 world units '+JSON.stringify(outsideMaciek));
+ const approachMaciek=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(445,620);s.player.body.reset(445,620);return true})()");
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-maciek-seba'",'optional dialogue on safe 250-world-unit approach',4000);
+ const maciekDialogHp=await evaluate("window.__game.scene.getScene('School').run.hp");
  await wait("(()=>{const s=window.__game.scene.getScene('School');return ['bobrozombi','bocianolak','blazej'].every(k=>s.dialoguePanel.loaded.has(k))})()",'only Act IV dialogue portraits load (no unused Żubrokryptyda portrait)',10000);
  const first=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {captain:s.captainArrival.actor?.active??false,active:s.combat.started,phase:s.schoolPhase,boss:s.blazej.active}})()");
  assert.deepEqual(first,{captain:false,active:false,phase:'INTRO',boss:false});
@@ -499,9 +506,22 @@ try{
   'I w ogóle Sebuś, czemu Kłusoczłek,\nże kłusuje jak koń?',
   'Ty to Maciek jednak głupi jesteś...\nA to nie jest czasem on? Do ataku!'
  ];
- for(let i=0;i<maciek.length;i++)await verifyPanel('act4-maciek-seba',i,maciek[i]);
+ for(let i=0;i<maciek.length;i++){
+  const p=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.run.hp,hostile:s.combat.optionalHostile,passive:s.combat.optionalActors.length,active:s.combat.enemies.length,phase:s.schoolPhase}})()");
+  assert.deepEqual(p,{hp:maciekDialogHp,hostile:false,passive:2,active:0,phase:'INTRO'},
+   'both NPCs remain passive and deal no contact damage during panel '+i);
+  await verifyPanel('act4-maciek-seba',i,maciek[i]);
+ }
+ const postDialogueMaciek=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hostile:s.combat.optionalHostile,passive:s.combat.optionalActors.length,active:s.combat.enemies.filter(e=>e.optionalEncounter).length,hp:s.run.hp}})()");
+ assert.deepEqual(postDialogueMaciek,{hostile:true,passive:0,active:2,hp:maciekDialogHp},
+  'only final DALEJ adopts both optional actors into real combat');
+ await sleep(180);
  const optionalDone=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,started:s.combat.started,seen:s.maciekSeen}})()");
  assert.deepEqual(optionalDone,{id:null,started:false,seen:true},'Maciek/Seba once and no automatic combat');
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(445,620);s.player.body.reset(445,620);return true})()");
+ await sleep(180);
+ assert.equal(await evaluate("window.__game.scene.getScene('School').dialogueState.id"),null,
+  'Maciek/Seba encounter triggers only once even when remaining inside 280 radius');
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1135,785);s.player.body.reset(1135,785);return true})()");
  await sleep(220);
  assert.equal(await evaluate("window.__game.scene.getScene('School').dialogueState.id"),null,
