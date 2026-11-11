@@ -626,7 +626,12 @@ export class CatacombsScene extends Phaser.Scene{
   updateProjectiles(array,delta){
   const dt=Math.min(50,delta)/1000;
   for(let i=array.length-1;i>=0;i--){
-   const p=array[i],next={x:p.x+p.vx*dt,y:p.y+p.vy*dt};
+   // A lethal hit clears this very array through defeatBoss()->clearShots().
+   // Exit rather than dereference a destroyed/removed shot on the next index.
+   if(this.phase!=='boss'||this.boss.defeated)return;
+   const p=array[i];
+   if(!p)continue;
+   const next={x:p.x+p.vx*dt,y:p.y+p.vy*dt};
    p.life-=delta;
    let remove=p.life<=0||!catacombsWalkable(next,3)||
     Boolean(segmentObstacleHit(p,next,CATACOMBS_OBSTACLES,3));
@@ -636,7 +641,9 @@ export class CatacombsScene extends Phaser.Scene{
     }
    }else if(!remove){
     if(!this.boss.defeated&&segmentRudolfHit(p,next,this.bossActor,3)){
-     this.damageBoss(1);remove=true;
+     this.damageBoss(1);
+     if(this.phase!=='boss'||this.boss.defeated)return;
+     remove=true;
     }else for(const e of [...this.summons])if(!e.dead&&
      Math.hypot(next.x-e.x,next.y-e.y)<e.radius+3){
       this.damageEnemy(e,1);remove=true;break;
@@ -672,6 +679,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.playerVisual.update(this.facing,Math.hypot(input.x,input.y)>.05,delta);
   this.hpFace.update(delta);
   this.firePlayer(delta);
+  if(this.phase!=='boss'||this.boss.defeated)return;
   if(this.boss.phase==='gun'){
    const from=this.bossActor;
    const dir=normalizeInput(this.player.x-from.x,this.player.y-from.y);
@@ -707,7 +715,11 @@ export class CatacombsScene extends Phaser.Scene{
      Math.hypot(enemy.x-this.player.x,enemy.y-this.player.y)<enemy.radius+PLAYER_RADIUS+2)this.hurtPlayer(this.time.now);
   }
   this.updateProjectiles(this.shots,delta);
+  // The player shot may have initiated the one-shot death cinematic.
+  // Do not run boss shots or redraw combat HP in that same frame.
+  if(this.phase!=='boss'||this.boss.defeated)return;
   this.updateProjectiles(this.bossShots,delta);
+  if(this.phase!=='boss'||this.boss.defeated)return;
   this.bossHp.clear();
   if(this.phase==='boss'&&(this.boss.phase==='gun'||this.boss.phase==='summon')){
    // Exact established Marcin/Bogdan meter geometry. Purple summon
