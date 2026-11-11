@@ -81,9 +81,21 @@ function button(scene, x, y, width, height, value, onClick, event='pointerdown',
 export class MenuScene extends Phaser.Scene {
   constructor() { super('Menu'); }
 
+  preload() {
+    // Optional menu art. A missing upload must never prevent menu navigation.
+    if(!this.textures.exists('menu-bg'))
+      this.load.image('menu-bg',import.meta.env.BASE_URL+'assets/backgrounds/menu-bg.png');
+  }
+
   create() {
     this.navigating = false;
     this.cameras.main.setBackgroundColor(COLORS.background);
+    const background=this.textures.exists('menu-bg')
+      ?this.add.image(0,0,'menu-bg').setOrigin(.5).setDepth(-30)
+      :null;
+    const backgroundShade=background
+      ?this.add.rectangle(0,0,1,1,0x070a0e,.23).setOrigin(.5).setDepth(-29)
+      :null;
     const initial = menuLayout(this.scale.width, this.scale.height);
     const title = label(this, initial.centerX, initial.titleY, 'KŁUSOCZŁEK', initial.titleSize)
       .setColor('#d8b36f').setShadow(3,4,'#030304',4);
@@ -254,6 +266,12 @@ export class MenuScene extends Phaser.Scene {
     const resize = () => {
       const layout = menuLayout(this.scale.width, this.scale.height);
       const w=this.scale.width,h=this.scale.height;
+      // Fill every landscape viewport without exposing bars or stretching art.
+      // Center-crop edges only; all original NES menu UI stays unchanged.
+      if(background){
+        background.setPosition(w/2,h/2).setScale(Math.max(w/background.width,h/background.height));
+        backgroundShade.setPosition(w/2,h/2).setSize(w,h);
+      }
       const showMain=!this.actsOpen&&!this.optionsOpen;
       const logoY=showMain?h*.265:this.actsOpen?h*.105:layout.titleY;
       const logoSize=showMain
