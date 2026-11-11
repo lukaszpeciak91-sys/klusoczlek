@@ -6,7 +6,7 @@ import {ENEMY_TYPES} from './enemy-types.js';
 import {BLAZEJ_START} from './school-finale.js';
 import {healOneHp,canCollectBogdanHeart} from './volcano-heart.js';
 
-export const MACIEK_SEBA_RADIUS=150;
+export const MACIEK_SEBA_RADIUS=280;
 export const PITCH_ENCOUNTER_RADIUS=130;
 export const SCHOOL_WAVE2_END_MS=75000; // 35 s + 40 s
 export const SCHOOL_HEART_HEAL=2; // Approved Act III pre-boss heart recovery.
