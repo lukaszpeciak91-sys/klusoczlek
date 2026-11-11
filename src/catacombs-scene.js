@@ -48,35 +48,15 @@ export class CatacombsScene extends Phaser.Scene{
   updateRunHealth(this.run,this.run.maxHp);
   this.physics.world.setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
   this.cameras.main.setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
-  // Only Act V's opening uses a wide shot: the actual 256px Rudolf atlas
-  // expands to 256*.62*1.23 px during flashing, and Aloes stands south
-  // of the altar. Reserve the lower dialogue panel in screen pixels.
-  this.openingCameraZoom=()=>{
-   const transformedTop=CATACOMBS.marianStart.y-256*.62*1.23;
-   const playerBottom=CATACOMBS.playerStart.y+64*.65;
-   // Dialogue UI has measured its actual wrapped height by this point.
-   // Leave at least 45 screen pixels for breathing room and safe areas.
-   const dialogueTop=this.dialoguePanel?.shell?.list?.[0]?.y??this.scale.height*.66;
-   return Math.min(.58,Math.max(.08,(dialogueTop-45)/(playerBottom-transformedTop)));
-  };
-  this.openingCameraScroll=()=>{
-   const zoom=this.openingCameraZoom();
-   const transformedTop=CATACOMBS.marianStart.y-256*.62*1.23;
-   // Phaser zoom is around the viewport center. The camera scroll is
-   // calibrated so transformed head projects 12px below the top edge.
-   return {x:CATACOMBS.width/2-this.scale.width/2,
-    y:transformedTop+((1-zoom)*this.scale.height/2-12)/zoom};
-  };
+  // Act V uses the same natural-scale world framing as the campaign.
+  // Keep the opening centered on the altar axis, never shrink the arena.
   this.resizeCamera=()=>{
-   const opening=this.phase==='opening'||this.phase==='transform';
-   if(opening){
-    const {x,y}=this.openingCameraScroll();
-    // Opening art may be narrower than the physical landscape viewport.
-    // Do not clamp it to the left wall; symmetrical margins are deliberate.
-    this.cameras.main.removeBounds();
-    this.cameras.main.setZoom(this.openingCameraZoom()).setScroll(x,y);
-   }else if(['boss-death','fairy','magic'].includes(this.phase))
-    this.cameras.main.setZoom(1).centerOn(CATACOMBS.width/2,350);
+   const camera=this.cameras.main;
+   camera.setZoom(1).setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
+   if(this.phase==='opening')camera.centerOn(CATACOMBS.width/2,this.transformationCompleted?280:347);
+   else if(this.phase==='transform')camera.centerOn(CATACOMBS.marianStart.x,245);
+   else if(['boss-death','fairy','magic'].includes(this.phase))
+    camera.centerOn(CATACOMBS.width/2,350);
   };
   this.drawCatacombs();
   const start=CATACOMBS.playerStart;
@@ -112,7 +92,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.hpText=this.add.text(0,0,'HP '+this.run.hp+'/'+this.run.maxHp,{
    fontFamily:'monospace',fontSize:'13px',color:'#f3e8d1'})
    .setOrigin(.5,0).setScrollFactor(0).setDepth(81);
-  this.objective=this.add.text(0,0,'KATAKUMBY KAPLICY',{
+  this.objective=this.add.text(0,0,'',{
    fontFamily:'monospace',fontSize:'15px',color:'#e8c883'}).setOrigin(.5,0).setScrollFactor(0).setDepth(70);
   this.dialogueState=createDialogueState();
   this.dialoguePanel=createDialoguePanel(this,Phaser,id=>this.afterDialogue(id),state=>this.onDialogueAdvance(state));
@@ -304,9 +284,8 @@ export class CatacombsScene extends Phaser.Scene{
   if(this.phase!=='opening'||this.transformationStarted||this.dialogueState.id!=='act5-betrayal'||this.dialogueState.index!==1)return false;
   this.transformationStarted=true;
   this.phase='transform';this.resetMovement();this.stopFlame();this.syncControls();
-  // Focus on Marian during the original blinking evolution; no camera snap.
-  this.cameras.main.zoomTo(Math.min(.82,this.openingCameraZoom()*1.16),340,'Sine.easeInOut');
-  this.cameras.main.pan(CATACOMBS.marianStart.x,215,340,'Sine.easeInOut');
+  // Preserve natural zoom while smoothly presenting Marian's evolution.
+  this.cameras.main.pan(CATACOMBS.marianStart.x,245,340,'Sine.easeInOut');
   this.transitionVeil.setFillStyle(0x0d0815,.55).setAlpha(.55);
   this.selectMarianAppearance(false);
   let pulses=0;
@@ -327,9 +306,9 @@ export class CatacombsScene extends Phaser.Scene{
    this.transformationCompleted=true;
    this.phase='opening';this.syncControls();
    this.dialoguePanel.resume();
-   const {x,y}=this.openingCameraScroll();
-   this.cameras.main.zoomTo(this.openingCameraZoom(),340,'Sine.easeInOut');
-   this.tweens.add({targets:this.cameras.main,scrollX:x,scrollY:y,duration:340,ease:'Sine.easeInOut'});
+   // Move back toward Aloes, but retain the entire transformed Rudolf
+   // silhouette while the remaining betrayal dialogue is visible.
+   this.cameras.main.pan(CATACOMBS.width/2,280,340,'Sine.easeInOut');
   });
   return true;
  }
@@ -337,13 +316,11 @@ export class CatacombsScene extends Phaser.Scene{
   if(this.disposed||this.phase==='boss'||this.boss.defeated)return false;
   this.phase='boss';this.selectMarianAppearance(true);
   this.bossHpLabel.setVisible(true);
-  // Restore player-follow before enabling damage/combat. Phaser's lerp
-  // avoids a hard camera snap while the existing local zoom eases to 1.
+  // Restore player-follow before enabling combat without changing zoom.
   this.cameras.main.setBounds(0,0,CATACOMBS.width,CATACOMBS.height);
   // Keep Rudolf's full 256px transformed sprite in view at combat entry,
   // without losing normal smooth follow of Aloes or changing world physics.
   this.cameras.main.startFollow(this.player,true,.12,.12,0,108);
-  this.cameras.main.zoomTo(1,320,'Sine.easeInOut');
   this.transitionVeil.setAlpha(0);
   finalBossStart(this.boss);
   this.objective.setText('POKONAJ KŁUSOCZŁEKA!');
