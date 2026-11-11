@@ -1331,6 +1331,22 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
    weapon+' boss death exactly once through Credits');
  }
  console.log('PASS Act V lethal shots: rifle multi-projectile, blunderbuss and real flamethrower → fairy/MYK/Credits');
+ // Act IV P0 RED->GREEN: lethal real Błażej projectile while earlier
+ // projectiles remain in the SAME active reverse-iterated array.
+ await cdp('Page.reload',{ignoreCache:true});
+ await sleep(250);
+ await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'Act IV lethal-probe Menu');
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act4-blazej');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act4',handoff:f.handoff,debugCheckpoint:'act4-blazej'});return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.entryGateReady&&s.schoolPhase==='BLAZEJ_BOSS'&&s.blazej.active&&!s.dialogueState.id})()",'real Błażej projectile test encounter',16000);
+ const act4Lethal=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej,p=b.projectiles;s.run.hp=1;s.hpFace.setHp(1);s.hpText.setText('HP 1/'+s.run.maxHp);p.length=0;for(let i=0;i<4;i++)p.push({x:s.player.x+140+i*10,y:s.player.y,vx:100,vy:0,age:0});p.push({x:s.player.x,y:s.player.y,vx:0,vy:0,age:0});const before={projectiles:p.length,hp:s.run.hp,phase:s.schoolPhase,bossActive:b.active,scenePaused:s.scene.isPaused(),bossDefeated:b.defeated};try{b.update(16,s.time.now+100000);return {before,after:{projectiles:p.length,hp:s.run.hp,phase:s.schoolPhase,scenePaused:s.scene.isPaused(),menu:s.scene.isActive('Menu')},exception:null}}catch(e){return {before,after:{projectiles:p.length,hp:s.run.hp,phase:s.schoolPhase,scenePaused:s.scene.isPaused(),menu:s.scene.isActive('Menu')},exception:{name:e.name,message:e.message,stack:e.stack}}}})()");
+ console.log('ACT IV LETHAL PROJECTILE RED GREEN '+JSON.stringify(act4Lethal));
+ assert.equal(act4Lethal.exception,null,'Błażej lethal hit must not dereference emptied projectile array');
+ assert.equal(act4Lethal.before.projectiles,5);
+ assert.equal(act4Lethal.before.hp,1);
+ assert.equal(act4Lethal.after.hp,0);
+ assert.equal(act4Lethal.after.projectiles,0);
+ await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'Act IV lethal projectile defeat goes to Menu',2500);
+ console.log('PASS Act IV lethal boss projectile array does not softlock and opens defeat Menu');
  // Cold-cache Act V recovery: fail ONE required production PNG network request
  // and tap the actual ActTitle PONÓW control before entering Catacombs.
  await cdp('Page.reload',{ignoreCache:true});
