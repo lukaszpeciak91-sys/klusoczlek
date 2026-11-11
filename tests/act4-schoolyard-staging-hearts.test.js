@@ -39,13 +39,13 @@ test('Act IV schoolyard layout places chapel lower-left and keeps all staging gr
 });
 test('optional Maciek and Seba trigger can be bypassed without delaying pitch or combat',()=>{
  assert.ok(MACIEK_SEBA_RADIUS>100&&MACIEK_SEBA_RADIUS<200);
- assert.equal(PITCH_ENCOUNTER_RADIUS,130);
+ assert.equal(PITCH_ENCOUNTER_RADIUS,280);
  assert.equal(Boolean(maciekSebaNearby(SCHOOL_PLACES.playerStart)),false);
  assert.equal(Boolean(maciekSebaNearby(SCHOOL_PLACES.maciek)),true);
  assert.equal(Boolean(pitchNearby(SCHOOL_PLACES.pitchApproach)),false);
-  assert.equal(Boolean(pitchNearby({x:BLAZEJ_START.x-200,y:BLAZEJ_START.y})),false);
-  assert.equal(Boolean(pitchNearby({x:BLAZEJ_START.x-125,y:BLAZEJ_START.y})),true);
-  assert.equal(Boolean(pitchNearby({x:BLAZEJ_START.x-131,y:BLAZEJ_START.y})),false);
+  assert.equal(Boolean(pitchNearby({x:BLAZEJ_START.x-281,y:BLAZEJ_START.y})),false);
+  assert.equal(Boolean(pitchNearby({x:BLAZEJ_START.x-280,y:BLAZEJ_START.y})),true);
+  assert.equal(Boolean(pitchNearby({x:BLAZEJ_START.x-250,y:BLAZEJ_START.y})),true);
  assert.equal(Boolean(maciekSebaNearby(SCHOOL_PLACES.pitchApproach)),false);
  assert.equal(Boolean(maciekSebaNearby(SCHOOL_PLACES.debugSchool)),false);
  assert.equal(Boolean(pitchNearby(SCHOOL_PLACES.debugSchool)),false);

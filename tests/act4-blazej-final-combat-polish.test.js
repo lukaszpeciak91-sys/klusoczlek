@@ -9,10 +9,11 @@ import {SCHOOL_OBSTACLES,schoolWalkable} from '../src/school-contract.js';
 import {firstFootprintHit} from '../src/obstacle-geometry.js';
 import {DIALOGUES} from '../src/dialogue-data.js';
 const source=p=>readFileSync(new URL(p,import.meta.url),'utf8');
-test('Błażej observer is at actual boss position, 200px silent and 125px triggers',()=>{
- assert.equal(PITCH_ENCOUNTER_RADIUS,130);
- assert.equal(pitchNearby({x:BLAZEJ_START.x-200,y:BLAZEJ_START.y}),false);
- assert.equal(pitchNearby({x:BLAZEJ_START.x-125,y:BLAZEJ_START.y}),true);
+test('Błażej observer tracks live boss, 281px silent and safe 275px triggers',()=>{
+ assert.equal(PITCH_ENCOUNTER_RADIUS,280);
+ assert.equal(pitchNearby({x:BLAZEJ_START.x-281,y:BLAZEJ_START.y}),false);
+ assert.equal(pitchNearby({x:BLAZEJ_START.x-280,y:BLAZEJ_START.y}),true);
+ assert.equal(pitchNearby({x:BLAZEJ_START.x-275,y:BLAZEJ_START.y}),true);
  assert.equal(pitchNearby({x:1065,y:870}),false);
  assert.equal(pitchNearby({x:200,y:200},{x:250,y:250}),true,'uses supplied live boss position');
  assert.ok(source('../src/school-scene.js').includes('pitchNearby(this.player,this.blazej.actor)'));

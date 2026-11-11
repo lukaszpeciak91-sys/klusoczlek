@@ -502,17 +502,24 @@ try{
  for(let i=0;i<maciek.length;i++)await verifyPanel('act4-maciek-seba',i,maciek[i]);
  const optionalDone=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {id:s.dialogueState.id,started:s.combat.started,seen:s.maciekSeen}})()");
  assert.deepEqual(optionalDone,{id:null,started:false,seen:true},'Maciek/Seba once and no automatic combat');
- await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1135,785);s.player.body.reset(1135,785);return true})()");
+ // Test the original pitch observer chain, NOT optional Maciek/Seba.
+ // The approach is from the west of Błażej, outside the staged entourage.
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1054,785);s.player.body.reset(1054,785);return true})()");
  await sleep(220);
- assert.equal(await evaluate("window.__game.scene.getScene('School').dialogueState.id"),null,
-  'Błażej observer must not trigger at 200px from actual boss');
- await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1215,785);s.player.body.reset(1215,785);return true})()");
- await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'Błażej observer inside 130px',4000);
+ const pitchOutside=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {distance:Math.hypot(s.player.x-s.blazej.actor.x,s.player.y-s.blazej.actor.y),dialogue:s.dialogueState.id,pitch:s.pitchStarted,ordinary:s.combat.started,boss:s.blazej.active,enemyCount:s.combat.enemies.length}})()");
+ assert.ok(pitchOutside.distance>280&&pitchOutside.distance<282&&!pitchOutside.dialogue&&!pitchOutside.pitch&&!pitchOutside.ordinary&&!pitchOutside.boss,
+  'pitch dialogue must not trigger at 281 world units '+JSON.stringify(pitchOutside));
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(1060,785);s.player.body.reset(1060,785);return true})()");
+ await wait("window.__game.scene.getScene('School').dialogueState.id==='act4-blazej-observer'",'Błażej pitch observer triggers from safe 275-world-unit west approach',4000);
+ const pitchInside=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {distance:Math.hypot(s.player.x-s.blazej.actor.x,s.player.y-s.blazej.actor.y),dialogue:s.dialogueState.id,phase:s.schoolPhase,pitch:s.pitchStarted,started:s.combat.started,hostile:s.combat.optionalHostile,hp:s.run.hp}})()");
+ assert.ok(pitchInside.distance>=270&&pitchInside.distance<=280&&pitchInside.dialogue==='act4-blazej-observer'&&pitchInside.phase==='INTRO'&&pitchInside.pitch&&!pitchInside.started,
+  'observer dialogue starts before Aloes enters group '+JSON.stringify(pitchInside));
  const staged=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),actors=s.combat.stagedEntourage;window.__schoolStagedEntourage=[...actors];return {types:actors.map(a=>a.type).sort(),alive:actors.filter(a=>a.hp>0&&a.sprite?.active&&a.sprite.visible).length,ordinary:s.combat.enemies.length,spawned:s.combat.totalSpawned,started:s.combat.started,clock:s.combat.elapsedMs,shots:s.combat.projectiles.length,hp:s.run.hp}})()");
  assert.deepEqual(staged.types,['bobrozombi','bocianolak','zubrokryptyda']);
  assert.equal(staged.alive,3,'three approved enemy sprites visually surround passive Błażej before conversation');
  assert.ok(!staged.started&&staged.ordinary===2&&staged.spawned===0&&staged.clock===0&&staged.shots===0);
  const hpBeforeDialogue=staged.hp;
+ assert.equal(hpBeforeDialogue,pitchInside.hp,'no contact damage at safe trigger distance');
  await sleep(350);
  assert.deepEqual(await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {hp:s.run.hp,elapsed:s.combat.elapsedMs,spawned:s.combat.totalSpawned,poses:s.combat.stagedEntourage.map(e=>[e.x,e.y])}})()"),
   {hp:hpBeforeDialogue,elapsed:0,spawned:0,poses:[[1220,785],[1430,720],[1320,900]]},
