@@ -1307,6 +1307,26 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
   assert.deepEqual(v,{hp:5,artifacts:3,completed:4,water:false});
  }
  console.log('PASS Act V Chromium DEBUG: opening, Marian boss and ending checkpoints with complete prior artifacts and full HP');
+ // Both remaining approved weapons must enter the same one-shot death route
+ // from a real boss hit (not a direct defeatBoss()/damageBoss() shortcut).
+ for(const weapon of ['blunderbuss','flamethrower']){
+  await cdp('Page.reload',{ignoreCache:true});
+  await sleep(250);
+  await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'weapon regression Menu '+weapon);
+  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act5-boss');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:'act5-boss'});return true})()");
+  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.entryGateReady&&s.phase==='boss'&&s.canPlay()})()",'combat checkpoint for '+weapon,16000);
+  const probe=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.boss.hp=1;s.boss.hitAt=-Infinity;s.clearShots();s.weapon="+JSON.stringify(weapon)+";try{if(s.weapon==='blunderbuss'){for(let i=0;i<3;i++)s.spawnShot(s.shots,520+i*8,345,0,510,'player');s.spawnShot(s.shots,610,345,0,510,'player');s.updateProjectiles(s.shots,16);}else{s.player.setPosition(650,500);s.player.body.reset(650,500);s.aimJoystick.direction.x=0;s.aimJoystick.direction.y=-1;Object.defineProperty(s.aimJoystick,'held',{configurable:true,get:()=>true});s.firePlayer(16);}return {error:null,phase:s.phase,events:s.boss.defeatEvents,shots:s.shots.length}}catch(e){return {error:{message:e.message,stack:e.stack},phase:s.phase,events:s.boss.defeatEvents}}})()");
+  console.log('ACT V LETHAL WEAPON REGRESSION '+weapon+' '+JSON.stringify(probe));
+  assert.deepEqual(probe,{error:null,phase:'boss-death',events:1,shots:0},
+   weapon+' real lethal damage must clear projectiles and start exactly one death');
+  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.fairyActor?.active&&s.dialogueState.id==='act5-fairy'})()",
+   weapon+' death to Wróżka and dialogue',5500);
+  for(let panel=0;panel<3;panel++)await next5();
+  await wait("window.__game.scene.isActive('Credits')",weapon+' death through MYK to Credits',5000);
+  assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').boss.defeatEvents"),1,
+   weapon+' boss death exactly once through Credits');
+ }
+ console.log('PASS Act V lethal shots: rifle multi-projectile, blunderbuss and real flamethrower → fairy/MYK/Credits');
  // Cold-cache Act V recovery: fail ONE required production PNG network request
  // and tap the actual ActTitle PONÓW control before entering Catacombs.
  await cdp('Page.reload',{ignoreCache:true});
