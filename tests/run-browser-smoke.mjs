@@ -1331,6 +1331,28 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
    weapon+' boss death exactly once through Credits');
  }
  console.log('PASS Act V lethal shots: rifle multi-projectile, blunderbuss and real flamethrower → fairy/MYK/Credits');
+ // Act IV P0 RED->GREEN: lethal real Błażej projectile while earlier
+ // projectiles remain in the SAME active reverse-iterated array.
+ await cdp('Page.reload',{ignoreCache:true});
+ await sleep(250);
+ await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'Act IV lethal-probe Menu');
+ await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act4-boss');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act4',handoff:f.handoff,debugCheckpoint:'act4-boss'});return true})()");
+ await wait("(()=>{const s=window.__game.scene.getScene('School');return s.entryGateReady&&s.schoolPhase==='BLAZEJ_BOSS'&&s.blazej.active&&!s.dialogueState.id})()",'real Błażej projectile test encounter',16000);
+ const act4Nonlethal=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej,p=b.projectiles;s.run.hp=2;s.hpFace.setHp(2);s.hpText.setText('HP 2/'+s.run.maxHp);p.length=0;for(let i=0;i<3;i++)p.push({x:s.player.x+140+i*10,y:s.player.y,vx:100,vy:0,age:0});p.push({x:s.player.x,y:s.player.y,vx:0,vy:0,age:0});b.update(16,s.time.now+100000);const result={hp:s.run.hp,remaining:p.length,phase:s.schoolPhase,defeated:s.defeated};b.clearAttacks();return result})()");
+ assert.deepEqual(act4Nonlethal,{hp:1,remaining:3,phase:'BLAZEJ_BOSS',defeated:false},
+  'nonlethal boss projectile preserves HP damage, remaining shots and ongoing combat');
+ const act4Lethal=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej,p=b.projectiles;s.run.hp=1;s.hpFace.setHp(1);s.hpText.setText('HP 1/'+s.run.maxHp);p.length=0;for(let i=0;i<4;i++)p.push({x:s.player.x+140+i*10,y:s.player.y,vx:100,vy:0,age:0});p.push({x:s.player.x,y:s.player.y,vx:0,vy:0,age:0});const before={projectiles:p.length,hp:s.run.hp,phase:s.schoolPhase,bossActive:b.active,scenePaused:s.scene.isPaused(),bossDefeated:b.defeated};try{b.update(16,s.time.now+200000);return {before,after:{projectiles:p.length,hp:s.run.hp,phase:s.schoolPhase,scenePaused:s.scene.isPaused(),menu:s.scene.isActive('Menu')},exception:null}}catch(e){return {before,after:{projectiles:p.length,hp:s.run.hp,phase:s.schoolPhase,scenePaused:s.scene.isPaused(),menu:s.scene.isActive('Menu')},exception:{name:e.name,message:e.message,stack:e.stack}}}})()");
+ console.log('ACT IV LETHAL PROJECTILE RED GREEN '+JSON.stringify(act4Lethal));
+ assert.equal(act4Lethal.exception,null,'Błażej lethal hit must not dereference emptied projectile array');
+ assert.equal(act4Lethal.before.projectiles,5);
+ assert.equal(act4Lethal.before.hp,1);
+ assert.equal(act4Lethal.after.hp,0);
+ assert.equal(act4Lethal.after.projectiles,0);
+ await wait("window.__game.scene.isActive('Menu')&&window.__game.scene.isPaused('School')",'Act IV lethal projectile defeat goes to Menu',2500);
+ const act4PostDeath=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),b=s.blazej,volley=b.volleys,projectiles=b.projectiles.length;b.update(16,s.time.now+300000);return {hp:s.run.hp,projectiles:b.projectiles.length,beforeShots:projectiles,volleyBefore:volley,volleyAfter:b.volleys,phase:s.schoolPhase,paused:s.scene.isPaused(),menu:s.scene.isActive('Menu')}})()");
+ assert.deepEqual(act4PostDeath,{hp:0,projectiles:0,beforeShots:0,volleyBefore:act4PostDeath.volleyBefore,volleyAfter:act4PostDeath.volleyBefore,phase:'DEFEAT',paused:true,menu:true},
+  'no duplicate player death or ghost boss projectile/volley after lethal hit');
+ console.log('PASS Act IV lethal boss projectile array does not softlock and opens defeat Menu');
  // Cold-cache Act V recovery: fail ONE required production PNG network request
  // and tap the actual ActTitle PONÓW control before entering Catacombs.
  await cdp('Page.reload',{ignoreCache:true});
