@@ -1186,12 +1186,14 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  await sleep(650);await captureAct5('C-rudolf-hp-960x432');
  // Live chase, not a synthetic gait call: no collision actor rotation.
  const rudolfInitial=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {x:s.bossActor.x,y:s.bossActor.y,playerX:s.player.x,playerY:s.player.y,frame:s.bossArt.frame.name}})()");
- await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(s.player.x+245,s.player.y-180);return true})()");
+ await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(s.player.x+225,s.player.y);return true})()");
  const gaitSamples=[];
  for(let i=0;i<10;i++){
   await sleep(90);
   gaitSamples.push(await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {x:s.bossActor.x,y:s.bossActor.y,rotation:s.bossArt.rotation,bob:s.bossArt.y,actorRotation:s.bossActor.rotation,frame:s.bossArt.frame.name,intensity:s.bossGait.intensity}})()"));
  }
+ assert.ok(Math.hypot(gaitSamples.at(-1).x-gaitSamples[0].x,gaitSamples.at(-1).y-gaitSamples[0].y)>10,
+  'Rudolf physically advances in a collision-safe corridor during the real gait probe');
  assert.ok(gaitSamples.some(v=>Math.abs(v.rotation)>.002)&&gaitSamples.some(v=>Math.abs(v.bob)>.05),
   'Rudolf visually rotates and bobs while physically chasing '+JSON.stringify(gaitSamples));
  assert.ok(gaitSamples.every(v=>v.actorRotation===0),'Rudolf collision container never rotates');
