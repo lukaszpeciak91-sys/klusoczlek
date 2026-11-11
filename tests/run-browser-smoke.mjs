@@ -1080,17 +1080,24 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(opening5.phase,'opening');assert.equal(opening5.controls,false);
  assert.notEqual(opening5.weapon,'water-flamethrower');
  const next5=async()=>{
+  // Read-only timing probe installed in the browser test, not gameplay:
+  // dialogue-ui applies a 180ms debounce after show() and pointerdown.
+  await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');if(s.__qaDialogueHook)return true;s.__qaDialogueHook=true;const p=s.dialoguePanel,show=p.show.bind(p);p.show=(...args)=>{s.__qaDialogueShownAt=s.game.loop.time;return show(...args)};return true})()");
   const initial=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
   assert.ok(initial.id,'Act V dialogue is active');
-  for(let attempt=0;attempt<3;attempt++){
+  const attempts=[];
+  for(let attempt=0;attempt<4;attempt++){
    await sleep(235);
-   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect(),b=s.dialoguePanel.button;return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,zoom:s.cameras.main.zoom}})()");
-   assert.ok(p.visible,'Act V DALEJ');
+   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),g=s.game,r=g.canvas.getBoundingClientRect(),b=s.dialoguePanel.button,now=g.loop.time; if(!s.__qaNextTouchListener){s.__qaNextTouchListener=true;b.on('pointerdown',pointer=>{s.__qaLastNextPointer={time:g.loop.time,x:pointer.x,y:pointer.y,index:s.dialogueState.index};});}return {x:r.x+b.x*r.width/s.scale.width,y:r.y+b.y*r.height/s.scale.height,button:{x:b.x,y:b.y,width:b.width,height:b.height,visible:b.visible,inputEnabled:b.input?.enabled},canvas:{left:r.left,top:r.top,width:r.width,height:r.height,logicalWidth:s.scale.width,logicalHeight:s.scale.height},sceneInput:s.input.enabled,gameInput:g.input.enabled,active:s.dialoguePanel.active,paused:s.scene.isPaused(),sceneActive:s.scene.isActive(),hidden:document.hidden,focused:document.hasFocus(),time:now,debounce:{sinceShowMs:s.__qaDialogueShownAt===undefined?null:now-s.__qaDialogueShownAt,sincePointerMs:s.__qaLastNextPointer===undefined?null:now-s.__qaLastNextPointer.time},dialogue:{id:s.dialogueState.id,index:s.dialogueState.index}}})()");
+   assert.ok(p.button.visible,'Act V DALEJ visible '+JSON.stringify(p));
    await touch(p.x,p.y);await sleep(90);
-   const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
+   const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index,pointer:s.__qaLastNextPointer??null,active:s.dialoguePanel.active,paused:s.scene.isPaused()}})()");
+   attempts.push({attempt:attempt+1,pre:p,after:actual});
+   if(initial.id==='act5-fairy')console.log('ACT V FAIRY DALEJ TOUCH '+JSON.stringify(attempts[attempt]));
    if(actual.id!==initial.id||actual.index!==initial.index)return;
   }
-  throw Error('Act V DALEJ did not advance '+JSON.stringify(initial));
+  console.log('ACT V DALEJ INPUT DIAGNOSTICS '+JSON.stringify({initial,attempts}));
+  throw Error('Act V DALEJ did not advance '+JSON.stringify({initial,attempts}));
  };
  const act5Opening=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,world:s.bossArt.texture.key,portrait:s.dialoguePanel.shell.list.filter(x=>x.type==='Image'&&x.visible).map(x=>x.texture.key),boss:s.boss.phase}})()");
  assert.equal(act5Opening.index,0);
@@ -1209,12 +1216,23 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  const cleared=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');for(const e of [...s.summons])s.damageEnemy(e,e.hp);return {phase:s.boss.phase,n:s.summons.length}})()");
  assert.deepEqual(cleared,{phase:'gun',n:0},'defeating all summoned enemies restores vulnerability');
  await sleep(240);
- await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.damageBoss(s.boss.hp);return true})()");
+ // Regression: actual player projectile collision in the REAL combat update.
+ // The lethal shot is last so the reverse iterator still has live indices
+ // after defeatBoss() destroys and empties both projectile arrays.
+ const lethalProbe=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.boss.hp=1;s.boss.hitAt=-Infinity;s.clearShots();s.weapon='rifle';s.aimJoystick.held=false;for(let i=0;i<4;i++)s.spawnShot(s.shots,520+i*9,345,0,630,'player');s.spawnShot(s.shots,610,345,0,630,'player');const setup={phase:s.phase,shots:s.shots.length,projectile:s.shots.at(-1).owner,hp:s.boss.hp};try{s.updateProjectiles(s.shots,16);return {setup,exception:null,phase:s.phase,defeatEvents:s.boss.defeatEvents}}catch(error){return {setup,exception:{name:error.name,message:error.message,stack:error.stack},phase:s.phase,defeatEvents:s.boss.defeatEvents}}})()");
+ console.log('LETHAL PROJECTILE DIRECT COLLISION '+JSON.stringify(lethalProbe));
+ assert.deepEqual(lethalProbe.setup,{phase:'boss',shots:5,projectile:'player',hp:1},'Rudolf rifle lethal projectile setup');
+ assert.equal(lethalProbe.exception,null,'real lethal collision must never throw or interrupt the projectile iterator');
+ assert.equal(lethalProbe.phase,'boss-death','lethal shot initiated boss death without bypassing the encounter');
+ await wait("window.__game.scene.getScene('Catacombs').phase==='boss-death'",'Rudolf lethal rifle projectile enters death sequence',2800);
+ const lethalResult=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {defeatEvents:s.boss.defeatEvents,shots:s.shots.length,bossShots:s.bossShots.length,phase:s.phase}})()");
+ assert.deepEqual(lethalResult,{defeatEvents:1,shots:0,bossShots:0,phase:'boss-death'},'lethal projectile clears combat once without exception');
  await wait("window.__game.scene.getScene('Catacombs').phase==='boss-death'",'Rudolf explosion starts');
  await sleep(160);await captureAct5('D-rudolf-death-960x432');
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.boss.defeated&&s.fairyActor?.active})()",'Marian defeated once, fairy arrives',4000);
  await sleep(240);await captureAct5('E-fairy-arrival-960x432');
  await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-fairy'",'fairy dialogue',3500);
+ console.log('ACT V FAIRY DALEJ READY '+JSON.stringify(await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),b=s.dialoguePanel.button;return {visible:b.visible,active:s.dialoguePanel.active,inputEnabled:s.input.enabled,scenePaused:s.scene.isPaused(),focused:document.hasFocus(),hidden:document.hidden,time:s.game.loop.time,index:s.dialogueState.index}})()")));
  await captureAct5('F-fairy-dialogue-960x432');
  const fairyView=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),b=s.fairyActor.getBounds(),v=s.fairyVisibleBounds();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom,view:v}})()");
  assert.ok(fairyView.left>=fairyView.view.left&&fairyView.right<=fairyView.view.right&&
@@ -1293,6 +1311,26 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
   assert.deepEqual(v,{hp:5,artifacts:3,completed:4,water:false});
  }
  console.log('PASS Act V Chromium DEBUG: opening, Marian boss and ending checkpoints with complete prior artifacts and full HP');
+ // Both remaining approved weapons must enter the same one-shot death route
+ // from a real boss hit (not a direct defeatBoss()/damageBoss() shortcut).
+ for(const weapon of ['blunderbuss','flamethrower']){
+  await cdp('Page.reload',{ignoreCache:true});
+  await sleep(250);
+  await wait("window.__game?.scene.isActive('Menu')&&typeof window.__createDebugFixture==='function'",'weapon regression Menu '+weapon);
+  await evaluate("(()=>{const g=window.__game,f=window.__createDebugFixture('act5-boss');f.run.isDebugRun=true;g.registry.set('campaign-run',f.run);g.scene.getScene('Menu').scene.start('ActTitle',{actId:'act5',handoff:f.handoff,debugCheckpoint:'act5-boss'});return true})()");
+  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.entryGateReady&&s.phase==='boss'&&s.canPlay()})()",'combat checkpoint for '+weapon,16000);
+  const probe=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.boss.hp=1;s.boss.hitAt=-Infinity;s.clearShots();s.weapon="+JSON.stringify(weapon)+";try{if(s.weapon==='blunderbuss'){for(let i=0;i<3;i++)s.spawnShot(s.shots,520+i*8,345,0,510,'player');s.spawnShot(s.shots,610,345,0,510,'player');s.updateProjectiles(s.shots,16);}else{s.player.setPosition(650,500);s.player.body.reset(650,500);s.aimJoystick.direction.x=0;s.aimJoystick.direction.y=-1;Object.defineProperty(s.aimJoystick,'held',{configurable:true,get:()=>true});s.firePlayer(16);}return {error:null,phase:s.phase,events:s.boss.defeatEvents,shots:s.shots.length}}catch(e){return {error:{message:e.message,stack:e.stack},phase:s.phase,events:s.boss.defeatEvents}}})()");
+  console.log('ACT V LETHAL WEAPON REGRESSION '+weapon+' '+JSON.stringify(probe));
+  assert.deepEqual(probe,{error:null,phase:'boss-death',events:1,shots:0},
+   weapon+' real lethal damage must clear projectiles and start exactly one death');
+  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.fairyActor?.active&&s.dialogueState.id==='act5-fairy'})()",
+   weapon+' death to Wróżka and dialogue',5500);
+  for(let panel=0;panel<3;panel++)await next5();
+  await wait("window.__game.scene.isActive('Credits')",weapon+' death through MYK to Credits',5000);
+  assert.equal(await evaluate("window.__game.scene.getScene('Catacombs').boss.defeatEvents"),1,
+   weapon+' boss death exactly once through Credits');
+ }
+ console.log('PASS Act V lethal shots: rifle multi-projectile, blunderbuss and real flamethrower → fairy/MYK/Credits');
  // Cold-cache Act V recovery: fail ONE required production PNG network request
  // and tap the actual ActTitle PONÓW control before entering Catacombs.
  await cdp('Page.reload',{ignoreCache:true});
