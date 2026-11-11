@@ -455,6 +455,8 @@ try{
  assert.deepEqual(solids,[{id:'chapel',w:155.52,h:152.28},{id:'school',w:430,h:86},{id:'bicycleRack',w:220,h:52}],
   'actual lower-footprint collision dimensions, never complete PNG canvas');
 
+ console.log('PASS Act IV Chromium approved art: 1800x1200 terrain, native obstacle PNGs, alpha-based lower footprints, real Act I atlas pieces, occlusion and HUD');
+ await finishCaptainOpening(); // Second scene entry gets exactly one new opening; combat remains gated.
  // Inspect actual approved chapel pixels and the aligned collision/entrance
  // at three requested LANDSCAPE viewports in genuine Chromium.
  const chapelGeometry=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),chapel=s.obstacles.find(o=>o.id==='chapel'),a=s.schoolArt.images.find(i=>i.texture.key==='schoolyard-approved-chapel'),door={x:431,y:965},returnPoint={x:525,y:1000};return {image:{x:a.x,y:a.y,w:a.displayWidth,h:a.displayHeight},solid:chapel.footprint,door,entranceClear:!s.obstacles.some(o=>o.id==='chapel'&&Math.abs(door.x-o.x)<=o.footprint.width/2+17&&Math.abs(door.y-o.y)<=o.footprint.height/2+17),doorWalkable:!!s.player&&!!s.obstacles&&s.obstacles.every(o=>!(o.footprint.shape==='box'&&Math.abs(door.x-o.footprint.x)<o.footprint.width/2&&Math.abs(door.y-o.footprint.y)<o.footprint.height/2)),returnWalkable:s.obstacles.every(o=>!(o.footprint.shape==='box'&&Math.abs(returnPoint.x-o.footprint.x)<o.footprint.width/2+17&&Math.abs(returnPoint.y-o.footprint.y)<o.footprint.height/2+17)),visibleBodyBounds:{left:a.x-a.displayWidth/2+74*a.displayWidth/235,right:a.x-a.displayWidth/2+160*a.displayWidth/235,top:a.y-a.displayHeight+47*a.displayHeight/235,bottom:a.y-a.displayHeight+182*a.displayHeight/235}}})()");
@@ -484,8 +486,7 @@ try{
  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition("+chapelQaOriginal.x+","+chapelQaOriginal.y+");s.player.body.reset("+chapelQaOriginal.x+","+chapelQaOriginal.y+");window.__game.scale.refresh();s.cameras.main.centerOn(s.player.x,s.player.y);return true})()");
  await wait(`window.__game.scale.width===${chapelQaOriginal.w}&&window.__game.scale.height===${chapelQaOriginal.h}`,'restore original School landscape geometry');
 
- console.log('PASS Act IV Chromium approved art: 1800x1200 terrain, native obstacle PNGs, alpha-based lower footprints, real Act I atlas pieces, occlusion and HUD');
- await finishCaptainOpening(); // Second scene entry gets exactly one new opening; combat remains gated.
+
  const optionalBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,maciek:s.maciekSeen,pitch:s.pitchStarted,actors:s.combat.optionalActors.length}})()");
  assert.deepEqual(optionalBefore,{intro:false,started:false,maciek:false,pitch:false,actors:2},'both NPCs staged, optional encounter not automatic');
  const approachMaciek=await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(695,620);s.player.body.reset(695,620);return true})()");
