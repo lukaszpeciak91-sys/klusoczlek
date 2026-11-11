@@ -1212,13 +1212,11 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  // Regression: actual player projectile collision in the REAL combat update.
  // The lethal shot is last so the reverse iterator still has live indices
  // after defeatBoss() destroys and empties both projectile arrays.
- const lethalSetup=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.boss.hp=1;s.boss.hitAt=-Infinity;s.clearShots();s.weapon='rifle';s.aimJoystick.held=false;for(let i=0;i<4;i++)s.spawnShot(s.shots,520+i*9,345,0,630,'player');s.spawnShot(s.shots,610,345,0,630,'player');return {phase:s.phase,shots:s.shots.length,projectile:s.shots.at(-1).owner,hp:s.boss.hp}})()");
- assert.deepEqual(lethalSetup,{phase:'boss',shots:5,projectile:'player',hp:1},'Rudolf rifle lethal projectile setup');
- // Deterministic real-geometry collision on the live Phaser scene.
- // In the unfixed main this returns a real TypeError stack when
- // defeatBoss()->clearShots() empties the reverse-iterated array.
- const collisionProbe=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');if(s.phase==='boss-death')return {alreadyDefeated:true,exceptions:[]};s.updateProjectiles(s.shots,16);return {alreadyDefeated:false,exceptions:[],phase:s.phase}})()");
- console.log('LETHAL PROJECTILE COLLISION PROBE '+JSON.stringify(collisionProbe));
+ const lethalProbe=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.boss.hp=1;s.boss.hitAt=-Infinity;s.clearShots();s.weapon='rifle';s.aimJoystick.held=false;for(let i=0;i<4;i++)s.spawnShot(s.shots,520+i*9,345,0,630,'player');s.spawnShot(s.shots,610,345,0,630,'player');const setup={phase:s.phase,shots:s.shots.length,projectile:s.shots.at(-1).owner,hp:s.boss.hp};try{s.updateProjectiles(s.shots,16);return {setup,exception:null,phase:s.phase,defeatEvents:s.boss.defeatEvents}}catch(error){return {setup,exception:{name:error.name,message:error.message,stack:error.stack},phase:s.phase,defeatEvents:s.boss.defeatEvents}}})()");
+ console.log('LETHAL PROJECTILE DIRECT COLLISION '+JSON.stringify(lethalProbe));
+ assert.deepEqual(lethalProbe.setup,{phase:'boss',shots:5,projectile:'player',hp:1},'Rudolf rifle lethal projectile setup');
+ assert.equal(lethalProbe.exception,null,'real lethal collision must never throw or interrupt the projectile iterator');
+ assert.equal(lethalProbe.phase,'boss-death','lethal shot initiated boss death without bypassing the encounter');
  await wait("window.__game.scene.getScene('Catacombs').phase==='boss-death'",'Rudolf lethal rifle projectile enters death sequence',2800);
  const lethalResult=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {defeatEvents:s.boss.defeatEvents,shots:s.shots.length,bossShots:s.bossShots.length,phase:s.phase}})()");
  assert.deepEqual(lethalResult,{defeatEvents:1,shots:0,bossShots:0,phase:'boss-death'},'lethal projectile clears combat once without exception');
