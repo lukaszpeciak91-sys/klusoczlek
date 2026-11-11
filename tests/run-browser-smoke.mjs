@@ -1082,15 +1082,18 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  const next5=async()=>{
   const initial=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
   assert.ok(initial.id,'Act V dialogue is active');
-  for(let attempt=0;attempt<3;attempt++){
+  const attempts=[];
+  for(let attempt=0;attempt<4;attempt++){
    await sleep(235);
-   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),r=window.__game.canvas.getBoundingClientRect(),b=s.dialoguePanel.button;return {x:r.x+b.x,y:r.y+b.y,visible:b.visible,zoom:s.cameras.main.zoom}})()");
-   assert.ok(p.visible,'Act V DALEJ');
+   const p=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),g=s.game,r=g.canvas.getBoundingClientRect(),b=s.dialoguePanel.button,now=g.loop.time; if(!s.__qaNextTouchListener){s.__qaNextTouchListener=true;b.on('pointerdown',pointer=>{s.__qaLastNextPointer={time:g.loop.time,x:pointer.x,y:pointer.y,index:s.dialogueState.index};});}return {x:r.x+b.x*r.width/s.scale.width,y:r.y+b.y*r.height/s.scale.height,button:{x:b.x,y:b.y,width:b.width,height:b.height,visible:b.visible,inputEnabled:b.input?.enabled},canvas:{left:r.left,top:r.top,width:r.width,height:r.height,logicalWidth:s.scale.width,logicalHeight:s.scale.height},sceneInput:s.input.enabled,gameInput:g.input.enabled,active:s.dialoguePanel.active,paused:s.scene.isPaused(),sceneActive:s.scene.isActive(),hidden:document.hidden,focused:document.hasFocus(),time:now,debounce:{sinceShowMs:s.__qaDialogueShownAt===undefined?null:now-s.__qaDialogueShownAt,sincePointerMs:s.__qaLastNextPointer===undefined?null:now-s.__qaLastNextPointer.time},dialogue:{id:s.dialogueState.id,index:s.dialogueState.index}}})()");
+   assert.ok(p.button.visible,'Act V DALEJ visible '+JSON.stringify(p));
    await touch(p.x,p.y);await sleep(90);
-   const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
+   const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index,pointer:s.__qaLastNextPointer??null,active:s.dialoguePanel.active,paused:s.scene.isPaused()}})()");
+   attempts.push({attempt:attempt+1,pre:p,after:actual});
    if(actual.id!==initial.id||actual.index!==initial.index)return;
   }
-  throw Error('Act V DALEJ did not advance '+JSON.stringify(initial));
+  console.log('ACT V DALEJ INPUT DIAGNOSTICS '+JSON.stringify({initial,attempts}));
+  throw Error('Act V DALEJ did not advance '+JSON.stringify({initial,attempts}));
  };
  const act5Opening=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {index:s.dialogueState.index,world:s.bossArt.texture.key,portrait:s.dialoguePanel.shell.list.filter(x=>x.type==='Image'&&x.visible).map(x=>x.texture.key),boss:s.boss.phase}})()");
  assert.equal(act5Opening.index,0);
@@ -1225,6 +1228,7 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.boss.defeated&&s.fairyActor?.active})()",'Marian defeated once, fairy arrives',4000);
  await sleep(240);await captureAct5('E-fairy-arrival-960x432');
  await wait("window.__game.scene.getScene('Catacombs').dialogueState.id==='act5-fairy'",'fairy dialogue',3500);
+ console.log('ACT V FAIRY DALEJ READY '+JSON.stringify(await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),b=s.dialoguePanel.button;return {visible:b.visible,active:s.dialoguePanel.active,inputEnabled:s.input.enabled,scenePaused:s.scene.isPaused(),focused:document.hasFocus(),hidden:document.hidden,time:s.game.loop.time,index:s.dialogueState.index}})()")));
  await captureAct5('F-fairy-dialogue-960x432');
  const fairyView=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs'),b=s.fairyActor.getBounds(),v=s.fairyVisibleBounds();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom,view:v}})()");
  assert.ok(fairyView.left>=fairyView.view.left&&fairyView.right<=fairyView.view.right&&
