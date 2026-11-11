@@ -812,6 +812,9 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(preLeap.target,null,'landing is acquired at commitment, not locked during warning');
  await evaluate("(()=>{const a=window.__game.scene.getScene('School').blazej.attack;a.elapsed=899;return true})()");
  await wait("(()=>{const b=window.__game.scene.getScene('School').blazej;return b.jumping&&b.jumpElapsed>60})()",'Błażej visibly airborne after jump warning',1500);
+ const jumpGait=await evaluate("(()=>{const b=window.__game.scene.getScene('School').blazej,g=b.actor.sprite.getData('zubrokryptyda-gait');return {jumping:b.jumping,intensity:g?.intensity,rotation:g?.rotation,bob:g?.bob}})()");
+ assert.deepEqual(jumpGait,{jumping:true,intensity:0,rotation:0,bob:0},
+  'Błażej walking gait is suppressed while the approved jump arc runs');
  const jumpLanding=await evaluate("(()=>{const b=window.__game.scene.getScene('School').blazej;return {x:b.warningTarget?.x,y:b.warningTarget?.y}})()");
  assert.ok(Number.isFinite(jumpLanding.x)&&Number.isFinite(jumpLanding.y),'selected a collision-safe target on commitment');
  assert.ok(Math.hypot(jumpLanding.x-preLeap.x,jumpLanding.y-preLeap.y)>25,
