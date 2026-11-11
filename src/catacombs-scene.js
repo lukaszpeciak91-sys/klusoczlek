@@ -9,6 +9,7 @@ import {arenaHudLayout} from './ui-layout.js';
 import {normalizeInput,PLAYER_RADIUS} from './movement.js';
 import {playerFrame,facingOf,resolvePose} from './combat-contract.js';
 import {createPixelBurst,updateBursts,destroyBursts} from './pixel-death-vfx.js';
+import {createEnemyGait,advanceEnemyGait} from './enemy-motion.js';
 import {segmentRudolfHit,rudolfFlameVisible,FAIRY_ARRIVAL} from './act5-final-visuals.js';
 import {createContinuousWeaponState,drawContinuousStream,emitContinuousParticle,updateContinuousParticles} from './continuous-weapon.js';
 import {muzzlePoint,resolveAim} from './shooting.js';
@@ -106,6 +107,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.bossFallback=this.add.ellipse(0,-29,53,83,0x515171,.95).setStrokeStyle(4,0xd2bc8a);
   this.bossFallbackHat=this.add.rectangle(0,-73,65,12,0x46402d);
   this.bossArt=this.add.sprite(0,0,'__DEFAULT').setOrigin(.5,1).setVisible(false);
+  this.bossGait=createEnemyGait('zubrokryptyda',106);
   this.bossActor.add([this.bossShadow,this.bossFallback,this.bossFallbackHat,this.bossArt]);
   this.bossBarks=createBossBarks(this,{
    phrases:KLUSOCZLEK_BARKS,speaker:()=>this.bossActor,
@@ -261,6 +263,11 @@ export class CatacombsScene extends Phaser.Scene{
    this.bossArt.setVisible(false);this.bossFallback.setVisible(true);this.bossFallbackHat.setVisible(true);
   }
   this.transformedVisual=transformed;
+  // Preserve the approved static transformation and death silhouettes.
+  if(this.phase!=='boss'){
+   this.bossGait.intensity=0;this.bossGait.rotation=0;this.bossGait.bob=0;
+   this.bossArt.setRotation(0).setPosition(0,0);
+  }
  }
  showDialogue(id){
   if(this.disposed||this.dialogueState.id||!beginDialogue(this.dialogueState,id))return false;
@@ -680,6 +687,7 @@ export class CatacombsScene extends Phaser.Scene{
   this.hpFace.update(delta);
   this.firePlayer(delta);
   if(this.phase!=='boss'||this.boss.defeated)return;
+  let bossTravel=0;
   if(this.boss.phase==='gun'){
    const from=this.bossActor;
    const dir=normalizeInput(this.player.x-from.x,this.player.y-from.y);
@@ -687,12 +695,16 @@ export class CatacombsScene extends Phaser.Scene{
    if(d>190){
     const target=catacombsResolve(from,{x:from.x+dir.x*FINAL_BOSS.speed*delta/1000,
      y:from.y+dir.y*FINAL_BOSS.speed*delta/1000},FINAL_BOSS.contactRadius);
+    bossTravel=Math.hypot(target.x-from.x,target.y-from.y);
     from.setPosition(target.x,target.y);
     this.bossFacing=facingOf(dir.x,dir.y,this.bossFacing);
     this.bossArt.setFrame(playerFrame(this.bossFacing));
    }
    if(d<FINAL_BOSS.contactRadius+PLAYER_RADIUS)this.hurtPlayer(this.time.now);
   }
+  // Visual-only gait: collision container and projectile origins stay fixed.
+  advanceEnemyGait(this.bossGait,'zubrokryptyda',bossTravel,delta/1000);
+  this.bossArt.setRotation(this.bossGait.rotation).setPosition(0,this.bossGait.bob);
   const tick=finalBossStep(this.boss,delta);
   if(tick.summonTimeout){this.clearSummons();this.bossArt.clearTint();this.objective.setText('POKONAJ KŁUSOCZŁEKA!');}
   for(const offset of tick.shots){
