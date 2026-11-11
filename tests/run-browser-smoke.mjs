@@ -1080,6 +1080,9 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  assert.equal(opening5.phase,'opening');assert.equal(opening5.controls,false);
  assert.notEqual(opening5.weapon,'water-flamethrower');
  const next5=async()=>{
+  // Read-only timing probe installed in the browser test, not gameplay:
+  // dialogue-ui applies a 180ms debounce after show() and pointerdown.
+  await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');if(s.__qaDialogueHook)return true;s.__qaDialogueHook=true;const p=s.dialoguePanel,show=p.show.bind(p);p.show=(...args)=>{s.__qaDialogueShownAt=s.game.loop.time;return show(...args)};return true})()");
   const initial=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index}})()");
   assert.ok(initial.id,'Act V dialogue is active');
   const attempts=[];
@@ -1090,6 +1093,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
    await touch(p.x,p.y);await sleep(90);
    const actual=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {id:s.dialogueState.id,index:s.dialogueState.index,pointer:s.__qaLastNextPointer??null,active:s.dialoguePanel.active,paused:s.scene.isPaused()}})()");
    attempts.push({attempt:attempt+1,pre:p,after:actual});
+   if(initial.id==='act5-fairy')console.log('ACT V FAIRY DALEJ TOUCH '+JSON.stringify(attempts[attempt]));
    if(actual.id!==initial.id||actual.index!==initial.index)return;
   }
   console.log('ACT V DALEJ INPUT DIAGNOSTICS '+JSON.stringify({initial,attempts}));
