@@ -71,8 +71,8 @@ test('Marian transformed PNG and portrait are clean optional configuration hooks
  assert.ok(scene.includes('this.bossArt.setTexture(effective'));
  assert.ok(scene.includes('this.bossFallback.setVisible(true)'));
 });
-test('approved 17-panel Rudolf reveal and 3-panel fairy ending are exact and sequential',()=>{
- const lengths={'act5-betrayal':17,'act5-fairy':3};
+test('approved 18-panel Rudolf reveal and 3-panel fairy ending are exact and sequential',()=>{
+ const lengths={'act5-betrayal':18,'act5-fairy':3};
  for(const [id,count] of Object.entries(lengths)){
   const lines=DIALOGUES[id];
   assert.equal(lines.length,count);
@@ -95,6 +95,7 @@ test('approved 17-panel Rudolf reveal and 3-panel fairy ending are exact and seq
   'Brakowało mi tylko jednego... ŁBA ŚWINI-WRÓŻKI!',
   'Ta bestia okazała się jednak sprytniejsza. Użyła magii, by zwrócić moją własną moc przeciwko mnie!',
   'Moje stwory miały odtąd tylko jeden cel: ZABIĆ KŁUSOCZŁEKA!',
+  'Ciebie atakowały, bo są zbyt głupie i dla nich każdy człowiek wygląda tak samo!',
   'A ja, pozbawiony mocy, nie miałem siły, by stawić im czoła. Potrzebowałem kogoś, kim mógłbym się wyręczyć.',
   'Zanim cię zabiję, wypada mi podziękować. Dzięki tobie odzyskałem moje atrybuty — irokeza i róg!',
   'Jednego nie rozumiem... Po co był rower?',
@@ -108,7 +109,8 @@ test('approved 17-panel Rudolf reveal and 3-panel fairy ending are exact and seq
  assert.equal(DIALOGUES['act5-betrayal'][2][0],'marian-transformed');
  assert.equal(DIALOGUES['act5-betrayal'][2][1],'RUDOLF KŁUSOCZŁEK');
  assert.ok(DIALOGUES['act5-betrayal'].slice(2).filter(x=>x[1]==='RUDOLF KŁUSOCZŁEK').every(x=>x[0]==='marian-transformed'));
- assert.equal(DIALOGUES['act5-betrayal'][16][2],'Po moim trupie!');
+ assert.equal(DIALOGUES['act5-betrayal'][17][2],'Po moim trupie!');
+ assert.equal(DIALOGUES['act5-fairy'][0][2],'A to Ci dopiero! Kłusoczłek upolował kłusoczłeka!');
  assert.equal(DIALOGUES['act5-fairy'][2][2],'No to trzeba było tak od razu. MYK!');
  assert.equal(DIALOGUES['act5-home'],undefined,'obsolete home scene removed');
 });
