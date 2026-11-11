@@ -444,7 +444,7 @@ try{
  const schoolArtPlacement=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.schoolArt.images.map(i=>({key:i.texture.key,x:i.x,y:i.y,w:i.displayWidth,h:i.displayHeight,depth:i.depth})).sort((a,b)=>a.key.localeCompare(b.key))})()");
  assert.deepEqual(schoolArtPlacement,[
   {key:'schoolyard-approved-bg',x:0,y:0,w:1800,h:1200,depth:-18},
-  {key:'schoolyard-approved-chapel',x:330,y:965,w:317.25,h:317.25,depth:12},
+  {key:'schoolyard-approved-chapel',x:395,y:995,w:380.7,h:380.7,depth:12},
   {key:'schoolyard-approved-rack',x:1510,y:857,w:287,h:222,depth:12},
   {key:'schoolyard-approved-school',x:1480,y:420,w:520,h:384,depth:12}
  ].sort((a,b)=>a.key.localeCompare(b.key)),'four approved art layers retain native PNG textures, scaled rack and clear pitch');
@@ -452,8 +452,38 @@ try{
  const atlas=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.children.list.filter(o=>o.getData('obstacleArt')).map(o=>({frame:o.getData('obstacleArt').frame,original:!!o.getData('atlasSprite'),fallbackVisible:o.getData('fallback').visible})).sort((a,b)=>a.frame-b.frame)})()");
  assert.deepEqual(atlas,[0,1,9,10,10].map(frame=>({frame,original:true,fallbackVisible:false})),'two tires, toi-toi and two original rock PNG frames');
  const solids=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return s.obstacles.slice(0,3).map(o=>({id:o.id,w:o.footprint.width,h:o.footprint.height}))})()");
- assert.deepEqual(solids,[{id:'chapel',w:129.6,h:126.9},{id:'school',w:430,h:86},{id:'bicycleRack',w:220,h:52}],
+ assert.deepEqual(solids,[{id:'chapel',w:155.52,h:152.28},{id:'school',w:430,h:86},{id:'bicycleRack',w:220,h:52}],
   'actual lower-footprint collision dimensions, never complete PNG canvas');
+
+ // Inspect actual approved chapel pixels and the aligned collision/entrance
+ // at three requested LANDSCAPE viewports in genuine Chromium.
+ const chapelGeometry=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),chapel=s.obstacles.find(o=>o.id==='chapel'),a=s.schoolArt.images.find(i=>i.texture.key==='schoolyard-approved-chapel'),door={x:431,y:965},returnPoint={x:525,y:1000};return {image:{x:a.x,y:a.y,w:a.displayWidth,h:a.displayHeight},solid:chapel.footprint,door,entranceClear:!s.obstacles.some(o=>o.id==='chapel'&&Math.abs(door.x-o.x)<=o.footprint.width/2+17&&Math.abs(door.y-o.y)<=o.footprint.height/2+17),doorWalkable:!!s.player&&!!s.obstacles&&s.obstacles.every(o=>!(o.footprint.shape==='box'&&Math.abs(door.x-o.footprint.x)<o.footprint.width/2&&Math.abs(door.y-o.footprint.y)<o.footprint.height/2)),returnWalkable:s.obstacles.every(o=>!(o.footprint.shape==='box'&&Math.abs(returnPoint.x-o.footprint.x)<o.footprint.width/2+17&&Math.abs(returnPoint.y-o.footprint.y)<o.footprint.height/2+17)),visibleBodyBounds:{left:a.x-a.displayWidth/2+74*a.displayWidth/235,right:a.x-a.displayWidth/2+160*a.displayWidth/235,top:a.y-a.displayHeight+47*a.displayHeight/235,bottom:a.y-a.displayHeight+182*a.displayHeight/235}}})()");
+ assert.deepEqual(chapelGeometry.image,{x:395,y:995,w:380.7,h:380.7});
+ assert.deepEqual({x:chapelGeometry.solid.x,y:chapelGeometry.solid.y,width:chapelGeometry.solid.width,height:chapelGeometry.solid.height},{x:395,y:851,width:155.52,height:152.28},
+  'approved chapel image and resized solid share the same scaled world geometry');
+ assert.ok(chapelGeometry.doorWalkable&&chapelGeometry.returnWalkable&&chapelGeometry.entranceClear,
+  'chapel door and post-cinematic return remain accessible outside walls '+JSON.stringify(chapelGeometry));
+ const chapelQaOriginal=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {x:s.player.x,y:s.player.y}})()");
+ for(const [w,h] of [[568,320],[780,437],[873,393]]){
+  await cdp('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:false});
+  await evaluate('window.__game.scale.refresh();true');
+  await wait(`window.__game.scale.width===${w}&&window.__game.scale.height===${h}`,'chapel landscape resize '+w+'x'+h,2000);
+  await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition(500,815);s.player.body.reset(500,815);s.cameras.main.centerOn(500,815);return true})()");
+  await sleep(300);
+  const v=await evaluate("(()=>{const s=window.__game.scene.getScene('School'),c=s.cameras.main,i=s.schoolArt.images.find(i=>i.texture.key==='schoolyard-approved-chapel'),r=c.worldView;return {scale:[s.scale.width,s.scale.height],imageLoaded:i.active&&i.visible,world:{left:r.x,right:r.right,top:r.y,bottom:r.bottom},art:{x:i.x,y:i.y,w:i.displayWidth,h:i.displayHeight},door:{x:431,y:965},obstacle:s.obstacles.find(o=>o.id==='chapel').footprint}})()");
+  assert.ok(v.imageLoaded,'chapel approved PNG visible at '+w+'x'+h);
+  assert.ok(chapelGeometry.visibleBodyBounds.left>=v.world.left-1&&chapelGeometry.visibleBodyBounds.right<=v.world.right+1&&
+    chapelGeometry.visibleBodyBounds.top>=v.world.top-1&&chapelGeometry.visibleBodyBounds.bottom<=v.world.bottom+1,
+    'entire NONTRANSPARENT chapel facade visible in camera at '+w+'x'+h+' '+JSON.stringify(v));
+  assert.ok(v.door.x>=v.world.left&&v.door.x<=v.world.right&&v.door.y>=v.world.top&&v.door.y<=v.world.bottom,
+    'chapel approach doorway in camera at '+w+'x'+h);
+  await captureAct5('S-chapel-'+w+'x'+h);
+  console.log('PASS Act IV chapel landscape '+w+'x'+h+' '+JSON.stringify(v));
+ }
+ await cdp('Emulation.setDeviceMetricsOverride',{width:960,height:432,deviceScaleFactor:1,mobile:false});
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition("+String(525)+","+String(1030)+");s.player.body.reset("+String(525)+","+String(1030)+");window.__game.scale.refresh();return true})()");
+ await wait("window.__game.scale.width===960&&window.__game.scale.height===432",'restore School landscape geometry');
+
  console.log('PASS Act IV Chromium approved art: 1800x1200 terrain, native obstacle PNGs, alpha-based lower footprints, real Act I atlas pieces, occlusion and HUD');
  await finishCaptainOpening(); // Second scene entry gets exactly one new opening; combat remains gated.
  const optionalBefore=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {intro:s.introActive,started:s.combat.started,maciek:s.maciekSeen,pitch:s.pitchStarted,actors:s.combat.optionalActors.length}})()");
@@ -691,7 +721,7 @@ const pausePoint=await evaluate("(()=>{const s=window.__game.scene.getScene('Sch
  const finalState=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {phase:s.schoolPhase,transitions:s.combat.phaseChanges,alive:s.combat.enemies.filter(e=>!e.dead).length,spawns:s.combat.totalSpawned,objective:s.objectiveText.text,visible:s.objectiveText.visible,act:s.run.actId,artifacts:[...s.run.artifacts]}})()");
  assert.equal(finalState.transitions,3,'pending handoff exactly once');
  assert.equal(finalState.alive,0);
- assert.equal(finalState.objective,'IDŹ DO SZKOŁY');
+ assert.equal(finalState.objective,'PODEJDŹ DO BŁAŻEJA');
  assert.equal(finalState.act,'act4');
  assert.equal(finalState.artifacts.includes('blazej-bicycle'),false);
  await sleep(250);
