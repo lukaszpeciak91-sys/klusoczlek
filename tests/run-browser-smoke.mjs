@@ -1209,7 +1209,14 @@ const pause5=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacom
  const cleared=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');for(const e of [...s.summons])s.damageEnemy(e,e.hp);return {phase:s.boss.phase,n:s.summons.length}})()");
  assert.deepEqual(cleared,{phase:'gun',n:0},'defeating all summoned enemies restores vulnerability');
  await sleep(240);
- await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.damageBoss(s.boss.hp);return true})()");
+ // Regression: actual player projectile collision in the REAL combat update.
+ // The lethal shot is last so the reverse iterator still has live indices
+ // after defeatBoss() destroys and empties both projectile arrays.
+ const lethalSetup=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');s.bossActor.setPosition(650,410);s.boss.hp=1;s.boss.hitAt=-Infinity;s.clearShots();s.weapon='rifle';s.aimJoystick.held=false;for(let i=0;i<4;i++)s.spawnShot(s.shots,520+i*9,345,0,630,'player');s.spawnShot(s.shots,610,345,0,630,'player');return {phase:s.phase,shots:s.shots.length,projectile:s.shots.at(-1).owner,hp:s.boss.hp}})()");
+ assert.deepEqual(lethalSetup,{phase:'boss',shots:5,projectile:'player',hp:1},'Rudolf rifle lethal projectile setup');
+ await wait("window.__game.scene.getScene('Catacombs').phase==='boss-death'",'Rudolf lethal rifle projectile enters death sequence',2800);
+ const lethalResult=await evaluate("(()=>{const s=window.__game.scene.getScene('Catacombs');return {defeatEvents:s.boss.defeatEvents,shots:s.shots.length,bossShots:s.bossShots.length,phase:s.phase}})()");
+ assert.deepEqual(lethalResult,{defeatEvents:1,shots:0,bossShots:0,phase:'boss-death'},'lethal projectile clears combat once without exception');
  await wait("window.__game.scene.getScene('Catacombs').phase==='boss-death'",'Rudolf explosion starts');
  await sleep(160);await captureAct5('D-rudolf-death-960x432');
  await wait("(()=>{const s=window.__game.scene.getScene('Catacombs');return s.phase==='fairy'&&s.boss.defeated&&s.fairyActor?.active})()",'Marian defeated once, fairy arrives',4000);
