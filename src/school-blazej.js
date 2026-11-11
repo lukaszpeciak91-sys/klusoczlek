@@ -96,8 +96,20 @@ export function createSchoolBlazej(scene,Phaser){
   if(advanceIgnition(ignition,now)){burningFx?.destroy();burningFx=null;}
   graphics.clear();jumpShadow.clear();
   for(let i=projectiles.length-1;i>=0;i--){
-   const p=projectiles[i],status=bossProjectileStep(p,dt,scene.player,scene.obstacles);
-   if(status){projectiles.splice(i,1);if(status==='player')hurtPlayer(now);continue;}
+   // Lethal player damage clears this array via scene.blazej.clearAttacks().
+   // Never read another index or issue another boss attack after that death.
+   if(scene.defeated)return;
+   const p=projectiles[i];
+   if(!p)continue;
+   const status=bossProjectileStep(p,dt,scene.player,scene.obstacles);
+   if(status){
+    projectiles.splice(i,1);
+    if(status==='player'){
+     hurtPlayer(now);
+     if(scene.defeated)return;
+    }
+    continue;
+   }
    graphics.fillStyle(0xff9d42,.95).fillCircle(p.x,p.y,MARCIN.projectileRadius);
   }
   if(shockwaveMs>0&&impactPoint){
