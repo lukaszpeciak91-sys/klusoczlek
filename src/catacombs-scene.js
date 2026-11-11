@@ -385,6 +385,9 @@ export class CatacombsScene extends Phaser.Scene{
   this.finalized=true;this.boss.hp=0;this.boss.phase='defeated';this.boss.defeated=true;
   if(debug)this.boss.defeatEvents=1;
   this.clearShots();this.clearSummons();this.resetMovement();this.stopFlame(true);
+  // Death VFX uses the approved upright silhouette, never a walking pose.
+  this.bossGait.intensity=0;this.bossGait.rotation=0;this.bossGait.bob=0;
+  this.bossArt.setRotation(0).setPosition(0,0);
   this.bossBarks?.suspend();
   this.phase='boss-death';this.objective.setText('RUDOLF POKONANY');
   this.cameras.main.stopFollow();
