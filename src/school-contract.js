@@ -8,8 +8,8 @@ import {createAuthoredObstacles} from './obstacle-catalog.js';
 export const SCHOOL_WORLD=ARENA;
 export const SCHOOL_WAVE_COUNT=4;
 export const SCHOOL_PLACES=Object.freeze({
-  chapel:Object.freeze({x:330,y:840,width:300,height:250,label:'KAPLICA'}),
-  chapelDoor:Object.freeze({x:360,y:940}),
+  chapel:Object.freeze({x:395,y:865,width:360,height:300,label:'KAPLICA'}),
+  chapelDoor:Object.freeze({x:431,y:965}),
   playerStart:Object.freeze({x:525,y:1030}),
   school:Object.freeze({x:1480,y:300,width:430,height:300,label:'SZKOŁA ZAWODOWA'}),
   schoolEntrance:Object.freeze({x:1480,y:410}),
@@ -27,7 +27,7 @@ export const SCHOOL_PLACES=Object.freeze({
 // (alpha x74..160 / y47..182), rack 330x255 (alpha x33..300 / y44..214).
 export const SCHOOL_VISIBLE_FOOTPRINTS=Object.freeze({
   school:Object.freeze({x:1480,y:317,width:430,height:86}),
-  chapel:Object.freeze({x:330,y:845,width:129.6,height:126.9}),
+  chapel:Object.freeze({x:395,y:851,width:155.52,height:152.28}),
   bicycleRack:Object.freeze({x:1510,y:802,width:220,height:52}),
 });
 export const SCHOOL_OBSTACLES=Object.freeze([
