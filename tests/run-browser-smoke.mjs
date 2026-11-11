@@ -463,7 +463,7 @@ try{
   'approved chapel image and resized solid share the same scaled world geometry');
  assert.ok(chapelGeometry.doorWalkable&&chapelGeometry.returnWalkable&&chapelGeometry.entranceClear,
   'chapel door and post-cinematic return remain accessible outside walls '+JSON.stringify(chapelGeometry));
- const chapelQaOriginal=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {x:s.player.x,y:s.player.y}})()");
+ const chapelQaOriginal=await evaluate("(()=>{const s=window.__game.scene.getScene('School');return {x:s.player.x,y:s.player.y,w:s.scale.width,h:s.scale.height}})()");
  for(const [w,h] of [[568,320],[780,437],[873,393]]){
   await cdp('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:false});
   await evaluate('window.__game.scale.refresh();true');
@@ -480,9 +480,9 @@ try{
   await captureAct5('S-chapel-'+w+'x'+h);
   console.log('PASS Act IV chapel landscape '+w+'x'+h+' '+JSON.stringify(v));
  }
- await cdp('Emulation.setDeviceMetricsOverride',{width:960,height:432,deviceScaleFactor:1,mobile:false});
- await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition("+String(525)+","+String(1030)+");s.player.body.reset("+String(525)+","+String(1030)+");window.__game.scale.refresh();return true})()");
- await wait("window.__game.scale.width===960&&window.__game.scale.height===432",'restore School landscape geometry');
+ await cdp('Emulation.setDeviceMetricsOverride',{width:chapelQaOriginal.w,height:chapelQaOriginal.h,deviceScaleFactor:1,mobile:false});
+ await evaluate("(()=>{const s=window.__game.scene.getScene('School');s.player.setPosition("+chapelQaOriginal.x+","+chapelQaOriginal.y+");s.player.body.reset("+chapelQaOriginal.x+","+chapelQaOriginal.y+");window.__game.scale.refresh();s.cameras.main.centerOn(s.player.x,s.player.y);return true})()");
+ await wait(`window.__game.scale.width===${chapelQaOriginal.w}&&window.__game.scale.height===${chapelQaOriginal.h}`,'restore original School landscape geometry');
 
  console.log('PASS Act IV Chromium approved art: 1800x1200 terrain, native obstacle PNGs, alpha-based lower footprints, real Act I atlas pieces, occlusion and HUD');
  await finishCaptainOpening(); // Second scene entry gets exactly one new opening; combat remains gated.
