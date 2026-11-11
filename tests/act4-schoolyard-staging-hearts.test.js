@@ -38,7 +38,7 @@ test('Act IV schoolyard layout places chapel lower-left and keeps all staging gr
  }
 });
 test('optional Maciek and Seba trigger can be bypassed without delaying pitch or combat',()=>{
- assert.ok(MACIEK_SEBA_RADIUS>100&&MACIEK_SEBA_RADIUS<200);
+ assert.equal(MACIEK_SEBA_RADIUS,280,'approved safe optional encounter distance');
  assert.equal(PITCH_ENCOUNTER_RADIUS,130);
  assert.equal(Boolean(maciekSebaNearby(SCHOOL_PLACES.playerStart)),false);
  assert.equal(Boolean(maciekSebaNearby(SCHOOL_PLACES.maciek)),true);
