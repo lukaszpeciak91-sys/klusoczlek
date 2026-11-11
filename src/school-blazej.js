@@ -159,6 +159,9 @@ export function createSchoolBlazej(scene,Phaser){
    const frame=blazejJumpFrame(jump.start,jump.target,jump.elapsed);
    actor.x=frame.x;actor.y=frame.y;
    // Only the art rises: the physical body and shadow stay at ground coordinates.
+   // The jump uses its approved vertical arc, never the walking gait.
+   const gait=actor.sprite.getData('zubrokryptyda-gait');
+   if(gait){gait.intensity=0;gait.rotation=0;gait.bob=0;}
    renderer.update(actor,scene.player,0,seconds);
    actor.sprite.setPosition(actor.x,actor.y-frame.lift);
    jumpShadow.fillStyle(0x17100d,.45).fillEllipse(actor.x,actor.y+2,

@@ -10,6 +10,7 @@ export const DIALOGUES=Object.freeze({
   ['marian-transformed','RUDOLF KŁUSOCZŁEK','Brakowało mi tylko jednego... ŁBA ŚWINI-WRÓŻKI!'],
   ['marian-transformed','RUDOLF KŁUSOCZŁEK','Ta bestia okazała się jednak sprytniejsza. Użyła magii, by zwrócić moją własną moc przeciwko mnie!'],
   ['marian-transformed','RUDOLF KŁUSOCZŁEK','Moje stwory miały odtąd tylko jeden cel: ZABIĆ KŁUSOCZŁEKA!'],
+  ['marian-transformed','RUDOLF KŁUSOCZŁEK','Ciebie atakowały, bo są zbyt głupie i dla nich każdy człowiek wygląda tak samo!'],
   ['marian-transformed','RUDOLF KŁUSOCZŁEK','A ja, pozbawiony mocy, nie miałem siły, by stawić im czoła. Potrzebowałem kogoś, kim mógłbym się wyręczyć.'],
   ['marian-transformed','RUDOLF KŁUSOCZŁEK','Zanim cię zabiję, wypada mi podziękować. Dzięki tobie odzyskałem moje atrybuty — irokeza i róg!'],
   ['aloes','ALOES','Jednego nie rozumiem... Po co był rower?'],
@@ -19,7 +20,7 @@ export const DIALOGUES=Object.freeze({
   ['aloes','ALOES','Po moim trupie!']
  ],
  'act5-fairy':[
-  ['swinia-wrozka','ŚWINIA-WRÓŻKA','A to ci Kłusoczłek! Upolował Kłusoczłeka!'],
+  ['swinia-wrozka','ŚWINIA-WRÓŻKA','A to Ci dopiero! Kłusoczłek upolował kłusoczłeka!'],
   ['aloes','ALOES','Tak, ale nie wiem, jak wrócić do mojego świata...'],
   ['swinia-wrozka','ŚWINIA-WRÓŻKA','No to trzeba było tak od razu. MYK!']
  ],
