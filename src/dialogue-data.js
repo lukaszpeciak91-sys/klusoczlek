@@ -151,7 +151,7 @@ export const DIALOGUES=Object.freeze({
   ['aloes','ALOES','Rower?'],
   ['captain','KAPITAN','Tak! Rower! Masz coś do rowerów?!'],
   ['aloes','ALOES','Nie, nie... A gdzie znajdę te artefakty?'],
-  ['captain','KAPITAN','Bocianołak Bogdan mieszka w pobliskim wulkanie, a Żubrokryptyda Błażej uczy się w pobliskiej szkole zawodowej!'],
+  ['captain','KAPITAN','Bocianołak Bogdan mieszka w pobliskim wulkanie, a Żubrokryptyda Błażej uczy się w tamtejszej szkole zawodowej!'],
   ['aloes','ALOES','A kiedy już je zdobędę, naprawdę odwieziesz mnie do domu?'],
   ['captain','KAPITAN','Oczywiście! Masz moje kapitańskie słowo!'],
   ['captain','KAPITAN','O nie! Kłusoczłeku! Chwyć za broń!'],

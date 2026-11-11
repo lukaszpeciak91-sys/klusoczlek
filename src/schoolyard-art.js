@@ -9,7 +9,7 @@ export const SCHOOL_ART=Object.freeze({
  // Preserve the approved native 610×450 building PNG; scale only its display.
  school:Object.freeze({path:'obstacles/act4-school.png',key:'schoolyard-approved-school',
   width:520,height:384,sourceWidth:610,sourceHeight:450,x:1480,bottomY:420}),
- chapel:Object.freeze({path:'obstacles/act4-chapel.png',key:'schoolyard-approved-chapel',width:317.25,height:317.25,sourceWidth:235,sourceHeight:235,x:330,bottomY:965}),
+ chapel:Object.freeze({path:'obstacles/act4-chapel.png',key:'schoolyard-approved-chapel',width:380.7,height:380.7,sourceWidth:235,sourceHeight:235,x:395,bottomY:995}),
  bicycleRack:Object.freeze({path:'obstacles/act4-bicycle-rack.png',key:'schoolyard-approved-rack',width:287,height:222,sourceWidth:330,sourceHeight:255,x:1510,bottomY:857}),
 });
 export function validSchoolyardBackground(bytes){

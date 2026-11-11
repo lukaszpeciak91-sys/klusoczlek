@@ -71,3 +71,17 @@ test('PR72 Bober Wojtek speaks only after the original Captain command',()=>{
   ['bobrozombi','BOBROZOMBI','Bober Wojtek — As przestworzy! ATAAAAK!']
  ]);
 });
+
+test('Act II Captain names the same school without repeated nearby wording',()=>{
+ const lines=DIALOGUES['act2-opening'];
+ const originalSpeaker=lines.filter(p=>p[2].includes('Bocianołak Bogdan mieszka'));
+ assert.equal(lines.length,23,'unchanged Act II panel count');
+ assert.deepEqual(originalSpeaker,[['captain','KAPITAN',
+  'Bocianołak Bogdan mieszka w pobliskim wulkanie, a Żubrokryptyda Błażej uczy się w tamtejszej szkole zawodowej!']]);
+ const state=createDialogueState();
+ assert.equal(beginDialogue(state,'act2-opening'),true);
+ for(let i=0;i<lines.length;i++){
+  assert.deepEqual(currentDialogue(state),lines[i]);
+  assert.equal(advanceDialogue(state),i===lines.length-1?'act2-opening':'next');
+ }
+});

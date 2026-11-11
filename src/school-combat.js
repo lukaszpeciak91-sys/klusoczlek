@@ -378,7 +378,7 @@ export function createSchoolCombat(scene,Phaser){
   if(defeated)return;
   if(phase==='CLEANUP'&&living().length===0&&!finished){
    finished=true;transition('BLAZEJ_PENDING');
-   scene.objectiveText?.setVisible(true);
+   scene.objectiveText?.setText('PODEJDŹ DO BŁAŻEJA').setVisible(true);
    stopFire();
   }
   if(scene.pressureBar){
